@@ -39,35 +39,35 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.ThreadedActionListener;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
-import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.AggregatorFactories;
-import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
-import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite;
-import org.elasticsearch.search.aggregations.bucket.range.InternalDateRange;
-import org.elasticsearch.search.aggregations.bucket.range.InternalDateRange.Bucket;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.elasticsearch.search.aggregations.metrics.InternalTDigestPercentiles;
-import org.elasticsearch.search.aggregations.metrics.Max;
-import org.elasticsearch.search.aggregations.metrics.Min;
-import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregation.SingleValue;
-import org.elasticsearch.search.aggregations.metrics.Percentile;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.support.ThreadedActionListener;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.AggregatorFactories;
+import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
+import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
+import org.opensearch.search.aggregations.bucket.range.InternalDateRange.Bucket;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
+import org.opensearch.search.aggregations.metrics.Max;
+import org.opensearch.search.aggregations.metrics.Min;
+import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation.SingleValue;
+import org.opensearch.search.aggregations.metrics.Percentile;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;
@@ -788,7 +788,7 @@ public class SearchFeatureDao {
     /**
      * Get features by entities.  An entity is one combination of particular
      * categorical fields’ value. A categorical field in this setting refers to
-     * an Elasticsearch field of type keyword or ip.  Specifically, an entity
+     * an OpenSearch field of type keyword or ip.  Specifically, an entity
      * can be the IP address 182.3.4.5.
      * @param detector Accessor to the detector object
      * @param startMilli Start of time range to query

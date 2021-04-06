@@ -33,41 +33,41 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.ElasticsearchTimeoutException;
-import org.elasticsearch.ExceptionsHelper;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionListenerResponseHandler;
-import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.search.SearchPhaseExecutionException;
-import org.elasticsearch.action.search.ShardSearchFailure;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.action.support.ThreadedActionListener;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.block.ClusterBlockLevel;
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.lease.Releasable;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.node.NodeClosedException;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.transport.ActionNotFoundTransportException;
-import org.elasticsearch.transport.ConnectTransportException;
-import org.elasticsearch.transport.NodeNotConnectedException;
-import org.elasticsearch.transport.ReceiveTimeoutTransportException;
-import org.elasticsearch.transport.TransportRequestOptions;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.ExceptionsHelper;
+import org.opensearch.OpenSearchException;
+import org.opensearch.OpenSearchTimeoutException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionListenerResponseHandler;
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.search.SearchPhaseExecutionException;
+import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.action.support.ThreadedActionListener;
+import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlockLevel;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodes;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.node.NodeClosedException;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.tasks.Task;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.ActionNotFoundTransportException;
+import org.opensearch.transport.ConnectTransportException;
+import org.opensearch.transport.NodeNotConnectedException;
+import org.opensearch.transport.ReceiveTimeoutTransportException;
+import org.opensearch.transport.TransportRequestOptions;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
@@ -107,8 +107,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute model";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
-    static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = ElasticsearchException
-        .getExceptionName(new LimitExceededException("", ""));
+    static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = OpenSearchException.getExceptionName(new LimitExceededException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
     static final String BUG_RESPONSE = "We might have bugs.";
     static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
@@ -533,7 +532,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      * @throws AnomalyDetectionException List of exceptions we can throw
      *     1. Exception from cold start:
      *       1). InternalFailure due to
-     *         a. ElasticsearchTimeoutException thrown by putModelCheckpoint during cold start
+     *         a. OpenSearchTimeoutException thrown by putModelCheckpoint during cold start
      *       2). EndRunException with endNow equal to false
      *         a. training data not available
      *         b. cold start cannot succeed
@@ -542,7 +541,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *         a. invalid search query
      *     2. LimitExceededException from one of RCF model node when the total size of the models
      *      is more than X% of heap memory.
-     *     3. InternalFailure wrapping ElasticsearchTimeoutException inside caused by
+     *     3. InternalFailure wrapping OpenSearchTimeoutException inside caused by
      *      RCF/Threshold model node failing to get checkpoint to restore model before timeout.
      */
     private AnomalyDetectionException coldStartIfNoModel(AtomicReference<AnomalyDetectionException> failure, AnomalyDetector detector)
@@ -587,8 +586,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
         } else if (ExceptionUtil.isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
             failure.set(new LimitExceededException(adID, causeException.getMessage(), false));
-        } else if (causeException instanceof ElasticsearchTimeoutException) {
-            // we can have ElasticsearchTimeoutException when a node tries to load RCF or
+        } else if (causeException instanceof OpenSearchTimeoutException) {
+            // we can have OpenSearchTimeoutException when a node tries to load RCF or
             // threshold model
             failure.set(new InternalFailure(adID, causeException));
         } else {
@@ -970,7 +969,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     detectorId,
                                     new EndRunException(detectorId, "Invalid training data", exception, false)
                                 );
-                        } else if (exception instanceof ElasticsearchTimeoutException) {
+                        } else if (exception instanceof OpenSearchTimeoutException) {
                             stateManager
                                 .setLastColdStartException(
                                     detectorId,
@@ -995,7 +994,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 stateManager.setLastColdStartException(detectorId, new EndRunException(detectorId, "Cannot get training data", false));
             }
         }, exception -> {
-            if (exception instanceof ElasticsearchTimeoutException) {
+            if (exception instanceof OpenSearchTimeoutException) {
                 stateManager
                     .setLastColdStartException(
                         detectorId,

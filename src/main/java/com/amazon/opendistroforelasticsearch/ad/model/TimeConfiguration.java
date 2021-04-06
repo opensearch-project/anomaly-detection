@@ -15,15 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
-import org.elasticsearch.common.io.stream.Writeable;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContentParser;
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentParser;
 
 /**
  * TimeConfiguration represents the time configuration for a job which runs regularly.

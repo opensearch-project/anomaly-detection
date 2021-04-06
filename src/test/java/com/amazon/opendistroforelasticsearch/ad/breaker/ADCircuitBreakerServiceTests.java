@@ -22,13 +22,13 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.when;
 
-import org.elasticsearch.monitor.jvm.JvmService;
-import org.elasticsearch.monitor.jvm.JvmStats;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.monitor.jvm.JvmStats;
 
 public class ADCircuitBreakerServiceTests {
 

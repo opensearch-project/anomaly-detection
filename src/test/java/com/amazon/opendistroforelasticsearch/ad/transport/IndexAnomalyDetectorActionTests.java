@@ -18,26 +18,26 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import java.time.Instant;
 import java.util.Map;
 
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
-import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableMap;
 
-public class IndexAnomalyDetectorActionTests extends ESSingleNodeTestCase {
+public class IndexAnomalyDetectorActionTests extends OpenSearchSingleNodeTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();

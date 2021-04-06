@@ -15,16 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.ad.util;
 
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.support.replication.ReplicationResponse;
-import org.elasticsearch.index.shard.ShardId;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.OpenSearchException;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.support.replication.ReplicationResponse;
+import org.opensearch.index.shard.ShardId;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 
-public class ExceptionUtilsTests extends ESTestCase {
+public class ExceptionUtilsTests extends OpenSearchTestCase {
 
     public void testGetShardsFailure() {
         ShardId shardId = new ShardId(randomAlphaOfLength(5), randomAlphaOfLength(5), 1);
@@ -77,7 +77,7 @@ public class ExceptionUtilsTests extends ESTestCase {
     public void testGetErrorMessage() {
         assertEquals("test", ExceptionUtil.getErrorMessage(new AnomalyDetectionException("test")));
         assertEquals("test", ExceptionUtil.getErrorMessage(new IllegalArgumentException("test")));
-        assertEquals("org.elasticsearch.ElasticsearchException: test", ExceptionUtil.getErrorMessage(new ElasticsearchException("test")));
+        assertEquals("org.opensearch.OpenSearchException: test", ExceptionUtil.getErrorMessage(new OpenSearchException("test")));
         assertTrue(
             ExceptionUtil
                 .getErrorMessage(new RuntimeException("test"))

@@ -18,10 +18,10 @@ package com.amazon.opendistroforelasticsearch.ad.mock.model;
 import java.io.IOException;
 import java.time.Instant;
 
-import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.io.stream.Writeable;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
 
 public class MockSimpleLog implements ToXContentObject, Writeable {
 

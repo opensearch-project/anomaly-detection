@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.ActionType;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.transport.TransportRequestOptions;
+import org.opensearch.action.ActionType;
+import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.transport.TransportRequestOptions;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 

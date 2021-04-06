@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.breaker;
 
-import org.elasticsearch.monitor.jvm.JvmService;
+import org.opensearch.monitor.jvm.JvmService;
 
 /**
  * A circuit breaker for memory usage.

@@ -19,8 +19,8 @@ import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.matchAllReque
 
 import java.io.IOException;
 
-import org.elasticsearch.action.search.SearchResponse;
 import org.junit.Test;
+import org.opensearch.action.search.SearchResponse;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;

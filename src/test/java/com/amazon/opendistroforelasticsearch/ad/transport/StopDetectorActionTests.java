@@ -15,12 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.test.OpenSearchIntegTestCase;
 
-public class StopDetectorActionTests extends ESIntegTestCase {
+public class StopDetectorActionTests extends OpenSearchIntegTestCase {
 
     @Override
     @Before

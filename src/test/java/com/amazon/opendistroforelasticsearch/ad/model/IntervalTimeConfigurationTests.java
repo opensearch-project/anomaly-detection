@@ -20,12 +20,12 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 
-public class IntervalTimeConfigurationTests extends ESTestCase {
+public class IntervalTimeConfigurationTests extends OpenSearchTestCase {
 
     public void testParseIntervalSchedule() throws IOException {
         TimeConfiguration schedule = TestHelpers.randomIntervalTimeConfiguration();

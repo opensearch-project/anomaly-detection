@@ -20,11 +20,11 @@ import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomDiscove
 import java.io.IOException;
 import java.util.List;
 
-import org.elasticsearch.action.ActionRequestValidationException;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
-import org.elasticsearch.common.io.stream.StreamInput;
+import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 
 import com.amazon.opendistroforelasticsearch.ad.ADUnitTestCase;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;

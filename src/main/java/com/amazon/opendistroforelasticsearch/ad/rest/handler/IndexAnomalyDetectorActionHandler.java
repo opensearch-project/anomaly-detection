@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -30,35 +30,35 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsAction;
-import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsRequest;
-import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
-import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.action.support.replication.ReplicationResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsAction;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsRequest;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.action.support.replication.ReplicationResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
@@ -196,7 +196,7 @@ public class IndexAnomalyDetectorActionHandler {
         logger.info("prepareAnomalyDetectorIndexing called after creating indices");
         String error = RestHandlerUtils.validateAnomalyDetector(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
-            listener.onFailure(new ElasticsearchStatusException(error, RestStatus.BAD_REQUEST));
+            listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
             return;
         }
         if (method == RestRequest.Method.PUT) {
@@ -217,8 +217,7 @@ public class IndexAnomalyDetectorActionHandler {
 
     private void onGetAnomalyDetectorResponse(GetResponse response) {
         if (!response.isExists()) {
-            listener
-                .onFailure(new ElasticsearchStatusException("AnomalyDetector is not found with id: " + detectorId, RestStatus.NOT_FOUND));
+            listener.onFailure(new OpenSearchStatusException("AnomalyDetector is not found with id: " + detectorId, RestStatus.NOT_FOUND));
             return;
         }
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
@@ -229,7 +228,7 @@ public class IndexAnomalyDetectorActionHandler {
             if (existingDetector.isRealTimeDetector() != anomalyDetector.isRealTimeDetector()) {
                 listener
                     .onFailure(
-                        new ElasticsearchStatusException(
+                        new OpenSearchStatusException(
                             "Can't change detector type between realtime and historical detector",
                             RestStatus.BAD_REQUEST
                         )
@@ -243,7 +242,7 @@ public class IndexAnomalyDetectorActionHandler {
                 adTaskManager.getLatestADTask(detectorId, (adTask) -> {
                     if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                         // can't update detector if there is AD task running
-                        listener.onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                        listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
                     } else {
                         // TODO: change to validateDetector method when we support HC historical detector
                         searchAdInputIndices(detectorId);
@@ -253,7 +252,7 @@ public class IndexAnomalyDetectorActionHandler {
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;
             logger.error(message, e);
-            listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+            listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
         }
 
     }
@@ -354,10 +353,10 @@ public class IndexAnomalyDetectorActionHandler {
         ActionListener<GetFieldMappingsResponse> mappingsListener = ActionListener.wrap(getMappingsResponse -> {
             // example getMappingsResponse:
             // GetFieldMappingsResponse{mappings={server-metrics={_doc={service=FieldMappingMetadata{fullName='service',
-            // source=org.elasticsearch.common.bytes.BytesArray@7ba87dbd}}}}}
+            // source=org.opensearch.common.bytes.BytesArray@7ba87dbd}}}}}
             // for nested field, it would be
             // GetFieldMappingsResponse{mappings={server-metrics={_doc={host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
-            // source=org.elasticsearch.common.bytes.BytesArray@8fb4de08}}}}}
+            // source=org.opensearch.common.bytes.BytesArray@8fb4de08}}}}}
             boolean foundField = false;
             Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse.mappings();
 
@@ -366,7 +365,7 @@ public class IndexAnomalyDetectorActionHandler {
                     for (Map.Entry<String, FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
                         // example output:
                         // host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
-                        // source=org.elasticsearch.common.bytes.BytesArray@8fb4de08}
+                        // source=org.opensearch.common.bytes.BytesArray@8fb4de08}
                         FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
 
                         if (fieldMetadata != null) {
@@ -507,7 +506,7 @@ public class IndexAnomalyDetectorActionHandler {
             public void onResponse(IndexResponse indexResponse) {
                 String errorMsg = checkShardsFailure(indexResponse);
                 if (errorMsg != null) {
-                    listener.onFailure(new ElasticsearchStatusException(errorMsg, indexResponse.status()));
+                    listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
                     return;
                 }
                 listener
@@ -546,7 +545,7 @@ public class IndexAnomalyDetectorActionHandler {
             logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
             listener
                 .onFailure(
-                    new ElasticsearchStatusException(
+                    new OpenSearchStatusException(
                         "Created " + ANOMALY_DETECTORS_INDEX + "with mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
                     )

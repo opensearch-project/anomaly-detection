@@ -39,26 +39,26 @@ import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
-import org.elasticsearch.Version;
-import org.elasticsearch.action.ActionResponse;
-import org.elasticsearch.action.support.PlainActionFuture;
-import org.elasticsearch.cluster.metadata.AliasMetadata;
-import org.elasticsearch.cluster.metadata.IndexMetadata;
-import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.http.HttpRequest;
-import org.elasticsearch.http.HttpResponse;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestRequest.Method;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.SearchModule;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.threadpool.FixedExecutorBuilder;
-import org.elasticsearch.threadpool.TestThreadPool;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.transport.TransportInterceptor;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.Version;
+import org.opensearch.action.ActionResponse;
+import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.cluster.metadata.AliasMetadata;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.http.HttpRequest;
+import org.opensearch.http.HttpResponse;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestRequest.Method;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.search.SearchModule;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.threadpool.FixedExecutorBuilder;
+import org.opensearch.threadpool.TestThreadPool;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportInterceptor;
+import org.opensearch.transport.TransportService;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.FakeNode;
 
@@ -67,7 +67,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
 
-public class AbstractADTest extends ESTestCase {
+public class AbstractADTest extends OpenSearchTestCase {
 
     protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractADTest.class);
 

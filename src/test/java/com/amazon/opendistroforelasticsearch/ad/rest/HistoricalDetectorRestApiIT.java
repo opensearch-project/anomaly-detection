@@ -23,11 +23,11 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.apache.http.util.EntityUtils;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.rest.RestStatus;
 import org.junit.Before;
+import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorRestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;

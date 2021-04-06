@@ -28,11 +28,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.test.OpenSearchTestCase;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
 
@@ -48,7 +48,7 @@ import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.ModelsOnNodeSupp
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.randomcutforest.RandomCutForest;
 
-public class ADStatsTests extends ESTestCase {
+public class ADStatsTests extends OpenSearchTestCase {
 
     private Map<String, ADStat<?>> statsMap;
     private ADStats adStats;

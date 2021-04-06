@@ -19,9 +19,9 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import org.elasticsearch.action.delete.DeleteResponse;
-import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
+import org.opensearch.action.delete.DeleteResponse;
+import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -29,7 +29,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.google.common.collect.ImmutableList;
 
-@ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.TEST, numDataNodes = 2)
+@OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
 public class DeleteAnomalyDetectorTransportActionTests extends HistoricalDetectorIntegTestCase {
     private Instant startTime;
     private Instant endTime;

@@ -16,11 +16,11 @@
 package com.amazon.opendistroforelasticsearch.ad.cluster;
 
 import static java.util.Collections.emptyMap;
-import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
-import static org.elasticsearch.test.ClusterServiceUtils.createClusterService;
-import static org.elasticsearch.test.ClusterServiceUtils.setState;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
+import static org.opensearch.test.ClusterServiceUtils.createClusterService;
+import static org.opensearch.test.ClusterServiceUtils.setState;
 
 import java.time.Clock;
 import java.util.ArrayList;
@@ -29,17 +29,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.elasticsearch.Version;
-import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.opensearch.Version;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodes;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;

@@ -25,15 +25,15 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
-import org.elasticsearch.index.reindex.DeleteByQueryAction;
-import org.elasticsearch.index.reindex.ScrollableHitSource;
 import org.junit.After;
 import org.junit.Before;
+import org.opensearch.OpenSearchException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.client.Client;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.reindex.BulkByScrollResponse;
+import org.opensearch.index.reindex.DeleteByQueryAction;
+import org.opensearch.index.reindex.ScrollableHitSource;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -119,13 +119,13 @@ public class CheckpointDeleteTests extends AbstractADTest {
             if (mode == DeleteExecutionMode.INDEX_NOT_FOUND) {
                 listener.onFailure(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME));
             } else if (mode == DeleteExecutionMode.FAILURE) {
-                listener.onFailure(new ElasticsearchException(""));
+                listener.onFailure(new OpenSearchException(""));
             } else {
                 if (mode == DeleteExecutionMode.PARTIAL_FAILURE) {
                     when(deleteByQueryResponse.getSearchFailures())
                         .thenReturn(
                             Collections
-                                .singletonList(new ScrollableHitSource.SearchFailure(new ElasticsearchException("foo"), "bar", 1, "blah"))
+                                .singletonList(new ScrollableHitSource.SearchFailure(new OpenSearchException("foo"), "bar", 1, "blah"))
                         );
                 }
                 listener.onResponse(deleteByQueryResponse);

@@ -23,10 +23,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
+import org.opensearch.test.OpenSearchTestCase;
 
-public class PriorityTrackerTests extends ESTestCase {
+public class PriorityTrackerTests extends OpenSearchTestCase {
     Clock clock;
     PriorityTracker tracker;
     Instant now;

@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport.handler;
 
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.util.Iterator;
 import java.util.Locale;
@@ -24,22 +24,22 @@ import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ExceptionsHelper;
-import org.elasticsearch.ResourceAlreadyExistsException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.bulk.BackoffPolicy;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.block.ClusterBlockLevel;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.ExceptionsHelper;
+import org.opensearch.ResourceAlreadyExistsException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.bulk.BackoffPolicy;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.block.ClusterBlockLevel;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
@@ -191,13 +191,13 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                             // When the workers are full and there are more write requests, the request
                             // will go to queue. The size of queue is also limited. If by default size is,
                             // say, 200 and if there happens more parallel requests than this, then those
-                            // requests would be rejected as you can see EsRejectedExecutionException.
-                            // So EsRejectedExecutionException is the way that Elasticsearch tells us that
+                            // requests would be rejected as you can see OpenSearchRejectedExecutionException.
+                            // So OpenSearchRejectedExecutionException is the way that Elasticsearch tells us that
                             // it cannot keep up with the current indexing rate.
                             // When it happens, we should pause indexing a bit before trying again, ideally
                             // with randomized exponential backoff.
                             Throwable cause = ExceptionsHelper.unwrapCause(exception);
-                            if (!(cause instanceof EsRejectedExecutionException) || !backoff.hasNext()) {
+                            if (!(cause instanceof OpenSearchRejectedExecutionException) || !backoff.hasNext()) {
                                 LOG.error(String.format(Locale.ROOT, FAIL_TO_SAVE_ERR_MSG, detectorId), cause);
                             } else {
                                 TimeValue nextDelay = backoff.next();

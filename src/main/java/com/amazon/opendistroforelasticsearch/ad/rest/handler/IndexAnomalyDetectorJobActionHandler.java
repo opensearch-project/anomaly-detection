@@ -17,9 +17,9 @@ package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getShardsFailure;
-import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
-import static org.elasticsearch.action.DocWriteResponse.Result.UPDATED;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.action.DocWriteResponse.Result.CREATED;
+import static org.opensearch.action.DocWriteResponse.Result.UPDATED;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -27,19 +27,19 @@ import java.time.Instant;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.rest.RestStatus;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.Client;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -117,7 +117,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                     logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
                     listener
                         .onFailure(
-                            new ElasticsearchStatusException(
+                            new OpenSearchStatusException(
                                 "Created " + ANOMALY_DETECTORS_INDEX + " with mappings call not acknowledged.",
                                 RestStatus.INTERNAL_SERVER_ERROR
                             )
@@ -151,7 +151,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         } catch (Exception e) {
             String message = "Failed to parse anomaly detector job " + detectorId;
             logger.error(message, e);
-            listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+            listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
         }
     }
 
@@ -174,9 +174,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                 AnomalyDetectorJob currentAdJob = AnomalyDetectorJob.parse(parser);
                 if (currentAdJob.isEnabled()) {
                     listener
-                        .onFailure(
-                            new ElasticsearchStatusException("Anomaly detector job is already running: " + detectorId, RestStatus.OK)
-                        );
+                        .onFailure(new OpenSearchStatusException("Anomaly detector job is already running: " + detectorId, RestStatus.OK));
                     return;
                 } else {
                     AnomalyDetectorJob newJob = new AnomalyDetectorJob(
@@ -195,7 +193,7 @@ public class IndexAnomalyDetectorJobActionHandler {
             } catch (IOException e) {
                 String message = "Failed to parse anomaly detector job " + job.getName();
                 logger.error(message, e);
-                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         } else {
             indexAnomalyDetectorJob(job, null);
@@ -221,7 +219,7 @@ public class IndexAnomalyDetectorJobActionHandler {
     private void onIndexAnomalyDetectorJobResponse(IndexResponse response, AnomalyDetectorFunction function) throws IOException {
         if (response == null || (response.getResult() != CREATED && response.getResult() != UPDATED)) {
             String errorMsg = getShardsFailure(response);
-            listener.onFailure(new ElasticsearchStatusException(errorMsg, response.status()));
+            listener.onFailure(new OpenSearchStatusException(errorMsg, response.status()));
             return;
         }
         if (function != null) {
@@ -259,7 +257,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                     if (!job.isEnabled()) {
                         listener
                             .onFailure(
-                                new ElasticsearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK)
+                                new OpenSearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK)
                             );
                         return;
                     } else {
@@ -287,11 +285,10 @@ public class IndexAnomalyDetectorJobActionHandler {
                 } catch (IOException e) {
                     String message = "Failed to parse anomaly detector job " + detectorId;
                     logger.error(message, e);
-                    listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+                    listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
                 }
             } else {
-                listener
-                    .onFailure(new ElasticsearchStatusException("Anomaly detector job not exist: " + detectorId, RestStatus.BAD_REQUEST));
+                listener.onFailure(new OpenSearchStatusException("Anomaly detector job not exist: " + detectorId, RestStatus.BAD_REQUEST));
             }
         }, exception -> listener.onFailure(exception)));
     }
@@ -312,7 +309,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                     listener.onResponse(anomalyDetectorJobResponse);
                 } else {
                     logger.error("Failed to delete AD model for detector {}", detectorId);
-                    listener.onFailure(new ElasticsearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR));
+                    listener.onFailure(new OpenSearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR));
                 }
             }
 
@@ -320,9 +317,7 @@ public class IndexAnomalyDetectorJobActionHandler {
             public void onFailure(Exception e) {
                 logger.error("Failed to delete AD model for detector " + detectorId, e);
                 listener
-                    .onFailure(
-                        new ElasticsearchStatusException("Failed to execute stop detector action", RestStatus.INTERNAL_SERVER_ERROR)
-                    );
+                    .onFailure(new OpenSearchStatusException("Failed to execute stop detector action", RestStatus.INTERNAL_SERVER_ERROR));
             }
         };
     }

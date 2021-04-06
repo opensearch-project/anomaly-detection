@@ -23,14 +23,14 @@ import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.action.ActionListener;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.EntityAnomalyResult;
 
-public class MultiResponsesDelegateActionListenerTests extends ESTestCase {
+public class MultiResponsesDelegateActionListenerTests extends OpenSearchTestCase {
 
     public void testEmptyResponse() throws InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);

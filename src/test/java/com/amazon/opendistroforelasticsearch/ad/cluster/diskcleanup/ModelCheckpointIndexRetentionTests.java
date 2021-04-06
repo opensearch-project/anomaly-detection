@@ -25,12 +25,12 @@ import static org.mockito.Mockito.verify;
 import java.time.Clock;
 import java.time.Duration;
 
-import org.elasticsearch.action.ActionListener;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.action.ActionListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;

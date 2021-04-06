@@ -27,14 +27,14 @@ import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.tasks.Task;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
@@ -182,7 +182,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 ThresholdingResult result = manager.getAnomalyResultForEntity(detectorId, datapoint, entityName, entityModel, modelId);
                 // result.getRcfScore() = 0 means the model is not initialized
                 // result.getGrade() = 0 means it is not an anomaly
-                // So many EsRejectedExecutionException if we write no matter what
+                // So many OpenSearchRejectedExecutionException if we write no matter what
                 if (result.getRcfScore() > 0 && (!onlySaveAnomalies || result.getGrade() > 0)) {
                     currentBulkRequest
                         .add(

@@ -17,13 +17,13 @@ package com.amazon.opendistroforelasticsearch.ad.stats;
 
 import java.util.function.Supplier;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.CounterSupplier;
 import com.amazon.opendistroforelasticsearch.ad.stats.suppliers.SettableSupplier;
 
-public class ADStatTests extends ESTestCase {
+public class ADStatTests extends OpenSearchTestCase {
 
     @Test
     public void testIsClusterLevel() {

@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.ad.common.exception;
 
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.test.OpenSearchTestCase;
 
-public class ADTaskCancelledExceptionTests extends ESTestCase {
+public class ADTaskCancelledExceptionTests extends OpenSearchTestCase {
 
     public void testConstructor() {
         String message = randomAlphaOfLength(5);

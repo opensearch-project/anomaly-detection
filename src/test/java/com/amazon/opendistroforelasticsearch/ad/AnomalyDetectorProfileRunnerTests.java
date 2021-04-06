@@ -35,17 +35,17 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.elasticsearch.Version;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.FailedNodeException;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.transport.RemoteTransportException;
+import org.opensearch.Version;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.FailedNodeException;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
+import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.transport.RemoteTransportException;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ResourceNotFoundException;

@@ -42,18 +42,18 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.threadpool.Scheduler.ScheduledCancellable;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.OpenSearchException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.threadpool.Scheduler.ScheduledCancellable;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
@@ -65,7 +65,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ModelState;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
-public class PriorityCacheTests extends ESTestCase {
+public class PriorityCacheTests extends OpenSearchTestCase {
     private static final Logger LOG = LogManager.getLogger(PriorityCacheTests.class);
 
     String modelId1, modelId2, modelId3, modelId4;
@@ -335,7 +335,7 @@ public class PriorityCacheTests extends ESTestCase {
             Object[] args = invocation.getArguments();
             ActionListener<Optional<Entry<EntityModel, Instant>>> listener =
                 (ActionListener<Optional<Entry<EntityModel, Instant>>>) args[1];
-            listener.onFailure(new EsRejectedExecutionException("", false));
+            listener.onFailure(new OpenSearchRejectedExecutionException("", false));
             return null;
         }).when(checkpoint).restoreModelCheckpoint(anyString(), any(ActionListener.class));
         for (int i = 0; i < 3; i++) {
@@ -468,7 +468,7 @@ public class PriorityCacheTests extends ESTestCase {
         public void run() {
             try {
                 cacheProvider.maintenance();
-            } catch (ElasticsearchException e) {
+            } catch (OpenSearchException e) {
                 singalThreadToStart.countDown();
             }
         }
@@ -499,7 +499,7 @@ public class PriorityCacheTests extends ESTestCase {
             new Thread(new FailedCleanRunnable(scheduledThreadCountDown)).start();
 
             cacheProvider.maintenance();
-        } catch (ElasticsearchException e) {
+        } catch (OpenSearchException e) {
             scheduledThreadCountDown.countDown();
         }
 

@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.elasticsearch.action.ActionRequest;
+import org.opensearch.action.ActionRequest;
 
 /**
  * Utility functions for throttling query.

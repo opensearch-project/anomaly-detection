@@ -21,18 +21,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.elasticsearch.action.FailedNodeException;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
+import org.opensearch.action.FailedNodeException;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodeResponse;
 import com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesResponse;
 
-public class ADStatsResponseTests extends ESTestCase {
+public class ADStatsResponseTests extends OpenSearchTestCase {
     @Test
     public void testGetAndSetClusterStats() {
         ADStatsResponse adStatsResponse = new ADStatsResponse();

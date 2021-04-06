@@ -20,9 +20,9 @@ import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.EPOCH
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.FEATURE_AGGS;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.elasticsearch.search.aggregations.AggregationBuilders.dateRange;
-import static org.elasticsearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
+import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -36,37 +36,37 @@ import java.util.regex.Matcher;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.ResourceNotFoundException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.ParsingException;
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.NestedQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
-import org.elasticsearch.index.query.TermsQueryBuilder;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.AggregatorFactories;
-import org.elasticsearch.search.aggregations.BaseAggregationBuilder;
-import org.elasticsearch.search.aggregations.PipelineAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder;
-import org.elasticsearch.search.aggregations.bucket.composite.DateHistogramValuesSourceBuilder;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
-import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
-import org.elasticsearch.search.aggregations.metrics.Max;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.opensearch.OpenSearchException;
+import org.opensearch.ResourceNotFoundException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.ParsingException;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.NestedQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.AggregatorFactories;
+import org.opensearch.search.aggregations.BaseAggregationBuilder;
+import org.opensearch.search.aggregations.PipelineAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder;
+import org.opensearch.search.aggregations.bucket.composite.DateHistogramValuesSourceBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.Max;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
@@ -442,7 +442,7 @@ public final class ParseUtils {
         } else if (query instanceof BoolQueryBuilder) {
             ((BoolQueryBuilder) query).filter(boolQueryBuilder);
         } else {
-            throw new ElasticsearchException("Search API does not support queries other than BoolQuery");
+            throw new OpenSearchException("Search API does not support queries other than BoolQuery");
         }
         return searchSourceBuilder;
     }
@@ -531,10 +531,10 @@ public final class ParseUtils {
                     function.execute();
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
-                    listener.onFailure(new ElasticsearchException("User does not have permissions to access detector: " + detectorId));
+                    listener.onFailure(new OpenSearchException("User does not have permissions to access detector: " + detectorId));
                 }
             } catch (Exception e) {
-                listener.onFailure(new ElasticsearchException("Unable to get user information from detector " + detectorId));
+                listener.onFailure(new OpenSearchException("Unable to get user information from detector " + detectorId));
             }
         } else {
             listener.onFailure(new ResourceNotFoundException("Could not find detector " + detectorId));
@@ -570,7 +570,7 @@ public final class ParseUtils {
         if (requestedUser.getBackendRoles().isEmpty()) {
             listener
                 .onFailure(
-                    new ElasticsearchException(
+                    new OpenSearchException(
                         "Filter by backend roles is enabled and User " + requestedUser.getName() + " does not have backend roles configured"
                     )
                 );

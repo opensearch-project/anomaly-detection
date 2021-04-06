@@ -25,12 +25,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 
-import org.elasticsearch.action.ActionRequestValidationException;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
+import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -44,7 +44,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-@ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.TEST, numDataNodes = 2)
+@OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
 public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetectorIntegTestCase {
 
     private String testIndex;

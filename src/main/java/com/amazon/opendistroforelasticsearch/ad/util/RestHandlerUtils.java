@@ -20,17 +20,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentHelper;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
+import org.opensearch.common.Strings;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.rest.RestChannel;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.search.fetch.subphase.FetchSourceContext;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
@@ -73,7 +73,7 @@ public final class RestHandlerUtils {
      * If the request came from the client then we exclude the UI Metadata from the search result.
      *
      * @param request rest request
-     * @return instance of {@link org.elasticsearch.search.fetch.subphase.FetchSourceContext}
+     * @return instance of {@link org.opensearch.search.fetch.subphase.FetchSourceContext}
      */
     public static FetchSourceContext getSourceContext(RestRequest request) {
         String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));

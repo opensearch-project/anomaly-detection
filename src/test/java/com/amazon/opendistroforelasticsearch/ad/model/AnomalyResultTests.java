@@ -21,13 +21,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Locale;
 
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput;
-import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.test.ESSingleNodeTestCase;
-import org.elasticsearch.test.InternalSettingsPlugin;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.plugins.Plugin;
+import org.opensearch.test.InternalSettingsPlugin;
+import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -35,7 +35,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
-public class AnomalyResultTests extends ESSingleNodeTestCase {
+public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {

@@ -23,8 +23,8 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.monitor.jvm.JvmService;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.monitor.jvm.JvmService;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.LimitExceededException;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;

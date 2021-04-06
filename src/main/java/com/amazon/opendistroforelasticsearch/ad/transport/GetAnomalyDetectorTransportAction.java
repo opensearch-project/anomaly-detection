@@ -21,7 +21,7 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -33,25 +33,25 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.MultiGetItemResponse;
-import org.elasticsearch.action.get.MultiGetRequest;
-import org.elasticsearch.action.get.MultiGetResponse;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.CheckedConsumer;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.MultiGetItemResponse;
+import org.opensearch.action.get.MultiGetRequest;
+import org.opensearch.action.get.MultiGetResponse;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.CheckedConsumer;
+import org.opensearch.common.Strings;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.tasks.Task;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorProfileRunner;
 import com.amazon.opendistroforelasticsearch.ad.EntityProfileRunner;
@@ -262,7 +262,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         if (response.getResponse() == null || !response.getResponse().isExists()) {
                             listener
                                 .onFailure(
-                                    new ElasticsearchStatusException("Can't find detector with id:  " + detectorId, RestStatus.NOT_FOUND)
+                                    new OpenSearchStatusException("Can't find detector with id:  " + detectorId, RestStatus.NOT_FOUND)
                                 );
                             return;
                         }
@@ -340,9 +340,9 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         }, exception -> { listener.onFailure(exception); });
     }
 
-    private ElasticsearchStatusException buildInternalServerErrorResponse(Exception e, String errorMsg) {
+    private OpenSearchStatusException buildInternalServerErrorResponse(Exception e, String errorMsg) {
         LOG.error(errorMsg, e);
-        return new ElasticsearchStatusException(errorMsg, RestStatus.INTERNAL_SERVER_ERROR);
+        return new OpenSearchStatusException(errorMsg, RestStatus.INTERNAL_SERVER_ERROR);
     }
 
     /**

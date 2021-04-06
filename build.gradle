@@ -14,22 +14,29 @@
  */
 
 import java.util.concurrent.Callable
-import org.elasticsearch.gradle.test.RestIntegTestTask
+import org.opensearch.gradle.test.RestIntegTestTask
 
 buildscript {
     ext {
-        es_group = "org.elasticsearch"
-        es_version = '7.10.2'
+        opensearch_group = "org.opensearch"
+        opensearch_version = '7.10.3'
     }
 
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
+        maven {
+            url = 's3://search-vemsarat/'
+            credentials(AwsCredentials) {
+                accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
+                secretKey = System.env.AWS_SECRET_ACCESS_KEY_ID ?: findProperty('aws_secret_access_key')
+            }
+        }
         jcenter()
     }
 
     dependencies {
-        classpath "${es_group}.gradle:build-tools:${es_version}"
+        classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}-SNAPSHOT"
     }
 }
 
@@ -43,11 +50,18 @@ plugins {
 repositories {
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
+    maven {
+        url = 's3://search-vemsarat/'
+        credentials(AwsCredentials) {
+            accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
+            secretKey = System.env.AWS_SECRET_ACCESS_KEY_ID ?: findProperty('aws_secret_access_key')
+        }
+    }
     jcenter()
 }
 
 ext {
-    opendistroVersion = '1.13.0'
+    opendistroVersion = '1.15.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
@@ -55,8 +69,8 @@ version = "${opendistroVersion}.0"
 
 apply plugin: 'java'
 apply plugin: 'idea'
-apply plugin: 'elasticsearch.esplugin'
-apply plugin: 'elasticsearch.testclusters'
+apply plugin: 'opensearch.opensearchplugin'
+apply plugin: 'opensearch.testclusters'
 apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
@@ -75,7 +89,7 @@ ext {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
-esplugin {
+opensearchplugin {
     name 'opendistro-anomaly-detection'
     description 'Amazon opendistro elasticsearch anomaly detector plugin'
     classname 'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin'
@@ -133,8 +147,8 @@ loggerUsageCheck.enabled = false
 // See package README.md for details on using these tasks.
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 
-def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
-es_tmp_dir.mkdirs()
+def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
+opensearch_tmp_dir.mkdirs()
 
 test {
     include '**/*Tests.class'
@@ -151,7 +165,7 @@ tasks.named("check").configure { dependsOn(integTest) }
 integTest {
     dependsOn "bundlePlugin"
     systemProperty 'tests.security.manager', 'false'
-    systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
 
     systemProperty "https", System.getProperty("https")
     systemProperty "user", System.getProperty("user")
@@ -200,7 +214,7 @@ testClusters.integTest {
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
     // since we also support multi node integration tests we increase debugPort per node
-    if (System.getProperty("es.debug") != null) {
+    if (System.getProperty("opensearch.debug") != null) {
         def debugPort = 5005
         nodes.forEach { node ->
             node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")
@@ -225,7 +239,7 @@ testClusters.integTest {
     // the opendistro-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
     //
     // Exception in thread "main" java.lang.IllegalArgumentException: Missing plugin [opendistro-job-scheduler], dependency of [opendistro-anomaly-detection]
-    //       at org.elasticsearch.plugins.PluginsService.addSortedBundle(PluginsService.java:452)
+    //       at org.opensearch.plugins.PluginsService.addSortedBundle(PluginsService.java:452)
     //
     // One explanation is that ES build script sort plugins according to the natural ordering of their names.
     // opendistro-anomaly-detection comes before opendistro-job-scheduler.
@@ -265,8 +279,8 @@ task release(type: Copy, group: 'build') {
     from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
     into "build/plugins/opendistro-anomaly-detection"
     includeEmptyDirs = false
-    // ES versions < 6.3 have a top-level elasticsearch directory inside the plugin zip which we need to remove
-    eachFile { it.path = it.path - "elasticsearch/" }
+    // ES versions < 6.3 have a top-level opensearch directory inside the plugin zip which we need to remove
+    eachFile { it.path = it.path - "opensearch/" }
 }
 
 List<String> jacocoExclusions = [
@@ -351,9 +365,9 @@ checkstyle {
 }
 
 dependencies {
-    compile "org.elasticsearch:elasticsearch:${es_version}"
-    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${versions.elasticsearch}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:${opendistroVersion}.0"
+    compile "org.opensearch:opensearch:${opensearch_version}-SNAPSHOT"
+    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:${opendistroVersion}.0-SNAPSHOT"
     compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.0"
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
@@ -363,7 +377,7 @@ dependencies {
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
     compile 'software.amazon.randomcutforest:randomcutforest-core:1.0'
     compile 'software.amazon.randomcutforest:randomcutforest-serialization-json:1.0'
-    compile "org.elasticsearch.client:elasticsearch-rest-client:${es_version}"
+    compile "org.opensearch.client:opensearch-rest-client:${opensearch_version}-SNAPSHOT"
 
     compile "org.jacoco:org.jacoco.agent:0.8.5"
     compile ("org.jacoco:org.jacoco.ant:0.8.5") {
@@ -399,9 +413,9 @@ afterEvaluate {
         release = isSnapshot ? "0.1" : '1'
         version = "${project.version}" - "-SNAPSHOT"
 
-        into '/usr/share/elasticsearch/plugins'
+        into '/usr/share/opensearch/plugins'
         from(zipTree(bundlePlugin.archivePath)) {
-            into esplugin.name
+            into opensearchplugin.name
         }
 
         user 'root'
@@ -409,7 +423,7 @@ afterEvaluate {
         fileMode 0644
         dirMode 0755
 
-        requires('elasticsearch-oss', versions.elasticsearch, EQUAL)
+        requires('opensearch-oss', versions.opensearch, EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
         os = 'LINUX'

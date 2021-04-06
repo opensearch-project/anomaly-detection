@@ -29,8 +29,8 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getErrorMessage;
 import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getShardsFailure;
-import static org.elasticsearch.action.DocWriteResponse.Result.CREATED;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.action.DocWriteResponse.Result.CREATED;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -45,45 +45,45 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.ExceptionsHelper;
-import org.elasticsearch.ResourceAlreadyExistsException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionListenerResponseHandler;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.delete.DeleteResponse;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.action.update.UpdateResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
-import org.elasticsearch.index.reindex.DeleteByQueryAction;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
-import org.elasticsearch.index.reindex.UpdateByQueryAction;
-import org.elasticsearch.index.reindex.UpdateByQueryRequest;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.script.Script;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortOrder;
-import org.elasticsearch.transport.TransportRequestOptions;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.ExceptionsHelper;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.ResourceAlreadyExistsException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionListenerResponseHandler;
+import org.opensearch.action.bulk.BulkItemResponse;
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.delete.DeleteResponse;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.action.update.UpdateRequest;
+import org.opensearch.action.update.UpdateResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.reindex.DeleteByQueryAction;
+import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.index.reindex.UpdateByQueryAction;
+import org.opensearch.index.reindex.UpdateByQueryRequest;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.script.Script;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.SortOrder;
+import org.opensearch.transport.TransportRequestOptions;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.cluster.HashRing;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.ADTaskCancelledException;
@@ -192,8 +192,7 @@ public class ADTaskManager {
                 Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(detector.getDetectorId());
                 if (!owningNode.isPresent()) {
                     logger.debug("Can't find eligible node to run as AD task's coordinating node");
-                    listener
-                        .onFailure(new ElasticsearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
+                    listener.onFailure(new OpenSearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
                     return;
                 }
                 forwardToCoordinatingNode(detector, user, ADTaskAction.START, transportService, owningNode.get(), listener);
@@ -286,7 +285,7 @@ public class ADTaskManager {
         GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
         client.get(getRequest, ActionListener.wrap(response -> {
             if (!response.isExists()) {
-                listener.onFailure(new ElasticsearchStatusException("AnomalyDetector is not found", RestStatus.NOT_FOUND));
+                listener.onFailure(new OpenSearchStatusException("AnomalyDetector is not found", RestStatus.NOT_FOUND));
                 return;
             }
             try (
@@ -305,7 +304,7 @@ public class ADTaskManager {
             } catch (Exception e) {
                 String message = "Failed to start anomaly detector " + detectorId;
                 logger.error(message, e);
-                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, exception -> listener.onFailure(exception)));
     }
@@ -372,7 +371,7 @@ public class ADTaskManager {
             } catch (Exception e) {
                 String message = "Failed to parse AD task for detector " + detectorId;
                 logger.error(message, e);
-                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, e -> {
             if (e instanceof IndexNotFoundException) {
@@ -599,7 +598,7 @@ public class ADTaskManager {
             error = "Can't start detector job as no enabled features configured";
         }
         if (error != null) {
-            listener.onFailure(new ElasticsearchStatusException(error, RestStatus.BAD_REQUEST));
+            listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
             return false;
         }
         return true;
@@ -630,7 +629,7 @@ public class ADTaskManager {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
                         executeHistoricalDetector(detector, user, listener);
                     } else {
-                        listener.onFailure(new ElasticsearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
+                        listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
                     }
                 }, transportService, listener);
             } else {
@@ -642,7 +641,7 @@ public class ADTaskManager {
                     } else {
                         String error = "Create index " + CommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
                         logger.warn(error);
-                        listener.onFailure(new ElasticsearchStatusException(error, RestStatus.INTERNAL_SERVER_ERROR));
+                        listener.onFailure(new OpenSearchStatusException(error, RestStatus.INTERNAL_SERVER_ERROR));
                     }
                 }, e -> {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
@@ -737,14 +736,14 @@ public class ADTaskManager {
     ) {
         if (response == null || response.getResult() != CREATED) {
             String errorMsg = getShardsFailure(response);
-            listener.onFailure(new ElasticsearchStatusException(errorMsg, response.status()));
+            listener.onFailure(new OpenSearchStatusException(errorMsg, response.status()));
             return;
         }
         adTask.setTaskId(response.getId());
         ActionListener<AnomalyDetectorJobResponse> delegatedListener = ActionListener.wrap(r -> { listener.onResponse(r); }, e -> {
             handleADTaskException(adTask, e);
             if (e instanceof DuplicateTaskException) {
-                listener.onFailure(new ElasticsearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
+                listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
             } else {
                 listener.onFailure(e);
                 adTaskCacheManager.removeDetector(adTask.getDetectorId());

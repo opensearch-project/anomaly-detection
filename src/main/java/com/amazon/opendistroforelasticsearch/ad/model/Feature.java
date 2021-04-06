@@ -15,19 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 
 import org.apache.logging.log4j.util.Strings;
-import org.elasticsearch.common.UUIDs;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.io.stream.Writeable;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.opensearch.common.UUIDs;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.search.aggregations.AggregationBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;

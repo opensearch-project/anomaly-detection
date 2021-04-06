@@ -17,8 +17,8 @@ package test.com.amazon.opendistroforelasticsearch.ad.util;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
-import static org.elasticsearch.test.ClusterServiceUtils.createClusterService;
-import static org.elasticsearch.test.ClusterServiceUtils.setState;
+import static org.opensearch.test.ClusterServiceUtils.createClusterService;
+import static org.opensearch.test.ClusterServiceUtils.setState;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,29 +29,29 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.apache.lucene.util.SetOnce;
-import org.elasticsearch.Version;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.TransportCancelTasksAction;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.TransportListTasksAction;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.cluster.ClusterModule;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.lease.Releasable;
-import org.elasticsearch.common.network.NetworkService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.BoundTransportAddress;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.util.PageCacheRecycler;
-import org.elasticsearch.indices.breaker.NoneCircuitBreakerService;
-import org.elasticsearch.tasks.TaskManager;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.test.tasks.MockTaskManager;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.transport.TransportInterceptor;
-import org.elasticsearch.transport.TransportService;
-import org.elasticsearch.transport.nio.MockNioTransport;
+import org.opensearch.Version;
+import org.opensearch.action.admin.cluster.node.tasks.cancel.TransportCancelTasksAction;
+import org.opensearch.action.admin.cluster.node.tasks.list.TransportListTasksAction;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.cluster.ClusterModule;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.network.NetworkService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.transport.BoundTransportAddress;
+import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.common.util.PageCacheRecycler;
+import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.tasks.TaskManager;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.test.tasks.MockTaskManager;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportInterceptor;
+import org.opensearch.transport.TransportService;
+import org.opensearch.transport.nio.MockNioTransport;
 
 public class FakeNode implements Releasable {
     public FakeNode(String name, ThreadPool threadPool, Settings settings, TransportInterceptor transportInterceptor) {
@@ -72,7 +72,7 @@ public class FakeNode implements Releasable {
             ) {
                 @Override
                 public TransportAddress[] addressesFromString(String address) {
-                    return new TransportAddress[] { dns.getOrDefault(address, ESTestCase.buildNewFakeTransportAddress()) };
+                    return new TransportAddress[] { dns.getOrDefault(address, OpenSearchTestCase.buildNewFakeTransportAddress()) };
                 }
             },
             threadPool,

@@ -33,29 +33,29 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.test.ESSingleNodeTestCase;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.indices.create.CreateIndexRequest;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.tasks.Task;
+import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -70,7 +70,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 import com.google.common.collect.ImmutableMap;
 
-public class PreviewAnomalyDetectorTransportActionTests extends ESSingleNodeTestCase {
+public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingleNodeTestCase {
     private ActionListener<PreviewAnomalyDetectorResponse> response;
     private PreviewAnomalyDetectorTransportAction action;
     private AnomalyDetectorRunner runner;
@@ -256,7 +256,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends ESSingleNodeTest
         Client client = mock(Client.class);
         ThreadContext threadContext = new ThreadContext(settings);
         threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
-        org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
         when(client.threadPool()).thenReturn(mockThreadPool);
         when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
         PreviewAnomalyDetectorTransportAction previewAction = new PreviewAnomalyDetectorTransportAction(

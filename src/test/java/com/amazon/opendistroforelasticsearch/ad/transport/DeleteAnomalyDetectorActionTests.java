@@ -23,26 +23,26 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionRequestValidationException;
-import org.elasticsearch.action.delete.DeleteResponse;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.delete.DeleteResponse;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.tasks.Task;
+import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
-public class DeleteAnomalyDetectorActionTests extends ESIntegTestCase {
+public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
     private DeleteAnomalyDetectorTransportAction action;
     private ActionListener<DeleteResponse> response;
     private ADTaskManager adTaskManager;

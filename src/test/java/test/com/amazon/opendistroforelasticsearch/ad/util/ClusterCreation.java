@@ -15,23 +15,23 @@
 
 package test.com.amazon.opendistroforelasticsearch.ad.util;
 
-import static org.elasticsearch.cluster.node.DiscoveryNodeRole.DATA_ROLE;
-import static org.elasticsearch.cluster.node.DiscoveryNodeRole.MASTER_ROLE;
 import static org.mockito.Mockito.mock;
+import static org.opensearch.cluster.node.DiscoveryNodeRole.DATA_ROLE;
+import static org.opensearch.cluster.node.DiscoveryNodeRole.MASTER_ROLE;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.elasticsearch.Version;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.metadata.Metadata;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.common.collect.ImmutableOpenMap;
-import org.elasticsearch.common.transport.TransportAddress;
+import org.opensearch.Version;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.Metadata;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodes;
+import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.common.transport.TransportAddress;
 
 public class ClusterCreation {
     /**
