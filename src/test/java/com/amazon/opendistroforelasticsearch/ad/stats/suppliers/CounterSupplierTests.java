@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
+import org.opensearch.test.OpenSearchTestCase;
 
-public class CounterSupplierTests extends ESTestCase {
+public class CounterSupplierTests extends OpenSearchTestCase {
     @Test
     public void testGetAndIncrement() {
         CounterSupplier counterSupplier = new CounterSupplier();

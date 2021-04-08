@@ -21,10 +21,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import org.elasticsearch.common.ParsingException;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.common.ParsingException;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.index.query.MatchAllQueryBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;

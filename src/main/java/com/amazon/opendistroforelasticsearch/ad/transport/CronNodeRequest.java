@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
 
-import org.elasticsearch.action.support.nodes.BaseNodeRequest;
-import org.elasticsearch.common.io.stream.StreamInput;
+import org.opensearch.action.support.nodes.BaseNodeRequest;
+import org.opensearch.common.io.stream.StreamInput;
 
 /**
  *  Delete model represents the request to an individual node

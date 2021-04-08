@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
-import static org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent;
+import static org.opensearch.common.xcontent.json.JsonXContent.jsonXContent;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,22 +27,22 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContent;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentParserUtils;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.rest.RestStatus;
+import org.opensearch.client.Request;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestClient;
+import org.opensearch.common.Strings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentParserUtils;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;

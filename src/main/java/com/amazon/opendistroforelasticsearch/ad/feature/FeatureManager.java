@@ -42,9 +42,9 @@ import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.support.ThreadedActionListener;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.support.ThreadedActionListener;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.CleanState;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;

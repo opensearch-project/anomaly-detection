@@ -23,11 +23,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException;
 
-public class NodeStateTests extends ESTestCase {
+public class NodeStateTests extends OpenSearchTestCase {
     private NodeState state;
     private Clock clock;
 

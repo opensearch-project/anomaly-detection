@@ -23,14 +23,14 @@ import java.util.Map;
 
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.common.UUIDs;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Assert;
+import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
+import org.opensearch.common.UUIDs;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRestTestCase;

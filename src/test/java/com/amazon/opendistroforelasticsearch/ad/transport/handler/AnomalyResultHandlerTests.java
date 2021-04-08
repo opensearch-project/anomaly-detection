@@ -30,20 +30,6 @@ import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.elasticsearch.ResourceAlreadyExistsException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.metadata.IndexMetadata;
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -53,6 +39,20 @@ import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.ResourceAlreadyExistsException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
@@ -260,8 +260,8 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
     /**
      * Template to test exponential backoff retry during saving anomaly result.
      *
-     * @param throwEsRejectedExecutionException whether to throw
-     *                                          EsRejectedExecutionException in the
+     * @param throwOpenSearchRejectedExecutionException whether to throw
+     *                                          OpenSearchRejectedExecutionException in the
      *                                          client::index mock or not
      * @param latchCount                        used for coordinating. Equal to
      *                                          number of expected retries plus 1.
@@ -269,7 +269,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
      * @throws IOException          if IO failures
      */
     @SuppressWarnings("unchecked")
-    private void savingFailureTemplate(boolean throwEsRejectedExecutionException, int latchCount, boolean adResultIndexExists)
+    private void savingFailureTemplate(boolean throwOpenSearchRejectedExecutionException, int latchCount, boolean adResultIndexExists)
         throws InterruptedException,
         IOException {
         setUpSavingAnomalyResultIndex(adResultIndexExists);
@@ -282,8 +282,8 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
             IndexRequest request = invocation.getArgument(0);
             ActionListener<IndexResponse> listener = invocation.getArgument(1);
             assertTrue(request != null && listener != null);
-            if (throwEsRejectedExecutionException) {
-                listener.onFailure(new EsRejectedExecutionException(""));
+            if (throwOpenSearchRejectedExecutionException) {
+                listener.onFailure(new OpenSearchRejectedExecutionException(""));
             } else {
                 listener.onFailure(new IllegalArgumentException());
             }

@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.monitor.jvm.JvmService;
+import org.opensearch.monitor.jvm.JvmService;
 
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
 

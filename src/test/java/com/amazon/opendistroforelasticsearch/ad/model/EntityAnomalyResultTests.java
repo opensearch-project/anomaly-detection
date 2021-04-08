@@ -21,12 +21,12 @@ import static java.util.Arrays.asList;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.stats.ADStatsResponse;
 
-public class EntityAnomalyResultTests extends ESTestCase {
+public class EntityAnomalyResultTests extends OpenSearchTestCase {
 
     @Test
     public void testGetAnomalyResults() {

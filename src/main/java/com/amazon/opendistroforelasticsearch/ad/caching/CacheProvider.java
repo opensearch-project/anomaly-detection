@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.caching;
 
-import org.elasticsearch.common.inject.Provider;
+import org.opensearch.common.inject.Provider;
 
 /**
  * A wrapper to call concrete implementation of caching.  Used in transport

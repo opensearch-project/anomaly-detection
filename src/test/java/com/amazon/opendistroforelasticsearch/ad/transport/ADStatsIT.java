@@ -19,13 +19,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.test.ESIntegTestCase;
+import org.opensearch.plugins.Plugin;
+import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 
-@ESIntegTestCase.ClusterScope(transportClientRatio = 0.9)
-public class ADStatsIT extends ESIntegTestCase {
+@OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
+public class ADStatsIT extends OpenSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {

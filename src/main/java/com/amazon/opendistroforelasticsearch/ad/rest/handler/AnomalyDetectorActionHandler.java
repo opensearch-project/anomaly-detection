@@ -16,21 +16,21 @@
 package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.rest.RestStatus;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
@@ -94,13 +94,13 @@ public class AnomalyDetectorActionHandler {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob adJob = AnomalyDetectorJob.parse(parser);
                     if (adJob.isEnabled()) {
-                        listener.onFailure(new ElasticsearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));
+                        listener.onFailure(new OpenSearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));
                         return;
                     }
                 } catch (IOException e) {
                     String message = "Failed to parse anomaly detector job " + adJobId;
                     logger.error(message, e);
-                    listener.onFailure(new ElasticsearchStatusException(message, RestStatus.BAD_REQUEST));
+                    listener.onFailure(new OpenSearchStatusException(message, RestStatus.BAD_REQUEST));
                 }
             }
         }

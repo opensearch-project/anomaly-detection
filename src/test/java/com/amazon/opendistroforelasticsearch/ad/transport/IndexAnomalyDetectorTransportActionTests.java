@@ -22,23 +22,23 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.transport.TransportService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.tasks.Task;
+import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -46,7 +46,7 @@ import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 
-public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
+public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTestCase {
     private IndexAnomalyDetectorTransportAction action;
     private Task task;
     private IndexAnomalyDetectorRequest request;
@@ -116,7 +116,7 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
         threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         Client client = mock(Client.class);
-        org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
         when(client.threadPool()).thenReturn(mockThreadPool);
         when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
 
@@ -140,7 +140,7 @@ public class IndexAnomalyDetectorTransportActionTests extends ESIntegTestCase {
         threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         Client client = mock(Client.class);
-        org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
         when(client.threadPool()).thenReturn(mockThreadPool);
         when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
 

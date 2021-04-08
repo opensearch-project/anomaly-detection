@@ -21,8 +21,8 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import org.elasticsearch.common.settings.Settings;
 import org.junit.Before;
+import org.opensearch.common.settings.Settings;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 

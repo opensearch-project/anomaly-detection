@@ -27,14 +27,14 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.NodeStateManager;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -47,7 +47,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.amazon.opendistroforelasticsearch.ad.util.ThrowingConsumerWrapper;
 
-public class DetectorStateHandlerTests extends ESTestCase {
+public class DetectorStateHandlerTests extends OpenSearchTestCase {
     private DetectionStateHandler detectorStateHandler;
     private String detectorId = "123";
     private Client client;

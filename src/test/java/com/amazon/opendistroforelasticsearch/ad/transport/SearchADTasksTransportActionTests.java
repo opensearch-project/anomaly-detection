@@ -22,21 +22,21 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.Before;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 
-@ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.TEST, numDataNodes = 2)
+@OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
 public class SearchADTasksTransportActionTests extends HistoricalDetectorIntegTestCase {
 
     private Instant startTime;

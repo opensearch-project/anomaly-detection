@@ -21,9 +21,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Set;
 
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.xcontent.XContentBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.google.common.base.Objects;

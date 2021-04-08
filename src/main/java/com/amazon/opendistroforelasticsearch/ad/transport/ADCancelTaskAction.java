@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonName.CANCEL_TASK;
 
-import org.elasticsearch.action.ActionType;
+import org.opensearch.action.ActionType;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
 

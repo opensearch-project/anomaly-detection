@@ -15,32 +15,32 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 import java.util.Collections;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionRequestValidationException;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.PlainActionFuture;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.transport.Transport;
-import org.elasticsearch.transport.TransportService;
 import org.hamcrest.Matchers;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.common.Strings;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.tasks.Task;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.transport.Transport;
+import org.opensearch.transport.TransportService;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
@@ -50,7 +50,7 @@ import com.amazon.opendistroforelasticsearch.ad.constant.CommonMessageAttributes
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingResult;
 
-public class ThresholdResultTests extends ESTestCase {
+public class ThresholdResultTests extends OpenSearchTestCase {
 
     @SuppressWarnings("unchecked")
     public void testNormal() {

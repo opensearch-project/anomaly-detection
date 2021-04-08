@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Test;
+import org.opensearch.test.OpenSearchTestCase;
 
-public class SettableSupplierTests extends ESTestCase {
+public class SettableSupplierTests extends OpenSearchTestCase {
     @Test
     public void testSetGet() {
         Long setCount = 15L;

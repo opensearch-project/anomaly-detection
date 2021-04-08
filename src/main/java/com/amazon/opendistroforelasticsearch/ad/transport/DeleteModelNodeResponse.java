@@ -17,11 +17,11 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import java.io.IOException;
 
-import org.elasticsearch.action.support.nodes.BaseNodeResponse;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.opensearch.action.support.nodes.BaseNodeResponse;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
 
 public class DeleteModelNodeResponse extends BaseNodeResponse implements ToXContentObject {
     static String NODE_ID = "node_id";

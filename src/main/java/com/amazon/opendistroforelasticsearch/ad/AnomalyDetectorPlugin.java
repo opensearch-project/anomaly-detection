@@ -30,38 +30,38 @@ import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.SpecialPermission;
-import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.ActionResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
-import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.IndexScopedSettings;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.settings.SettingsFilter;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentParserUtils;
-import org.elasticsearch.env.Environment;
-import org.elasticsearch.env.NodeEnvironment;
-import org.elasticsearch.monitor.jvm.JvmService;
-import org.elasticsearch.plugins.ActionPlugin;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.plugins.ScriptPlugin;
-import org.elasticsearch.repositories.RepositoriesService;
-import org.elasticsearch.rest.RestController;
-import org.elasticsearch.rest.RestHandler;
-import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.threadpool.ExecutorBuilder;
-import org.elasticsearch.threadpool.ScalingExecutorBuilder;
-import org.elasticsearch.threadpool.ThreadPool;
-import org.elasticsearch.watcher.ResourceWatcherService;
+import org.opensearch.SpecialPermission;
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.node.DiscoveryNodes;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.IndexScopedSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.settings.SettingsFilter;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentParserUtils;
+import org.opensearch.env.Environment;
+import org.opensearch.env.NodeEnvironment;
+import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.plugins.ActionPlugin;
+import org.opensearch.plugins.Plugin;
+import org.opensearch.plugins.ScriptPlugin;
+import org.opensearch.repositories.RepositoriesService;
+import org.opensearch.rest.RestController;
+import org.opensearch.rest.RestHandler;
+import org.opensearch.script.ScriptService;
+import org.opensearch.threadpool.ExecutorBuilder;
+import org.opensearch.threadpool.ScalingExecutorBuilder;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.watcher.ResourceWatcherService;
 
 import com.amazon.opendistroforelasticsearch.ad.breaker.ADCircuitBreakerService;
 import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
@@ -604,14 +604,14 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ScalingExecutorBuilder(
                     AD_THREAD_POOL_NAME,
                     1,
-                    Math.max(1, EsExecutors.allocatedProcessors(settings) / 4),
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 4),
                     TimeValue.timeValueMinutes(10),
                     AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
                 ),
                 new ScalingExecutorBuilder(
                     AD_BATCH_TASK_THREAD_POOL_NAME,
                     1,
-                    Math.max(1, EsExecutors.allocatedProcessors(settings) / 8),
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 8),
                     TimeValue.timeValueMinutes(10),
                     AD_THREAD_POOL_PREFIX + AD_BATCH_TASK_THREAD_POOL_NAME
                 )

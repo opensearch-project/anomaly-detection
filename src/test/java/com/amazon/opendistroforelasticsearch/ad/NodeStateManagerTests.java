@@ -34,19 +34,19 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.search.SearchModule;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.After;
 import org.junit.Before;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.client.Client;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.search.SearchModule;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelPartitioner;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -54,7 +54,7 @@ import com.amazon.opendistroforelasticsearch.ad.util.ClientUtil;
 import com.amazon.opendistroforelasticsearch.ad.util.Throttler;
 import com.google.common.collect.ImmutableMap;
 
-public class NodeStateManagerTests extends ESTestCase {
+public class NodeStateManagerTests extends OpenSearchTestCase {
     private NodeStateManager stateManager;
     private ModelPartitioner modelPartitioner;
     private Client client;

@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.ad.settings;
 
 import java.time.Duration;
 
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.unit.TimeValue;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.unit.TimeValue;
 
 /**
  * AD plugin settings.

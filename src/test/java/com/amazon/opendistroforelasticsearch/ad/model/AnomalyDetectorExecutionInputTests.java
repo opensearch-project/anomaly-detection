@@ -20,12 +20,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 
-public class AnomalyDetectorExecutionInputTests extends ESTestCase {
+public class AnomalyDetectorExecutionInputTests extends OpenSearchTestCase {
 
     public void testParseAnomalyDetectorExecutionInput() throws IOException {
         AnomalyDetectorExecutionInput detectorExecutionInput = TestHelpers.randomAnomalyDetectorExecutionInput();

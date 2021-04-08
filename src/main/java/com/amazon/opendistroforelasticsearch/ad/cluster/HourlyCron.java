@@ -17,10 +17,10 @@ package com.amazon.opendistroforelasticsearch.ad.cluster;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.FailedNodeException;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.FailedNodeException;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.node.DiscoveryNode;
 
 import com.amazon.opendistroforelasticsearch.ad.transport.CronAction;
 import com.amazon.opendistroforelasticsearch.ad.transport.CronRequest;

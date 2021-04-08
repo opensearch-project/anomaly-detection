@@ -16,17 +16,17 @@
 package com.amazon.opendistroforelasticsearch.ad;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
-import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.elasticsearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
-import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-import static org.elasticsearch.test.ESTestCase.buildNewFakeTransportAddress;
-import static org.elasticsearch.test.ESTestCase.randomAlphaOfLength;
-import static org.elasticsearch.test.ESTestCase.randomBoolean;
-import static org.elasticsearch.test.ESTestCase.randomDouble;
-import static org.elasticsearch.test.ESTestCase.randomInt;
-import static org.elasticsearch.test.ESTestCase.randomIntBetween;
-import static org.elasticsearch.test.ESTestCase.randomLong;
+import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
+import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.opensearch.test.OpenSearchTestCase.buildNewFakeTransportAddress;
+import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
+import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
+import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomInt;
+import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomLong;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
@@ -55,67 +55,67 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.lucene.search.TotalHits;
-import org.elasticsearch.Version;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.ShardSearchFailure;
-import org.elasticsearch.client.AdminClient;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.WarningsHandler;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.block.ClusterBlocks;
-import org.elasticsearch.cluster.metadata.AliasMetadata;
-import org.elasticsearch.cluster.metadata.IndexMetadata;
-import org.elasticsearch.cluster.metadata.Metadata;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.CheckedConsumer;
-import org.elasticsearch.common.Priority;
-import org.elasticsearch.common.UUIDs;
-import org.elasticsearch.common.bytes.BytesArray;
-import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentHelper;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.get.GetResult;
-import org.elasticsearch.index.mapper.MapperService;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.MatchAllQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.SearchModule;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.AggregatorFactories;
-import org.elasticsearch.search.aggregations.InternalAggregations;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.internal.InternalSearchResponse;
-import org.elasticsearch.search.profile.SearchProfileShardResults;
-import org.elasticsearch.search.suggest.Suggest;
-import org.elasticsearch.test.ClusterServiceUtils;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.test.rest.ESRestTestCase;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.Version;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.opensearch.action.admin.indices.create.CreateIndexRequest;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.client.AdminClient;
+import org.opensearch.client.Client;
+import org.opensearch.client.Request;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestClient;
+import org.opensearch.client.WarningsHandler;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlocks;
+import org.opensearch.cluster.metadata.AliasMetadata;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.Metadata;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.CheckedConsumer;
+import org.opensearch.common.Priority;
+import org.opensearch.common.UUIDs;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.get.GetResult;
+import org.opensearch.index.mapper.MapperService;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
+import org.opensearch.search.SearchModule;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.AggregatorFactories;
+import org.opensearch.search.aggregations.InternalAggregations;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.search.profile.SearchProfileShardResults;
+import org.opensearch.search.suggest.Suggest;
+import org.opensearch.test.ClusterServiceUtils;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.test.rest.OpenSearchRestTestCase;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
@@ -264,7 +264,7 @@ public class TestHelpers {
             uiMetadata,
             lastUpdateTime,
             detectorType,
-            ESRestTestCase.randomLongBetween(1, 1000),
+            OpenSearchRestTestCase.randomLongBetween(1, 1000),
             dateRange,
             withUser
         );
@@ -323,7 +323,7 @@ public class TestHelpers {
             features,
             randomQuery("{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\"}}]}}"),
             new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
-            new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
             8,
             null,
             randomInt(),
@@ -489,13 +489,13 @@ public class TestHelpers {
     }
 
     public static TimeConfiguration randomIntervalTimeConfiguration() {
-        return new IntervalTimeConfiguration(ESRestTestCase.randomLongBetween(1, 1000), ChronoUnit.MINUTES);
+        return new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 1000), ChronoUnit.MINUTES);
     }
 
     public static IntervalSchedule randomIntervalSchedule() {
         return new IntervalSchedule(
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            ESRestTestCase.randomIntBetween(1, 1000),
+            OpenSearchRestTestCase.randomIntBetween(1, 1000),
             ChronoUnit.MINUTES
         );
     }
@@ -685,7 +685,7 @@ public class TestHelpers {
     public static ClusterService createClusterService(ThreadPool threadPool, ClusterSettings clusterSettings) {
         DiscoveryNode discoveryNode = new DiscoveryNode(
             "node",
-            ESTestCase.buildNewFakeTransportAddress(),
+            OpenSearchTestCase.buildNewFakeTransportAddress(),
             Collections.emptyMap(),
             BUILT_IN_ROLES,
             Version.CURRENT

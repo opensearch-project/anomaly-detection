@@ -28,13 +28,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.elasticsearch.action.FailedNodeException;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.test.ESIntegTestCase;
-import org.elasticsearch.transport.TransportService;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.FailedNodeException;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.caching.CacheProvider;
 import com.amazon.opendistroforelasticsearch.ad.caching.EntityCache;
@@ -42,7 +42,7 @@ import com.amazon.opendistroforelasticsearch.ad.feature.FeatureManager;
 import com.amazon.opendistroforelasticsearch.ad.ml.ModelManager;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 
-public class ProfileTransportActionTests extends ESIntegTestCase {
+public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
     private ProfileTransportAction action;
     private String detectorId = "Pl536HEBnXkDrah03glg";
     String node1, nodeName1;

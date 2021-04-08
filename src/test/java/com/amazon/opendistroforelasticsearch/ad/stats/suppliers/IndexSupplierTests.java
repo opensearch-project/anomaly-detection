@@ -18,13 +18,13 @@ package com.amazon.opendistroforelasticsearch.ad.stats.suppliers;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.util.IndexUtils;
 
-public class IndexSupplierTests extends ESTestCase {
+public class IndexSupplierTests extends OpenSearchTestCase {
     private IndexUtils indexUtils;
     private String indexStatus;
     private String indexName;

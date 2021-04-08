@@ -24,16 +24,16 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.ADUnitTestCase;
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
@@ -63,7 +63,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
 
         ThreadContext threadContext = new ThreadContext(settings);
         threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
-        org.elasticsearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
         when(client.threadPool()).thenReturn(mockThreadPool);
         when(client.threadPool().getThreadContext()).thenReturn(threadContext);
         when(mockThreadPool.getThreadContext()).thenReturn(threadContext);

@@ -20,13 +20,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.elasticsearch.action.FailedNodeException;
-import org.elasticsearch.action.support.nodes.BaseNodesResponse;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.io.stream.StreamOutput;
-import org.elasticsearch.common.xcontent.ToXContentFragment;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.opensearch.action.FailedNodeException;
+import org.opensearch.action.support.nodes.BaseNodesResponse;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.xcontent.ToXContentFragment;
+import org.opensearch.common.xcontent.XContentBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ModelProfile;

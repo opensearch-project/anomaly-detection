@@ -20,23 +20,23 @@ import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.randomFeature
 
 import java.io.IOException;
 
-import org.elasticsearch.common.bytes.BytesReference;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
-import org.elasticsearch.test.ESTestCase;
-import org.elasticsearch.test.rest.FakeRestChannel;
-import org.elasticsearch.test.rest.FakeRestRequest;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.rest.RestChannel;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.search.fetch.subphase.FetchSourceContext;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.test.rest.FakeRestChannel;
+import org.opensearch.test.rest.FakeRestRequest;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class RestHandlerUtilsTests extends ESTestCase {
+public class RestHandlerUtilsTests extends OpenSearchTestCase {
 
     public void testGetSourceContext() {
         RestRequest request = new FakeRestRequest();

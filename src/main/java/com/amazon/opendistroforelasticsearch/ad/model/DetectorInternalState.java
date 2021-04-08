@@ -15,16 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.ad.model;
 
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.time.Instant;
 
-import org.elasticsearch.common.ParseField;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.ToXContentObject;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentParser;
+import org.opensearch.common.ParseField;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParser;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
 import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;

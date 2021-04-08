@@ -20,14 +20,14 @@ import static org.powermock.api.mockito.PowerMockito.when;
 
 import java.time.Clock;
 
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 
-public class ThrottlerTests extends ESTestCase {
+public class ThrottlerTests extends OpenSearchTestCase {
     private Throttler throttler;
 
     @Before

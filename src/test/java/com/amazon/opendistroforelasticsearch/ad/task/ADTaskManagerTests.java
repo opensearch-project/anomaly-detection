@@ -34,16 +34,16 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import org.elasticsearch.ResourceAlreadyExistsException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.ResourceAlreadyExistsException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.ADUnitTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;

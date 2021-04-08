@@ -20,12 +20,12 @@ import java.time.Duration;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.support.IndicesOptions;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.DeleteByQueryAction;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.reindex.DeleteByQueryAction;
+import org.opensearch.index.reindex.DeleteByQueryRequest;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;

@@ -26,30 +26,30 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.ElasticsearchTimeoutException;
-import org.elasticsearch.action.ActionFuture;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.ActionResponse;
-import org.elasticsearch.action.ActionType;
-import org.elasticsearch.action.LatchedActionListener;
-import org.elasticsearch.action.TaskOperationFailure;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksAction;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
-import org.elasticsearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksAction;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.tasks.TaskId;
-import org.elasticsearch.tasks.TaskInfo;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.OpenSearchException;
+import org.opensearch.OpenSearchTimeoutException;
+import org.opensearch.action.ActionFuture;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionResponse;
+import org.opensearch.action.ActionType;
+import org.opensearch.action.LatchedActionListener;
+import org.opensearch.action.TaskOperationFailure;
+import org.opensearch.action.admin.cluster.node.tasks.cancel.CancelTasksAction;
+import org.opensearch.action.admin.cluster.node.tasks.cancel.CancelTasksRequest;
+import org.opensearch.action.admin.cluster.node.tasks.cancel.CancelTasksResponse;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksAction;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
+import org.opensearch.client.Client;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskId;
+import org.opensearch.tasks.TaskInfo;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.InternalFailure;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
@@ -79,7 +79,7 @@ public class ClientUtil {
      * @param <Request> ActionRequest
      * @param <Response> ActionResponse
      * @return the response
-     * @throws ElasticsearchTimeoutException when we cannot get response within time.
+     * @throws OpenSearchTimeoutException when we cannot get response within time.
      * @throws IllegalStateException when the waiting thread is interrupted
      */
     public <Request extends ActionRequest, Response extends ActionResponse> Optional<Response> timedRequest(
@@ -105,7 +105,7 @@ public class ClientUtil {
                 );
 
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
-                throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
+                throw new OpenSearchTimeoutException("Cannot get response within time limit: " + request.toString());
             }
             return Optional.ofNullable(respReference.get());
         } catch (InterruptedException e1) {
@@ -188,7 +188,7 @@ public class ClientUtil {
      * @param detector Anomaly Detector
      * @return the response
      * @throws InternalFailure when there is already a query running
-     * @throws ElasticsearchTimeoutException when we cannot get response within time.
+     * @throws OpenSearchTimeoutException when we cannot get response within time.
      * @throws IllegalStateException when the waiting thread is interrupted
      */
     public <Request extends ActionRequest, Response extends ActionResponse> Optional<Response> throttledTimedRequest(
@@ -227,7 +227,7 @@ public class ClientUtil {
             }
 
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
-                throw new ElasticsearchTimeoutException("Cannot get response within time limit: " + request.toString());
+                throw new OpenSearchTimeoutException("Cannot get response within time limit: " + request.toString());
             }
             return Optional.ofNullable(respReference.get());
         } catch (InterruptedException e1) {
@@ -324,7 +324,7 @@ public class ClientUtil {
      */
     private void onCancelTaskResponse(CancelTasksResponse cancelTasksResponse, String detectorId, Logger LOG) {
         // todo: adding retry mechanism
-        List<ElasticsearchException> nodeFailures = cancelTasksResponse.getNodeFailures();
+        List<OpenSearchException> nodeFailures = cancelTasksResponse.getNodeFailures();
         List<TaskOperationFailure> taskFailures = cancelTasksResponse.getTaskFailures();
         if (nodeFailures.isEmpty() && taskFailures.isEmpty()) {
             LOG.info("Cancelling query for detectorId: {} succeeds. Clear entry from Throttler", detectorId);

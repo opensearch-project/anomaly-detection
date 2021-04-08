@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PREVIEW;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.List;
@@ -25,13 +25,13 @@ import java.util.Locale;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.BytesRestResponse;
-import org.elasticsearch.rest.RestHandler;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.rest.action.RestToXContentListener;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.rest.RestHandler;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.rest.action.RestToXContentListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
@@ -56,7 +56,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
     }
 
     @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, org.elasticsearch.client.node.NodeClient client) throws IOException {
+    protected RestChannelConsumer prepareRequest(RestRequest request, org.opensearch.client.node.NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }

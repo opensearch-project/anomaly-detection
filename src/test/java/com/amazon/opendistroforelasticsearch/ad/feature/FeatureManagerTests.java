@@ -56,14 +56,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.action.ActionListener;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.common.exception.EndRunException;

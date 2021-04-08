@@ -15,14 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.tasks.Task;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -54,7 +54,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;
             default:
-                listener.onFailure(new ElasticsearchStatusException("Unsupported AD task action " + adTaskAction, RestStatus.BAD_REQUEST));
+                listener.onFailure(new OpenSearchStatusException("Unsupported AD task action " + adTaskAction, RestStatus.BAD_REQUEST));
                 break;
         }
 

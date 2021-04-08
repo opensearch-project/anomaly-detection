@@ -40,14 +40,14 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.Throwables;
-import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.support.TransportActions;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.OpenSearchException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.support.TransportActions;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
@@ -299,7 +299,7 @@ public class PriorityCache implements EntityCache {
 
     private void maybeRestoreOrTrainModel(String modelId, String entityName, ModelState<EntityModel> state) {
         EntityModel entityModel = state.getModel();
-        // rate limit in case of EsRejectedExecutionException from get threadpool whose queue capacity is 1k
+        // rate limit in case of OpenSearchRejectedExecutionException from get threadpool whose queue capacity is 1k
         if (entityModel != null
             && (entityModel.getRcf() == null || entityModel.getThreshold() == null)
             && cooldownStart.plus(Duration.ofMinutes(coolDownMinutes)).isBefore(clock.instant())) {
@@ -477,7 +477,7 @@ public class PriorityCache implements EntityCache {
             });
         } catch (Exception e) {
             // will be thrown to ES's transport broadcast handler
-            throw new ElasticsearchException("Fail to maintain cache", e);
+            throw new OpenSearchException("Fail to maintain cache", e);
         }
 
     }

@@ -19,8 +19,8 @@ import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.DETECTOR_ID_
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.START_JOB;
-import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
-import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
+import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -32,19 +32,19 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortOrder;
-import org.elasticsearch.test.transport.MockTransportService;
+import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.plugins.Plugin;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.SortOrder;
+import org.opensearch.test.transport.MockTransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.mock.plugin.MockReindexPlugin;

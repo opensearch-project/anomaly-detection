@@ -32,12 +32,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.test.ESTestCase;
 import org.junit.After;
 import org.junit.Before;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -47,7 +47,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
-public class ADTaskCacheManagerTests extends ESTestCase {
+public class ADTaskCacheManagerTests extends OpenSearchTestCase {
     private MemoryTracker memoryTracker;
     private ADTaskCacheManager adTaskCacheManager;
     private ClusterService clusterService;

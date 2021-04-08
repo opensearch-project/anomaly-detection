@@ -21,12 +21,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import org.apache.http.HttpHost;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.rest.RestStatus;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestClient;
+import org.opensearch.rest.RestStatus;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;

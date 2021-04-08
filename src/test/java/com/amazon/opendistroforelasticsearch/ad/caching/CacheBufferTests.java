@@ -26,9 +26,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map.Entry;
 
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.test.OpenSearchTestCase;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.MLUtil;
 
@@ -36,7 +36,7 @@ import com.amazon.opendistroforelasticsearch.ad.MemoryTracker;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 
-public class CacheBufferTests extends ESTestCase {
+public class CacheBufferTests extends OpenSearchTestCase {
     CacheBuffer cacheBuffer;
     CheckpointDao checkpointDao;
     MemoryTracker memoryTracker;

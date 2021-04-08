@@ -19,33 +19,33 @@ import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.resolveUserAndExecute;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.DocWriteResponse;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.delete.DeleteResponse;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.DocWriteResponse;
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.delete.DeleteResponse;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.tasks.Task;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -106,8 +106,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                         // historical detector
                         detector -> adTaskManager.getLatestADTask(detectorId, adTask -> {
                             if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
-                                listener
-                                    .onFailure(new ElasticsearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                                listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
                             } else {
                                 adTaskManager.deleteADTasks(detectorId, () -> deleteDetectorStateDoc(detectorId, listener), listener);
                             }
@@ -134,7 +133,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
             } else {
                 String message = "Fail to delete anomaly detector job " + detectorId;
                 LOG.error(message);
-                listener.onFailure(new ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
@@ -212,7 +211,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob adJob = AnomalyDetectorJob.parse(parser);
                     if (adJob.isEnabled()) {
-                        listener.onFailure(new ElasticsearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));
+                        listener.onFailure(new OpenSearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));
                         return;
                     }
                 } catch (IOException e) {

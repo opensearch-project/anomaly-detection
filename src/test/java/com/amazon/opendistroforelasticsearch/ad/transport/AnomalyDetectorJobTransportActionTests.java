@@ -22,8 +22,8 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.PROFILE;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.START_JOB;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.STOP_JOB;
-import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
-import static org.elasticsearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
+import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -35,16 +35,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.lucene.uid.Versions;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.IndexNotFoundException;
-import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.After;
 import org.junit.Before;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.client.Client;
+import org.opensearch.common.lucene.uid.Versions;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
@@ -61,7 +61,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-@ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.TEST, numDataNodes = 2)
+@OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
 public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIntegTestCase {
     private Instant startTime;
     private Instant endTime;
@@ -103,8 +103,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     public void testDetectorNotFound() {
         String detectorId = randomAlphaOfLength(5);
         AnomalyDetectorJobRequest request = startDetectorJobRequest(detectorId);
-        ElasticsearchStatusException exception = expectThrows(
-            ElasticsearchStatusException.class,
+        OpenSearchStatusException exception = expectThrows(
+            OpenSearchStatusException.class,
             () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000)
         );
         assertTrue(exception.getMessage().contains("AnomalyDetector is not found"));
@@ -145,8 +145,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
         AnomalyDetectorJobRequest request = startDetectorJobRequest(detectorId);
         AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         assertNotNull(response.getId());
-        ElasticsearchStatusException exception = expectThrows(
-            ElasticsearchStatusException.class,
+        OpenSearchStatusException exception = expectThrows(
+            OpenSearchStatusException.class,
             () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000)
         );
         assertTrue(exception.getMessage().contains(DETECTOR_IS_RUNNING));
@@ -274,8 +274,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
     private void testInvalidDetector(AnomalyDetector detector, String error) throws IOException {
         String detectorId = createDetector(detector);
         AnomalyDetectorJobRequest request = startDetectorJobRequest(detectorId);
-        ElasticsearchStatusException exception = expectThrows(
-            ElasticsearchStatusException.class,
+        OpenSearchStatusException exception = expectThrows(
+            OpenSearchStatusException.class,
             () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000)
         );
         assertEquals(error, exception.getMessage());

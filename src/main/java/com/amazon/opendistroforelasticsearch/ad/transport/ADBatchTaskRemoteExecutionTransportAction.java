@@ -15,12 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.tasks.Task;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.task.ADBatchTaskRunner;
 

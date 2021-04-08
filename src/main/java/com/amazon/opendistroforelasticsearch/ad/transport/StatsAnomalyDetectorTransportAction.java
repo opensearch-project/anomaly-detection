@@ -22,22 +22,22 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.support.ActionFilters;
-import org.elasticsearch.action.support.HandledTransportAction;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.util.concurrent.ThreadContext;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
-import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.tasks.Task;
-import org.elasticsearch.transport.TransportService;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.Inject;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.tasks.Task;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
@@ -109,7 +109,7 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
         return ActionListener
             .wrap(
                 adStatsResponse -> { listener.onResponse(new StatsAnomalyDetectorResponse(adStatsResponse)); },
-                exception -> listener.onFailure(new ElasticsearchStatusException(exception.getMessage(), RestStatus.INTERNAL_SERVER_ERROR))
+                exception -> listener.onFailure(new OpenSearchStatusException(exception.getMessage(), RestStatus.INTERNAL_SERVER_ERROR))
             );
     }
 

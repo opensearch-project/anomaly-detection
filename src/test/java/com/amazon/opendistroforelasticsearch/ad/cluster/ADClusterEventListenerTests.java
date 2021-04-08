@@ -17,12 +17,12 @@ package com.amazon.opendistroforelasticsearch.ad.cluster;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
-import static org.elasticsearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
-import static org.elasticsearch.test.ClusterServiceUtils.createClusterService;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
+import static org.opensearch.test.ClusterServiceUtils.createClusterService;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,19 +30,19 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import org.elasticsearch.Version;
-import org.elasticsearch.cluster.ClusterChangedEvent;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.block.ClusterBlocks;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.node.DiscoveryNodes;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.gateway.GatewayService;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.opensearch.Version;
+import org.opensearch.cluster.ClusterChangedEvent;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlocks;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodes;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.gateway.GatewayService;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;

@@ -33,10 +33,10 @@ import java.util.Set;
 
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.WarningsHandler;
+import org.opensearch.client.Request;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestClient;
+import org.opensearch.client.WarningsHandler;
 
 import com.amazon.opendistroforelasticsearch.ad.ODFERestTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;

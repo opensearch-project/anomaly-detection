@@ -18,12 +18,12 @@ package com.amazon.opendistroforelasticsearch.ad.model;
 import java.io.IOException;
 import java.util.Locale;
 
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 
-public class AnomalyDetectorJobTests extends ESTestCase {
+public class AnomalyDetectorJobTests extends OpenSearchTestCase {
 
     public void testParseAnomalyDetectorJob() throws IOException {
         AnomalyDetectorJob anomalyDetectorJob = TestHelpers.randomAnomalyDetectorJob();

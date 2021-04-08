@@ -18,9 +18,9 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 import java.io.IOException;
 import java.util.Set;
 
-import org.elasticsearch.action.support.nodes.BaseNodeRequest;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.io.stream.StreamOutput;
+import org.opensearch.action.support.nodes.BaseNodeRequest;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfileName;
 

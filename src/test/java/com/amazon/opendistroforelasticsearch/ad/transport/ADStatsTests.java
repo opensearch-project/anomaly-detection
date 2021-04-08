@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -28,26 +28,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.elasticsearch.Version;
-import org.elasticsearch.action.FailedNodeException;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.io.stream.BytesStreamOutput;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.Version;
+import org.opensearch.action.FailedNodeException;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.Strings;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.test.OpenSearchTestCase;
 
 import test.com.amazon.opendistroforelasticsearch.ad.util.JsonDeserializer;
 
 import com.amazon.opendistroforelasticsearch.ad.common.exception.JsonPathNotFoundException;
 import com.amazon.opendistroforelasticsearch.ad.stats.StatNames;
 
-public class ADStatsTests extends ESTestCase {
+public class ADStatsTests extends OpenSearchTestCase {
     String node1, nodeName1, clusterName;
     Map<String, Object> clusterStats;
     DiscoveryNode discoveryNode1;

@@ -20,8 +20,8 @@ import java.time.Duration;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.index.query.QueryBuilders;
+import org.opensearch.action.ActionListener;
+import org.opensearch.index.query.QueryBuilders;
 
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.ml.CheckpointDao;

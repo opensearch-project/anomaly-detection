@@ -25,7 +25,7 @@ import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.DET
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.REFRESH;
-import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.List;
@@ -33,21 +33,21 @@ import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.node.NodeClient;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.ToXContent;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.index.seqno.SequenceNumbers;
-import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.BytesRestResponse;
-import org.elasticsearch.rest.RestChannel;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.RestResponse;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.rest.action.RestResponseListener;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.node.NodeClient;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.index.seqno.SequenceNumbers;
+import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.rest.RestChannel;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.rest.action.RestResponseListener;
 
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
