@@ -10,12 +10,6 @@ coverage:
           - "!cli/"
         flags:
           - plugin
-      cli:
-        target: 78%
-        paths:
-          - "cli/"
-        flags:
-          - cli
     patch: off
 comment:
   layout: "reach, diff, flags, files"
@@ -26,6 +20,4 @@ comment:
   branches: null
 flags:
   plugin:
-    carryforward: true
-  cli:
     carryforward: true
