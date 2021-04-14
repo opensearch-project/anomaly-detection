@@ -12,9 +12,9 @@ The Open Distro for Elasticsearch Anomaly Detection plugin enables you to levera
 
 Anomaly detection is using [Random Cut Forest (RCF) algorithm](https://github.com/aws/random-cut-forest-by-aws) for detecting anomalous data points.
 
-Anomaly detections run a scheduled job based on [job-scheduler](https://github.com/opendistro-for-elasticsearch/job-scheduler).
+Anomaly detections run a scheduled job based on [job-scheduler](https://github.com/opensearch-project/job-scheduler).
 
-You should use anomaly detection plugin with the same version of [Open Distro Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting). You can also create a monitor based on the anomaly detector. A scheduled monitor run checks the anomaly detection results regularly and collects anomalies to trigger alerts based on custom trigger conditions.
+You should use anomaly detection plugin with the same version of [OpenSearch Alerting plugin](https://github.com/opensearch-project/alerting). You can also create a monitor based on the anomaly detector. A scheduled monitor run checks the anomaly detection results regularly and collects anomalies to trigger alerts based on custom trigger conditions.
   
 ## Current Limitations
 * We will continuously add new unit test cases, but we don't have 100% unit test coverage for now. This is a great area for developers from the community to contribute and help improve test coverage.
@@ -82,7 +82,7 @@ The **test runner JVM** will start suspended and wait for a debugger to attach t
 
 ### Advanced: Launching multi node clusters locally
 
-Sometimes you need to launch a cluster with more than one Elasticsearch server process.
+Sometimes you need to launch a cluster with more than one OpenSearch server process.
 
 You can do this by running `./gradlew run -PnumNodes=<numberOfNodesYouWant>`
 

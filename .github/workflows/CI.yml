@@ -52,9 +52,9 @@ jobs:
 
             ## The ESRestTest Client uses http by default.
             ## Need to disable the security plugin to call the rest api over http.
-            echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro-anomaly-detection ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro-anomaly-detection; fi" >> Dockerfile
+            echo "RUN if [ -d /usr/share/opensearch/plugins/opendistro-anomaly-detection ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro-anomaly-detection; fi" >> Dockerfile
             echo "ADD anomaly-detection/build/distributions/opendistro-anomaly-detection-$plugin_version.zip /tmp/" >> Dockerfile
-            echo "RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch file:/tmp/opendistro-anomaly-detection-$plugin_version.zip" >> Dockerfile
+            echo "RUN /usr/share/opensearch/bin/elasticsearch-plugin install --batch file:/tmp/opendistro-anomaly-detection-$plugin_version.zip" >> Dockerfile
 
             docker build -t odfe-ad:test .
             echo "imagePresent=true" >> $GITHUB_ENV

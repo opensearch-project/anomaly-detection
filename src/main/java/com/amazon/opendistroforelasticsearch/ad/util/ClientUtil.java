@@ -247,7 +247,7 @@ public class ClientUtil {
 
     /**
      * Cancel long running query for given detectorId
-     * @param client Elasticsearch client
+     * @param client OpenSearch client
      * @param detectorId Anomaly Detector Id
      * @param LOG Logger
      */
