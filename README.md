@@ -82,7 +82,7 @@ The **test runner JVM** will start suspended and wait for a debugger to attach t
 
 ### Advanced: Launching multi node clusters locally
 
-Sometimes you need to launch a cluster with more than one Elasticsearch server process.
+Sometimes you need to launch a cluster with more than one OpenSearch server process.
 
 You can do this by running `./gradlew run -PnumNodes=<numberOfNodesYouWant>`
 

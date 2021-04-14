@@ -29,10 +29,10 @@ public class ExceptionUtil {
         .getExceptionName(new ResourceNotFoundException("", ""));
 
     /**
-     * Elasticsearch restricts the kind of exceptions can be thrown over the wire
+     * OpenSearch restricts the kind of exceptions can be thrown over the wire
      * (See OpenSearchException.OpenSearchExceptionHandle). Since we cannot
      * add our own exception like ResourceNotFoundException without modifying
-     * Elasticsearch's code, we have to unwrap the remote transport exception and
+     * OpenSearch's code, we have to unwrap the remote transport exception and
      * check its root cause message.
      *
      * @param exception exception thrown locally or over the wire

@@ -70,7 +70,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     /**
      * Abstract class for index operation.
      *
-     * @param client client to Elasticsearch query
+     * @param client client to OpenSearch query
      * @param settings accessor for node settings.
      * @param threadPool used to invoke specific threadpool to execute
      * @param indexName name of index to save to
@@ -184,7 +184,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                     .<IndexResponse>wrap(
                         response -> { LOG.debug(String.format(Locale.ROOT, SUCCESS_SAVING_MSG, detectorId)); },
                         exception -> {
-                            // Elasticsearch has a thread pool and a queue for write per node. A thread
+                            // OpenSearch has a thread pool and a queue for write per node. A thread
                             // pool will have N number of workers ready to handle the requests. When a
                             // request comes and if a worker is free , this is handled by the worker. Now by
                             // default the number of workers is equal to the number of cores on that CPU.
@@ -192,7 +192,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                             // will go to queue. The size of queue is also limited. If by default size is,
                             // say, 200 and if there happens more parallel requests than this, then those
                             // requests would be rejected as you can see OpenSearchRejectedExecutionException.
-                            // So OpenSearchRejectedExecutionException is the way that Elasticsearch tells us that
+                            // So OpenSearchRejectedExecutionException is the way that OpenSearch tells us that
                             // it cannot keep up with the current indexing rate.
                             // When it happens, we should pause indexing a bit before trying again, ideally
                             // with randomized exponential backoff.
