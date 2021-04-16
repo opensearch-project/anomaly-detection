@@ -46,7 +46,7 @@ Looking at the existing issues is a great way to find something to contribute on
 
 ## Code of Conduct
 
-This project has adopted an [Open Source Code of Conduct](https://opendistro.github.io/for-elasticsearch/codeofconduct.html).
+Please refer to [Code of Conduct](https://github.com/opensearch-project/anomaly-detection/blob/main/CODE_OF_CONDUCT.md) on this repository.
 
 
 ## Security issue notifications
