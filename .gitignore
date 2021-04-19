@@ -9,3 +9,5 @@ offline-repo.zip
 *.log
 out/
 *.iml
+.project
+.settings
