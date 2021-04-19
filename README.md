@@ -91,23 +91,20 @@ But, you must set up debugger configurations to listen on each port starting fro
 
 ## Interested in contributing to the Anomaly Detection plugin
 
-We welcome you to get involved in development, documentation, testing the anomaly detection plugin. See our [contribution guidelines](https://github.com/opendistro-for-elasticsearch/anomaly-detection/blob/master/CONTRIBUTING.md) and join in.
+We welcome you to get involved in development, documentation, testing the anomaly detection plugin. See our [contribution guidelines](CONTRIBUTING.md) and join in.
 
 ## Code of Conduct
 
-This project has adopted an [Open Source Code of Conduct](https://opendistro.github.io/for-elasticsearch/codeofconduct.html).
-
+This project has adopted an [Open Source Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Security issue notifications
 
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public GitHub issue.
 
-
 ## Licensing
 
-See the [LICENSE](./LICENSE.txt) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
-
+See the [LICENSE](LICENSE.txt) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
 
 ## Copyright
 
-Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2021 OpenSearch Contributors
