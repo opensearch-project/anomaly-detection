@@ -27,27 +27,23 @@
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 
+
 buildscript {
     ext {
-        opensearch_group = "org.opensearch"
-        opensearch_version = '7.10.3'
+        opensearch_group = "com.github.vrozov.OpenSearch"
+        opensearch_version = 'beea913193'
     }
 
     repositories {
         mavenCentral()
+        maven { url 'https://jitpack.io' }
         maven { url "https://plugins.gradle.org/m2/" }
-        maven {
-            url = 's3://search-vemsarat/'
-            credentials(AwsCredentials) {
-                accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
-                secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
-            }
-        }
         jcenter()
+        
     }
 
     dependencies {
-        classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}-SNAPSHOT"
+        classpath "${opensearch_group}:build-tools:${opensearch_version}"
     }
 }
 
@@ -60,14 +56,8 @@ plugins {
 
 repositories {
     mavenCentral()
+    maven { url 'https://jitpack.io' }
     maven { url "https://plugins.gradle.org/m2/" }
-    maven {
-        url = 's3://search-vemsarat/'
-        credentials(AwsCredentials) {
-            accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
-            secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
-        }
-    }
     jcenter()
 }
 
@@ -376,6 +366,10 @@ checkstyle {
 }
 
 dependencies {
+    implementation 'com.github.vrozov:OpenSearch:beea913193'
+    implementation 'com.github.dblock:common-utils:7e71a32e07'
+    implementation 'com.github.dblock:job-scheduler:79235210b7'
+    
     compile "org.opensearch:opensearch:${opensearch_version}-SNAPSHOT"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:${opendistroVersion}.0-SNAPSHOT"
