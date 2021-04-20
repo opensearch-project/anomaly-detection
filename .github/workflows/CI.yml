@@ -37,8 +37,7 @@ jobs:
       - name: Checkout common-utils
         uses: actions/checkout@v2
         with:
-          repository: 'dblock/common-utils'
-          ref: 'build-local'
+          repository: 'opensearch-project/common-utils'
           path: common-utils
       - name: Build common-utils
         working-directory: ./common-utils
@@ -48,8 +47,7 @@ jobs:
       - name: Checkout job-scheduler
         uses: actions/checkout@v2
         with:
-          repository: 'dblock/job-scheduler'
-          ref: 'build-local'
+          repository: 'opensearch-project/job-scheduler'
           path: job-scheduler
       - name: Build job-scheduler
         working-directory: ./job-scheduler
@@ -57,12 +55,16 @@ jobs:
 
       # anomaly-detection
       - name: Checkout AD
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
 
       - name: Run test
         run: |
           ./gradlew test
-          
+
+      - name: Publish to Maven Local
+        run: |
+          ./gradlew publishToMavenLocal
+
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:
