@@ -37,6 +37,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
@@ -184,6 +185,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, true));
     }
 
+    @Ignore
     public void testMultipleTasks() throws IOException, InterruptedException {
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 2));
 
