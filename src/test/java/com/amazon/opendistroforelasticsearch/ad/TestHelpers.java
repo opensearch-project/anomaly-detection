@@ -142,11 +142,14 @@ import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorInternalState;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorValidationIssue;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectorValidationIssueType;
 import com.amazon.opendistroforelasticsearch.ad.model.Entity;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.amazon.opendistroforelasticsearch.ad.model.FeatureData;
 import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
 import com.amazon.opendistroforelasticsearch.ad.model.TimeConfiguration;
+import com.amazon.opendistroforelasticsearch.ad.model.ValidationAspect;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
 import com.google.common.collect.ImmutableList;
@@ -303,6 +306,43 @@ public class TestHelpers {
             randomQuery(),
             new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
             randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
+            uiMetadata,
+            randomInt(),
+            lastUpdateTime,
+            null,
+            user,
+            detectorType,
+            dateRange
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(
+        String detectorName,
+        List<String> indices,
+        String timeField,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        Map<String, Object> uiMetadata,
+        Instant lastUpdateTime,
+        String detectorType,
+        long detectionIntervalInMinutes,
+        long windowDelayInMinutes,
+        DetectionDateRange dateRange,
+        boolean withUser
+    ) throws IOException {
+        User user = withUser ? randomUser() : null;
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            detectorName,
+            randomAlphaOfLength(30),
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
+            new IntervalTimeConfiguration(windowDelayInMinutes, ChronoUnit.MINUTES),
             randomIntBetween(1, 2000),
             uiMetadata,
             randomInt(),
@@ -1003,5 +1043,16 @@ public class TestHelpers {
             }
         }
         return adStats;
+    }
+
+    public static DetectorValidationIssue randomDetectorValidationIssue() {
+        DetectorValidationIssue issue = new DetectorValidationIssue(
+            ValidationAspect.DETECTOR,
+            DetectorValidationIssueType.NAME,
+            randomAlphaOfLength(5),
+            null,
+            null
+        );
+        return issue;
     }
 }

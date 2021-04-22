@@ -102,14 +102,10 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         String detectorId = request.getDetectorID();
         LOG.info("Delete anomaly detector job {}", detectorId);
         User user = getUserContext(client);
-        // By the time request reaches here, the user permissions are validated by Security plugin.
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
-                user,
-                detectorId,
-                filterByEnabled,
-                listener,
-                () -> adTaskManager
+
+        resolveUserAndExecute(user, detectorId, filterByEnabled, listener, () -> {
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                adTaskManager
                     .getDetector(
                         detectorId,
                         // realtime detector
@@ -123,15 +119,13 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                             }
                         }, transportService, listener),
                         listener
-                    ),
-                client,
-                clusterService,
-                xContentRegistry
-            );
-        } catch (Exception e) {
-            LOG.error(e);
-            listener.onFailure(e);
-        }
+                    );
+
+            } catch (Exception e) {
+                LOG.error(e);
+                listener.onFailure(e);
+            }
+        }, client, clusterService, xContentRegistry, null, true, false);
     }
 
     private void deleteAnomalyDetectorJobDoc(String detectorId, ActionListener<DeleteResponse> listener) {

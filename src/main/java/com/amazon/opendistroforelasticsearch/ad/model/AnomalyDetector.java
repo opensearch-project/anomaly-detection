@@ -56,6 +56,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 
 import com.amazon.opendistroforelasticsearch.ad.annotation.Generated;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.ADValidationException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonValue;
@@ -84,15 +85,15 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
 
-    private static final String NAME_FIELD = "name";
+    public static final String NAME_FIELD = "name";
     private static final String DESCRIPTION_FIELD = "description";
-    private static final String TIMEFIELD_FIELD = "time_field";
-    private static final String INDICES_FIELD = "indices";
-    private static final String FILTER_QUERY_FIELD = "filter_query";
-    private static final String FEATURE_ATTRIBUTES_FIELD = "feature_attributes";
-    private static final String DETECTION_INTERVAL_FIELD = "detection_interval";
-    private static final String WINDOW_DELAY_FIELD = "window_delay";
-    private static final String SHINGLE_SIZE_FIELD = "shingle_size";
+    public static final String TIMEFIELD_FIELD = "time_field";
+    public static final String INDICES_FIELD = "indices";
+    public static final String FILTER_QUERY_FIELD = "filter_query";
+    public static final String FEATURE_ATTRIBUTES_FIELD = "feature_attributes";
+    public static final String DETECTION_INTERVAL_FIELD = "detection_interval";
+    public static final String WINDOW_DELAY_FIELD = "window_delay";
+    public static final String SHINGLE_SIZE_FIELD = "shingle_size";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
     public static final String CATEGORY_FIELD = "category_field";
@@ -200,25 +201,45 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         DetectionDateRange detectionDateRange
     ) {
         if (Strings.isBlank(name)) {
-            throw new IllegalArgumentException("Detector name should be set");
+            throw new ADValidationException("Detector name should be set", DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
         }
         if (timeField == null) {
-            throw new IllegalArgumentException("Time field should be set");
+            throw new ADValidationException(
+                "Time field should be set",
+                DetectorValidationIssueType.TIMEFIELD_FIELD,
+                ValidationAspect.DETECTOR
+            );
         }
         if (indices == null || indices.isEmpty()) {
-            throw new IllegalArgumentException("Indices should be set");
+            throw new ADValidationException("Indices should be set", DetectorValidationIssueType.INDICES, ValidationAspect.DETECTOR);
         }
         if (detectionInterval == null) {
-            throw new IllegalArgumentException("Detection interval should be set");
+            throw new ADValidationException(
+                "Detection interval should be set",
+                DetectorValidationIssueType.DETECTION_INTERVAL,
+                ValidationAspect.DETECTOR
+            );
         }
         if (shingleSize != null && shingleSize < 1) {
-            throw new IllegalArgumentException("Shingle size must be a positive integer");
+            throw new ADValidationException(
+                "Shingle size must be a positive integer",
+                DetectorValidationIssueType.SHINGLE_SIZE_FIELD,
+                ValidationAspect.DETECTOR
+            );
         }
         if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
-            throw new IllegalArgumentException(CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT);
+            throw new ADValidationException(
+                CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT,
+                DetectorValidationIssueType.CATEGORY,
+                ValidationAspect.DETECTOR
+            );
         }
         if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
-            throw new IllegalArgumentException("Detection interval must be a positive integer");
+            throw new ADValidationException(
+                "Detection interval must be a positive integer",
+                DetectorValidationIssueType.DETECTION_INTERVAL,
+                ValidationAspect.DETECTOR
+            );
         }
         this.detectorId = detectorId;
         this.version = version;

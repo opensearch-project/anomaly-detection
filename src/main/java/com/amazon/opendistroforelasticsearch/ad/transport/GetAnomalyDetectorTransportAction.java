@@ -138,21 +138,16 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
         String detectorID = request.getDetectorID();
         User user = getUserContext(client);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
-                user,
-                detectorID,
-                filterByEnabled,
-                listener,
-                () -> getExecute(request, listener),
-                client,
-                clusterService,
-                xContentRegistry
-            );
-        } catch (Exception e) {
-            LOG.error(e);
-            listener.onFailure(e);
-        }
+
+        resolveUserAndExecute(user, detectorID, filterByEnabled, listener, () -> {
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                getExecute(request, listener);
+
+            } catch (Exception e) {
+                LOG.error(e);
+                listener.onFailure(e);
+            }
+        }, client, clusterService, xContentRegistry, null, true, false);
     }
 
     protected void getExecute(GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {

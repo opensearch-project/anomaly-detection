@@ -39,6 +39,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 
 import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.ADValidationException;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -180,7 +181,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"shingle_size\":-1,\"schema_version\":-1203962153,\"ui_metadata\":"
             + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(IllegalArgumentException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithNullUiMetadata() throws IOException {
@@ -201,7 +202,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testInvalidShingleSize() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -226,7 +227,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -251,7 +252,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testBlankDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -276,7 +277,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullTimeField() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -301,7 +302,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -326,7 +327,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testEmptyIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -351,7 +352,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectionInterval() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -374,8 +375,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
     }
 
     public void testInvalidDetectionInterval() {
-        IllegalArgumentException exception = expectThrows(
-            IllegalArgumentException.class,
+        ADValidationException exception = expectThrows(
+            ADValidationException.class,
             () -> new AnomalyDetector(
                 randomAlphaOfLength(10),
                 randomLong(),

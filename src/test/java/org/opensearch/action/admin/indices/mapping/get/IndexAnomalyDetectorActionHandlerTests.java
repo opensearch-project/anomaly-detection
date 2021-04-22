@@ -26,7 +26,6 @@
 
 package org.opensearch.action.admin.indices.mapping.get;
 
-import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
@@ -39,42 +38,25 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
 
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
-import org.opensearch.action.ActionType;
-import org.opensearch.action.get.GetAction;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.action.support.WriteRequest;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.threadpool.TestThreadPool;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
 
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
+import com.amazon.opendistroforelasticsearch.ad.common.exception.ADValidationException;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
-import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
 
 /**
@@ -84,95 +66,12 @@ import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorRe
  * package private
  *
  */
-public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
-    static ThreadPool threadPool;
-    private String TEXT_FIELD_TYPE = "text";
-    private IndexAnomalyDetectorActionHandler handler;
-    private ClusterService clusterService;
-    private NodeClient clientMock;
-    private TransportService transportService;
-    private ActionListener<IndexAnomalyDetectorResponse> channel;
-    private AnomalyDetectionIndices anomalyDetectionIndices;
-    private String detectorId;
-    private Long seqNo;
-    private Long primaryTerm;
-    private AnomalyDetector detector;
-    private WriteRequest.RefreshPolicy refreshPolicy;
-    private TimeValue requestTimeout;
-    private Integer maxSingleEntityAnomalyDetectors;
-    private Integer maxMultiEntityAnomalyDetectors;
-    private Integer maxAnomalyFeatures;
-    private Settings settings;
-    private RestRequest.Method method;
-    private ADTaskManager adTaskManager;
+public class IndexAnomalyDetectorActionHandlerTests extends AnomalyDetectorActionHandlerTestsBase<IndexAnomalyDetectorResponse> {
 
-    /**
-     * Mockito does not allow mock final methods.  Make my own delegates and mock them.
-     *
-     */
-    class NodeClientDelegate extends NodeClient {
-
-        NodeClientDelegate(Settings settings, ThreadPool threadPool) {
-            super(settings, threadPool);
-        }
-
-        public <Request extends ActionRequest, Response extends ActionResponse> void execute2(
-            ActionType<Response> action,
-            Request request,
-            ActionListener<Response> listener
-        ) {
-            super.execute(action, request, listener);
-        }
-
-    }
-
-    @BeforeClass
-    public static void beforeClass() {
-        threadPool = new TestThreadPool("IndexAnomalyDetectorJobActionHandlerTests");
-    }
-
-    @AfterClass
-    public static void afterClass() {
-        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
-        threadPool = null;
-    }
-
-    @SuppressWarnings("unchecked")
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
-
-        settings = Settings.EMPTY;
-        clusterService = mock(ClusterService.class);
-        clientMock = spy(new NodeClient(settings, null));
-        transportService = mock(TransportService.class);
-
-        channel = mock(ActionListener.class);
-
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
-        when(anomalyDetectionIndices.doesAnomalyDetectorIndexExist()).thenReturn(true);
-
-        detectorId = "123";
-        seqNo = 0L;
-        primaryTerm = 0L;
-
-        WriteRequest.RefreshPolicy refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE;
-
-        String field = "a";
-        detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
-
-        requestTimeout = new TimeValue(1000L);
-
-        maxSingleEntityAnomalyDetectors = 1000;
-
-        maxMultiEntityAnomalyDetectors = 10;
-
-        maxAnomalyFeatures = 5;
-
-        method = RestRequest.Method.POST;
-
-        adTaskManager = mock(ADTaskManager.class);
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
@@ -192,13 +91,14 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
     }
 
     public void testTwoCategoricalFields() throws IOException {
         expectThrows(
-            IllegalArgumentException.class,
+            ADValidationException.class,
             () -> TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a", "b"))
         );
     }
@@ -240,7 +140,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();
@@ -261,30 +162,21 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         int totalHits = 9;
         when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
+        SearchResponse duplicateDetectorNameResponse = mock(SearchResponse.class);
+        when(duplicateDetectorNameResponse.getHits()).thenReturn(TestHelpers.createSearchHits(0));
+
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
-            @Override
-            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-                ActionType<Response> action,
-                Request request,
-                ActionListener<Response> listener
-            ) {
-                try {
-                    if (action.equals(SearchAction.INSTANCE)) {
-                        listener.onResponse((Response) detectorResponse);
-                    } else {
-                        // we need to put the test in the same package of GetFieldMappingsResponse since its constructor is package private
-                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, TEXT_FIELD_TYPE)
-                        );
-                        listener.onResponse((Response) response);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
+        NodeClient client = getMockClient(
+            detectorResponse,
+            duplicateDetectorNameResponse,
+            null,
+            false,
+            false,
+            null,
+            field,
+            TEXT_FIELD_TYPE
+        );
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
@@ -304,7 +196,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -326,40 +219,25 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         int totalHits = 9;
         when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
+        SearchResponse duplicateDetectorNameResponse = mock(SearchResponse.class);
+        when(duplicateDetectorNameResponse.getHits()).thenReturn(TestHelpers.createSearchHits(0));
+
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
         when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
-            @Override
-            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-                ActionType<Response> action,
-                Request request,
-                ActionListener<Response> listener
-            ) {
-                try {
-                    if (action.equals(SearchAction.INSTANCE)) {
-                        assertTrue(request instanceof SearchRequest);
-                        SearchRequest searchRequest = (SearchRequest) request;
-                        if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
-                            listener.onResponse((Response) detectorResponse);
-                        } else {
-                            listener.onResponse((Response) userIndexResponse);
-                        }
-                    } else {
-
-                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, filedTypeName)
-                        );
-                        listener.onResponse((Response) response);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
+        NodeClient client = getMockClient(
+            detectorResponse,
+            duplicateDetectorNameResponse,
+            userIndexResponse,
+            false,
+            false,
+            null,
+            field,
+            filedTypeName
+        );
 
         NodeClient clientSpy = spy(client);
 
@@ -381,7 +259,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -391,7 +270,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
-        assertTrue(value instanceof IllegalArgumentException);
+        assertTrue(value instanceof ADValidationException);
         assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG));
     }
 
@@ -412,6 +291,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         int totalHits = 9;
         when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
+        SearchResponse duplicateDetectorNameResponse = mock(SearchResponse.class);
+        when(duplicateDetectorNameResponse.getHits()).thenReturn(TestHelpers.createSearchHits(0));
+
         GetResponse getDetectorResponse = TestHelpers
             .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
 
@@ -421,36 +303,16 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
-            @Override
-            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-                ActionType<Response> action,
-                Request request,
-                ActionListener<Response> listener
-            ) {
-                try {
-                    if (action.equals(SearchAction.INSTANCE)) {
-                        assertTrue(request instanceof SearchRequest);
-                        SearchRequest searchRequest = (SearchRequest) request;
-                        if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
-                            listener.onResponse((Response) detectorResponse);
-                        } else {
-                            listener.onResponse((Response) userIndexResponse);
-                        }
-                    } else if (action.equals(GetAction.INSTANCE)) {
-                        assertTrue(request instanceof GetRequest);
-                        listener.onResponse((Response) getDetectorResponse);
-                    } else {
-                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, fieldTypeName)
-                        );
-                        listener.onResponse((Response) response);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
+        NodeClient client = getMockClient(
+            detectorResponse,
+            duplicateDetectorNameResponse,
+            userIndexResponse,
+            false,
+            false,
+            getDetectorResponse,
+            field,
+            fieldTypeName
+        );
 
         NodeClient clientSpy = spy(client);
         ClusterName clusterName = new ClusterName("test");
@@ -475,7 +337,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -597,7 +460,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();
@@ -671,7 +535,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();

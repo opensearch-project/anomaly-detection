@@ -31,6 +31,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.opensearch.action.search.SearchPhaseExecutionException;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -41,6 +43,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
@@ -68,6 +71,7 @@ public final class RestHandlerUtils {
     public static final String START_JOB = "_start";
     public static final String STOP_JOB = "_stop";
     public static final String PROFILE = "_profile";
+    public static final String VALIDATE = "_validate";
     public static final String TYPE = "type";
     public static final String ENTITY = "entity";
     public static final String COUNT = "count";
@@ -105,18 +109,24 @@ public final class RestHandlerUtils {
         return XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON);
     }
 
-    public static String validateAnomalyDetector(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {
+    /**
+     * Check if there is configuration/syntax error in feature definition of anomalyDetector
+     * @param anomalyDetector detector to check
+     * @param maxAnomalyFeatures max allowed feature number
+     * @return error message if error exists; otherwise, null is returned
+     */
+    public static String checkAnomalyDetectorFeaturesSyntax(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {
         List<Feature> features = anomalyDetector.getFeatureAttributes();
         if (features != null) {
             if (features.size() > maxAnomalyFeatures) {
                 return "Can't create anomaly features more than " + maxAnomalyFeatures;
             }
-            return validateFeatures(anomalyDetector.getFeatureAttributes());
+            return validateFeaturesConfig(anomalyDetector.getFeatureAttributes());
         }
         return null;
     }
 
-    private static String validateFeatures(List<Feature> features) {
+    private static String validateFeaturesConfig(List<Feature> features) {
         final Set<String> duplicateFeatureNames = new HashSet<>();
         final Set<String> featureNames = new HashSet<>();
         final Set<String> duplicateFeatureAggNames = new HashSet<>();
@@ -141,5 +151,20 @@ public final class RestHandlerUtils {
             errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
         }
         return errorMsgBuilder.toString();
+    }
+
+    public static boolean isExceptionCausedByInvalidQuery(Exception ex) {
+        if (!(ex instanceof SearchPhaseExecutionException)) {
+            return false;
+        }
+        SearchPhaseExecutionException exception = (SearchPhaseExecutionException) ex;
+        // If all shards return bad request and failure cause is IllegalArgumentException, we
+        // consider the feature query is invalid and will not count the error in failure stats.
+        for (ShardSearchFailure failure : exception.shardFailures()) {
+            if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

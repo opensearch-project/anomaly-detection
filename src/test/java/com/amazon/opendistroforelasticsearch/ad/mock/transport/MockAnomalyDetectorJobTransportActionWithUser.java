@@ -100,21 +100,16 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         String userStr = "user_name|backendrole1,backendrole2|roles1,role2";
         // By the time request reaches here, the user permissions are validated by Security plugin.
         User user = User.parse(userStr);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
-                user,
-                detectorId,
-                filterByEnabled,
-                listener,
-                () -> executeDetector(listener, detectorId, seqNo, primaryTerm, rawPath, requestTimeout, user),
-                client,
-                clusterService,
-                xContentRegistry
-            );
-        } catch (Exception e) {
-            logger.error(e);
-            listener.onFailure(e);
-        }
+
+        resolveUserAndExecute(user, detectorId, filterByEnabled, listener, () -> {
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                executeDetector(listener, detectorId, seqNo, primaryTerm, rawPath, requestTimeout, user);
+
+            } catch (Exception e) {
+                logger.error(e);
+                listener.onFailure(e);
+            }
+        }, client, clusterService, xContentRegistry, null, true, true);
     }
 
     private void executeDetector(

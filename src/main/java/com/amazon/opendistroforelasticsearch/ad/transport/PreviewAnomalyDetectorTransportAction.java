@@ -98,22 +98,30 @@ public class PreviewAnomalyDetectorTransportAction extends
     @Override
     protected void doExecute(Task task, PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
         String detectorId = request.getDetectorId();
+        AnomalyDetector anomalyDetector = request.getDetector();
         User user = getUserContext(client);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
-                user,
-                detectorId,
-                filterByEnabled,
-                listener,
-                () -> previewExecute(request, listener),
-                client,
-                clusterService,
-                xContentRegistry
-            );
-        } catch (Exception e) {
-            logger.error(e);
-            listener.onFailure(e);
-        }
+
+        resolveUserAndExecute(user, detectorId, filterByEnabled, listener, () -> {
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                previewExecute(request, listener);
+
+            } catch (Exception e) {
+                logger.error(e);
+                listener.onFailure(e);
+            }
+        },
+            client,
+            clusterService,
+            xContentRegistry,
+            anomalyDetector,
+            // need to check against existing detector only when detectorId exists
+            // if detectorId is blank, it means there is no existing detector
+            StringUtils.isNotBlank(detectorId),
+            // need to check against indices of existing detector only when anomalyDetector is null,
+            // since indices of anomalyDetector from request are always prioritized.
+            // If anomalyDetector is null, we will check against indices of existing detector
+            StringUtils.isNotBlank(detectorId) && anomalyDetector == null
+        );
     }
 
     void previewExecute(PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
@@ -142,7 +150,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         if (detector.getFeatureAttributes().isEmpty()) {
             return "Can't preview detector without feature";
         } else {
-            return RestHandlerUtils.validateAnomalyDetector(detector, maxAnomalyFeatures);
+            return RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, maxAnomalyFeatures);
         }
     }
 

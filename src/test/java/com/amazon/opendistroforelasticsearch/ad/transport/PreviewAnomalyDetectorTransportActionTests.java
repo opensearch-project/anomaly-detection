@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -47,11 +48,15 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.OpenSearchSecurityException;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.client.Client;
@@ -279,10 +284,9 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             runner,
             xContentRegistry()
         );
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
-            detector,
-            detector.getDetectorId(),
+            null,
+            AnomalyDetector.NO_ID,
             Instant.now(),
             Instant.now()
         );
@@ -304,7 +308,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
 
     @SuppressWarnings("unchecked")
     @Test
-    public void testPreviewTransportActionWithDetector() throws IOException, InterruptedException {
+    public void testPreviewTransportActionWithExistingDetector() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         CreateIndexResponse createResponse = TestHelpers
             .createIndex(client().admin(), AnomalyDetector.ANOMALY_DETECTORS_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
@@ -355,6 +359,61 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             return null;
         }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
         action.doExecute(task, request, previewResponse);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testPreviewTransportActionWithoutAccessToNewDetectorIndices() throws IOException, InterruptedException {
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        Client client = mock(Client.class);
+        ThreadContext threadContext = new ThreadContext(settings);
+        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
+        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
+        when(client.threadPool()).thenReturn(mockThreadPool);
+        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            SearchRequest request = (SearchRequest) args[0];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            listener.onFailure(new OpenSearchSecurityException("test"));
+            return null;
+        }).when(client).search(any(), any());
+
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now());
+
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
+            detector,
+            null,
+            Instant.now().minus(1, ChronoUnit.DAYS),
+            Instant.now()
+        );
+        PreviewAnomalyDetectorTransportAction previewAction = new PreviewAnomalyDetectorTransportAction(
+            settings,
+            mock(TransportService.class),
+            clusterService,
+            mock(ActionFilters.class),
+            client,
+            runner,
+            xContentRegistry()
+        );
+        ActionListener<PreviewAnomalyDetectorResponse> previewResponseListener = new ActionListener<PreviewAnomalyDetectorResponse>() {
+            @Override
+            public void onResponse(PreviewAnomalyDetectorResponse response) {
+                Assert.assertTrue(false);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Assert.assertTrue(e.getClass() == OpenSearchStatusException.class);
+                OpenSearchStatusException exceptionCaught = (OpenSearchStatusException) e;
+                Assert.assertEquals(RestStatus.FORBIDDEN, exceptionCaught.status());
+                inProgressLatch.countDown();
+            }
+        };
+        previewAction.doExecute(task, request, previewResponseListener);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 }

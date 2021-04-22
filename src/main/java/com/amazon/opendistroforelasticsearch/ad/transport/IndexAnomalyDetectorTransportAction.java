@@ -27,17 +27,12 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.checkFilterByBackendRoles;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getDetector;
-import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
 
 import java.io.IOException;
-import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
@@ -48,18 +43,17 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.feature.SearchFeatureDao;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
+import com.amazon.opendistroforelasticsearch.ad.util.ParseUtils;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
@@ -71,6 +65,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private final NamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
+    private final SearchFeatureDao searchFeatureDao;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -81,7 +76,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        SearchFeatureDao searchFeatureDao
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
@@ -90,56 +86,35 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
         this.adTaskManager = adTaskManager;
+        this.searchFeatureDao = searchFeatureDao;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
     @Override
     protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> listener) {
-        User user = getUserContext(client);
+        User user = ParseUtils.getUserContext(client);
         String detectorId = request.getDetectorID();
+        AnomalyDetector anomalyDetector = request.getDetector();
         RestRequest.Method method = request.getMethod();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, detectorId, method, listener, () -> adExecute(request, user, listener));
-        } catch (Exception e) {
-            LOG.error(e);
-            listener.onFailure(e);
-        }
-    }
 
-    private void resolveUserAndExecute(
-        User requestedUser,
-        String detectorId,
-        RestRequest.Method method,
-        ActionListener<IndexAnomalyDetectorResponse> listener,
-        AnomalyDetectorFunction function
-    ) {
-        if (requestedUser == null) {
-            // Security is disabled or user is superadmin
-            function.execute();
-        } else if (!filterByEnabled) {
-            // security is enabled and filterby is disabled.
-            function.execute();
-        } else {
-            // security is enabled and filterby is enabled.
-            try {
-                // Check if user has backend roles
-                // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
-                if (!checkFilterByBackendRoles(requestedUser, listener)) {
-                    return;
-                }
-                if (method == RestRequest.Method.PUT) {
-                    // Update detector request, check if user has permissions to update the detector
-                    // Get detector and verify backend roles
-                    getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
-                } else {
-                    // Create Detector
-                    function.execute();
-                }
+        ParseUtils.resolveUserAndExecute(user, detectorId, filterByEnabled, listener, () -> {
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                adExecute(request, user, listener);
+
             } catch (Exception e) {
+                LOG.error(e);
                 listener.onFailure(e);
             }
-        }
+        },
+            client,
+            clusterService,
+            xContentRegistry,
+            anomalyDetector,
+            // only need to check against existing detector when PUT
+            method == RestRequest.Method.PUT,
+            false
+        );
     }
 
     protected void adExecute(IndexAnomalyDetectorRequest request, User user, ActionListener<IndexAnomalyDetectorResponse> listener) {
@@ -155,55 +130,38 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
-        checkIndicesAndExecute(detector.getIndices(), () -> {
+        try {
+            IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
+                clusterService,
+                client,
+                transportService,
+                listener,
+                anomalyDetectionIndices,
+                detectorId,
+                seqNo,
+                primaryTerm,
+                refreshPolicy,
+                detector,
+                requestTimeout,
+                maxSingleEntityAnomalyDetectors,
+                maxMultiEntityAnomalyDetectors,
+                maxAnomalyFeatures,
+                method,
+                xContentRegistry,
+                user,
+                adTaskManager,
+                searchFeatureDao
+            );
             try {
-                IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
-                    clusterService,
-                    client,
-                    transportService,
-                    listener,
-                    anomalyDetectionIndices,
-                    detectorId,
-                    seqNo,
-                    primaryTerm,
-                    refreshPolicy,
-                    detector,
-                    requestTimeout,
-                    maxSingleEntityAnomalyDetectors,
-                    maxMultiEntityAnomalyDetectors,
-                    maxAnomalyFeatures,
-                    method,
-                    xContentRegistry,
-                    user,
-                    adTaskManager
-                );
-                try {
-                    indexAnomalyDetectorActionHandler.start();
-                } catch (IOException exception) {
-                    LOG.error("Fail to index detector", exception);
-                    listener.onFailure(exception);
-                }
-            } catch (Exception e) {
-                LOG.error(e);
-                listener.onFailure(e);
+                indexAnomalyDetectorActionHandler.start();
+            } catch (IOException exception) {
+                LOG.error("Fail to index detector", exception);
+                listener.onFailure(exception);
             }
-
-        }, listener);
-    }
-
-    private void checkIndicesAndExecute(
-        List<String> indices,
-        AnomalyDetectorFunction function,
-        ActionListener<IndexAnomalyDetectorResponse> listener
-    ) {
-        SearchRequest searchRequest = new SearchRequest()
-            .indices(indices.toArray(new String[0]))
-            .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
-        client.search(searchRequest, ActionListener.wrap(r -> { function.execute(); }, e -> {
-            // Due to below issue with security plugin, we get security_exception when invalid index name is mentioned.
-            // https://github.com/opendistro-for-elasticsearch/security/issues/718
+        } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
-        }));
+        }
     }
+
 }

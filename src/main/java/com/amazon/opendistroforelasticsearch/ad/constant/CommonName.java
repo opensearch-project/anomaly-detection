@@ -107,4 +107,10 @@ public class CommonName {
     public static final String DATE_HISTOGRAM = "date_histogram";
     // feature aggregation name
     public static final String FEATURE_AGGS = "feature_aggs";
+
+    // ======================================
+    // Validation
+    // ======================================
+    // detector validation aspect
+    public static final String DETECTOR = "detector";
 }

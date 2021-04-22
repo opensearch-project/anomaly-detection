@@ -27,6 +27,7 @@
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.INVALID_SEARCH_QUERY_MSG;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -51,7 +52,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchPhaseExecutionException;
-import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
@@ -70,7 +70,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.ActionNotFoundTransportException;
@@ -620,7 +619,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             listener.onFailure(ex);
         } else if (ex instanceof AnomalyDetectionException) {
             listener.onFailure(new InternalFailure((AnomalyDetectionException) ex));
-        } else if (ex instanceof SearchPhaseExecutionException && invalidQuery((SearchPhaseExecutionException) ex)) {
+        } else if (isExceptionCausedByInvalidQuery(ex)) {
             // This is to catch invalid aggregation on wrong field type. For example,
             // sum aggregation on text field. We should end detector run for such case.
             listener
@@ -636,17 +635,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             Throwable cause = ExceptionsHelper.unwrapCause(ex);
             listener.onFailure(new InternalFailure(adID, cause));
         }
-    }
-
-    private boolean invalidQuery(SearchPhaseExecutionException ex) {
-        // If all shards return bad request and failure cause is IllegalArgumentException, we
-        // consider the feature query is invalid and will not count the error in failure stats.
-        for (ShardSearchFailure failure : ex.shardFailures()) {
-            if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     class RCFActionListener implements ActionListener<RCFResultResponse> {

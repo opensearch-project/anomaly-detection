@@ -51,6 +51,7 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
+import com.amazon.opendistroforelasticsearch.ad.feature.SearchFeatureDao;
 import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings;
@@ -65,6 +66,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private ClusterService clusterService;
     private ClusterSettings clusterSettings;
     private ADTaskManager adTaskManager;
+    private SearchFeatureDao searchFeatureDao;
 
     @Override
     @Before
@@ -78,6 +80,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         adTaskManager = mock(ADTaskManager.class);
+        searchFeatureDao = mock(SearchFeatureDao.class);
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
@@ -86,7 +89,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
         task = mock(Task.class);
         request = new IndexAnomalyDetectorRequest(
@@ -139,7 +143,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             settings,
             mock(AnomalyDetectionIndices.class),
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
         transportAction.doExecute(task, request, response);
     }
@@ -163,7 +168,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             settings,
             mock(AnomalyDetectionIndices.class),
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
         transportAction.doExecute(task, request, response);
     }
