@@ -29,9 +29,10 @@ jobs:
         with:
           repository: 'opensearch-project/OpenSearch'
           path: OpenSearch
+          ref: '1.0.0-alpha1'
       - name: Build OpenSearch
         working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal
+        run: ./gradlew publishToMavenLocal -Dbuild.version_qualifier=alpha1 -Dbuild.snapshot=false
 
       # dependencies: common-utils
       - name: Checkout common-utils
@@ -41,7 +42,7 @@ jobs:
           path: common-utils
       - name: Build common-utils
         working-directory: ./common-utils
-        run: ./gradlew publishToMavenLocal
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-alpha1
 
       # dependencies: job-scheduler
       - name: Checkout job-scheduler
@@ -51,19 +52,23 @@ jobs:
           path: job-scheduler
       - name: Build job-scheduler
         working-directory: ./job-scheduler
-        run: ./gradlew publishToMavenLocal
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-alpha1 -Dbuild.snapshot=false
 
       # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v2
 
-      - name: Run test
+      - name: Run Tests
         run: |
-          ./gradlew test
+          ./gradlew test -Dopensearch.version=1.0.0-alpha1
+
+      - name: Run Integration Tests
+        run: |
+          ./gradlew integTest -Dopensearch.version=1.0.0-alpha1
 
       - name: Publish to Maven Local
         run: |
-          ./gradlew publishToMavenLocal
+          ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-alpha1
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
