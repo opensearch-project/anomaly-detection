@@ -58,13 +58,9 @@ jobs:
       - name: Checkout AD
         uses: actions/checkout@v2
 
-      - name: Run Tests
+      - name: Build and Run Tests
         run: |
-          ./gradlew test -Dopensearch.version=1.0.0-alpha1
-
-      - name: Run Integration Tests
-        run: |
-          ./gradlew integTest -Dopensearch.version=1.0.0-alpha1
+          ./gradlew build -Dopensearch.version=1.0.0-alpha1
 
       - name: Publish to Maven Local
         run: |
