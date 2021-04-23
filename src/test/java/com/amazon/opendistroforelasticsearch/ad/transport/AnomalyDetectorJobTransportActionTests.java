@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetResponse;
@@ -311,7 +310,6 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
         assertEquals(detectorId, job.getName());
     }
 
-    @Ignore
     public void testStopHistoricalDetector() throws IOException, InterruptedException {
         updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
         ADTask adTask = startHistoricalDetector(startTime, endTime);

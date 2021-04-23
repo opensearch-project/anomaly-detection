@@ -36,7 +36,6 @@ import java.util.function.Function;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.opensearch.Version;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.cluster.ClusterName;
@@ -98,7 +97,6 @@ public class CronTransportActionTests extends AbstractADTest {
         );
     }
 
-    @Ignore
     public void testNormal() throws IOException, JsonPathNotFoundException {
         CronRequest request = new CronRequest();
 

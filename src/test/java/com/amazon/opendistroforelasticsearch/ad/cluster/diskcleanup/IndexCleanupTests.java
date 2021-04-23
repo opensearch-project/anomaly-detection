@@ -37,7 +37,6 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -112,7 +111,6 @@ public class IndexCleanupTests extends AbstractADTest {
         super.tearDownLog4jForJUnit();
     }
 
-    @Ignore
     public void testDeleteDocsBasedOnShardSizeWithCleanupNeededAsTrue() throws Exception {
         long maxShardSize = 1000;
         when(storeStats.getSizeInBytes()).thenReturn(maxShardSize + 1);
@@ -122,7 +120,6 @@ public class IndexCleanupTests extends AbstractADTest {
         }, exception -> { throw new RuntimeException(exception); }));
     }
 
-    @Ignore
     public void testDeleteDocsBasedOnShardSizeWithCleanupNeededAsFalse() throws Exception {
         long maxShardSize = 1000;
         when(storeStats.getSizeInBytes()).thenReturn(maxShardSize - 1);
@@ -135,7 +132,6 @@ public class IndexCleanupTests extends AbstractADTest {
             );
     }
 
-    @Ignore
     public void testDeleteDocsBasedOnShardSizeIndexNotExisted() throws Exception {
         when(clusterService.state().getRoutingTable().hasIndex(anyString())).thenReturn(false);
         Logger logger = (Logger) LogManager.getLogger(IndexCleanup.class);
