@@ -29,7 +29,7 @@ jobs:
         with:
           repository: 'opensearch-project/OpenSearch'
           path: OpenSearch
-          ref: '1.0.0-alpha1'
+          ref: '821c44c440706e769b3d41c8ffce25282a72f3fb'
       - name: Build OpenSearch
         working-directory: ./OpenSearch
         run: ./gradlew publishToMavenLocal -Dbuild.version_qualifier=alpha1 -Dbuild.snapshot=false
