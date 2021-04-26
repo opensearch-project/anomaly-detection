@@ -31,7 +31,7 @@ buildscript {
     ext {
         opensearch_group = "org.opensearch"
         opensearch_version = System.getProperty("opensearch.version", "1.0.0-alpha1")
-        common_utils_version = '1.0.0.0'
+        common_utils_version = '1.0.0.0-beta1'
         job_scheduler_version = '1.0.0.0-beta1'
     }
 
