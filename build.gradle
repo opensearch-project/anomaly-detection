@@ -30,9 +30,9 @@ import org.opensearch.gradle.test.RestIntegTestTask
 buildscript {
     ext {
         opensearch_group = "org.opensearch"
-        opensearch_version = System.getProperty("opensearch.version", "1.0.0-alpha1")
-        common_utils_version = '1.0.0.0'
-        job_scheduler_version = '1.0.0.0-beta1'
+        opensearch_version = System.getProperty("opensearch.version", "1.0.0-alpha2")
+        common_utils_version = '1.0.0.0-alpha2'
+        job_scheduler_version = '1.0.0.0-alpha2'
     }
 
     repositories {
@@ -62,11 +62,11 @@ repositories {
 }
 
 ext {
-    opendistroVersion = '1.0.0'
+    opensearchVersion = '1.0.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
-version = "${opendistroVersion}.0"
+version = "${opensearchVersion}.0-alpha2"
 
 apply plugin: 'java'
 apply plugin: 'idea'
@@ -91,8 +91,8 @@ ext {
 }
 
 opensearchplugin {
-    name 'opendistro-anomaly-detection'
-    description 'Amazon opendistro elasticsearch anomaly detector plugin'
+    name 'opensearch-anomaly-detection'
+    description 'OpenSearch anomaly detector plugin'
     classname 'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin'
     extendedPlugins = ['lang-painless', 'opensearch-job-scheduler']
 }
