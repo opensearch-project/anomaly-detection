@@ -32,7 +32,7 @@ buildscript {
         opensearch_group = "org.opensearch"
         opensearch_version = System.getProperty("opensearch.version", "1.0.0-alpha1")
         common_utils_version = '1.0.0.0'
-        job_scheduler_version = '1.0.0.0'
+        job_scheduler_version = '1.0.0.0-beta1'
     }
 
     repositories {
@@ -94,7 +94,7 @@ opensearchplugin {
     name 'opendistro-anomaly-detection'
     description 'Amazon opendistro elasticsearch anomaly detector plugin'
     classname 'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin'
-    extendedPlugins = ['lang-painless', 'opendistro-job-scheduler']
+    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler']
 }
 
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses
@@ -209,7 +209,7 @@ integTest {
 }
 
 testClusters.integTest {
-    testDistribution = "OSS"
+    testDistribution = "ARCHIVE"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
@@ -237,20 +237,20 @@ testClusters.integTest {
     }))
 
     // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
-    // the opendistro-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
+    // the opensearch-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
     //
-    // Exception in thread "main" java.lang.IllegalArgumentException: Missing plugin [opendistro-job-scheduler], dependency of [opendistro-anomaly-detection]
+    // Exception in thread "main" java.lang.IllegalArgumentException: Missing plugin [opensearch-job-scheduler], dependency of [opendistro-anomaly-detection]
     //       at org.opensearch.plugins.PluginsService.addSortedBundle(PluginsService.java:452)
     //
     // One explanation is that ES build script sort plugins according to the natural ordering of their names.
-    // opendistro-anomaly-detection comes before opendistro-job-scheduler.
+    // opendistro-anomaly-detection comes before opensearch-job-scheduler.
     //
     // The following is a comparison of different plugin installation order:
     // Before 7.7:
-    // ./bin/elasticsearch-plugin install --batch file:opendistro-anomaly-detection.zip file:opendistro-job-scheduler.zip
+    // ./bin/elasticsearch-plugin install --batch file:opendistro-anomaly-detection.zip file:opensearch-job-scheduler.zip
     //
     // After 7.7:
-    // ./bin/elasticsearch-plugin install --batch file:opendistro-job-scheduler.zip file:opendistro-anomaly-detection.zip
+    // ./bin/elasticsearch-plugin install --batch file:opensearch-job-scheduler.zip file:opendistro-anomaly-detection.zip
     //
     // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
     nodes.each { node ->
@@ -368,7 +368,7 @@ checkstyle {
 dependencies {
     compile "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:${job_scheduler_version}"
+    compileOnly "com.amazon.opendistroforelasticsearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     compile "com.amazon.opendistroforelasticsearch:common-utils:${common_utils_version}"
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
