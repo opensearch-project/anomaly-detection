@@ -2,11 +2,6 @@
 
 Compatible with OpenSearch 1.0.0
 
-### Infrastructure
-
-* Build using local dependencies, re-enable CI ([#13](https://github.com/opensearch-project/anomaly-detection/pull/13))
-* Fixed integration tests. ([#18](https://github.com/opensearch-project/anomaly-detection/pull/18))
-
 ### Documentation
 
 * Removing few lingering Elasticsearch strings in the repo ([#6](https://github.com/opensearch-project/anomaly-detection/pull/6))
