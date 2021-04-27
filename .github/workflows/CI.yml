@@ -23,6 +23,10 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
+      # anomaly-detection
+      - name: Checkout AD
+        uses: actions/checkout@v2
+
       # dependencies: OpenSearch
       - name: Checkout OpenSearch
         uses: actions/checkout@v2
@@ -52,13 +56,22 @@ jobs:
           ref: '1.0.0-alpha2'
           repository: 'opensearch-project/job-scheduler'
           path: job-scheduler
+
       - name: Build job-scheduler
         working-directory: ./job-scheduler
         run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-alpha2 -Dbuild.snapshot=false
-
-      # anomaly-detection
-      - name: Checkout AD
-        uses: actions/checkout@v2
+      - name: Assemble job-scheduler
+        working-directory: ./job-scheduler
+        run: |
+          ./gradlew assemble -Dopensearch.version=1.0.0-alpha2 -Dbuild.snapshot=false
+          echo "Creating ../src/test/resources/job-scheduler ..."
+          mkdir -p ../src/test/resources/job-scheduler
+          pwd
+          echo "Copying ./build/distributions/*.zip to ../src/test/resources/job-scheduler ..."
+          ls ./build/distributions/
+          cp ./build/distributions/*.zip ../src/test/resources/job-scheduler
+          echo "Copied ./build/distributions/*.zip to ../src/test/resources/job-scheduler ..."
+          ls ../src/test/resources/job-scheduler
 
       - name: Build and Run Tests
         run: |
