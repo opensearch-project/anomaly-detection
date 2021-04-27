@@ -18,3 +18,4 @@ Compatible with OpenSearch 1.0.0
 ### Maintenance
 
 * Migrating plugin to work with OpenSearch ([#1](https://github.com/opensearch-project/anomaly-detection/pull/1))
+* Rename plugin to opensearch-anomaly-detection; bump plugin to 1.0.0-alpha2 ([#28](https://github.com/opensearch-project/anomaly-detection/pull/28))
