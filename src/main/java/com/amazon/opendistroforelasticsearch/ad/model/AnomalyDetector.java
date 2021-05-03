@@ -117,6 +117,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final List<String> categoryFields;
     private User user;
     private String detectorType;
+    // TODO: remove date range
     private DetectionDateRange detectionDateRange;
 
     /**
@@ -179,6 +180,66 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         );
     }
 
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        List<String> categoryFields,
+        User user,
+        String detectorType
+    ) {
+        if (Strings.isBlank(name)) {
+            throw new IllegalArgumentException("Detector name should be set");
+        }
+        if (timeField == null) {
+            throw new IllegalArgumentException("Time field should be set");
+        }
+        if (indices == null || indices.isEmpty()) {
+            throw new IllegalArgumentException("Indices should be set");
+        }
+        if (detectionInterval == null) {
+            throw new IllegalArgumentException("Detection interval should be set");
+        }
+        if (shingleSize != null && shingleSize < 1) {
+            throw new IllegalArgumentException("Shingle size must be a positive integer");
+        }
+        if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
+            throw new IllegalArgumentException(CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT);
+        }
+        if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
+            throw new IllegalArgumentException("Detection interval must be a positive integer");
+        }
+        this.detectorId = detectorId;
+        this.version = version;
+        this.name = name;
+        this.description = description;
+        this.timeField = timeField;
+        this.indices = indices;
+        this.featureAttributes = features == null ? ImmutableList.of() : ImmutableList.copyOf(features);
+        this.filterQuery = filterQuery;
+        this.detectionInterval = detectionInterval;
+        this.windowDelay = windowDelay;
+        this.shingleSize = getShingleSize(shingleSize, categoryFields);
+        this.uiMetadata = uiMetadata;
+        this.schemaVersion = schemaVersion;
+        this.lastUpdateTime = lastUpdateTime;
+        this.categoryFields = categoryFields;
+        this.user = user;
+        this.detectorType = detectorType;
+    }
+
+    // TODO: remove this later
     public AnomalyDetector(
         String detectorId,
         Long version,
@@ -418,6 +479,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
         User user = null;
+        // TODO: remove date range
         DetectionDateRange detectionDateRange = null;
 
         List<String> categoryField = null;
@@ -492,6 +554,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             }
         }
         String detectorType;
+        // TODO: change detector type to SINGLE_ENTITY and MULTI_ENTITY
         if (AnomalyDetector.isRealTimeDetector(detectionDateRange)) {
             detectorType = AnomalyDetector.isMultientityDetector(categoryField)
                 ? AnomalyDetectorType.REALTIME_MULTI_ENTITY.name()

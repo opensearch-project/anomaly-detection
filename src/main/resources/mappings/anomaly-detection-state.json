@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 2
+    "schema_version": 3
   },
   "properties": {
     "schema_version": {
@@ -99,6 +99,35 @@
     },
     "detector": {
       DETECTOR_INDEX_MAPPING_PLACE_HOLDER
+    },
+    "detection_date_range": {
+      "properties": {
+        "start_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "end_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        }
+      }
+    },
+    "parent_task_id": {
+      "type": "keyword"
+    },
+    "entity": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "value": {
+          "type": "keyword"
+        }
+      }
+    },
+    "estimated_minutes_left": {
+      "type": "integer"
     }
   }
 }
