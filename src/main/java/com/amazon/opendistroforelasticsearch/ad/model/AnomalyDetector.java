@@ -261,25 +261,25 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         DetectionDateRange detectionDateRange
     ) {
         if (Strings.isBlank(name)) {
-            throw new IllegalArgumentException("Detector name should be set");
+            throw new IllegalArgumentException(CommonErrorMessages.EMPTY_DETECTOR_NAME);
         }
         if (timeField == null) {
-            throw new IllegalArgumentException("Time field should be set");
+            throw new IllegalArgumentException(CommonErrorMessages.NULL_TIME_FIELD);
         }
         if (indices == null || indices.isEmpty()) {
-            throw new IllegalArgumentException("Indices should be set");
+            throw new IllegalArgumentException(CommonErrorMessages.EMPTY_INDICES);
         }
         if (detectionInterval == null) {
-            throw new IllegalArgumentException("Detection interval should be set");
+            throw new IllegalArgumentException(CommonErrorMessages.NULL_DETECTION_INTERVAL);
         }
         if (shingleSize != null && shingleSize < 1) {
-            throw new IllegalArgumentException("Shingle size must be a positive integer");
+            throw new IllegalArgumentException(CommonErrorMessages.INVALID_SHINGLE_SIZE);
         }
         if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
             throw new IllegalArgumentException(CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT);
         }
         if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
-            throw new IllegalArgumentException("Detection interval must be a positive integer");
+            throw new IllegalArgumentException(CommonErrorMessages.INVALID_DETECTION_INTERVAL);
         }
         this.detectorId = detectorId;
         this.version = version;
@@ -300,7 +300,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.detectorType = detectorType;
         this.detectionDateRange = detectionDateRange;
 
-        // TODO: remove this check when we support HC historical detector
+        // TODO: remove this check in next PR to support unified flow
         if (!isRealTimeDetector(detectionDateRange) && categoryFields != null && categoryFields.size() > 0) {
             throw new IllegalArgumentException("Don't support high cardinality historical detector now");
         }
