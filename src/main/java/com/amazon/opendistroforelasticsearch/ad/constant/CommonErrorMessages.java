@@ -49,4 +49,10 @@ public class CommonErrorMessages {
     public static String DETECTOR_IS_RUNNING = "Detector is already running";
     public static String DETECTOR_MISSING = "Detector is missing";
     public static String AD_TASK_ACTION_MISSING = "AD task action is missing";
+    public static String EMPTY_DETECTOR_NAME = "Detector name should be set";
+    public static String NULL_TIME_FIELD = "Time field should be set";
+    public static String EMPTY_INDICES = "Indices should be set";
+    public static String NULL_DETECTION_INTERVAL = "Detection interval should be set";
+    public static String INVALID_SHINGLE_SIZE = "Shingle size must be a positive integer";
+    public static String INVALID_DETECTION_INTERVAL = "Detection interval must be a positive integer";
 }

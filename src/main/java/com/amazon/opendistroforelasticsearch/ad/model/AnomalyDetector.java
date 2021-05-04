@@ -117,6 +117,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final List<String> categoryFields;
     private User user;
     private String detectorType;
+    // TODO: remove date range
     private DetectionDateRange detectionDateRange;
 
     /**
@@ -196,8 +197,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Instant lastUpdateTime,
         List<String> categoryFields,
         User user,
-        String detectorType,
-        DetectionDateRange detectionDateRange
+        String detectorType
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -237,9 +237,70 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.categoryFields = categoryFields;
         this.user = user;
         this.detectorType = detectorType;
+    }
+
+    // TODO: remove this later
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        List<String> categoryFields,
+        User user,
+        String detectorType,
+        DetectionDateRange detectionDateRange
+    ) {
+        if (Strings.isBlank(name)) {
+            throw new IllegalArgumentException(CommonErrorMessages.EMPTY_DETECTOR_NAME);
+        }
+        if (timeField == null) {
+            throw new IllegalArgumentException(CommonErrorMessages.NULL_TIME_FIELD);
+        }
+        if (indices == null || indices.isEmpty()) {
+            throw new IllegalArgumentException(CommonErrorMessages.EMPTY_INDICES);
+        }
+        if (detectionInterval == null) {
+            throw new IllegalArgumentException(CommonErrorMessages.NULL_DETECTION_INTERVAL);
+        }
+        if (shingleSize != null && shingleSize < 1) {
+            throw new IllegalArgumentException(CommonErrorMessages.INVALID_SHINGLE_SIZE);
+        }
+        if (categoryFields != null && categoryFields.size() > CATEGORY_FIELD_LIMIT) {
+            throw new IllegalArgumentException(CommonErrorMessages.CATEGORICAL_FIELD_NUMBER_SURPASSED + CATEGORY_FIELD_LIMIT);
+        }
+        if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
+            throw new IllegalArgumentException(CommonErrorMessages.INVALID_DETECTION_INTERVAL);
+        }
+        this.detectorId = detectorId;
+        this.version = version;
+        this.name = name;
+        this.description = description;
+        this.timeField = timeField;
+        this.indices = indices;
+        this.featureAttributes = features == null ? ImmutableList.of() : ImmutableList.copyOf(features);
+        this.filterQuery = filterQuery;
+        this.detectionInterval = detectionInterval;
+        this.windowDelay = windowDelay;
+        this.shingleSize = getShingleSize(shingleSize, categoryFields);
+        this.uiMetadata = uiMetadata;
+        this.schemaVersion = schemaVersion;
+        this.lastUpdateTime = lastUpdateTime;
+        this.categoryFields = categoryFields;
+        this.user = user;
+        this.detectorType = detectorType;
         this.detectionDateRange = detectionDateRange;
 
-        // TODO: remove this check when we support HC historical detector
+        // TODO: remove this check in next PR to support unified flow
         if (!isRealTimeDetector(detectionDateRange) && categoryFields != null && categoryFields.size() > 0) {
             throw new IllegalArgumentException("Don't support high cardinality historical detector now");
         }
@@ -418,6 +479,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
         User user = null;
+        // TODO: remove date range
         DetectionDateRange detectionDateRange = null;
 
         List<String> categoryField = null;
@@ -492,6 +554,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             }
         }
         String detectorType;
+        // TODO: change detector type to SINGLE_ENTITY and MULTI_ENTITY
         if (AnomalyDetector.isRealTimeDetector(detectionDateRange)) {
             detectorType = AnomalyDetector.isMultientityDetector(categoryField)
                 ? AnomalyDetectorType.REALTIME_MULTI_ENTITY.name()
