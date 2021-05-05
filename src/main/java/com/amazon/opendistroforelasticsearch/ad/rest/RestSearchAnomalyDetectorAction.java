@@ -31,17 +31,24 @@ import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANO
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorAction;
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to search anomaly detectors.
  */
 public class RestSearchAnomalyDetectorAction extends AbstractSearchAction<AnomalyDetector> {
 
-    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/_search";
+    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI + "/_search";
+    private static final String URL_NEW_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/_search";
     private final String SEARCH_ANOMALY_DETECTOR_ACTION = "search_anomaly_detector";
 
     public RestSearchAnomalyDetectorAction() {
-        super(URL_PATH, ANOMALY_DETECTORS_INDEX, AnomalyDetector.class, SearchAnomalyDetectorAction.INSTANCE);
+        super(
+            ImmutableList.of(URL_PATH, URL_NEW_PATH),
+            ANOMALY_DETECTORS_INDEX,
+            AnomalyDetector.class,
+            SearchAnomalyDetectorAction.INSTANCE
+        );
     }
 
     @Override

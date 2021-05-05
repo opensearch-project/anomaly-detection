@@ -133,6 +133,11 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     public List<Route> routes() {
         return ImmutableList
             .of(
+                // get AD result, for regular run (legacy)
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, DETECTOR_ID, RUN)
+                ),
                 // get AD result, for regular run
                 new Route(
                     RestRequest.Method.POST,

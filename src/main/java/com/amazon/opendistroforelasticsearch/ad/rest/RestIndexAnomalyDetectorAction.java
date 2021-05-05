@@ -152,6 +152,13 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
     public List<Route> routes() {
         return ImmutableList
             .of(
+                // Create (legacy)
+                new Route(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI),
+                // update (legacy)
+                new Route(
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, DETECTOR_ID)
+                ),
                 // Create
                 new Route(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI),
                 // update
@@ -178,7 +185,7 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
                     response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS)
                 );
                 if (restStatus == RestStatus.CREATED) {
-                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_URI, response.getId());
+                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY, response.getId());
                     bytesRestResponse.addHeader("Location", location);
                 }
                 return bytesRestResponse;

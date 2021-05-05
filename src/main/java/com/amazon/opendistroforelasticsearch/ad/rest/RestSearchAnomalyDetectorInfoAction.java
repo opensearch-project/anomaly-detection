@@ -78,6 +78,16 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
     public List<RestHandler.Route> routes() {
         return ImmutableList
             .of(
+                // get the count of number of detectors (legacy)
+                new RestHandler.Route(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, COUNT)
+                ),
+                // get if a detector name exists with name (legacy)
+                new RestHandler.Route(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, MATCH)
+                ),
                 // get the count of number of detectors
                 new RestHandler.Route(
                     RestRequest.Method.GET,

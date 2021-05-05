@@ -201,7 +201,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     private static final Logger LOG = LogManager.getLogger(AnomalyDetectorPlugin.class);
 
-    public static final String AD_BASE_URI = "/_opendistro/_anomaly_detection";
+    public static final String AD_BASE_LEGACY = "/_opendistro/_anomaly_detection";
+    public static final String AD_BASE_LEGACY_DETECTORS_URI = AD_BASE_LEGACY + "/detectors";
+    public static final String AD_BASE_URI = "/_opensearch/_anomaly_detection";
     public static final String AD_BASE_DETECTORS_URI = AD_BASE_URI + "/detectors";
     public static final String AD_THREAD_POOL_PREFIX = "opendistro.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";

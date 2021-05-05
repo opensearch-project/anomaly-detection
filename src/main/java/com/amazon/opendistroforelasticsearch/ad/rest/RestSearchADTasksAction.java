@@ -30,17 +30,19 @@ import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchADTasksAction;
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to search AD tasks.
  */
 public class RestSearchADTasksAction extends AbstractSearchAction<ADTask> {
 
-    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/tasks/_search";
+    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI + "/tasks/_search";
+    private static final String URL_NEW_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/tasks/_search";
     private final String SEARCH_ANOMALY_DETECTION_TASKS = "search_anomaly_detection_tasks";
 
     public RestSearchADTasksAction() {
-        super(URL_PATH, CommonName.DETECTION_STATE_INDEX, ADTask.class, SearchADTasksAction.INSTANCE);
+        super(ImmutableList.of(URL_PATH, URL_NEW_PATH), CommonName.DETECTION_STATE_INDEX, ADTask.class, SearchADTasksAction.INSTANCE);
     }
 
     @Override

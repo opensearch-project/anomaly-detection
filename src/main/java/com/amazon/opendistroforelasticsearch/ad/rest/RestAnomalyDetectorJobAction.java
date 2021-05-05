@@ -92,6 +92,16 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
     public List<Route> routes() {
         return ImmutableList
             .of(
+                // start AD job (legacy)
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, DETECTOR_ID, START_JOB)
+                ),
+                // stop AD job (legacy)
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, DETECTOR_ID, STOP_JOB)
+                ),
                 // start AD job
                 new Route(
                     RestRequest.Method.POST,

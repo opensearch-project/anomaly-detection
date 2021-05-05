@@ -26,6 +26,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
+import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_BASE_LEGACY;
 import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_BASE_URI;
 
 import java.util.Arrays;
@@ -143,6 +144,10 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
     public List<Route> routes() {
         return ImmutableList
             .of(
+                new Route(RestRequest.Method.GET, AD_BASE_LEGACY + "/{nodeId}/stats/"),
+                new Route(RestRequest.Method.GET, AD_BASE_LEGACY + "/{nodeId}/stats/{stat}"),
+                new Route(RestRequest.Method.GET, AD_BASE_LEGACY + "/stats/"),
+                new Route(RestRequest.Method.GET, AD_BASE_LEGACY + "/stats/{stat}"),
                 new Route(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/"),
                 new Route(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}"),
                 new Route(RestRequest.Method.GET, AD_BASE_URI + "/stats/"),

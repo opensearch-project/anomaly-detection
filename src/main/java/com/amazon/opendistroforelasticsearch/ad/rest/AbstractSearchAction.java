@@ -32,6 +32,7 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -59,7 +60,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
-import com.google.common.collect.ImmutableList;
 
 /**
  * Abstract class to handle search request.
@@ -68,15 +68,15 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     private final String index;
     private final Class<T> clazz;
-    private final String urlPath;
+    private final List<String> urlPaths;
     private final ActionType<SearchResponse> actionType;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(String urlPath, String index, Class<T> clazz, ActionType<SearchResponse> actionType) {
+    public AbstractSearchAction(List<String> urlPaths, String index, Class<T> clazz, ActionType<SearchResponse> actionType) {
         this.index = index;
         this.clazz = clazz;
-        this.urlPath = urlPath;
+        this.urlPaths = urlPaths;
         this.actionType = actionType;
     }
 
@@ -126,6 +126,11 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     @Override
     public List<Route> routes() {
-        return ImmutableList.of(new Route(RestRequest.Method.POST, urlPath), new Route(RestRequest.Method.GET, urlPath));
+        List<Route> routes = new ArrayList<>();
+        for (String path : urlPaths) {
+            routes.add(new Route(RestRequest.Method.POST, path));
+            routes.add(new Route(RestRequest.Method.GET, path));
+        }
+        return routes;
     }
 }

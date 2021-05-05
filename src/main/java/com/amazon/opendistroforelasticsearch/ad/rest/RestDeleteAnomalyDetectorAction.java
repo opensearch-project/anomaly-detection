@@ -83,6 +83,11 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
                 // delete anomaly detector document
                 new Route(
                     RestRequest.Method.DELETE,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, DETECTOR_ID)
+                ),
+                // delete anomaly detector document
+                new Route(
+                    RestRequest.Method.DELETE,
                     String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID)
                 )
             );

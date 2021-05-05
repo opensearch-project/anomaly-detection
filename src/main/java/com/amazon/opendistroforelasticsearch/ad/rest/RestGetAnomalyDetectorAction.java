@@ -94,11 +94,32 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, DETECTOR_ID);
+        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
         return ImmutableList
             .of(
                 new Route(RestRequest.Method.GET, path),
                 new Route(RestRequest.Method.HEAD, path),
+                new Route(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, DETECTOR_ID, PROFILE)
+                ),
+                // types is a profile names. See a complete list of supported profiles names in
+                // com.amazon.opendistroforelasticsearch.ad.model.ProfileName.
+                new Route(
+                    RestRequest.Method.GET,
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s/{%s}",
+                            AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI,
+                            DETECTOR_ID,
+                            PROFILE,
+                            TYPE
+                        )
+                ),
+                new Route(RestRequest.Method.GET, newPath),
+                new Route(RestRequest.Method.HEAD, newPath),
                 new Route(
                     RestRequest.Method.GET,
                     String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)

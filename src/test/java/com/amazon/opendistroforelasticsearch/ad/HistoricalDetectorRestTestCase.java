@@ -26,7 +26,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad;
 
-import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_DETECTORS_URI;
+import static com.amazon.opendistroforelasticsearch.ad.TestHelpers.AD_BASE_LEGACY_DETECTORS_URI;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 
 import java.io.IOException;
@@ -76,7 +76,14 @@ public abstract class HistoricalDetectorRestTestCase extends AnomalyDetectorRest
 
     public ADTaskProfile getADTaskProfile(String detectorId) throws IOException {
         Response profileResponse = TestHelpers
-            .makeRequest(client(), "GET", AD_BASE_DETECTORS_URI + "/" + detectorId + "/_profile/ad_task", ImmutableMap.of(), "", null);
+            .makeRequest(
+                client(),
+                "GET",
+                AD_BASE_LEGACY_DETECTORS_URI + "/" + detectorId + "/_profile/ad_task",
+                ImmutableMap.of(),
+                "",
+                null
+            );
         return parseADTaskProfile(profileResponse);
     }
 
