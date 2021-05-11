@@ -121,28 +121,30 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     public List<RestHandler.Route> routes() {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList
             .of(
-                // preview detector (legacy)
-                new Route(
-                    RestRequest.Method.POST,
-                    String
-                        .format(
-                            Locale.ROOT,
-                            "%s/{%s}/%s",
-                            AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI,
-                            RestHandlerUtils.DETECTOR_ID,
-                            PREVIEW
-                        )
-                ),
-                // preview detector
-                new Route(
+                // Preview Detector
+                new ReplacedRoute(
                     RestRequest.Method.POST,
                     String
                         .format(
                             Locale.ROOT,
                             "%s/{%s}/%s",
                             AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+                            RestHandlerUtils.DETECTOR_ID,
+                            PREVIEW
+                        ),
+                    RestRequest.Method.POST,
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s",
+                            AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
                             RestHandlerUtils.DETECTOR_ID,
                             PREVIEW
                         )

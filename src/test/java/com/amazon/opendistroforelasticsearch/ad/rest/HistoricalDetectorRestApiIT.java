@@ -154,7 +154,7 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
             .makeRequest(
                 client(),
                 "PUT",
-                TestHelpers.AD_BASE_LEGACY_DETECTORS_URI + "/" + detectorId + "?refresh=true",
+                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId + "?refresh=true",
                 ImmutableMap.of(),
                 toHttpEntity(newDetector),
                 null
@@ -188,7 +188,7 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
                     .makeRequest(
                         client(),
                         "PUT",
-                        TestHelpers.AD_BASE_LEGACY_DETECTORS_URI + "/" + detectorId + "?refresh=true",
+                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId + "?refresh=true",
                         ImmutableMap.of(),
                         toHttpEntity(newDetector),
                         null
@@ -205,7 +205,7 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
 
         // delete detector
         Response response = TestHelpers
-            .makeRequest(client(), "DELETE", TestHelpers.AD_BASE_LEGACY_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null);
+            .makeRequest(client(), "DELETE", TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId, ImmutableMap.of(), "", null);
         assertEquals(RestStatus.OK, restStatus(response));
     }
 
@@ -226,7 +226,7 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
                     .makeRequest(
                         client(),
                         "DELETE",
-                        TestHelpers.AD_BASE_LEGACY_DETECTORS_URI + "/" + detectorId,
+                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId,
                         ImmutableMap.of(),
                         "",
                         null
@@ -248,7 +248,7 @@ public class HistoricalDetectorRestApiIT extends HistoricalDetectorRestTestCase 
 
         String query = String.format("{\"query\":{\"term\":{\"detector_id\":{\"value\":\"%s\"}}}}", detectorId);
         Response response = TestHelpers
-            .makeRequest(client(), "POST", TestHelpers.AD_BASE_LEGACY_DETECTORS_URI + "/tasks/_search", ImmutableMap.of(), query, null);
+            .makeRequest(client(), "POST", TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/tasks/_search", ImmutableMap.of(), query, null);
         String searchResult = EntityUtils.toString(response.getEntity());
         assertTrue(searchResult.contains(taskId));
         assertTrue(searchResult.contains(detector.getDetectorId()));

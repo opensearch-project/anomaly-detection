@@ -76,27 +76,26 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
 
     @Override
     public List<RestHandler.Route> routes() {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<RestHandler.ReplacedRoute> replacedRoutes() {
         return ImmutableList
             .of(
-                // get the count of number of detectors (legacy)
-                new RestHandler.Route(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, COUNT)
-                ),
-                // get if a detector name exists with name (legacy)
-                new RestHandler.Route(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI, MATCH)
-                ),
                 // get the count of number of detectors
-                new RestHandler.Route(
+                new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, COUNT)
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, COUNT),
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, COUNT)
                 ),
                 // get if a detector name exists with name
-                new RestHandler.Route(
+                new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, MATCH)
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, MATCH),
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, MATCH)
                 )
             );
     }

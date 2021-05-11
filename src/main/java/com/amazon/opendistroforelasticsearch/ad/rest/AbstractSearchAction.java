@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
@@ -69,14 +70,22 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     private final String index;
     private final Class<T> clazz;
     private final List<String> urlPaths;
+    private final List<Pair<String, String>> replacedPaths;
     private final ActionType<SearchResponse> actionType;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(List<String> urlPaths, String index, Class<T> clazz, ActionType<SearchResponse> actionType) {
+    public AbstractSearchAction(
+        List<String> urlPaths,
+        List<Pair<String, String>> replacedPaths,
+        String index,
+        Class<T> clazz,
+        ActionType<SearchResponse> actionType
+    ) {
         this.index = index;
         this.clazz = clazz;
         this.urlPaths = urlPaths;
+        this.replacedPaths = replacedPaths;
         this.actionType = actionType;
     }
 
@@ -132,5 +141,18 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
             routes.add(new Route(RestRequest.Method.GET, path));
         }
         return routes;
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
+        List<ReplacedRoute> replacedRoutes = new ArrayList<>();
+        for (Pair<String, String> replacedPath : replacedPaths) {
+            replacedRoutes
+                .add(new ReplacedRoute(RestRequest.Method.POST, replacedPath.getKey(), RestRequest.Method.POST, replacedPath.getValue()));
+            replacedRoutes
+                .add(new ReplacedRoute(RestRequest.Method.GET, replacedPath.getKey(), RestRequest.Method.GET, replacedPath.getValue()));
+
+        }
+        return replacedRoutes;
     }
 }

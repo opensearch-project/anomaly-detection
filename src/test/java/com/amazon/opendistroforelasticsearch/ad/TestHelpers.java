@@ -155,7 +155,8 @@ import com.google.common.collect.ImmutableSet;
 
 public class TestHelpers {
 
-    public static final String AD_BASE_LEGACY_DETECTORS_URI = "/_opendistro/_anomaly_detection/detectors";
+    public static final String LEGACY_OPENDISTRO_AD_BASE_URI = "/_opendistro/_anomaly_detection/detectors";
+    public static final String AD_BASE_DETECTORS_URI = "/_opensearch/_anomaly_detection/detectors";
     public static final String AD_BASE_RESULT_URI = "/_opendistro/_anomaly_detection/detectors/results";
     public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_opendistro/_anomaly_detection/stats";

@@ -28,6 +28,8 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import static com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyResult;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultAction;
@@ -38,13 +40,14 @@ import com.google.common.collect.ImmutableList;
  */
 public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyResult> {
 
-    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_LEGACY_DETECTORS_URI + "/results/_search";
-    private static final String URL_NEW_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/results/_search";
+    private static final String LEGACY_URL_PATH = AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/results/_search";
+    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/results/_search";
     private final String SEARCH_ANOMALY_DETECTOR_ACTION = "search_anomaly_result";
 
     public RestSearchAnomalyResultAction() {
         super(
-            ImmutableList.of(URL_PATH, URL_NEW_PATH),
+            ImmutableList.of(),
+            ImmutableList.of(Pair.of(URL_PATH, LEGACY_URL_PATH)),
             ALL_AD_RESULTS_INDEX_PATTERN,
             AnomalyResult.class,
             SearchAnomalyResultAction.INSTANCE
