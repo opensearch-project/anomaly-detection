@@ -64,14 +64,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 ResponseException.class,
                 "index_not_found_exception",
                 () -> TestHelpers
-                    .makeRequest(
-                        client(),
-                        "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI,
-                        ImmutableMap.of(),
-                        toHttpEntity(detector),
-                        null
-                    )
+                    .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
             );
     }
 
@@ -92,14 +85,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 ResponseException.class,
                 "Can't create anomaly detector as no document found in indices",
                 () -> TestHelpers
-                    .makeRequest(
-                        client(),
-                        "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI,
-                        ImmutableMap.of(),
-                        toHttpEntity(detector),
-                        null
-                    )
+                    .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
             );
     }
 
@@ -133,7 +119,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI,
+                        TestHelpers.AD_BASE_DETECTORS_URI,
                         ImmutableMap.of(),
                         toHttpEntity(detectorDuplicateName),
                         null
@@ -151,13 +137,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception ex = expectThrows(
             ResponseException.class,
             () -> TestHelpers
-                .makeRequest(client(), "POST", TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI, ImmutableMap.of(), toHttpEntity(detector), null)
+                .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
         );
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response response = TestHelpers
-            .makeRequest(client(), "POST", TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI, ImmutableMap.of(), toHttpEntity(detector), null);
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
@@ -217,7 +203,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 .makeRequest(
                     client(),
                     "PUT",
-                    TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "?refresh=true",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
                     ImmutableMap.of(),
                     toHttpEntity(newDetector),
                     null
@@ -231,7 +217,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "PUT",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "?refresh=true",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
                 ImmutableMap.of(),
                 toHttpEntity(newDetector),
                 null
@@ -279,7 +265,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI,
+                        TestHelpers.AD_BASE_DETECTORS_URI,
                         ImmutableMap.of(),
                         toHttpEntity(newDetector1WithDetector2Name),
                         null
@@ -313,7 +299,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "PUT",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "?refresh=true",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
                 ImmutableMap.of(),
                 toHttpEntity(detectorWithNewName),
                 null
@@ -363,7 +349,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "PUT",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId(),
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                         ImmutableMap.of(),
                         toHttpEntity(newDetector),
                         null
@@ -383,7 +369,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 .makeRequest(
                     client(),
                     "GET",
-                    TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/_search",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/_search",
                     ImmutableMap.of(),
                     new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
                     null
@@ -397,7 +383,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "GET",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/_search",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_search",
                 ImmutableMap.of(),
                 new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
                 null
@@ -620,7 +606,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 .makeRequest(
                     client(),
                     "DELETE",
-                    TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId(),
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                     ImmutableMap.of(),
                     "",
                     null
@@ -634,7 +620,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "DELETE",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId(),
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                 ImmutableMap.of(),
                 "",
                 null
@@ -650,7 +636,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "DELETE",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + randomAlphaOfLength(5),
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + randomAlphaOfLength(5),
                         ImmutableMap.of(),
                         "",
                         null
@@ -664,7 +650,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "DELETE",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId(),
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                 ImmutableMap.of(),
                 "",
                 null
@@ -679,7 +665,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -695,7 +681,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "DELETE",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId(),
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                         ImmutableMap.of(),
                         "",
                         null
@@ -710,7 +696,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -747,7 +733,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "PUT",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId(),
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                         ImmutableMap.of(),
                         toHttpEntity(newDetector),
                         null
@@ -762,7 +748,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -791,7 +777,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 .makeRequest(
                     client(),
                     "POST",
-                    TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                     ImmutableMap.of(),
                     "",
                     null
@@ -805,7 +791,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -817,7 +803,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -835,7 +821,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + randomAlphaOfLength(10) + "/_start",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + randomAlphaOfLength(10) + "/_start",
                         ImmutableMap.of(),
                         "",
                         null
@@ -853,7 +839,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + randomAlphaOfLength(10) + "/_start",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + randomAlphaOfLength(10) + "/_start",
                         ImmutableMap.of(),
                         "",
                         null
@@ -868,7 +854,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -883,7 +869,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 .makeRequest(
                     client(),
                     "POST",
-                    TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_stop",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
                     ImmutableMap.of(),
                     "",
                     null
@@ -897,7 +883,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_stop",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
                 ImmutableMap.of(),
                 "",
                 null
@@ -908,7 +894,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_stop",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
                 ImmutableMap.of(),
                 "",
                 null
@@ -926,7 +912,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_stop",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
                         ImmutableMap.of(),
                         "",
                         null
@@ -940,7 +926,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -955,7 +941,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + randomAlphaOfLength(10) + "/_stop",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + randomAlphaOfLength(10) + "/_stop",
                         ImmutableMap.of(),
                         "",
                         null
@@ -969,7 +955,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -980,7 +966,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_stop",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
                 ImmutableMap.of(),
                 "",
                 null
@@ -991,7 +977,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                 ImmutableMap.of(),
                 "",
                 null
@@ -1013,7 +999,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                         ImmutableMap.of(),
                         "",
                         null
@@ -1034,7 +1020,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detector.getDetectorId() + "/_start",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
                         ImmutableMap.of(),
                         "",
                         null
@@ -1124,5 +1110,46 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         // Deleting detector should fail while its running
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getDetectorId(), client()); });
         Assert.assertTrue(exception.getMessage().contains("Detector job is running"));
+    }
+
+    public void testBackwardCompatibilityWithOpenDistro() throws IOException {
+        // Create a detector
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+
+        // Verify the detector is created using legacy _opendistro API
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI,
+                ImmutableMap.of(),
+                toHttpEntity(detector),
+                null
+            );
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        int version = (int) responseMap.get("_version");
+        assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
+        assertTrue("incorrect version", version > 0);
+
+        // Get the detector using new _plugins API
+        AnomalyDetector createdDetector = getAnomalyDetector(id, client());
+        assertEquals("Get anomaly detector failed", createdDetector.getDetectorId(), id);
+
+        // Delete the detector using legacy _opendistro API
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "DELETE",
+                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI + "/" + createdDetector.getDetectorId(),
+                ImmutableMap.of(),
+                "",
+                null
+            );
+        assertEquals("Delete anomaly detector failed", RestStatus.OK, restStatus(response));
+
     }
 }

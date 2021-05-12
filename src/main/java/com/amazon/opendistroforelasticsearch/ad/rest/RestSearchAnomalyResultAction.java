@@ -58,5 +58,4 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
     public String getName() {
         return SEARCH_ANOMALY_DETECTOR_ACTION;
     }
-
 }

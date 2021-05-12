@@ -108,7 +108,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
     protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, RestClient client) throws IOException {
         Response response = TestHelpers
-            .makeRequest(client, "POST", TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI, ImmutableMap.of(), toHttpEntity(detector), null);
+            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
 
         Map<String, Object> detectorJson = jsonXContent
@@ -138,31 +138,16 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
     protected Response startAnomalyDetector(String detectorId, RestClient client) throws IOException {
         return TestHelpers
-            .makeRequest(
-                client,
-                "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId + "/_start",
-                ImmutableMap.of(),
-                "",
-                null
-            );
+            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start", ImmutableMap.of(), "", null);
     }
 
     protected Response stopAnomalyDetector(String detectorId, RestClient client) throws IOException {
         return TestHelpers
-            .makeRequest(
-                client,
-                "POST",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId + "/_stop",
-                ImmutableMap.of(),
-                "",
-                null
-            );
+            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_stop", ImmutableMap.of(), "", null);
     }
 
     protected Response deleteAnomalyDetector(String detectorId, RestClient client) throws IOException {
-        return TestHelpers
-            .makeRequest(client, "DELETE", TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId, ImmutableMap.of(), "", null);
+        return TestHelpers.makeRequest(client, "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null);
     }
 
     protected Response previewAnomalyDetector(String detectorId, RestClient client, AnomalyDetectorExecutionInput input)
@@ -202,7 +187,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             .makeRequest(
                 client,
                 "GET",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + detectorId + "?job=" + returnJob + "&task=" + returnTask,
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?job=" + returnJob + "&task=" + returnTask,
                 null,
                 "",
                 ImmutableList.of(header)
@@ -304,14 +289,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             .makeRequest(
                 client,
                 "GET",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI
-                    + "/"
-                    + detectorId
-                    + "/"
-                    + RestHandlerUtils.PROFILE
-                    + customizedProfile
-                    + "?_all="
-                    + all,
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/" + RestHandlerUtils.PROFILE + customizedProfile + "?_all=" + all,
                 null,
                 "",
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
@@ -331,7 +309,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             .makeRequest(
                 client(),
                 "GET",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + RestHandlerUtils.COUNT,
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.COUNT,
                 null,
                 "",
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
@@ -343,7 +321,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             .makeRequest(
                 client(),
                 "GET",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_URI + "/" + RestHandlerUtils.MATCH,
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.MATCH,
                 ImmutableMap.of("name", name),
                 "",
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))

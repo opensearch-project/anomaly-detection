@@ -70,14 +70,14 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     private final String index;
     private final Class<T> clazz;
     private final List<String> urlPaths;
-    private final List<Pair<String, String>> replacedPaths;
+    private final List<Pair<String, String>> deprecatedPaths;
     private final ActionType<SearchResponse> actionType;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
     public AbstractSearchAction(
         List<String> urlPaths,
-        List<Pair<String, String>> replacedPaths,
+        List<Pair<String, String>> deprecatedPaths,
         String index,
         Class<T> clazz,
         ActionType<SearchResponse> actionType
@@ -85,7 +85,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         this.index = index;
         this.clazz = clazz;
         this.urlPaths = urlPaths;
-        this.replacedPaths = replacedPaths;
+        this.deprecatedPaths = deprecatedPaths;
         this.actionType = actionType;
     }
 
@@ -146,11 +146,13 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     @Override
     public List<ReplacedRoute> replacedRoutes() {
         List<ReplacedRoute> replacedRoutes = new ArrayList<>();
-        for (Pair<String, String> replacedPath : replacedPaths) {
+        for (Pair<String, String> deprecatedPath : deprecatedPaths) {
             replacedRoutes
-                .add(new ReplacedRoute(RestRequest.Method.POST, replacedPath.getKey(), RestRequest.Method.POST, replacedPath.getValue()));
+                .add(
+                    new ReplacedRoute(RestRequest.Method.POST, deprecatedPath.getKey(), RestRequest.Method.POST, deprecatedPath.getValue())
+                );
             replacedRoutes
-                .add(new ReplacedRoute(RestRequest.Method.GET, replacedPath.getKey(), RestRequest.Method.GET, replacedPath.getValue()));
+                .add(new ReplacedRoute(RestRequest.Method.GET, deprecatedPath.getKey(), RestRequest.Method.GET, deprecatedPath.getValue()));
 
         }
         return replacedRoutes;
