@@ -28,20 +28,30 @@ package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorAction;
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to search anomaly detectors.
  */
 public class RestSearchAnomalyDetectorAction extends AbstractSearchAction<AnomalyDetector> {
 
+    private static final String LEGACY_URL_PATH = AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/_search";
     private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/_search";
     private final String SEARCH_ANOMALY_DETECTOR_ACTION = "search_anomaly_detector";
 
     public RestSearchAnomalyDetectorAction() {
-        super(URL_PATH, ANOMALY_DETECTORS_INDEX, AnomalyDetector.class, SearchAnomalyDetectorAction.INSTANCE);
+        super(
+            ImmutableList.of(),
+            ImmutableList.of(Pair.of(URL_PATH, LEGACY_URL_PATH)),
+            ANOMALY_DETECTORS_INDEX,
+            AnomalyDetector.class,
+            SearchAnomalyDetectorAction.INSTANCE
+        );
     }
 
     @Override

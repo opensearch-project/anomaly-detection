@@ -94,20 +94,38 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
+        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
+        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
         return ImmutableList
             .of(
-                new Route(RestRequest.Method.GET, path),
-                new Route(RestRequest.Method.HEAD, path),
-                new Route(
+                new ReplacedRoute(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path),
+                new ReplacedRoute(RestRequest.Method.HEAD, newPath, RestRequest.Method.HEAD, path),
+                new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE)
                 ),
                 // types is a profile names. See a complete list of supported profiles names in
                 // com.amazon.opendistroforelasticsearch.ad.model.ProfileName.
-                new Route(
+                new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
+                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
+                    RestRequest.Method.GET,
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s/{%s}",
+                            AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
+                            DETECTOR_ID,
+                            PROFILE,
+                            TYPE
+                        )
                 )
             );
     }

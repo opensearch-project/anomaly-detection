@@ -150,14 +150,26 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList
             .of(
                 // Create
-                new Route(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI),
-                // update
-                new Route(
+                new ReplacedRoute(
+                    RestRequest.Method.POST,
+                    AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+                    RestRequest.Method.POST,
+                    AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI
+                ),
+                // Update
+                new ReplacedRoute(
                     RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID)
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
                 )
             );
     }
@@ -178,7 +190,7 @@ public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
                     response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS)
                 );
                 if (restStatus == RestStatus.CREATED) {
-                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_URI, response.getId());
+                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_AD_BASE, response.getId());
                     bytesRestResponse.addHeader("Location", location);
                 }
                 return bytesRestResponse;

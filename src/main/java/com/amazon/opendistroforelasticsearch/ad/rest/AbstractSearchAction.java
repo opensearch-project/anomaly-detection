@@ -32,8 +32,10 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
@@ -59,7 +61,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting;
-import com.google.common.collect.ImmutableList;
 
 /**
  * Abstract class to handle search request.
@@ -68,15 +69,23 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     private final String index;
     private final Class<T> clazz;
-    private final String urlPath;
+    private final List<String> urlPaths;
+    private final List<Pair<String, String>> deprecatedPaths;
     private final ActionType<SearchResponse> actionType;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
-    public AbstractSearchAction(String urlPath, String index, Class<T> clazz, ActionType<SearchResponse> actionType) {
+    public AbstractSearchAction(
+        List<String> urlPaths,
+        List<Pair<String, String>> deprecatedPaths,
+        String index,
+        Class<T> clazz,
+        ActionType<SearchResponse> actionType
+    ) {
         this.index = index;
         this.clazz = clazz;
-        this.urlPath = urlPath;
+        this.urlPaths = urlPaths;
+        this.deprecatedPaths = deprecatedPaths;
         this.actionType = actionType;
     }
 
@@ -126,6 +135,26 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     @Override
     public List<Route> routes() {
-        return ImmutableList.of(new Route(RestRequest.Method.POST, urlPath), new Route(RestRequest.Method.GET, urlPath));
+        List<Route> routes = new ArrayList<>();
+        for (String path : urlPaths) {
+            routes.add(new Route(RestRequest.Method.POST, path));
+            routes.add(new Route(RestRequest.Method.GET, path));
+        }
+        return routes;
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
+        List<ReplacedRoute> replacedRoutes = new ArrayList<>();
+        for (Pair<String, String> deprecatedPath : deprecatedPaths) {
+            replacedRoutes
+                .add(
+                    new ReplacedRoute(RestRequest.Method.POST, deprecatedPath.getKey(), RestRequest.Method.POST, deprecatedPath.getValue())
+                );
+            replacedRoutes
+                .add(new ReplacedRoute(RestRequest.Method.GET, deprecatedPath.getKey(), RestRequest.Method.GET, deprecatedPath.getValue()));
+
+        }
+        return replacedRoutes;
     }
 }

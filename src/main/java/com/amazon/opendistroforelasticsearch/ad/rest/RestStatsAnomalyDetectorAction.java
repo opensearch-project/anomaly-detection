@@ -27,6 +27,7 @@
 package com.amazon.opendistroforelasticsearch.ad.rest;
 
 import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.AD_BASE_URI;
+import static com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin.LEGACY_AD_BASE;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -141,12 +142,33 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList
             .of(
-                new Route(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/"),
-                new Route(RestRequest.Method.GET, AD_BASE_URI + "/{nodeId}/stats/{stat}"),
-                new Route(RestRequest.Method.GET, AD_BASE_URI + "/stats/"),
-                new Route(RestRequest.Method.GET, AD_BASE_URI + "/stats/{stat}")
+                // delete anomaly detector document
+                new ReplacedRoute(
+                    RestRequest.Method.GET,
+                    AD_BASE_URI + "/{nodeId}/stats/",
+                    RestRequest.Method.GET,
+                    LEGACY_AD_BASE + "/{nodeId}/stats/"
+                ),
+                new ReplacedRoute(
+                    RestRequest.Method.GET,
+                    AD_BASE_URI + "/{nodeId}/stats/{stat}",
+                    RestRequest.Method.GET,
+                    LEGACY_AD_BASE + "/{nodeId}/stats/{stat}"
+                ),
+                new ReplacedRoute(RestRequest.Method.GET, AD_BASE_URI + "/stats/", RestRequest.Method.GET, LEGACY_AD_BASE + "/stats/"),
+                new ReplacedRoute(
+                    RestRequest.Method.GET,
+                    AD_BASE_URI + "/stats/{stat}",
+                    RestRequest.Method.GET,
+                    LEGACY_AD_BASE + "/stats/{stat}"
+                )
             );
     }
 }

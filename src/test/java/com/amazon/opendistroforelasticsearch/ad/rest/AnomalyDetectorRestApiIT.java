@@ -395,14 +395,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
         Exception ex = expectThrows(
             ResponseException.class,
-            () -> TestHelpers.makeRequest(client(), "GET", AnomalyDetectorPlugin.AD_BASE_URI + "/stats", ImmutableMap.of(), "", null)
+            () -> TestHelpers.makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null)
         );
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
         Response statsResponse = TestHelpers
-            .makeRequest(client(), "GET", AnomalyDetectorPlugin.AD_BASE_URI + "/stats", ImmutableMap.of(), "", null);
+            .makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null);
 
         assertEquals("Get stats failed", RestStatus.OK, restStatus(statsResponse));
     }
@@ -1110,5 +1110,46 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         // Deleting detector should fail while its running
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getDetectorId(), client()); });
         Assert.assertTrue(exception.getMessage().contains("Detector job is running"));
+    }
+
+    public void testBackwardCompatibilityWithOpenDistro() throws IOException {
+        // Create a detector
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+
+        // Verify the detector is created using legacy _opendistro API
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI,
+                ImmutableMap.of(),
+                toHttpEntity(detector),
+                null
+            );
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        int version = (int) responseMap.get("_version");
+        assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
+        assertTrue("incorrect version", version > 0);
+
+        // Get the detector using new _plugins API
+        AnomalyDetector createdDetector = getAnomalyDetector(id, client());
+        assertEquals("Get anomaly detector failed", createdDetector.getDetectorId(), id);
+
+        // Delete the detector using legacy _opendistro API
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "DELETE",
+                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI + "/" + createdDetector.getDetectorId(),
+                ImmutableMap.of(),
+                "",
+                null
+            );
+        assertEquals("Delete anomaly detector failed", RestStatus.OK, restStatus(response));
+
     }
 }
