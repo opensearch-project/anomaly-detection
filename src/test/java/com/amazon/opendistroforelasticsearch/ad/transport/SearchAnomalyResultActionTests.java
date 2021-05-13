@@ -33,11 +33,11 @@ import java.io.IOException;
 import org.junit.Test;
 import org.opensearch.action.search.SearchResponse;
 
-import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
+import com.amazon.opendistroforelasticsearch.ad.HistoricalAnalysisIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
 
-public class SearchAnomalyResultActionTests extends HistoricalDetectorIntegTestCase {
+public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestCase {
 
     @Test
     public void testSearchResultAction() throws IOException {

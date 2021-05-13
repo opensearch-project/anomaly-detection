@@ -38,15 +38,18 @@ import org.opensearch.common.io.stream.StreamOutput;
 import com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class ForwardADTaskRequest extends ActionRequest {
     private AnomalyDetector detector;
+    private DetectionDateRange detectionDateRange;
     private User user;
     private ADTaskAction adTaskAction;
 
-    public ForwardADTaskRequest(AnomalyDetector detector, User user, ADTaskAction adTaskAction) {
+    public ForwardADTaskRequest(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ADTaskAction adTaskAction) {
         this.detector = detector;
+        this.detectionDateRange = detectionDateRange;
         this.user = user;
         this.adTaskAction = adTaskAction;
     }
@@ -54,6 +57,9 @@ public class ForwardADTaskRequest extends ActionRequest {
     public ForwardADTaskRequest(StreamInput in) throws IOException {
         super(in);
         this.detector = new AnomalyDetector(in);
+        if (in.readBoolean()) {
+            this.detectionDateRange = new DetectionDateRange(in);
+        }
         if (in.readBoolean()) {
             this.user = new User(in);
         }
@@ -64,6 +70,12 @@ public class ForwardADTaskRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         detector.writeTo(out);
+        if (detectionDateRange != null) {
+            out.writeBoolean(true);
+            detectionDateRange.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
         if (user != null) {
             out.writeBoolean(true);
             user.writeTo(out);
@@ -89,6 +101,10 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public AnomalyDetector getDetector() {
         return detector;
+    }
+
+    public DetectionDateRange getDetectionDateRange() {
+        return detectionDateRange;
     }
 
     public User getUser() {

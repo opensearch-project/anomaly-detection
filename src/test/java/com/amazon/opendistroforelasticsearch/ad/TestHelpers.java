@@ -124,7 +124,6 @@ import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.search.profile.SearchProfileShardResults;
 import org.opensearch.search.suggest.Suggest;
 import org.opensearch.test.ClusterServiceUtils;
-import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -159,7 +158,7 @@ public class TestHelpers {
     public static final String AD_BASE_RESULT_URI = "/_opendistro/_anomaly_detection/detectors/results";
     public static final String AD_BASE_PREVIEW_URI = "/_opendistro/_anomaly_detection/detectors/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_opendistro/_anomaly_detection/stats";
-    public static ImmutableSet<String> historicalDetectorRunningStats = ImmutableSet
+    public static ImmutableSet<String> historicalAnalysisRunningStats = ImmutableSet
         .of(ADTaskState.CREATED.name(), ADTaskState.INIT.name(), ADTaskState.RUNNING.name());
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
     public static final Random random = new Random(42);
@@ -238,27 +237,26 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime) throws IOException {
-        return randomAnomalyDetector(ImmutableList.of(randomFeature()), uiMetadata, lastUpdateTime, null, null);
+        return randomAnomalyDetector(ImmutableList.of(randomFeature()), uiMetadata, lastUpdateTime, null);
     }
 
     public static AnomalyDetector randomAnomalyDetector(Map<String, Object> uiMetadata, Instant lastUpdateTime, boolean featureEnabled)
         throws IOException {
-        return randomAnomalyDetector(ImmutableList.of(randomFeature(featureEnabled)), uiMetadata, lastUpdateTime, null, null);
+        return randomAnomalyDetector(ImmutableList.of(randomFeature(featureEnabled)), uiMetadata, lastUpdateTime, null);
     }
 
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features, Map<String, Object> uiMetadata, Instant lastUpdateTime)
         throws IOException {
-        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, null, null);
+        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, null);
     }
 
     public static AnomalyDetector randomAnomalyDetector(
         List<Feature> features,
         Map<String, Object> uiMetadata,
         Instant lastUpdateTime,
-        String detectorType,
-        DetectionDateRange dateRange
+        String detectorType
     ) throws IOException {
-        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, detectorType, dateRange, true);
+        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, detectorType, true);
     }
 
     public static AnomalyDetector randomAnomalyDetector(
@@ -266,7 +264,6 @@ public class TestHelpers {
         Map<String, Object> uiMetadata,
         Instant lastUpdateTime,
         String detectorType,
-        DetectionDateRange dateRange,
         boolean withUser
     ) throws IOException {
         return randomAnomalyDetector(
@@ -276,7 +273,6 @@ public class TestHelpers {
             lastUpdateTime,
             detectorType,
             OpenSearchRestTestCase.randomLongBetween(1, 1000),
-            dateRange,
             withUser
         );
     }
@@ -288,7 +284,6 @@ public class TestHelpers {
         Instant lastUpdateTime,
         String detectorType,
         long detectionIntervalInMinutes,
-        DetectionDateRange dateRange,
         boolean withUser
     ) throws IOException {
         User user = withUser ? randomUser() : null;
@@ -309,21 +304,13 @@ public class TestHelpers {
             lastUpdateTime,
             null,
             user,
-            detectorType,
-            dateRange
+            detectorType
         );
     }
 
-    public static AnomalyDetector randomDetector(
-        DetectionDateRange dateRange,
-        List<Feature> features,
-        String indexName,
-        int detectionIntervalInMinutes,
-        String timeField
-    ) throws IOException {
-        String detectorType = dateRange == null
-            ? AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name()
-            : AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name();
+    public static AnomalyDetector randomDetector(List<Feature> features, String indexName, int detectionIntervalInMinutes, String timeField)
+        throws IOException {
+        String detectorType = AnomalyDetectorType.SINGLE_ENTITY.name();
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -341,8 +328,7 @@ public class TestHelpers {
             Instant.now(),
             null,
             null,
-            detectorType,
-            dateRange
+            detectorType
         );
     }
 
@@ -696,7 +682,7 @@ public class TestHelpers {
     public static ClusterService createClusterService(ThreadPool threadPool, ClusterSettings clusterSettings) {
         DiscoveryNode discoveryNode = new DiscoveryNode(
             "node",
-            OpenSearchTestCase.buildNewFakeTransportAddress(),
+            OpenSearchRestTestCase.buildNewFakeTransportAddress(),
             Collections.emptyMap(),
             BUILT_IN_ROLES,
             Version.CURRENT

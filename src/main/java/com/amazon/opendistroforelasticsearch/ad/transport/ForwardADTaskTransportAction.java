@@ -37,6 +37,7 @@ import org.opensearch.transport.TransportService;
 
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskAction;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
 
 public class ForwardADTaskTransportAction extends HandledTransportAction<ForwardADTaskRequest, AnomalyDetectorJobResponse> {
@@ -55,10 +56,11 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
     protected void doExecute(Task task, ForwardADTaskRequest request, ActionListener<AnomalyDetectorJobResponse> listener) {
         ADTaskAction adTaskAction = request.getAdTaskAction();
         AnomalyDetector detector = request.getDetector();
+        DetectionDateRange detectionDateRange = request.getDetectionDateRange();
 
         switch (adTaskAction) {
             case START:
-                adTaskManager.startHistoricalDetector(request.getDetector(), request.getUser(), transportService, listener);
+                adTaskManager.startHistoricalAnalysisTask(detector, detectionDateRange, request.getUser(), transportService, listener);
                 break;
             case STOP:
                 adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());

@@ -34,14 +34,14 @@ import org.junit.Before;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
-import com.amazon.opendistroforelasticsearch.ad.HistoricalDetectorIntegTestCase;
+import com.amazon.opendistroforelasticsearch.ad.HistoricalAnalysisIntegTestCase;
 import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.Feature;
 import com.google.common.collect.ImmutableList;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
-public class DeleteAnomalyDetectorTransportActionTests extends HistoricalDetectorIntegTestCase {
+public class DeleteAnomalyDetectorTransportActionTests extends HistoricalAnalysisIntegTestCase {
     private Instant startTime;
     private Instant endTime;
     private String type = "error";

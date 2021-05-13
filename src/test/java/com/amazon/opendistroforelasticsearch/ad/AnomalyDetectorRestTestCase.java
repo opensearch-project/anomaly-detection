@@ -59,6 +59,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorExecutionInput;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -131,14 +132,20 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
             detector.getUser(),
-            detector.getDetectorType(),
-            detector.getDetectionDateRange()
+            detector.getDetectorType()
         );
     }
 
-    protected Response startAnomalyDetector(String detectorId, RestClient client) throws IOException {
+    protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, RestClient client) throws IOException {
         return TestHelpers
-            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start", ImmutableMap.of(), "", null);
+            .makeRequest(
+                client,
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start",
+                ImmutableMap.of(),
+                dateRange == null ? null : toHttpEntity(dateRange),
+                null
+            );
     }
 
     protected Response stopAnomalyDetector(String detectorId, RestClient client) throws IOException {
@@ -242,8 +249,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                detector.getDetectorType(),
-                detector.getDetectionDateRange()
+                detector.getDetectorType()
             ),
             detectorJob,
             adTask };
