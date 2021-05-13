@@ -26,7 +26,6 @@
 
 package org.opensearch.action.admin.indices.mapping.get;
 
-import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
@@ -36,6 +35,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -56,6 +56,14 @@ import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
+import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -67,15 +75,6 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
-
-import com.amazon.opendistroforelasticsearch.ad.AbstractADTest;
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
-import com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager;
-import com.amazon.opendistroforelasticsearch.ad.transport.IndexAnomalyDetectorResponse;
 
 /**
  *

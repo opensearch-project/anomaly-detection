@@ -1,0 +1,226 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
+
+/*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
+package org.opensearch.ad.transport.handler;
+
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.opensearch.ExceptionsHelper;
+import org.opensearch.ResourceAlreadyExistsException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.bulk.BackoffPolicy;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.IndexUtils;
+import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.block.ClusterBlockLevel;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.threadpool.ThreadPool;
+
+public class AnomalyIndexHandler<T extends ToXContentObject> {
+    private static final Logger LOG = LogManager.getLogger(AnomalyIndexHandler.class);
+    static final String FAIL_TO_SAVE_ERR_MSG = "Fail to save %s: ";
+    static final String SUCCESS_SAVING_MSG = "Succeed in saving %s";
+    static final String CANNOT_SAVE_ERR_MSG = "Cannot save %s due to write block.";
+    static final String RETRY_SAVING_ERR_MSG = "Retry in saving %s: ";
+
+    protected final Client client;
+
+    protected final ThreadPool threadPool;
+    protected final BackoffPolicy savingBackoffPolicy;
+    protected final String indexName;
+    protected final Consumer<ActionListener<CreateIndexResponse>> createIndex;
+    protected final BooleanSupplier indexExists;
+    // whether save to a specific doc id or not. False by default.
+    protected boolean fixedDoc;
+    protected final ClientUtil clientUtil;
+    protected final IndexUtils indexUtils;
+    protected final ClusterService clusterService;
+
+    /**
+     * Abstract class for index operation.
+     *
+     * @param client client to OpenSearch query
+     * @param settings accessor for node settings.
+     * @param threadPool used to invoke specific threadpool to execute
+     * @param indexName name of index to save to
+     * @param createIndex functional interface to create the index to save to
+     * @param indexExists funcitonal interface to find out if the index exists
+     * @param clientUtil client wrapper
+     * @param indexUtils Index util classes
+     * @param clusterService accessor to ES cluster service
+     */
+    public AnomalyIndexHandler(
+        Client client,
+        Settings settings,
+        ThreadPool threadPool,
+        String indexName,
+        Consumer<ActionListener<CreateIndexResponse>> createIndex,
+        BooleanSupplier indexExists,
+        ClientUtil clientUtil,
+        IndexUtils indexUtils,
+        ClusterService clusterService
+    ) {
+        this.client = client;
+        this.threadPool = threadPool;
+        this.savingBackoffPolicy = BackoffPolicy
+            .exponentialBackoff(
+                AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY.get(settings),
+                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings)
+            );
+        this.indexName = indexName;
+        this.createIndex = createIndex;
+        this.indexExists = indexExists;
+        this.fixedDoc = false;
+        this.clientUtil = clientUtil;
+        this.indexUtils = indexUtils;
+        this.clusterService = clusterService;
+    }
+
+    /**
+     * Since the constructor needs to provide injected value and Guice does not allow Boolean to be there
+     * (claiming it does not know how to instantiate it), caller needs to manually set it to true if
+     * it want to save to a specific doc.
+     * @param fixedDoc whether to save to a specific doc Id
+     */
+    public void setFixedDoc(boolean fixedDoc) {
+        this.fixedDoc = fixedDoc;
+    }
+
+    public void index(T toSave, String detectorId) {
+        if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
+            LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
+            return;
+        }
+
+        try {
+            if (!indexExists.getAsBoolean()) {
+                createIndex
+                    .accept(ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
+                        if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                            // It is possible the index has been created while we sending the create request
+                            save(toSave, detectorId);
+                        } else {
+                            throw new AnomalyDetectionException(
+                                detectorId,
+                                String.format(Locale.ROOT, "Unexpected error creating index %s", indexName),
+                                exception
+                            );
+                        }
+                    }));
+            } else {
+                save(toSave, detectorId);
+            }
+        } catch (Exception e) {
+            throw new AnomalyDetectionException(
+                detectorId,
+                String.format(Locale.ROOT, "Error in saving %s for detector %s", indexName, detectorId),
+                e
+            );
+        }
+    }
+
+    private void onCreateIndexResponse(CreateIndexResponse response, T toSave, String detectorId) {
+        if (response.isAcknowledged()) {
+            save(toSave, detectorId);
+        } else {
+            throw new AnomalyDetectionException(
+                detectorId,
+                String.format(Locale.ROOT, "Creating %s with mappings call not acknowledged.", indexName)
+            );
+        }
+    }
+
+    protected void save(T toSave, String detectorId) {
+        try (XContentBuilder builder = jsonBuilder()) {
+            IndexRequest indexRequest = new IndexRequest(indexName).source(toSave.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
+            if (fixedDoc) {
+                indexRequest.id(detectorId);
+            }
+
+            saveIteration(indexRequest, detectorId, savingBackoffPolicy.iterator());
+        } catch (Exception e) {
+            LOG.error(String.format(Locale.ROOT, "Failed to save %s", indexName), e);
+            throw new AnomalyDetectionException(detectorId, String.format(Locale.ROOT, "Cannot save %s", indexName));
+        }
+    }
+
+    void saveIteration(IndexRequest indexRequest, String detectorId, Iterator<TimeValue> backoff) {
+        clientUtil
+            .<IndexRequest, IndexResponse>asyncRequest(
+                indexRequest,
+                client::index,
+                ActionListener
+                    .<IndexResponse>wrap(
+                        response -> { LOG.debug(String.format(Locale.ROOT, SUCCESS_SAVING_MSG, detectorId)); },
+                        exception -> {
+                            // OpenSearch has a thread pool and a queue for write per node. A thread
+                            // pool will have N number of workers ready to handle the requests. When a
+                            // request comes and if a worker is free , this is handled by the worker. Now by
+                            // default the number of workers is equal to the number of cores on that CPU.
+                            // When the workers are full and there are more write requests, the request
+                            // will go to queue. The size of queue is also limited. If by default size is,
+                            // say, 200 and if there happens more parallel requests than this, then those
+                            // requests would be rejected as you can see OpenSearchRejectedExecutionException.
+                            // So OpenSearchRejectedExecutionException is the way that OpenSearch tells us that
+                            // it cannot keep up with the current indexing rate.
+                            // When it happens, we should pause indexing a bit before trying again, ideally
+                            // with randomized exponential backoff.
+                            Throwable cause = ExceptionsHelper.unwrapCause(exception);
+                            if (!(cause instanceof OpenSearchRejectedExecutionException) || !backoff.hasNext()) {
+                                LOG.error(String.format(Locale.ROOT, FAIL_TO_SAVE_ERR_MSG, detectorId), cause);
+                            } else {
+                                TimeValue nextDelay = backoff.next();
+                                LOG.warn(String.format(Locale.ROOT, RETRY_SAVING_ERR_MSG, detectorId), cause);
+                                // copy original request's source without other information like autoGeneratedTimestamp
+                                // otherwise, an exception will be thrown indicating autoGeneratedTimestamp should not be set
+                                // while request id is already set (id is set because we have already sent the request before).
+                                IndexRequest newReuqest = new IndexRequest(indexRequest.index());
+                                newReuqest.source(indexRequest.source(), indexRequest.getContentType());
+                                threadPool.schedule(() -> saveIteration(newReuqest, detectorId, backoff), nextDelay, ThreadPool.Names.SAME);
+                            }
+                        }
+                    )
+            );
+    }
+}

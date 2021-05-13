@@ -26,14 +26,14 @@
 
 package org.opensearch.search.aggregations.metrics;
 
-import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
@@ -51,20 +51,20 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.AbstractProfileRunnerTests;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.transport.ProfileAction;
+import org.opensearch.ad.transport.ProfileNodeResponse;
+import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
 
-import com.amazon.opendistroforelasticsearch.ad.AbstractProfileRunnerTests;
-import com.amazon.opendistroforelasticsearch.ad.TestHelpers;
-import com.amazon.opendistroforelasticsearch.ad.constant.CommonName;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
-import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob;
-import com.amazon.opendistroforelasticsearch.ad.model.IntervalTimeConfiguration;
-import com.amazon.opendistroforelasticsearch.ad.transport.ProfileAction;
-import com.amazon.opendistroforelasticsearch.ad.transport.ProfileNodeResponse;
-import com.amazon.opendistroforelasticsearch.ad.transport.ProfileResponse;
 import com.carrotsearch.hppc.BitMixer;
 
 /**

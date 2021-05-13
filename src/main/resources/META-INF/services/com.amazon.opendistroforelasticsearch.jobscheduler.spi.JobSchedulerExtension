@@ -1,1 +1,1 @@
-com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin
+org.opensearch.ad.AnomalyDetectorPlugin
