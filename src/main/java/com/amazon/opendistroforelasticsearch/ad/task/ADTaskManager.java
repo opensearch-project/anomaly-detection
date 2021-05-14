@@ -233,7 +233,7 @@ public class ADTaskManager {
             return;
         }
         logger.debug("coordinating node is : {} for detector: {}", owningNode.get().getId(), detectorId);
-        forwardDetectorToCoordinatingNode(
+        forwardDetectRequestToCoordinatingNode(
             detector,
             detectionDateRange,
             user,
@@ -265,7 +265,7 @@ public class ADTaskManager {
      * @param node ES node
      * @param listener action listener
      */
-    protected void forwardDetectorToCoordinatingNode(
+    protected void forwardDetectRequestToCoordinatingNode(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
         User user,
@@ -527,7 +527,7 @@ public class ADTaskManager {
         }
         if (targetNode != null) {
             logger.debug("coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
-            forwardDetectorToCoordinatingNode(
+            forwardDetectRequestToCoordinatingNode(
                 adTask.getDetector(),
                 adTask.getDetectionDateRange(),
                 null,

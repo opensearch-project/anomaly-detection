@@ -60,6 +60,21 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
         this(detectorID, null, false, seqNo, primaryTerm, rawPath);
     }
 
+    /**
+     * Constructor function.
+     *
+     * The detectionDateRange and historical boolean can be passed in individually.
+     * The historical flag is for stopping detector, the detectionDateRange is for
+     * starting detector. It's ok if historical is true but detectionDateRange is
+     * null.
+     *
+     * @param detectorID detector identifier
+     * @param detectionDateRange detection date range
+     * @param historical historical analysis or not
+     * @param seqNo seq no
+     * @param primaryTerm primary term
+     * @param rawPath raw request path
+     */
     public AnomalyDetectorJobRequest(
         String detectorID,
         DetectionDateRange detectionDateRange,
