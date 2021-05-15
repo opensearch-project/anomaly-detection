@@ -40,6 +40,7 @@ import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorS
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getErrorMessage;
 import static com.amazon.opendistroforelasticsearch.ad.util.ExceptionUtil.getShardsFailure;
+import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -110,6 +111,7 @@ import com.amazon.opendistroforelasticsearch.ad.model.ADTaskProfile;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskState;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTaskType;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
+import com.amazon.opendistroforelasticsearch.ad.model.DetectionDateRange;
 import com.amazon.opendistroforelasticsearch.ad.model.DetectorProfile;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.AnomalyDetectorFunction;
 import com.amazon.opendistroforelasticsearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
@@ -180,6 +182,7 @@ public class ADTaskManager {
      * and start AD task for historical detector.
      *
      * @param detectorId detector id
+     * @param detectionDateRange historical analysis date range
      * @param handler anomaly detector job action handler
      * @param user user
      * @param transportService transport service
@@ -187,28 +190,58 @@ public class ADTaskManager {
      */
     public void startDetector(
         String detectorId,
+        DetectionDateRange detectionDateRange,
         IndexAnomalyDetectorJobActionHandler handler,
         User user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         getDetector(detectorId, (detector) -> {
-            if (validateDetector(detector, listener)) {
-                // run realtime detector
-                handler.startAnomalyDetectorJob(detector);
-            }
-        }, (detector) -> {
-            if (validateDetector(detector, listener)) {
-                // run historical detector
-                Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(detector.getDetectorId());
-                if (!owningNode.isPresent()) {
-                    logger.debug("Can't find eligible node to run as AD task's coordinating node");
-                    listener.onFailure(new OpenSearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
-                    return;
+            if (validateDetector(detector, listener)) { // validate if detector is ready to start
+                if (detectionDateRange == null) {
+                    // start realtime job
+                    handler.startAnomalyDetectorJob(detector);
+                } else {
+                    // start historical analysis task
+                    startHistoricalAnalysis(detector, detectionDateRange, user, transportService, listener);
                 }
-                forwardToCoordinatingNode(detector, user, ADTaskAction.START, transportService, owningNode.get(), listener);
             }
         }, listener);
+    }
+
+    /**
+     * Forward historical analysis task  to coordinating node.
+     *
+     * @param detector anomaly detector
+     * @param detectionDateRange historical analysis date range
+     * @param user user
+     * @param transportService transport service
+     * @param listener action listener
+     */
+    public void startHistoricalAnalysis(
+        AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
+        User user,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
+        String detectorId = detector.getDetectorId();
+        Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(detectorId);
+        if (!owningNode.isPresent()) {
+            logger.debug("Can't find eligible node to run as AD task's coordinating node");
+            listener.onFailure(new OpenSearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
+            return;
+        }
+        logger.debug("coordinating node is : {} for detector: {}", owningNode.get().getId(), detectorId);
+        forwardDetectRequestToCoordinatingNode(
+            detector,
+            detectionDateRange,
+            user,
+            ADTaskAction.START,
+            transportService,
+            owningNode.get(),
+            listener
+        );
     }
 
     /**
@@ -225,14 +258,16 @@ public class ADTaskManager {
      * This function is to forward the request to coordinating node.
      *
      * @param detector anomaly detector
+     * @param detectionDateRange historical analysis date range
      * @param user user
      * @param adTaskAction AD task action
      * @param transportService transport service
      * @param node ES node
      * @param listener action listener
      */
-    protected void forwardToCoordinatingNode(
+    protected void forwardDetectRequestToCoordinatingNode(
         AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
         User user,
         ADTaskAction adTaskAction,
         TransportService transportService,
@@ -248,7 +283,7 @@ public class ADTaskManager {
             .sendRequest(
                 node,
                 ForwardADTaskAction.NAME,
-                new ForwardADTaskRequest(detector, user, adTaskAction),
+                new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction),
                 option,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
             );
@@ -260,6 +295,7 @@ public class ADTaskManager {
      * For historical detector, will set its AD task as cancelled.
      *
      * @param detectorId detector id
+     * @param historical stop historical analysis or not
      * @param handler AD job action handler
      * @param user user
      * @param transportService transport service
@@ -267,26 +303,44 @@ public class ADTaskManager {
      */
     public void stopDetector(
         String detectorId,
+        boolean historical,
         IndexAnomalyDetectorJobActionHandler handler,
         User user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        getDetector(
-            detectorId,
-            // stop realtime detector job
-            (detector) -> handler.stopAnomalyDetectorJob(detectorId),
-            // stop historical detector AD task
-            (detector) -> getLatestADTask(
-                detectorId,
-                (task) -> stopHistoricalDetector(detectorId, task, user, listener),
-                transportService,
-                listener
-            ),
-            listener
-        );
+        getDetector(detectorId, (detector) -> {
+            if (historical) {
+                // stop historical detector AD task
+                getLatestADTask(detectorId, (task) -> stopHistoricalAnalysis(detectorId, task, user, listener), transportService, listener);
+            } else {
+                // stop realtime detector job
+                handler.stopAnomalyDetectorJob(detectorId);
+            }
+        }, listener);
     }
 
+    public <T> void getDetector(String detectorId, Consumer<AnomalyDetector> consumer, ActionListener<T> listener) {
+        GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+        client.get(getRequest, ActionListener.wrap(response -> {
+            if (!response.isExists()) {
+                listener.onFailure(new OpenSearchStatusException("AnomalyDetector is not found", RestStatus.NOT_FOUND));
+                return;
+            }
+            try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
+
+                consumer.accept(detector);
+            } catch (Exception e) {
+                String message = "Failed to start anomaly detector " + detectorId;
+                logger.error(message, e);
+                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+            }
+        }, exception -> listener.onFailure(exception)));
+    }
+
+    // TODO: delete this one later
     public <T> void getDetector(
         String detectorId,
         Consumer<AnomalyDetector> realTimeDetectorConsumer,
@@ -394,7 +448,7 @@ public class ADTaskManager {
         }));
     }
 
-    private void stopHistoricalDetector(
+    private void stopHistoricalAnalysis(
         String detectorId,
         Optional<ADTask> adTask,
         User user,
@@ -473,8 +527,9 @@ public class ADTaskManager {
         }
         if (targetNode != null) {
             logger.debug("coordinatingNode found, will clean detector cache on it, detectorId: " + adTask.getDetectorId());
-            forwardToCoordinatingNode(
+            forwardDetectRequestToCoordinatingNode(
                 adTask.getDetector(),
+                adTask.getDetectionDateRange(),
                 null,
                 ADTaskAction.STOP,
                 transportService,
@@ -623,12 +678,14 @@ public class ADTaskManager {
      * with least load and dispatch task to that node(worker node).
      *
      * @param detector anomaly detector
+     * @param detectionDateRange detection date range
      * @param user user
      * @param transportService transport service
      * @param listener action listener
      */
-    public void startHistoricalDetector(
+    public void startHistoricalAnalysisTask(
         AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
         User user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -638,7 +695,7 @@ public class ADTaskManager {
                 // If detection index exist, check if latest AD task is running
                 getLatestADTask(detector.getDetectorId(), (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
-                        executeHistoricalDetector(detector, user, listener);
+                        executeHistoricalAnalysis(detector, detectionDateRange, user, listener);
                     } else {
                         listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
                     }
@@ -648,7 +705,7 @@ public class ADTaskManager {
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
                         logger.info("Created {} with mappings.", CommonName.DETECTION_STATE_INDEX);
-                        executeHistoricalDetector(detector, user, listener);
+                        executeHistoricalAnalysis(detector, detectionDateRange, user, listener);
                     } else {
                         String error = "Create index " + CommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
                         logger.warn(error);
@@ -656,7 +713,7 @@ public class ADTaskManager {
                     }
                 }, e -> {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
-                        executeHistoricalDetector(detector, user, listener);
+                        executeHistoricalAnalysis(detector, detectionDateRange, user, listener);
                     } else {
                         logger.error("Failed to init anomaly detection state index", e);
                         listener.onFailure(e);
@@ -669,7 +726,12 @@ public class ADTaskManager {
         }
     }
 
-    private void executeHistoricalDetector(AnomalyDetector detector, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void executeHistoricalAnalysis(
+        AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
+        User user,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
         UpdateByQueryRequest updateByQueryRequest = new UpdateByQueryRequest();
         updateByQueryRequest.indices(CommonName.DETECTION_STATE_INDEX);
         BoolQueryBuilder query = new BoolQueryBuilder();
@@ -682,7 +744,7 @@ public class ADTaskManager {
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
             if (bulkFailures.isEmpty()) {
-                createNewADTask(detector, user, listener);
+                createNewADTask(detector, detectionDateRange, user, listener);
             } else {
                 logger.error("Failed to update old task's state for detector: {}, response: {} ", detector.getDetectorId(), r.toString());
                 listener.onFailure(bulkFailures.get(0).getCause());
@@ -693,12 +755,18 @@ public class ADTaskManager {
         }));
     }
 
-    private void createNewADTask(AnomalyDetector detector, User user, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void createNewADTask(
+        AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
+        User user,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
         String userName = user == null ? null : user.getName();
         Instant now = Instant.now();
         ADTask adTask = new ADTask.Builder()
             .detectorId(detector.getDetectorId())
             .detector(detector)
+            .detectionDateRange(detectionDateRange)
             .isLatest(true)
             .taskType(ADTaskType.HISTORICAL.name())
             .executionStartTime(now)

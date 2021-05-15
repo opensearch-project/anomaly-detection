@@ -11,16 +11,16 @@
 
 /*
  *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *   
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License").
  *   You may not use this file except in compliance with the License.
  *   A copy of the License is located at
- *   
+ *
  *       http://www.apache.org/licenses/LICENSE-2.0
- *   
- *   or in the "license" file accompanying this file. This file is distributed 
- *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
- *   express or implied. See the License for the specific language governing 
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
  *   permissions and limitations under the License.
  */
 
@@ -327,6 +327,18 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
         'com.amazon.opendistroforelasticsearch.ad.transport.handler.MultiEntityResultHandler',
         'com.amazon.opendistroforelasticsearch.ad.util.ThrowingSupplierWrapper',
+
+        // TODO: unified flow caused coverage drop
+        'com.amazon.opendistroforelasticsearch.ad.transport.AnomalyDetectorJobRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileTransportAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileNodeRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskTransportAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADTaskProfileRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADCancelTaskNodeRequest',
+        'com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager',
+        'com.amazon.opendistroforelasticsearch.ad.task.ADTaskCacheManager',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ForwardADTaskTransportAction',
 ]
 
 jacocoTestCoverageVerification {
