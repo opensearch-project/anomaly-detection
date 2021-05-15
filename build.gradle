@@ -93,7 +93,7 @@ ext {
 opensearchplugin {
     name 'opensearch-anomaly-detection'
     description 'OpenSearch anomaly detector plugin'
-    classname 'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin'
+    classname 'org.opensearch.ad.AnomalyDetectorPlugin'
     extendedPlugins = ['lang-painless', 'opensearch-job-scheduler']
 }
 
@@ -124,16 +124,16 @@ configurations {
 }
 
 tasks.named('forbiddenApisMain').configure {
-  // Only enable limited check because AD code has too many violations.
-  replaceSignatureFiles 'jdk-signatures'
-  signaturesFiles += files('src/forbidden/ad-signatures.txt')
+    // Only enable limited check because AD code has too many violations.
+    replaceSignatureFiles 'jdk-signatures'
+    signaturesFiles += files('src/forbidden/ad-signatures.txt')
 }
 
 tasks.named('forbiddenApisTest').configure {
-  // Disable check because AD code has too many violations.
-  // For example, we have to allow @Test to be used in test classes not inherited from LuceneTestCase.
-  // see https://github.com/elastic/elasticsearch/blob/master/buildSrc/src/main/resources/forbidden/es-test-signatures.txt
-  ignoreFailures = true
+    // Disable check because AD code has too many violations.
+    // For example, we have to allow @Test to be used in test classes not inherited from LuceneTestCase.
+    // see https://github.com/elastic/elasticsearch/blob/master/buildSrc/src/main/resources/forbidden/es-test-signatures.txt
+    ignoreFailures = true
 }
 
 // Allow test cases to be named Tests without having to be inherited from LuceneTestCase.
@@ -175,14 +175,14 @@ integTest {
     // Only rest case can run with remote cluster
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
-            includeTestsMatching "com.amazon.opendistroforelasticsearch.ad.rest.*IT"
-            includeTestsMatching "com.amazon.opendistroforelasticsearch.ad.e2e.*IT"
+            includeTestsMatching "org.opensearch.ad.rest.*IT"
+            includeTestsMatching "org.opensearch.ad.e2e.*IT"
         }
     }
 
     if (System.getProperty("https") == null || System.getProperty("https") == "false") {
         filter {
-            excludeTestsMatching "com.amazon.opendistroforelasticsearch.ad.rest.SecureADRestIT"
+            excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
         }
     }
 
@@ -286,47 +286,47 @@ task release(type: Copy, group: 'build') {
 
 List<String> jacocoExclusions = [
         // code for configuration, settings, etc is excluded from coverage
-        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorPlugin',
-        'com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings',
+        'org.opensearch.ad.AnomalyDetectorPlugin',
+        'org.opensearch.ad.settings.AnomalyDetectorSettings',
 
         //TODO: add more test cases later for these package
-        'com.amazon.opendistroforelasticsearch.ad.model.*',
-        'com.amazon.opendistroforelasticsearch.ad.rest.*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.handler.DetectionStateHandler',
-        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorJobRunner',
+        'org.opensearch.ad.model.*',
+        'org.opensearch.ad.rest.*',
+        'org.opensearch.ad.transport.handler.DetectionStateHandler',
+        'org.opensearch.ad.AnomalyDetectorJobRunner',
 
         // Class containing just constants.  Don't need to test
-        'com.amazon.opendistroforelasticsearch.ad.constant.*',
+        'org.opensearch.ad.constant.*',
 
         // mostly skeleton code.  Tested major logic in restful api tests
-        'com.amazon.opendistroforelasticsearch.ad.settings.EnabledSetting',
+        'org.opensearch.ad.settings.EnabledSetting',
 
-        'com.amazon.opendistroforelasticsearch.ad.common.exception.FeatureNotAvailableException',
-        'com.amazon.opendistroforelasticsearch.ad.common.exception.AnomalyDetectionException',
-        'com.amazon.opendistroforelasticsearch.ad.util.ClientUtil',
+        'org.opensearch.ad.common.exception.FeatureNotAvailableException',
+        'org.opensearch.ad.common.exception.AnomalyDetectionException',
+        'org.opensearch.ad.util.ClientUtil',
 
-        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorRequest',
-        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorResponse',
-        'com.amazon.opendistroforelasticsearch.ad.transport.StopDetectorTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.DeleteDetectorAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.CronTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.CronRequest',
-        'com.amazon.opendistroforelasticsearch.ad.transport.ADStatsNodesAction',
-        'com.amazon.opendistroforelasticsearch.ad.AnomalyDetectorRunner',
-        'com.amazon.opendistroforelasticsearch.ad.util.ParseUtils',
+        'org.opensearch.ad.transport.StopDetectorRequest',
+        'org.opensearch.ad.transport.StopDetectorResponse',
+        'org.opensearch.ad.transport.StopDetectorTransportAction',
+        'org.opensearch.ad.transport.DeleteDetectorAction',
+        'org.opensearch.ad.transport.CronTransportAction',
+        'org.opensearch.ad.transport.CronRequest',
+        'org.opensearch.ad.transport.ADStatsNodesAction',
+        'org.opensearch.ad.AnomalyDetectorRunner',
+        'org.opensearch.ad.util.ParseUtils',
 
         // related to transport actions added for security
-        'com.amazon.opendistroforelasticsearch.ad.transport.StatsAnomalyDetectorTransportAction',
-        'com.amazon.opendistroforelasticsearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.GetAnomalyDetectorTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyResultTransportAction*',
-        'com.amazon.opendistroforelasticsearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
+        'org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
+        'org.opensearch.ad.transport.SearchAnomalyDetectorTransportAction*',
+        'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction*',
+        'org.opensearch.ad.transport.SearchAnomalyResultTransportAction*',
+        'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
 
         // TODO: hc caused coverage to drop
-        'com.amazon.opendistroforelasticsearch.ad.indices.AnomalyDetectionIndices',
-        'com.amazon.opendistroforelasticsearch.ad.transport.handler.MultiEntityResultHandler',
-        'com.amazon.opendistroforelasticsearch.ad.util.ThrowingSupplierWrapper',
+        'org.opensearch.ad.indices.AnomalyDetectionIndices',
+        'org.opensearch.ad.transport.handler.MultiEntityResultHandler',
+        'org.opensearch.ad.util.ThrowingSupplierWrapper',
 ]
 
 jacocoTestCoverageVerification {
