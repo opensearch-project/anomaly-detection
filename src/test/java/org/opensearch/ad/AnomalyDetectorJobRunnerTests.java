@@ -157,9 +157,9 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
         Settings settings = Settings
             .builder()
-            .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
-            .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
-            .put("opendistro.anomaly_detection.max_retry_for_end_run_exception", 3)
+            .put("opensearch.anomaly_detection.max_retry_for_backoff", 2)
+            .put("opensearch.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
+            .put("opensearch.anomaly_detection.max_retry_for_end_run_exception", 3)
             .build();
         setUpJobParameter();
 

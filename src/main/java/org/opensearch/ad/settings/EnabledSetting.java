@@ -27,6 +27,7 @@
 package org.opensearch.ad.settings;
 
 import static java.util.Collections.unmodifiableMap;
+import static org.opensearch.common.settings.Setting.Property.Deprecated;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 
@@ -54,21 +55,39 @@ public class EnabledSetting {
     /**
      * Settings name
      */
-    public static final String AD_PLUGIN_ENABLED = "opendistro.anomaly_detection.enabled";
+    public static final String AD_PLUGIN_ENABLED = "opensearch.anomaly_detection.enabled";
 
-    public static final String AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
+    public static final String AD_BREAKER_ENABLED = "opensearch.anomaly_detection.breaker.enabled";
+
+    public static final String LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED = "opendistro.anomaly_detection.enabled";
+
+    public static final String LEGACY_OPENDISTRO_AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
 
     private final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
+            Setting LegacyADPluginEnabledSetting = Setting
+                .boolSetting(LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED, true, NodeScope, Dynamic, Deprecated);
+            /**
+             * Legacy OpenDistro AD plugin enable/disable setting
+             */
+            put(LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED, LegacyADPluginEnabledSetting);
+
+            Setting LegacyADBreakerEnabledSetting = Setting
+                .boolSetting(LEGACY_OPENDISTRO_AD_BREAKER_ENABLED, true, NodeScope, Dynamic, Deprecated);
+            /**
+             * Legacy OpenDistro AD breaker enable/disable setting
+             */
+            put(LEGACY_OPENDISTRO_AD_BREAKER_ENABLED, LegacyADBreakerEnabledSetting);
+
             /**
              * AD plugin enable/disable setting
              */
-            put(AD_PLUGIN_ENABLED, Setting.boolSetting(AD_PLUGIN_ENABLED, true, NodeScope, Dynamic));
+            put(AD_PLUGIN_ENABLED, Setting.boolSetting(AD_PLUGIN_ENABLED, LegacyADPluginEnabledSetting, NodeScope, Dynamic));
 
             /**
              * AD breaker enable/disable setting
              */
-            put(AD_BREAKER_ENABLED, Setting.boolSetting(AD_BREAKER_ENABLED, true, NodeScope, Dynamic));
+            put(AD_BREAKER_ENABLED, Setting.boolSetting(AD_BREAKER_ENABLED, LegacyADBreakerEnabledSetting, NodeScope, Dynamic));
         }
     });
 

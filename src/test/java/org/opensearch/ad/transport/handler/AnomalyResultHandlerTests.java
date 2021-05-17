@@ -304,8 +304,8 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
 
         Settings backoffSettings = Settings
             .builder()
-            .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
-            .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
+            .put("opensearch.anomaly_detection.max_retry_for_backoff", 2)
+            .put("opensearch.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
             .build();
 
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(

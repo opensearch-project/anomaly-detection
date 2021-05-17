@@ -81,6 +81,7 @@ import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
 import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.LegacyOpenDistroAnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
@@ -637,6 +638,31 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         List<Setting<?>> systemSetting = ImmutableList
             .of(
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
+                LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT,
+                LegacyOpenDistroAnomalyDetectorSettings.DETECTION_INTERVAL,
+                LegacyOpenDistroAnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
+                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+                LegacyOpenDistroAnomalyDetectorSettings.COOLDOWN_MINUTES,
+                LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES,
+                LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
+                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                LegacyOpenDistroAnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
+                LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
+                LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
+                LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
                 AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
