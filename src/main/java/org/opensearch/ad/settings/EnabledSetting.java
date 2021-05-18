@@ -55,9 +55,9 @@ public class EnabledSetting {
     /**
      * Settings name
      */
-    public static final String AD_PLUGIN_ENABLED = "opensearch.anomaly_detection.enabled";
+    public static final String AD_PLUGIN_ENABLED = "plugins.anomaly_detection.enabled";
 
-    public static final String AD_BREAKER_ENABLED = "opensearch.anomaly_detection.breaker.enabled";
+    public static final String AD_BREAKER_ENABLED = "plugins.anomaly_detection.breaker.enabled";
 
     public static final String LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED = "opendistro.anomaly_detection.enabled";
 

@@ -40,7 +40,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> MAX_SINGLE_ENTITY_ANOMALY_DETECTORS = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_anomaly_detectors",
+            "plugins.anomaly_detection.max_anomaly_detectors",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
             0,
             10_000,
@@ -50,7 +50,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> MAX_MULTI_ENTITY_ANOMALY_DETECTORS = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_multi_entity_anomaly_detectors",
+            "plugins.anomaly_detection.max_multi_entity_anomaly_detectors",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
             0,
             10_000,
@@ -60,7 +60,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> MAX_ANOMALY_FEATURES = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_anomaly_features",
+            "plugins.anomaly_detection.max_anomaly_features",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
             0,
             100,
@@ -70,7 +70,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
-            "opensearch.anomaly_detection.request_timeout",
+            "plugins.anomaly_detection.request_timeout",
             LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -78,7 +78,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> DETECTION_INTERVAL = Setting
         .positiveTimeSetting(
-            "opensearch.anomaly_detection.detection_interval",
+            "plugins.anomaly_detection.detection_interval",
             LegacyOpenDistroAnomalyDetectorSettings.DETECTION_INTERVAL,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -86,7 +86,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> DETECTION_WINDOW_DELAY = Setting
         .timeSetting(
-            "opensearch.anomaly_detection.detection_window_delay",
+            "plugins.anomaly_detection.detection_window_delay",
             LegacyOpenDistroAnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -94,7 +94,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> AD_RESULT_HISTORY_ROLLOVER_PERIOD = Setting
         .positiveTimeSetting(
-            "opensearch.anomaly_detection.ad_result_history_rollover_period",
+            "plugins.anomaly_detection.ad_result_history_rollover_period",
             LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -102,7 +102,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Long> AD_RESULT_HISTORY_MAX_DOCS = Setting
         .longSetting(
-            "opensearch.anomaly_detection.ad_result_history_max_docs",
+            "plugins.anomaly_detection.ad_result_history_max_docs",
             // Total documents in primary replica.
             // A single feature result is roughly 150 bytes. Suppose a doc is
             // of 200 bytes, 250 million docs is of 50 GB. We choose 50 GB
@@ -115,7 +115,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> AD_RESULT_HISTORY_RETENTION_PERIOD = Setting
         .positiveTimeSetting(
-            "opensearch.anomaly_detection.ad_result_history_retention_period",
+            "plugins.anomaly_detection.ad_result_history_retention_period",
             LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -123,7 +123,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_retry_for_unresponsive_node",
+            "plugins.anomaly_detection.max_retry_for_unresponsive_node",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
             0,
             Setting.Property.NodeScope,
@@ -132,7 +132,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> COOLDOWN_MINUTES = Setting
         .positiveTimeSetting(
-            "opensearch.anomaly_detection.cooldown_minutes",
+            "plugins.anomaly_detection.cooldown_minutes",
             LegacyOpenDistroAnomalyDetectorSettings.COOLDOWN_MINUTES,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -140,7 +140,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> BACKOFF_MINUTES = Setting
         .positiveTimeSetting(
-            "opensearch.anomaly_detection.backoff_minutes",
+            "plugins.anomaly_detection.backoff_minutes",
             LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -148,7 +148,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<TimeValue> BACKOFF_INITIAL_DELAY = Setting
         .positiveTimeSetting(
-            "opensearch.anomaly_detection.backoff_initial_delay",
+            "plugins.anomaly_detection.backoff_initial_delay",
             LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -156,7 +156,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> MAX_RETRY_FOR_BACKOFF = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_retry_for_backoff",
+            "plugins.anomaly_detection.max_retry_for_backoff",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
             0,
             Setting.Property.NodeScope,
@@ -165,7 +165,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> MAX_RETRY_FOR_END_RUN_EXCEPTION = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_retry_for_end_run_exception",
+            "plugins.anomaly_detection.max_retry_for_end_run_exception",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION,
             0,
             Setting.Property.NodeScope,
@@ -174,7 +174,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Boolean> FILTER_BY_BACKEND_ROLES = Setting
         .boolSetting(
-            "opensearch.anomaly_detection.filter_by_backend_roles",
+            "plugins.anomaly_detection.filter_by_backend_roles",
             LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -208,7 +208,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Double> MODEL_MAX_SIZE_PERCENTAGE = Setting
         .doubleSetting(
-            "opensearch.anomaly_detection.model_max_size_percent",
+            "plugins.anomaly_detection.model_max_size_percent",
             LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
             0,
             0.7,
@@ -290,7 +290,7 @@ public final class AnomalyDetectorSettings {
     // Increase the value will adding pressure to indexing anomaly results and our feature query
     public static final Setting<Integer> MAX_ENTITIES_PER_QUERY = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_entities_per_query",
+            "plugins.anomaly_detection.max_entities_per_query",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
             1,
             100_000_000,
@@ -304,7 +304,7 @@ public final class AnomalyDetectorSettings {
     // Maximum number of entities retrieved for Preview API
     public static final Setting<Integer> MAX_ENTITIES_FOR_PREVIEW = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_entities_for_preview",
+            "plugins.anomaly_detection.max_entities_for_preview",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
             1,
             1000,
@@ -315,7 +315,7 @@ public final class AnomalyDetectorSettings {
     // save partial zero-anomaly grade results after indexing pressure reaching the limit
     public static final Setting<Float> INDEX_PRESSURE_SOFT_LIMIT = Setting
         .floatSetting(
-            "opensearch.anomaly_detection.index_pressure_soft_limit",
+            "plugins.anomaly_detection.index_pressure_soft_limit",
             LegacyOpenDistroAnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
             0.0f,
             Setting.Property.NodeScope,
@@ -325,7 +325,7 @@ public final class AnomalyDetectorSettings {
     // max number of primary shards of an AD index
     public static final Setting<Integer> MAX_PRIMARY_SHARDS = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_primary_shards",
+            "plugins.anomaly_detection.max_primary_shards",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
             0,
             200,
@@ -350,7 +350,7 @@ public final class AnomalyDetectorSettings {
     // but for 1 day interval, it will be 30 days.
     public static Setting<Integer> MAX_CACHE_MISS_HANDLING_PER_SECOND = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_cache_miss_handling_per_second",
+            "plugins.anomaly_detection.max_cache_miss_handling_per_second",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
             0,
             1000,
@@ -362,7 +362,7 @@ public final class AnomalyDetectorSettings {
     // TODO: performance test and tune the setting.
     public static final Setting<Integer> MAX_BATCH_TASK_PER_NODE = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_batch_task_per_node",
+            "plugins.anomaly_detection.max_batch_task_per_node",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
             1,
             100,
@@ -374,7 +374,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
         .intSetting(
-            "opensearch.anomaly_detection.max_old_ad_task_docs_per_detector",
+            "plugins.anomaly_detection.max_old_ad_task_docs_per_detector",
             // One AD task is roughly 1.5KB for normal case. Suppose task's size
             // is 2KB conservatively. If we store 1000 AD tasks for one detector,
             // that will be 2GB.
@@ -387,7 +387,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> BATCH_TASK_PIECE_SIZE = Setting
         .intSetting(
-            "opensearch.anomaly_detection.batch_task_piece_size",
+            "plugins.anomaly_detection.batch_task_piece_size",
             LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
             1,
             10_000,
@@ -397,7 +397,7 @@ public final class AnomalyDetectorSettings {
 
     public static final Setting<Integer> BATCH_TASK_PIECE_INTERVAL_SECONDS = Setting
         .intSetting(
-            "opensearch.anomaly_detection.batch_task_piece_interval_seconds",
+            "plugins.anomaly_detection.batch_task_piece_interval_seconds",
             LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
             1,
             600,
