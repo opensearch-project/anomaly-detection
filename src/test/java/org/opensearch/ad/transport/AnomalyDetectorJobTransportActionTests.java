@@ -108,7 +108,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalDetectorIn
             IndexNotFoundException.class,
             () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(3000)
         );
-        assertTrue(exception.getMessage().contains("no such index [.opendistro-anomaly-detectors]"));
+        assertTrue(exception.getMessage().contains("no such index [.plugins-anomaly-detectors]"));
     }
 
     public void testDetectorNotFound() {

@@ -54,6 +54,8 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.alias.Alias;
+import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
@@ -62,6 +64,7 @@ import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
@@ -251,7 +254,28 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyDetectorIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        return exists(AnomalyDetector.ANOMALY_DETECTORS_INDEX) || 
+            (exists(AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX) && 
+                aliasExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+    }
+
+    /**
+     * Does an index or an alias to an index exist?
+     *
+     * @param indexName  Index name
+     * @return true if index or index alias exists
+     */
+    public boolean exists(String indexName) {
+        return clusterService.state().getRoutingTable().hasIndex(indexName);
+    }
+
+    /**
+     * alias exists or not.
+     *
+     * @return true if alias index exists
+     */
+    public boolean aliasExists(String aliasName) {
+        return clusterService.state().metadata().hasAlias(aliasName);
     }
 
     /**
@@ -323,6 +347,20 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }, exception -> followingListener.onFailure(exception));
     }
 
+    private ActionListener<AcknowledgedResponse> markAliasMappingUpToDate(ADIndex index, 
+        ActionListener<AcknowledgedResponse> followingListener) {
+        return ActionListener.wrap(createdResponse -> {
+            if (createdResponse.isAcknowledged()) {
+                IndexState indexStatetate = indexStates.computeIfAbsent(index, IndexState::new);
+                if (Boolean.FALSE.equals(indexStatetate.updated)) {
+                    indexStatetate.updated = Boolean.TRUE;
+                    logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", index.getIndexName()));
+                }
+            }
+            followingListener.onResponse(createdResponse);
+        }, exception -> followingListener.onFailure(exception));
+    }    
+
     /**
      * Create anomaly detector index if not exist.
      *
@@ -342,10 +380,25 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+        initAnomalyDetectorIndex(actionListener, AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+    }
+
+    public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener, String name) throws IOException {
+        CreateIndexRequest request = new CreateIndexRequest(name)
             .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON)
             .settings(setting);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
+    }
+
+    public void initLegacyOpendistroAnomalyDetectorAlias(ActionListener<AcknowledgedResponse> actionListener) throws IOException {
+        IndicesAliasesRequest request = new IndicesAliasesRequest();
+        IndicesAliasesRequest.AliasActions aliasAction = AliasActions.add()
+            .indices(AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX)
+            .alias(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+            .writeIndex(true);
+
+        request.addAliasAction(aliasAction);
+        adminClient.indices().aliases(request, markAliasMappingUpToDate(ADIndex.CONFIG, actionListener));        
     }
 
     /**

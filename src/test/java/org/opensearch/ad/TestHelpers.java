@@ -76,6 +76,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
@@ -679,6 +680,13 @@ public class TestHelpers {
 
     public static ActionListener<CreateIndexResponse> createActionListener(
         CheckedConsumer<CreateIndexResponse, ? extends Exception> consumer,
+        Consumer<Exception> failureConsumer
+    ) {
+        return ActionListener.wrap(consumer, failureConsumer);
+    }
+
+    public static ActionListener<AcknowledgedResponse> createResponseListener(
+        CheckedConsumer<AcknowledgedResponse, ? extends Exception> consumer,
         Consumer<Exception> failureConsumer
     ) {
         return ActionListener.wrap(consumer, failureConsumer);

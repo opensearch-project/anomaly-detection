@@ -43,7 +43,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsAction;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsRequest;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
@@ -56,6 +55,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -183,15 +183,25 @@ public class IndexAnomalyDetectorActionHandler {
      * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
      */
     public void start() throws IOException {
-        if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
+        // TODO: sink this into anomalyDetectionIndices
+        if (anomalyDetectionIndices.exists(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
+            logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
+            prepareAnomalyDetectorIndexing();
+        } else if (anomalyDetectionIndices.aliasExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
+            logger.info("AnomalyDetector alias to legacy Opendistro index exists, calling prepareAnomalyDetectorIndexing");
+            prepareAnomalyDetectorIndexing();
+        } else if (anomalyDetectionIndices.exists(AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX)) {
+            logger.info("Legacy Opendistro AnomalyDetector Indices do exist, creating an alias");
+            anomalyDetectionIndices
+                .initLegacyOpendistroAnomalyDetectorAlias(
+                    ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> listener.onFailure(exception))
+                );
+        } else {
             logger.info("AnomalyDetector Indices do not exist");
             anomalyDetectionIndices
                 .initAnomalyDetectorIndex(
                     ActionListener.wrap(response -> onCreateMappingsResponse(response), exception -> listener.onFailure(exception))
                 );
-        } else {
-            logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
-            prepareAnomalyDetectorIndexing();
         }
     }
 
@@ -548,7 +558,7 @@ public class IndexAnomalyDetectorActionHandler {
         });
     }
 
-    private void onCreateMappingsResponse(CreateIndexResponse response) throws IOException {
+    private void onCreateMappingsResponse(AcknowledgedResponse response) throws IOException {
         if (response.isAcknowledged()) {
             logger.info("Created {} with mappings.", ANOMALY_DETECTORS_INDEX);
             prepareAnomalyDetectorIndexing();

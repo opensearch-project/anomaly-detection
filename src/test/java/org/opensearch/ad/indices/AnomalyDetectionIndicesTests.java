@@ -80,6 +80,10 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
         assertFalse(exists);
     }
 
+    public void testLegacyOpendistoAnomalyDetectorIndexNotExists() {
+        assertFalse(indices.exists(AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX));
+    }
+
     public void testAnomalyDetectorIndexExists() throws IOException {
         indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(response -> {
             boolean acknowledged = response.isAcknowledged();
@@ -113,6 +117,36 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
                 );
         }
     }
+
+    public void testLegacyOpendisroAnomalyDetectorIndexExistsAndCreateAlias() throws IOException {
+        // create a legacy index
+        indices
+            .initAnomalyDetectorIndex(
+                TestHelpers
+                    .createActionListener(
+                        response -> response.isAcknowledged(),
+                        failure -> { throw new RuntimeException("should not recreate index"); }
+                    ),
+                AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX
+            );
+        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX);
+        assertTrue(indices.exists(AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX));
+        // create an alias
+        indices
+            .initLegacyOpendistroAnomalyDetectorAlias(
+                TestHelpers
+                    .createResponseListener(
+                        response -> response.isAcknowledged(),
+                        failure -> {
+                            throw new RuntimeException("should not recreate alias " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+                        }
+                    )
+            );
+        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        assertFalse(indices.exists(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+        assertTrue(indices.exists(AnomalyDetector.LEGACY_OPENDISTRO_ANOMALY_DETECTORS_INDEX));
+        assertTrue(indices.aliasExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+    }    
 
     public void testAnomalyResultIndexNotExists() {
         boolean exists = indices.doesAnomalyResultIndexExist();
