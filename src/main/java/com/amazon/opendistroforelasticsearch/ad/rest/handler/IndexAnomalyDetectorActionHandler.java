@@ -26,6 +26,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.rest.handler;
 
+import static com.amazon.opendistroforelasticsearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -250,7 +251,7 @@ public class IndexAnomalyDetectorActionHandler {
             if (existingDetector.isRealTimeDetector()) {
                 validateDetector(existingDetector);
             } else {
-                adTaskManager.getLatestADTask(detectorId, (adTask) -> {
+                adTaskManager.getLatestADTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
                     if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                         // can't update detector if there is AD task running
                         listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));

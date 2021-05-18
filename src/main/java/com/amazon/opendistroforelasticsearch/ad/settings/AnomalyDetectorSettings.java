@@ -347,6 +347,7 @@ public final class AnomalyDetectorSettings {
 
     public static int THRESHOLD_MODEL_TRAINING_SIZE = 1000;
 
+    public static int MAX_OLD_AD_TASK_DOCS = 1000;
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
         .intSetting(
             "opendistro.anomaly_detection.max_old_ad_task_docs_per_detector",
