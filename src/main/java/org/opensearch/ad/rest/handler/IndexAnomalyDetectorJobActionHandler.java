@@ -59,10 +59,9 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
-
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
 
 /**
  * Anomaly detector job REST action handler to process POST/PUT request.

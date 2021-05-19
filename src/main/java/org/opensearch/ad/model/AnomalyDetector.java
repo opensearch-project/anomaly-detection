@@ -57,10 +57,10 @@ import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 

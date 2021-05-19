@@ -33,37 +33,37 @@ jobs:
         with:
           repository: 'opensearch-project/OpenSearch'
           path: OpenSearch
-          ref: 'main'
+          ref: '1.x'
       - name: Build OpenSearch
         working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal -Dbuild.version_qualifier=beta1 -Dbuild.snapshot=false
+        run: ./gradlew publishToMavenLocal -Dbuild.snapshot=false
 
       # dependencies: common-utils
       - name: Checkout common-utils
         uses: actions/checkout@v2
         with:
-          ref: '1.0.0-beta1'
+          ref: 'main' # TODO: update to the right branch name once it's ready. e.g. 1.x
           repository: 'opensearch-project/common-utils'
           path: common-utils
       - name: Build common-utils
         working-directory: ./common-utils
-        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-beta1
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0 -Dbuild.snapshot=false
 
       # dependencies: job-scheduler
       - name: Checkout job-scheduler
         uses: actions/checkout@v2
         with:
-          ref: '1.0.0-beta1'
+          ref: 'main' # TODO: update to the right branch name once it's ready. e.g. 1.x
           repository: 'opensearch-project/job-scheduler'
           path: job-scheduler
 
       - name: Build job-scheduler
         working-directory: ./job-scheduler
-        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-beta1 -Dbuild.snapshot=false
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0 -Dbuild.snapshot=false
       - name: Assemble job-scheduler
         working-directory: ./job-scheduler
         run: |
-          ./gradlew assemble -Dopensearch.version=1.0.0-beta1 -Dbuild.snapshot=false
+          ./gradlew assemble -Dopensearch.version=1.0.0 -Dbuild.snapshot=false
           echo "Creating ../src/test/resources/job-scheduler ..."
           mkdir -p ../src/test/resources/job-scheduler
           pwd
@@ -75,11 +75,11 @@ jobs:
 
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dopensearch.version=1.0.0-beta1
+          ./gradlew build -Dopensearch.version=1.0.0
 
       - name: Publish to Maven Local
         run: |
-          ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-beta1
+          ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1

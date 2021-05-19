@@ -40,9 +40,8 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
+import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.rest.RestStatus;
-
-import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder;
 
 public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     String aliceUser = "alice";

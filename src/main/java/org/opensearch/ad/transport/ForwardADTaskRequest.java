@@ -37,8 +37,7 @@ import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-
-import com.amazon.opendistroforelasticsearch.commons.authuser.User;
+import org.opensearch.commons.authuser.User;
 
 public class ForwardADTaskRequest extends ActionRequest {
     private AnomalyDetector detector;

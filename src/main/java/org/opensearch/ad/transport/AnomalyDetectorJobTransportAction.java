@@ -47,10 +47,9 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
-
-import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 
 public class AnomalyDetectorJobTransportAction extends HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
