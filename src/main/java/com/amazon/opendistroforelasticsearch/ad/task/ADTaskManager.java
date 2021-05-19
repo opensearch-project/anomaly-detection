@@ -320,21 +320,13 @@ public class ADTaskManager {
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
-                getLatestADTask(
-                    detector.getDetectorId(),
-                    // ImmutableList.of(getADTaskType(detector, detectionDateRange)),
-                    getADTaskTypes(detectionDateRange),
-                    (adTask) -> {
-                        if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
-                            // executeAnomalyDetector(detector, detectionDateRange, user, listener);
-                            executeAnomalyDetector(detector, detectionDateRange, user, listener);
-                        } else {
-                            listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
-                        }
-                    },
-                    transportService,
-                    listener
-                );
+                getLatestADTask(detector.getDetectorId(), getADTaskTypes(detectionDateRange), (adTask) -> {
+                    if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
+                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
+                    } else {
+                        listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
+                    }
+                }, transportService, listener);
             } else {
                 // If detection index doesn't exist, create index and execute detector.
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
@@ -1236,6 +1228,40 @@ public class ADTaskManager {
         getLatestADTask(detectorId, taskTypes, (adTask) -> {
             if (adTask.isPresent()) {
                 updateADTask(adTask.get().getTaskId(), updatedFields);
+            }
+        }, null, listener);
+    }
+
+    /**
+     * Update latest realtime task.
+     *
+     * @param detectorId detector id
+     * @param state task state
+     * @param error error
+     * @param listener action listener
+     */
+    public void updateLatestRealtimeTask(
+        String detectorId,
+        ADTaskState state,
+        Exception error,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
+        getLatestADTask(detectorId, REALTIME_TASK_TYPES, (adTask) -> {
+            if (adTask.isPresent() && !isADTaskEnded(adTask.get())) {
+                Map<String, Object> updatedFields = new HashMap<>();
+                updatedFields.put(ADTask.STATE_FIELD, state.name());
+                if (error != null) {
+                    updatedFields.put(ADTask.ERROR_FIELD, error.getMessage());
+                }
+                updateADTask(adTask.get().getTaskId(), updatedFields, ActionListener.wrap(r -> {
+                    if (error == null) {
+                        listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
+                    } else {
+                        listener.onFailure(error);
+                    }
+                }, e -> { listener.onFailure(e); }));
+            } else {
+                listener.onFailure(new OpenSearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK));
             }
         }, null, listener);
     }
