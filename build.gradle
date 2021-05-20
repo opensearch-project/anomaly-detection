@@ -362,7 +362,7 @@ check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
 
 checkstyle {
-    toolVersion = '8.20'
+    toolVersion = '8.29'
 }
 
 dependencies {
