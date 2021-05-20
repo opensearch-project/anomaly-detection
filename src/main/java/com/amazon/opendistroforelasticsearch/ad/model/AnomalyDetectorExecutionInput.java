@@ -31,7 +31,7 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.time.Instant;
 
-import org.apache.logging.log4j.util.Strings;
+import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
@@ -107,7 +107,7 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
                     break;
             }
         }
-        if (Strings.isNotEmpty(adId)) {
+        if (!Strings.isNullOrEmpty(adId)) {
             detectorId = adId;
         }
         return new AnomalyDetectorExecutionInput(detectorId, periodStart, periodEnd, detector);
