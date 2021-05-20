@@ -234,6 +234,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
     }
 
+    @Ignore
     public void testStartRealtimeDetector() throws IOException {
         String detectorId = startRealtimeDetector();
         GetResponse doc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
@@ -296,6 +297,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         return new AnomalyDetectorJobRequest(detectorId, UNASSIGNED_SEQ_NO, UNASSIGNED_PRIMARY_TERM, STOP_JOB);
     }
 
+    @Ignore
     public void testStopRealtimeDetector() throws IOException {
         String detectorId = startRealtimeDetector();
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(detectorId);

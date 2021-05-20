@@ -26,6 +26,7 @@
 
 package com.amazon.opendistroforelasticsearch.ad.transport;
 
+import static com.amazon.opendistroforelasticsearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static com.amazon.opendistroforelasticsearch.ad.util.ParseUtils.getUserContext;
@@ -100,7 +101,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
     @Override
     protected void doExecute(Task task, DeleteAnomalyDetectorRequest request, ActionListener<DeleteResponse> listener) {
         String detectorId = request.getDetectorID();
-        LOG.info("Delete anomaly detector job {}", detectorId);
+        LOG.info("Delete anomaly detector {}", detectorId);
         User user = getUserContext(client);
         // By the time request reaches here, the user permissions are validated by Security plugin.
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
@@ -109,22 +110,17 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                 detectorId,
                 filterByEnabled,
                 listener,
-                () -> adTaskManager
-                    .getDetector(
-                        detectorId,
-                        // TODO: fix this later, don't differenciate realtime and historical detector
-                        // realtime detector
-                        detector -> getDetectorJob(detectorId, listener, () -> deleteAnomalyDetectorJobDoc(detectorId, listener)),
-                        // historical detector
-                        detector -> adTaskManager.getLatestADTask(detectorId, adTask -> {
-                            if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
-                                listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-                            } else {
-                                adTaskManager.deleteADTasks(detectorId, () -> deleteDetectorStateDoc(detectorId, listener), listener);
-                            }
-                        }, transportService, listener),
-                        listener
-                    ),
+                // Check if there is realtime job or historical analysis task running. If none of these running, we
+                // can delete the detector.
+                () -> adTaskManager.getDetector(detectorId, detector -> getDetectorJob(detectorId, listener, () -> {
+                    adTaskManager.getLatestADTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
+                        if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+                            listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                        } else {
+                            adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
+                        }
+                    }, transportService, listener);
+                }), listener),
                 client,
                 clusterService,
                 xContentRegistry
