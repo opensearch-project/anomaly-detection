@@ -98,7 +98,7 @@ As mentioned above, new interfaces will be provided to other plugins including b
    ```
 ## Request for Comments:
 
-We would like comments and feedback on the proposal for building Machine Learning Framework here. Some specific questions we’re seeking feedback include
+We would like comments and feedback on the proposal for building Machine Learning Framework [here](https://github.com/opensearch-project/anomaly-detection/issues/53). Some specific questions we’re seeking feedback include
 
 * What problems would you like to be able to use machine learning to solve? How would you expect to be able to use machine learning for solving those problems?
 * What kind of new features would you like to add in this project?
