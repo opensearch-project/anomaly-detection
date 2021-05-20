@@ -36,6 +36,7 @@ import java.util.Locale;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
@@ -100,21 +101,18 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         AnomalyDetectorExecutionInput input = AnomalyDetectorExecutionInput.parse(parser, detectorId);
-        if (detectorId != null) {
-            input.setDetectorId(detectorId);
-        }
         return input;
     }
 
     private String validateAdExecutionInput(AnomalyDetectorExecutionInput input) {
-        if (StringUtils.isBlank(input.getDetectorId())) {
-            return "Must set anomaly detector id";
-        }
         if (input.getPeriodStart() == null || input.getPeriodEnd() == null) {
             return "Must set both period start and end date with epoch of milliseconds";
         }
         if (!input.getPeriodStart().isBefore(input.getPeriodEnd())) {
             return "Period start date should be before end date";
+        }
+        if (Strings.isEmpty(input.getDetectorId()) && input.getDetector() == null) {
+            return "Must set detector id or detector";
         }
         return null;
     }
@@ -134,6 +132,11 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
                             RestHandlerUtils.DETECTOR_ID,
                             PREVIEW
                         )
+                ),
+                // preview detector
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, PREVIEW)
                 )
             );
     }
