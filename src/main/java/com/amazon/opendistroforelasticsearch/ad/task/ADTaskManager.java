@@ -527,6 +527,7 @@ public class ADTaskManager {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 ADTask adTask = ADTask.parse(parser, searchHit.getId());
 
+                // TODO: support resetting realtime task as stopped
                 if (adTask.isHistoricalTask() && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
                     // If AD task is still running, but its last updated time not refreshed
                     // for 2 pieces intervals, we will get task profile to check if it's
