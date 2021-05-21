@@ -209,7 +209,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
     public static final String AD_BATCH_TASK_THREAD_POOL_NAME = "ad-batch-task-threadpool";
-    public static final String AD_JOB_TYPE = "opensearch_anomaly_detector";
+    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
     private static Gson gson;
     private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
