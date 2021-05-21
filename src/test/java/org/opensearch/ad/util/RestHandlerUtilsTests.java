@@ -57,7 +57,7 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
 
     public void testGetSourceContextForKibana() {
         FakeRestRequest.Builder builder = new FakeRestRequest.Builder(NamedXContentRegistry.EMPTY);
-        builder.withHeaders(ImmutableMap.of("User-Agent", ImmutableList.of("Kibana", randomAlphaOfLength(10))));
+        builder.withHeaders(ImmutableMap.of("User-Agent", ImmutableList.of("OpenSearch Dashboards", randomAlphaOfLength(10))));
         FetchSourceContext context = RestHandlerUtils.getSourceContext(builder.build());
         assertNull(context);
     }
