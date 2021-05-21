@@ -45,9 +45,8 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.commons.ConfigConstants;
 import org.opensearch.threadpool.ThreadPool;
-
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 
 public class ADSearchHandlerTests extends ADUnitTestCase {
 
@@ -73,7 +72,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         searchHandler = new ADSearchHandler(settings, clusterService, client);
 
         ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
+        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
         when(client.threadPool()).thenReturn(mockThreadPool);
         when(client.threadPool().getThreadContext()).thenReturn(threadContext);

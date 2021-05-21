@@ -40,12 +40,12 @@ import org.opensearch.ad.model.Feature;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User;
 import com.google.common.collect.ImmutableList;
 
 public class ParseUtilsTests extends OpenSearchTestCase {

@@ -95,8 +95,8 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
         client = mock(Client.class);
         settings = Settings
             .builder()
-            .put("opendistro.anomaly_detection.max_retry_for_unresponsive_node", 3)
-            .put("opendistro.anomaly_detection.ad_mute_minutes", TimeValue.timeValueMinutes(10))
+            .put("plugins.anomaly_detection.max_retry_for_unresponsive_node", 3)
+            .put("plugins.anomaly_detection.ad_mute_minutes", TimeValue.timeValueMinutes(10))
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);

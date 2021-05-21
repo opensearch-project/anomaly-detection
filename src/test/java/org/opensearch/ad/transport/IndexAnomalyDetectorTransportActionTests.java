@@ -49,13 +49,12 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.commons.ConfigConstants;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
-
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants;
 
 public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTestCase {
     private IndexAnomalyDetectorTransportAction action;
@@ -124,7 +123,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     public void testIndexTransportActionWithUserAndFilterOn() {
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
+        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         Client client = mock(Client.class);
         org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
@@ -148,7 +147,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     public void testIndexTransportActionWithUserAndFilterOff() {
         Settings settings = Settings.builder().build();
         ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
+        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         Client client = mock(Client.class);
         org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);

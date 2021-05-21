@@ -83,14 +83,13 @@ import org.opensearch.index.Index;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.shard.ShardId;
+import org.opensearch.jobscheduler.spi.JobExecutionContext;
+import org.opensearch.jobscheduler.spi.LockModel;
+import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
+import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.jobscheduler.spi.schedule.Schedule;
+import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
-
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule;
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService;
 
 public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
@@ -157,9 +156,9 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
         Settings settings = Settings
             .builder()
-            .put("opendistro.anomaly_detection.max_retry_for_backoff", 2)
-            .put("opendistro.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
-            .put("opendistro.anomaly_detection.max_retry_for_end_run_exception", 3)
+            .put("plugins.anomaly_detection.max_retry_for_backoff", 2)
+            .put("plugins.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
+            .put("plugins.anomaly_detection.max_retry_for_end_run_exception", 3)
             .build();
         setUpJobParameter();
 

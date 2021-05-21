@@ -137,7 +137,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
-        Thread.sleep(10000);
+        Thread.sleep(20000);
         GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
     }
@@ -196,7 +196,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
             new DetectionDateRange(startTime, startTime.plus(2000, ChronoUnit.MINUTES))
         );
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
-        Thread.sleep(20000);
+        Thread.sleep(25000);
         GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
