@@ -74,7 +74,7 @@ public final class RestHandlerUtils {
     public static final String MATCH = "match";
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
-    private static final String KIBANA_USER_AGENT = "Kibana";
+    private static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";
     private static final String[] UI_METADATA_EXCLUDE = new String[] { AnomalyDetector.UI_METADATA_FIELD };
 
     private RestHandlerUtils() {}
@@ -88,7 +88,7 @@ public final class RestHandlerUtils {
      */
     public static FetchSourceContext getSourceContext(RestRequest request) {
         String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));
-        if (!userAgent.contains(KIBANA_USER_AGENT)) {
+        if (!userAgent.contains(OPENSEARCH_DASHBOARDS_USER_AGENT)) {
             return new FetchSourceContext(true, Strings.EMPTY_ARRAY, UI_METADATA_EXCLUDE);
         } else {
             return null;
