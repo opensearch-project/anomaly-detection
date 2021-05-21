@@ -77,7 +77,7 @@ apply plugin: 'jacoco'
 apply plugin: 'eclipse'
 
 allprojects {
-    group = 'com.amazon.opendistroforelasticsearch'
+    group = 'org.opensearch'
 
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = "1.8"

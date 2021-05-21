@@ -35,7 +35,7 @@ public class CommonErrorMessages {
     public static final String MEMORY_LIMIT_EXCEEDED_ERR_MSG = "AD models memory usage exceeds our limit.";
     public static final String FEATURE_NOT_AVAILABLE_ERR_MSG = "No Feature in current detection window.";
     public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG = "AD memory circuit is broken.";
-    public static final String DISABLED_ERR_MSG = "AD plugin is disabled. To enable update opendistro.anomaly_detection.enabled to true";
+    public static final String DISABLED_ERR_MSG = "AD plugin is disabled. To enable update plugins.anomaly_detection.enabled to true";
     public static final String INVALID_SEARCH_QUERY_MSG = "Invalid search query.";
     public static final String ALL_FEATURES_DISABLED_ERR_MSG =
         "Having trouble querying data because all of your features have been disabled.";
