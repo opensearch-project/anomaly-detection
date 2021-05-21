@@ -206,7 +206,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     public static final String LEGACY_OPENDISTRO_AD_BASE_URI = LEGACY_AD_BASE + "/detectors";
     public static final String AD_BASE_URI = "/_plugins/_anomaly_detection";
     public static final String AD_BASE_DETECTORS_URI = AD_BASE_URI + "/detectors";
-    public static final String AD_THREAD_POOL_PREFIX = "opendistro.ad.";
+    public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
     public static final String AD_BATCH_TASK_THREAD_POOL_NAME = "ad-batch-task-threadpool";
     public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
