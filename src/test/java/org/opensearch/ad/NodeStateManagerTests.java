@@ -41,6 +41,7 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -53,9 +54,12 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -77,6 +81,7 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
     private AnomalyDetector detectorToCheck;
     private Settings settings;
     private String adId = "123";
+    private ClusterService clusterService;
 
     private GetResponse checkpointResponse;
 
@@ -104,7 +109,24 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
         throttler = new Throttler(clock);
 
         clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, mock(ThreadPool.class));
-        stateManager = new NodeStateManager(client, xContentRegistry(), settings, clientUtil, clock, duration, modelPartitioner);
+
+        clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        stateManager = new NodeStateManager(
+            client,
+            xContentRegistry(),
+            settings,
+            clientUtil,
+            clock,
+            duration,
+            modelPartitioner,
+            clusterService
+        );
 
         checkpointResponse = mock(GetResponse.class);
     }
@@ -226,7 +248,8 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
             new ClientUtil(settings, client, throttler, context),
             clock,
             duration,
-            modelPartitioner
+            modelPartitioner,
+            clusterService
         );
 
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);

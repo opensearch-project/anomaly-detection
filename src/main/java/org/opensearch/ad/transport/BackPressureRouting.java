@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 
@@ -45,18 +46,23 @@ public class BackPressureRouting {
     private static final Logger LOG = LogManager.getLogger(BackPressureRouting.class);
     private final String nodeId;
     private final Clock clock;
-    private final int maxRetryForUnresponsiveNode;
+    private int maxRetryForUnresponsiveNode;
     private final TimeValue mutePeriod;
     private AtomicInteger backpressureCounter;
     private long lastMuteTime;
+    private ClusterService clusterService;
 
-    public BackPressureRouting(String nodeId, Clock clock, Settings settings) {
+    public BackPressureRouting(String nodeId, Clock clock, Settings settings, ClusterService clusterService) {
         this.nodeId = nodeId;
         this.clock = clock;
         this.backpressureCounter = new AtomicInteger(0);
         this.maxRetryForUnresponsiveNode = MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings);
         this.mutePeriod = BACKOFF_MINUTES.get(settings);
         this.lastMuteTime = 0;
+        this.clusterService = clusterService;
+        this.clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(MAX_RETRY_FOR_UNRESPONSIVE_NODE, it -> maxRetryForUnresponsiveNode = it);
     }
 
     /**

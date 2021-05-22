@@ -61,6 +61,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.tasks.Task;
@@ -75,9 +76,10 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private CheckpointDao checkpointDao;
     private CacheProvider cache;
     private final NodeStateManager stateManager;
-    private final int coolDownMinutes;
+    private int coolDownMinutes;
     private final Clock clock;
     private AnomalyDetectionIndices indexUtil;
+    private ClusterService clusterService;
 
     @Inject
     public EntityResultTransportAction(
@@ -90,7 +92,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         CacheProvider entityCache,
         NodeStateManager stateManager,
         Settings settings,
-        AnomalyDetectionIndices indexUtil
+        AnomalyDetectionIndices indexUtil,
+        ClusterService clusterService
     ) {
         this(
             actionFilters,
@@ -103,7 +106,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
             stateManager,
             settings,
             Clock.systemUTC(),
-            indexUtil
+            indexUtil,
+            clusterService
         );
     }
 
@@ -118,7 +122,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         NodeStateManager stateManager,
         Settings settings,
         Clock clock,
-        AnomalyDetectionIndices indexUtil
+        AnomalyDetectionIndices indexUtil,
+        ClusterService clusterService
     ) {
         super(EntityResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.manager = manager;
@@ -130,6 +135,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
         this.clock = clock;
         this.indexUtil = indexUtil;
+        this.clusterService = clusterService;
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownMinutes = (int) it.getMinutes());
     }
 
     @Override

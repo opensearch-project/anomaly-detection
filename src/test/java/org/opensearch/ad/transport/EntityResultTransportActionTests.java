@@ -44,7 +44,9 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 
@@ -75,9 +77,11 @@ import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.ToXContent;
@@ -177,6 +181,13 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         AnomalyDetectionIndices indexUtil = mock(AnomalyDetectionIndices.class);
         when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
 
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.COOLDOWN_MINUTES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
         entityResult = new EntityResultTransportAction(
             actionFilters,
             transportService,
@@ -188,7 +199,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             stateManager,
             settings,
             clock,
-            indexUtil
+            indexUtil,
+            clusterService
         );
 
         // timeout in 60 seconds

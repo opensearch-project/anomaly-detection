@@ -50,6 +50,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.BackPressureRouting;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -76,6 +77,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     private final Duration stateTtl;
     // last time we are throttled due to too much index pressure
     private Instant lastIndexThrottledTime;
+    private ClusterService clusterService;
 
     public static final String NO_ERROR = "no_error";
 
@@ -89,7 +91,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param clock A UTC clock
      * @param stateTtl Max time to keep state in memory
      * @param modelPartitioner Used to partiton a RCF forest
-    
+     * @param clusterService OpenSearch cluster service
      */
     public NodeStateManager(
         Client client,
@@ -98,7 +100,8 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         ClientUtil clientUtil,
         Clock clock,
         Duration stateTtl,
-        ModelPartitioner modelPartitioner
+        ModelPartitioner modelPartitioner,
+        ClusterService clusterService
     ) {
         this.states = new ConcurrentHashMap<>();
         this.client = client;
@@ -110,6 +113,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         this.settings = settings;
         this.stateTtl = stateTtl;
         this.lastIndexThrottledTime = Instant.MIN;
+        this.clusterService = clusterService;
     }
 
     /**
@@ -246,7 +250,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param nodeId an ES node's ID
      */
     public void addPressure(String nodeId) {
-        backpressureMuter.computeIfAbsent(nodeId, k -> new BackPressureRouting(k, clock, settings)).addPressure();
+        backpressureMuter.computeIfAbsent(nodeId, k -> new BackPressureRouting(k, clock, settings, clusterService)).addPressure();
     }
 
     /**

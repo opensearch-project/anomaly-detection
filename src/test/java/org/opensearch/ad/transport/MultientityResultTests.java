@@ -38,8 +38,10 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -85,6 +87,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -185,6 +188,11 @@ public class MultientityResultTests extends AbstractADTest {
         hashRing = mock(HashRing.class);
 
         clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.COOLDOWN_MINUTES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         indexNameResolver = new IndexNameExpressionResolver(new ThreadContext(Settings.EMPTY));
 
@@ -377,7 +385,8 @@ public class MultientityResultTests extends AbstractADTest {
             stateManager,
             settings,
             clock,
-            indexUtil
+            indexUtil,
+            clusterService
         );
 
         EntityCache entityCache = mock(EntityCache.class);
@@ -487,7 +496,8 @@ public class MultientityResultTests extends AbstractADTest {
             stateManager,
             settings,
             clock,
-            indexUtil
+            indexUtil,
+            clusterService
         );
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();

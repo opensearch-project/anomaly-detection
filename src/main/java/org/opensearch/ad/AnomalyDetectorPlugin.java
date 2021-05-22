@@ -376,7 +376,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clientUtil,
             getClock(),
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner
+            modelPartitioner,
+            clusterService
         );
 
         FeatureManager featureManager = new FeatureManager(
@@ -419,7 +420,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.MAX_SMALL_STATES,
             checkpoint,
-            settings
+            settings,
+            clusterService
         );
 
         ModelManager modelManager = new ModelManager(

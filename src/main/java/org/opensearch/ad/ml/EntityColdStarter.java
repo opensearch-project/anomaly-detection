@@ -60,6 +60,7 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
@@ -97,6 +98,7 @@ public class EntityColdStarter {
     private final Cache<String, Instant> lastColdStartTime;
     private final CheckpointDao checkpointDao;
     private int coolDownMinutes;
+    private ClusterService clusterService;
 
     /**
      * Constructor
@@ -125,6 +127,7 @@ public class EntityColdStarter {
      * @param maxCacheSize max cache size
      * @param checkpointDao utility to interact with the checkpoint index
      * @param settings ES settings accessor
+     * @param clusterService OpenSearch cluster service
      */
     public EntityColdStarter(
         Clock clock,
@@ -149,7 +152,8 @@ public class EntityColdStarter {
         Duration lastColdStartTimestampTtl,
         long maxCacheSize,
         CheckpointDao checkpointDao,
-        Settings settings
+        Settings settings,
+        ClusterService clusterService
     ) {
         this.clock = clock;
         this.lastThrottledColdStartTime = Instant.MIN;
@@ -180,6 +184,8 @@ public class EntityColdStarter {
             .build();
         this.checkpointDao = checkpointDao;
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
+        this.clusterService = clusterService;
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownMinutes = (int) it.getMinutes());
     }
 
     /**

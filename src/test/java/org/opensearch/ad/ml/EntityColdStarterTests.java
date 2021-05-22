@@ -41,7 +41,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -66,7 +68,10 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -103,8 +108,6 @@ public class EntityColdStarterTests extends AbstractADTest {
         threadPool = mock(ThreadPool.class);
         setUpADThreadPool(threadPool);
 
-        settings = Settings.EMPTY;
-
         Client client = mock(Client.class);
         ClientUtil clientUtil = mock(ClientUtil.class);
 
@@ -119,6 +122,23 @@ public class EntityColdStarterTests extends AbstractADTest {
             // any(ActionListener.class));
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
+        settings = Settings
+            .builder()
+            .put("plugins.anomaly_detection.cooldown_minutes", TimeValue.timeValueMinutes(6))
+            .put("plugins.anomaly_detection.max_retry_for_unresponsive_node", 5)
+            .build();
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays.asList(AnomalyDetectorSettings.COOLDOWN_MINUTES, AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE)
+                    )
+                )
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
         ModelPartitioner modelPartitioner = mock(ModelPartitioner.class);
         stateManager = new NodeStateManager(
             client,
@@ -127,7 +147,8 @@ public class EntityColdStarterTests extends AbstractADTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner
+            modelPartitioner,
+            clusterService
         );
 
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
@@ -177,7 +198,8 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.MAX_SMALL_STATES,
             checkpoint,
-            settings
+            settings,
+            clusterService
         );
 
         detectorId = "123";
