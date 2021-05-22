@@ -60,6 +60,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         updateClusterSettings(MAX_BATCH_TASK_PER_NODE.getKey(), 10);
     }
 
+    @Ignore
     @SuppressWarnings("unchecked")
     public void testHistoricalAnalysisWorkflow() throws Exception {
         // create historical detector
@@ -233,6 +234,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         waitUntilTaskFinished(detectorId);
     }
 
+    @Ignore
     public void testSearchTasks() throws IOException, InterruptedException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();

@@ -27,6 +27,8 @@
 package com.amazon.opendistroforelasticsearch.ad.task;
 
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.ERROR_FIELD;
 import static com.amazon.opendistroforelasticsearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
@@ -56,12 +58,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ResourceAlreadyExistsException;
@@ -91,6 +95,8 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.NestedQueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.index.reindex.DeleteByQueryAction;
@@ -136,13 +142,14 @@ import com.amazon.opendistroforelasticsearch.ad.transport.ForwardADTaskRequest;
 import com.amazon.opendistroforelasticsearch.ad.util.DiscoveryNodeFilterer;
 import com.amazon.opendistroforelasticsearch.ad.util.RestHandlerUtils;
 import com.amazon.opendistroforelasticsearch.commons.authuser.User;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * Manage AD task.
  */
 public class ADTaskManager {
     private final Logger logger = LogManager.getLogger(this.getClass());
-
+    private final Set<String> retryableErrors = ImmutableSet.of(EXCEED_HISTORICAL_ANALYSIS_LIMIT, NO_ELIGIBLE_NODE_TO_RUN_DETECTOR);
     private final Client client;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
@@ -282,19 +289,58 @@ public class ADTaskManager {
         DiscoveryNode node,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        TransportRequestOptions option = TransportRequestOptions
-            .builder()
-            .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(requestTimeout)
-            .build();
         transportService
             .sendRequest(
                 node,
                 ForwardADTaskAction.NAME,
                 new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction),
-                option,
+                getTransportRequestOptions(),
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
             );
+    }
+
+    /**
+     * Forward AD task to coordinating node
+     *
+     * @param adTask AD task
+     * @param adTaskAction AD task action
+     * @param transportService transport service
+     * @param listener action listener
+     */
+    protected void forwardADTaskToCoordinatingNode(
+        ADTask adTask,
+        ADTaskAction adTaskAction,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
+        transportService
+            .sendRequest(
+                getCoordinatingNode(adTask),
+                ForwardADTaskAction.NAME,
+                new ForwardADTaskRequest(adTask, adTaskAction),
+                getTransportRequestOptions(),
+                new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+    }
+
+    private TransportRequestOptions getTransportRequestOptions() {
+        return TransportRequestOptions.builder().withType(TransportRequestOptions.Type.REG).withTimeout(requestTimeout).build();
+    }
+
+    private DiscoveryNode getCoordinatingNode(ADTask adTask) {
+        String coordinatingNode = adTask.getCoordinatingNode();
+        DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
+        DiscoveryNode targetNode = null;
+        for (DiscoveryNode node : eligibleDataNodes) {
+            if (node.getId().equals(coordinatingNode)) {
+                targetNode = node;
+                break;
+            }
+        }
+        if (targetNode == null) {
+            throw new ResourceNotFoundException(adTask.getDetectorId(), "AD task coordinating node not found");
+        }
+        return targetNode;
     }
 
     /**
@@ -491,7 +537,7 @@ public class ADTaskManager {
      * @param function consumer function
      * @param transportService transport service
      * @param listener action listener
-     * @param <T> action listerner response
+     * @param <T> action listener response
      */
     public <T> void getLatestADTask(
         String detectorId,
@@ -500,11 +546,42 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<T> listener
     ) {
+        getLatestADTask(detectorId, null, adTaskTypes, function, transportService, true, listener);
+    }
+
+    /**
+     * Get latest AD task and execute consumer function.
+     *
+     * @param detectorId detector id
+     * @param entityValue entity value
+     * @param adTaskTypes AD task types
+     * @param function consumer function
+     * @param transportService transport service
+     * @param resetTaskState reset task state or not
+     * @param listener action listener
+     * @param <T> action listener response
+     */
+    public <T> void getLatestADTask(
+        String detectorId,
+        String entityValue,
+        List<ADTaskType> adTaskTypes,
+        Consumer<Optional<ADTask>> function,
+        TransportService transportService,
+        boolean resetTaskState,
+        ActionListener<T> listener
+    ) {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
         if (adTaskTypes != null && adTaskTypes.size() > 0) {
             query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(adTaskTypes)));
+        }
+        if (entityValue != null) {
+            String path = "entity";
+            String entityValueFieldName = path + ".value";
+            TermQueryBuilder entityValueFilterQuery = QueryBuilders.termQuery(entityValueFieldName, entityValue);
+            NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(path, entityValueFilterQuery, ScoreMode.None);
+            query.filter(nestedQueryBuilder);
         }
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(query);
@@ -526,9 +603,11 @@ public class ADTaskManager {
             try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 ADTask adTask = ADTask.parse(parser, searchHit.getId());
+                logger.debug("latest task id is {}, for detector {}", adTask.getTaskId(), adTask.getDetectorId());
 
-                // TODO: support resetting realtime task as stopped
-                if (adTask.isHistoricalTask() && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
+                // TODO: check realtime detector job and reset realtime task as stopped.
+                if (resetTaskState && adTask.isHistoricalTask() && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
+                    // TODO: fix HC task profile when profile change ready
                     // If AD task is still running, but its last updated time not refreshed
                     // for 2 pieces intervals, we will get task profile to check if it's
                     // really running and reset state as STOPPED if not running.
@@ -647,7 +726,7 @@ public class ADTaskManager {
                 adTask.getDetector(),
                 adTask.getDetectionDateRange(),
                 null,
-                ADTaskAction.STOP,
+                ADTaskAction.FINISHED,
                 transportService,
                 targetNode,
                 ActionListener
@@ -1020,6 +1099,7 @@ public class ADTaskManager {
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                         ADTask adTask = ADTask.parse(parser, searchHit.getId());
                         logger.debug("Delete old task: {} of detector: {}", adTask.getTaskId(), adTask.getDetectorId());
+                        // TODO: add deleted task in cache to delete their AD results in hourly cron job
                         bulkRequest.add(new DeleteRequest(CommonName.DETECTION_STATE_INDEX).id(adTask.getTaskId()));
                     } catch (Exception e) {
                         listener.onFailure(e);
@@ -1027,6 +1107,7 @@ public class ADTaskManager {
                 }
                 client.execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(res -> {
                     logger.info("AD tasks deleted for detector {}", detectorId);
+                    // TODO: delete child tasks of HC detector task
                     function.execute();
                 }, e -> {
                     logger.warn("Failed to clean AD tasks for detector " + detectorId, e);
@@ -1266,4 +1347,78 @@ public class ADTaskManager {
             }
         }, null, listener);
     }
+
+    /**
+     * Send entity task done message to coordinating node.
+     *
+     * @param adTask AD task
+     * @param exception exception of entity task
+     * @param transportService transport service
+     */
+    protected void entityTaskDone(ADTask adTask, Exception exception, TransportService transportService) {
+        entityTaskDone(
+            adTask,
+            exception,
+            transportService,
+            ActionListener
+                .wrap(
+                    r -> logger.debug("AD task forwarded to coordinating node, task id {}", adTask.getTaskId()),
+                    e -> logger.debug("AD task failed to forward to coordinating node, task id {}", adTask.getTaskId())
+                )
+        );
+    }
+
+    private void entityTaskDone(
+        ADTask adTask,
+        Exception exception,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
+        try {
+            ADTaskAction action = getAdEntityTaskAction(adTask, exception);
+            forwardADTaskToCoordinatingNode(adTask, action, transportService, listener);
+        } catch (Exception e) {
+            listener.onFailure(e);
+        }
+    }
+
+    /**
+     * Get AD entity task action based on exception.
+     * 1. If exception is null, return NEXT_ENTITY action which will poll next
+     *    entity to run.
+     * 2. If exception is retryable, return PUSH_BACK_ENTITY action which will
+     *    push entity back to pendig queue.
+     * 3. If exception is task cancelled exception, return CANCEL action which
+     *    will stop HC detector run.
+     *
+     * @param adTask AD task
+     * @param exception exception
+     * @return AD task action
+     */
+    private ADTaskAction getAdEntityTaskAction(ADTask adTask, Exception exception) {
+        ADTaskAction action = ADTaskAction.NEXT_ENTITY;
+        if (exception != null) {
+            adTask.setError(getErrorMessage(exception));
+            if (exception instanceof LimitExceededException && isRetryableError(exception.getMessage())) {
+                action = ADTaskAction.PUSH_BACK_ENTITY;
+            } else if (exception instanceof ADTaskCancelledException) {
+                action = ADTaskAction.CANCEL;
+            }
+        }
+        return action;
+    }
+
+    /**
+     * Check if error is retryable.
+     *
+     * @param error error
+     * @return retryable or not
+     */
+    public boolean isRetryableError(String error) {
+        if (error == null) {
+            return false;
+        }
+        return retryableErrors.stream().filter(e -> error.contains(e)).findFirst().isPresent();
+    }
+
 }

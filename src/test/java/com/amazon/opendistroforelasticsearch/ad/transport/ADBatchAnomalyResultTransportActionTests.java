@@ -36,6 +36,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
@@ -96,21 +97,25 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         assertTrue(exception.getMessage().contains("Detector can't be null"));
     }
 
+    @Ignore
     public void testHistoricalAnalysisWithFutureDateRange() throws IOException, InterruptedException {
         DetectionDateRange dateRange = new DetectionDateRange(endTime, endTime.plus(10, ChronoUnit.DAYS));
         testInvalidDetectionDateRange(dateRange);
     }
 
+    @Ignore
     public void testHistoricalAnalysisWithInvalidHistoricalDateRange() throws IOException, InterruptedException {
         DetectionDateRange dateRange = new DetectionDateRange(startTime.minus(10, ChronoUnit.DAYS), startTime);
         testInvalidDetectionDateRange(dateRange);
     }
 
+    @Ignore
     public void testHistoricalAnalysisWithSmallHistoricalDateRange() throws IOException, InterruptedException {
         DetectionDateRange dateRange = new DetectionDateRange(startTime, startTime.plus(10, ChronoUnit.MINUTES));
         testInvalidDetectionDateRange(dateRange, "There is no enough data to train model");
     }
 
+    @Ignore
     public void testHistoricalAnalysisWithValidDateRange() throws IOException, InterruptedException {
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
@@ -128,6 +133,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
     }
 
+    @Ignore
     public void testHistoricalAnalysisExceedsMaxRunningTaskLimit() throws IOException, InterruptedException {
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
         updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
@@ -162,6 +168,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, true));
     }
 
+    @Ignore
     public void testMultipleTasks() throws IOException, InterruptedException {
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 2));
 

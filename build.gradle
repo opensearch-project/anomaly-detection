@@ -339,6 +339,12 @@ List<String> jacocoExclusions = [
         'com.amazon.opendistroforelasticsearch.ad.task.ADTaskManager',
         'com.amazon.opendistroforelasticsearch.ad.task.ADTaskCacheManager',
         'com.amazon.opendistroforelasticsearch.ad.transport.ForwardADTaskTransportAction',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ForwardADTaskRequest',
+        'com.amazon.opendistroforelasticsearch.ad.task.ADHCBatchTaskCache',
+        'com.amazon.opendistroforelasticsearch.ad.task.ADBatchTaskRunner',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultRequest',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADBatchAnomalyResultResponse',
+        'com.amazon.opendistroforelasticsearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction'
 ]
 
 jacocoTestCoverageVerification {

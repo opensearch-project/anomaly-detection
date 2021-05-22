@@ -28,6 +28,7 @@ package com.amazon.opendistroforelasticsearch.ad.task;
 
 import static com.amazon.opendistroforelasticsearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
 import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
+import static com.amazon.opendistroforelasticsearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static com.amazon.opendistroforelasticsearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
@@ -56,6 +57,7 @@ import com.amazon.opendistroforelasticsearch.ad.ml.ThresholdingModel;
 import com.amazon.opendistroforelasticsearch.ad.model.ADTask;
 import com.amazon.opendistroforelasticsearch.ad.model.AnomalyDetector;
 import com.amazon.randomcutforest.RandomCutForest;
+import com.google.common.collect.ImmutableList;
 
 public class ADTaskCacheManager {
     private final Logger logger = LogManager.getLogger(ADTaskCacheManager.class);
@@ -63,6 +65,7 @@ public class ADTaskCacheManager {
     private volatile Integer maxAdBatchTaskPerNode;
     private final MemoryTracker memoryTracker;
     private final int numberSize = 8;
+    private final int taskRetryLimit = 3;
 
     // We use this field to record all detectors which running on the
     // coordinating node to resolve race condition. We will check if
@@ -72,6 +75,9 @@ public class ADTaskCacheManager {
     // that means there is already one task running for this detector,
     // so we will reject the task.
     private Set<String> detectors;
+
+    // Use this field to cache all HC tasks. Key is detector id
+    private Map<String, ADHCBatchTaskCache> hcTaskCaches;
 
     /**
      * Constructor to create AD task cache manager.
@@ -86,6 +92,7 @@ public class ADTaskCacheManager {
         taskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
         this.detectors = Sets.newConcurrentHashSet();
+        this.hcTaskCaches = new ConcurrentHashMap<>();
     }
 
     /**
@@ -138,7 +145,7 @@ public class ADTaskCacheManager {
      */
     public void checkRunningTaskLimit() {
         if (size() >= maxAdBatchTaskPerNode) {
-            String error = "Can't run more than " + maxAdBatchTaskPerNode + " historical detectors per data node";
+            String error = EXCEED_HISTORICAL_ANALYSIS_LIMIT + ": " + maxAdBatchTaskPerNode;
             throw new LimitExceededException(error);
         }
     }
@@ -471,4 +478,171 @@ public class ADTaskCacheManager {
         return (80 + numberSize * enabledFeatureSize) * shingleSize;
     }
 
+    /**
+     * HC top entity initied or not
+     *
+     * @param detectorId detector id
+     * @return true if top entity inited; otherwise return false
+     */
+    public synchronized boolean topEntityInited(String detectorId) {
+        return hcTaskCaches.containsKey(detectorId) ? hcTaskCaches.get(detectorId).getTopEntitiesInited() : false;
+    }
+
+    /**
+     * Set top entity inited as true.
+     *
+     * @param detectorId detector id
+     */
+    public void setTopEntityInited(String detectorId) {
+        getHCTaskCache(detectorId).setTopEntitiesInited(true);
+    }
+
+    /**
+     * Get pending to run entity count.
+     *
+     * @param detectorId detector id
+     * @return entity count
+     */
+    public int getPendingEntityCount(String detectorId) {
+        return hcTaskCaches.containsKey(detectorId) ? hcTaskCaches.get(detectorId).getPendingEntityCount() : 0;
+    }
+
+    /**
+     * Set max allowed running entities for HC detector.
+     *
+     * @param detectorId detector id
+     * @param allowedRunningEntities max allowed running entities
+     */
+    public void setAllowedRunningEntities(String detectorId, int allowedRunningEntities) {
+        getExistingHCTaskCache(detectorId).setEntityTaskLanes(allowedRunningEntities);
+    }
+
+    private ADHCBatchTaskCache getExistingHCTaskCache(String detectorId) {
+        if (hcTaskCaches.containsKey(detectorId)) {
+            return hcTaskCaches.get(detectorId);
+        } else {
+            throw new IllegalArgumentException("Can't find HC detector in cache");
+        }
+    }
+
+    /**
+     * Add list of entities into pending entity queue.
+     *
+     * @param detectorId detector id
+     * @param entities list of entities
+     */
+    public void addPendingEntities(String detectorId, List<String> entities) {
+        getHCTaskCache(detectorId).addEntities(entities);
+    }
+
+    private ADHCBatchTaskCache getHCTaskCache(String detectorId) {
+        return hcTaskCaches.computeIfAbsent(detectorId, id -> new ADHCBatchTaskCache());
+    }
+
+    /**
+     * Set top entity count.
+     *
+     * @param detectorId detector id
+     * @param count top entity count
+     */
+    public void setTopEntityCount(String detectorId, Integer count) {
+        ADHCBatchTaskCache hcTaskCache = getHCTaskCache(detectorId);
+        hcTaskCache.setTopEntityCount(count);
+    }
+
+    /**
+     * Poll one entity from HC detector entities cache.
+     * Will return null if no entities in cache.
+     *
+     * @param detectorId detector id
+     * @return one entity
+     */
+    public synchronized String pollEntity(String detectorId) {
+        if (this.hcTaskCaches.containsKey(detectorId)) {
+            ADHCBatchTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
+            String entity = hcTaskCache.pollEntity();
+            return entity;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Add one entity into pending entity queue.
+     *
+     * @param detectorId detector id
+     * @param entity entity value
+     */
+    public void addPendingEntity(String detectorId, String entity) {
+        addPendingEntities(detectorId, ImmutableList.of(entity));
+    }
+
+    /**
+     * Move one entity to running entity queue.
+     *
+     * @param detectorId detector id
+     * @param entity entity value
+     */
+    public synchronized void moveToRunningEntity(String detectorId, String entity) {
+        if (this.hcTaskCaches.containsKey(detectorId)) {
+            ADHCBatchTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
+            hcTaskCache.moveToRunningEntity(entity);
+        }
+    }
+
+    /**
+     * Get current allowed entity task lanes and decrease it by 1.
+     *
+     * @param detectorId detector id
+     * @return current allowed entity task lane count
+     */
+    public synchronized int getAndDecreaseEntityTaskLanes(String detectorId) {
+        return getExistingHCTaskCache(detectorId).getAndDecreaseEntityTaskLanes();
+    }
+
+    /**
+     * Task exceeds max retry limit or not.
+     *
+     * @param detectorId detector id
+     * @param taskId task id
+     * @return true if exceed retry limit; otherwise return false
+     */
+    public boolean exceedRetryLimit(String detectorId, String taskId) {
+        return getExistingHCTaskCache(detectorId).getTaskRetryTimes(taskId) > taskRetryLimit;
+    }
+
+    /**
+     * Push entity back to the end of pending entity queue.
+     *
+     * @param taskId task id
+     * @param detectorId detector id
+     * @param entity entity value
+     */
+    public void pushBackEntity(String taskId, String detectorId, String entity) {
+        addPendingEntity(detectorId, entity);
+        increaseEntityTaskRetry(detectorId, taskId);
+    }
+
+    /**
+     * Increase entity task retry times.
+     *
+     * @param detectorId detector id
+     * @param taskId task id
+     * @return how many times retried
+     */
+    public int increaseEntityTaskRetry(String detectorId, String taskId) {
+        return getExistingHCTaskCache(detectorId).increaseTaskRetry(taskId);
+    }
+
+    /**
+     * Remove entity from cache.
+     *
+     * @param detectorId detector id
+     * @param entity entity value
+     */
+    public void removeEntity(String detectorId, String entity) {
+        if (hcTaskCaches.containsKey(detectorId)) {
+            hcTaskCaches.get(detectorId).removeEntity(entity);
+        }
+    }
 }
