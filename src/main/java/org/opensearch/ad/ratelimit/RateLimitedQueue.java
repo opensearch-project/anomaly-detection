@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.ratelimit;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
@@ -62,10 +47,10 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
 
 /**
- * HCAD can bombard ES with “thundering herd” traffic, in which many entities
- * make requests that need similar ES reads/writes at approximately the same
+ * HCAD can bombard Opensearch with “thundering herd” traffic, in which many entities
+ * make requests that need similar Opensearch reads/writes at approximately the same
  * time. To remedy this issue we queue the requests and ensure that only a
- * limited set of requests are out for ES reads/writes.
+ * limited set of requests are out for Opensearch reads/writes.
  *
  * @param <RequestType> Individual request type that is a subtype of ADRequest
  */
@@ -85,8 +70,9 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
     class Segment implements ExpiringState {
         // last access time
         private Instant lastAccessTime;
-        // data structure to hold requests
-        private BlockingQueue<RequestType> content;
+        // data structure to hold requests. Cannot be reassigned.  This is to
+        // guarantee a segment's content cannot be null.
+        private final BlockingQueue<RequestType> content;
 
         Segment() {
             this.lastAccessTime = clock.instant();
@@ -106,6 +92,12 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
             return this.content.size();
         }
 
+        /**
+         * This does not have to be precise, just a signal for unused old segment
+         * that can be removed.  It is fine if we have race condition.  Don't want
+         * to synchronize the access as this could penalize performance.
+         * @param lastAccessTime Last access time of the segment
+         */
         public void setLastAccessTime(Instant lastAccessTime) {
             this.lastAccessTime = lastAccessTime;
         }
@@ -228,7 +220,7 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
 
                 BlockingQueue<RequestType> requests = segment.content;
 
-                if (false == requests.isEmpty()) {
+                if (requests != null && false == requests.isEmpty()) {
                     clearExpiredRequests(requests);
 
                     if (false == requests.isEmpty()) {
@@ -307,7 +299,7 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
     private void prune(Map<String, Segment> segments) {
         for (Map.Entry<String, Segment> segmentEntry : segments.entrySet()) {
             if (segmentEntry.getKey().equals(SegmentPriority.HIGH.name())) {
-                return;
+                continue;
             }
             // remove more requests in the low priority segment
             float removeRatio = mediumSegmentPruneRatio;
@@ -318,13 +310,13 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
             Segment segment = segmentEntry.getValue();
 
             if (segment == null) {
-                return;
+                continue;
             }
 
             BlockingQueue<RequestType> segmentContent = segment.content;
             // remove 10% of old requests
             int deletedRequests = (int) (segmentContent.size() * removeRatio);
-            while (false == segmentContent.isEmpty() && deletedRequests-- >= 0) {
+            while (segmentContent != null && false == segmentContent.isEmpty() && deletedRequests-- >= 0) {
                 segmentContent.poll();
             }
         }
@@ -364,7 +356,6 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
             maintainForMemory();
             maintainForThreadPool();
         } catch (Exception e) {
-            // it is normal to maintain why other
             LOG.warn("Failed to maintain", e);
         }
     }
