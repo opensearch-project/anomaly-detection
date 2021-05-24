@@ -76,7 +76,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private CheckpointDao checkpointDao;
     private CacheProvider cache;
     private final NodeStateManager stateManager;
-    private int coolDownMinutes;
+    private volatile int coolDownMinutes;
     private final Clock clock;
     private AnomalyDetectionIndices indexUtil;
     private ClusterService clusterService;

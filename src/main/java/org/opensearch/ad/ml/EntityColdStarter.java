@@ -97,7 +97,7 @@ public class EntityColdStarter {
     private final FeatureManager featureManager;
     private final Cache<String, Instant> lastColdStartTime;
     private final CheckpointDao checkpointDao;
-    private int coolDownMinutes;
+    private volatile int coolDownMinutes;
     private ClusterService clusterService;
 
     /**

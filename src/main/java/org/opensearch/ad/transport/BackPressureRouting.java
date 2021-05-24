@@ -46,7 +46,7 @@ public class BackPressureRouting {
     private static final Logger LOG = LogManager.getLogger(BackPressureRouting.class);
     private final String nodeId;
     private final Clock clock;
-    private int maxRetryForUnresponsiveNode;
+    private volatile int maxRetryForUnresponsiveNode;
     private final TimeValue mutePeriod;
     private AtomicInteger backpressureCounter;
     private long lastMuteTime;
