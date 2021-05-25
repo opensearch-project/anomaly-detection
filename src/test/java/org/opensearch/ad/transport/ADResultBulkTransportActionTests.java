@@ -31,13 +31,11 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.Locale;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -56,7 +54,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexingPressure;
 import org.opensearch.transport.TransportService;
@@ -87,14 +84,12 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
             .put(IndexingPressure.MAX_INDEXING_BYTES.getKey(), "1KB")
             .put(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.getKey(), 0.8)
             .build();
-        setupTestNodes(settings);
+
+        // without register these settings, the constructor of ADResultBulkTransportAction cannot invoke update consumer
+        setupTestNodes(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT, AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT);
         transportService = testNodes[0].transportService;
-        clusterService = spy(testNodes[0].clusterService);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT)))
-        );
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        clusterService = testNodes[0].clusterService;
+
         ActionFilters actionFilters = mock(ActionFilters.class);
         indexingPressure = mock(IndexingPressure.class);
 
@@ -133,7 +128,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
             return null;
         }).when(client).execute(any(), any(), any());
 
-        PlainActionFuture<BulkResponse> future = PlainActionFuture.newFuture();
+        PlainActionFuture<ADResultBulkResponse> future = PlainActionFuture.newFuture();
         resultBulk.doExecute(null, originalRequest, future);
 
         future.actionGet();
@@ -163,7 +158,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
             return null;
         }).when(client).execute(any(), any(), any());
 
-        PlainActionFuture<BulkResponse> future = PlainActionFuture.newFuture();
+        PlainActionFuture<ADResultBulkResponse> future = PlainActionFuture.newFuture();
         resultBulk.doExecute(null, originalRequest, future);
 
         future.actionGet();
@@ -171,7 +166,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testSendRandomPartial() {
-        // 400 + 421 > 1024 * 0.8. 1024 is 1KB, our INDEX_PRESSURE_SOFT_LIMIT
+        // 1024 * 0.9 > 400 + 421 > 1024 * 0.6. 1024 is 1KB, our INDEX_PRESSURE_SOFT_LIMIT
         when(indexingPressure.getCurrentCombinedCoordinatingAndPrimaryBytes()).thenReturn(400L);
         when(indexingPressure.getCurrentReplicaBytes()).thenReturn(421L);
 
@@ -194,12 +189,12 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
             int size = request.requests().size();
             assertTrue(1 < size);
             // at least 1 half should be removed
-            assertTrue(String.format("size is actually %d", size), size < 500);
+            assertTrue(String.format(Locale.ROOT, "size is actually %d", size), size < 500);
             listener.onResponse(null);
             return null;
         }).when(client).execute(any(), any(), any());
 
-        PlainActionFuture<BulkResponse> future = PlainActionFuture.newFuture();
+        PlainActionFuture<ADResultBulkResponse> future = PlainActionFuture.newFuture();
         resultBulk.doExecute(null, originalRequest, future);
 
         future.actionGet();

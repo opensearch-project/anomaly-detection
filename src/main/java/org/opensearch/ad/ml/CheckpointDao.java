@@ -26,24 +26,20 @@
 
 package org.opensearch.ad.ml;
 
+import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,11 +47,7 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.bulk.BulkAction;
 import org.opensearch.action.bulk.BulkItemResponse;
-import org.opensearch.action.bulk.BulkRequest;
-import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
@@ -66,7 +58,7 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.util.BulkUtil;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.index.IndexNotFoundException;
@@ -78,7 +70,6 @@ import org.opensearch.index.reindex.ScrollableHitSource;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
-import com.google.common.util.concurrent.RateLimiter;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -116,15 +107,12 @@ public class CheckpointDao {
     private Gson gson;
     private RandomCutForestSerDe rcfSerde;
 
-    private ConcurrentLinkedQueue<DocWriteRequest<?>> requests;
-    private final ReentrantLock lock;
     private final Class<? extends ThresholdingModel> thresholdingModelClass;
-    private final Duration checkpointInterval;
-    private final Clock clock;
+
     private final AnomalyDetectionIndices indexUtil;
-    private final RateLimiter bulkRateLimiter;
-    private final int maxBulkRequestSize;
     private final JsonParser parser = new JsonParser();
+    // we won't read/write a checkpoint larger than a threshold
+    private final int maxCheckpointBytes;
 
     /**
      * Constructor with dependencies and configuration.
@@ -135,11 +123,8 @@ public class CheckpointDao {
      * @param gson accessor to Gson functionality
      * @param rcfSerde accessor to rcf serialization/deserialization
      * @param thresholdingModelClass thresholding model's class
-     * @param clock a UTC clock
-     * @param checkpointInterval how often we should save a checkpoint
      * @param indexUtil Index utility methods
-     * @param maxBulkRequestSize max number of index request a bulk can contain
-     * @param bulkPerSecond bulk requests per second
+     * @param maxCheckpointBytes max checkpoint size in bytes
      */
     public CheckpointDao(
         Client client,
@@ -148,28 +133,17 @@ public class CheckpointDao {
         Gson gson,
         RandomCutForestSerDe rcfSerde,
         Class<? extends ThresholdingModel> thresholdingModelClass,
-        Clock clock,
-        Duration checkpointInterval,
         AnomalyDetectionIndices indexUtil,
-        int maxBulkRequestSize,
-        double bulkPerSecond
+        int maxCheckpointBytes
     ) {
         this.client = client;
         this.clientUtil = clientUtil;
         this.indexName = indexName;
         this.gson = gson;
         this.rcfSerde = rcfSerde;
-        this.requests = new ConcurrentLinkedQueue<>();
-        this.lock = new ReentrantLock();
         this.thresholdingModelClass = thresholdingModelClass;
-        this.clock = clock;
-        this.checkpointInterval = checkpointInterval;
         this.indexUtil = indexUtil;
-        // each checkpoint with model initialized is roughly 250 KB if we are using shingle size 1 with 1 feature
-        // 1k limit will send 250 KB * 1000 = 250 MB
-        this.maxBulkRequestSize = maxBulkRequestSize;
-        // 1 bulk request per 1/bulkPerSecond seconds.
-        this.bulkRateLimiter = RateLimiter.create(bulkPerSecond);
+        this.maxCheckpointBytes = maxCheckpointBytes;
     }
 
     /**
@@ -250,122 +224,37 @@ public class CheckpointDao {
     }
 
     /**
-     * Bulk writing model states prepared previously
+     * Prepare for index request using the contents of the given model state
+     * @param modelState an entity model state
+     * @return serialized JSON map or empty map if the state is too bloated
+     * @throws IOException  when serialization fails
      */
-    public void flush() {
-        try {
-            // in case that other threads are doing bulk as well.
-            if (!lock.tryLock()) {
-                return;
-            }
-            if (requests.size() > 0 && bulkRateLimiter.tryAcquire()) {
-                final BulkRequest bulkRequest = new BulkRequest();
-                // at most 1000 index requests per bulk
-                for (int i = 0; i < maxBulkRequestSize; i++) {
-                    DocWriteRequest<?> req = requests.poll();
-                    if (req == null) {
-                        break;
-                    }
-
-                    bulkRequest.add(req);
-                }
-                if (indexUtil.doesCheckpointIndexExist()) {
-                    flush(bulkRequest);
-                } else {
-                    indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
-                        if (initResponse.isAcknowledged()) {
-                            flush(bulkRequest);
-                        } else {
-                            throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
-                        }
-                    }, exception -> {
-                        if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                            // It is possible the index has been created while we sending the create request
-                            flush(bulkRequest);
-                        } else {
-                            logger.error(String.format(Locale.ROOT, "Unexpected error creating index %s", indexName), exception);
-                        }
-                    }));
-                }
-            }
-        } finally {
-            if (lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            }
+    public Map<String, Object> toIndexSource(ModelState<EntityModel> modelState) throws IOException {
+        Map<String, Object> source = new HashMap<>();
+        EntityModel model = modelState.getModel();
+        String serializedModel = toCheckpoint(model);
+        if (serializedModel == null || serializedModel.length() > maxCheckpointBytes) {
+            logger
+                .warn(
+                    new ParameterizedMessage(
+                        "[{}]'s model empty or too large: [{}] bytes",
+                        modelState.getModelId(),
+                        serializedModel == null ? 0 : serializedModel.length()
+                    )
+                );
+            return source;
         }
-    }
-
-    private void flush(BulkRequest bulkRequest) {
-        clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(r -> {
-            if (r.hasFailures()) {
-                requests.addAll(BulkUtil.getIndexRequestToRetry(bulkRequest, r));
-            } else if (requests.size() >= maxBulkRequestSize / 2) {
-                // during maintenance, we may have much more waiting in the queue.
-                // trigger another flush if that's the case.
-                flush();
-            }
-        }, e -> {
-            logger.error("Failed bulking checkpoints", e);
-            // retry during next bulk.
-            for (DocWriteRequest<?> req : bulkRequest.requests()) {
-                requests.add(req);
-            }
-        }));
-    }
-
-    /**
-     * Prepare bulking the input model state to the checkpoint index.
-     * We don't save checkpoints within checkpointInterval again.
-     * @param modelState Model state
-     * @param modelId Model Id
-     */
-    public void write(ModelState<EntityModel> modelState, String modelId) {
-        write(modelState, modelId, false);
-    }
-
-    /**
-     * Prepare bulking the input model state to the checkpoint index.
-     * We don't save checkpoints within checkpointInterval again, except this
-     * is from cold start. This method will update the input state's last
-     *  checkpoint time if the checkpoint is staged (ready to be written in the
-     *  next batch).
-     * @param modelState Model state
-     * @param modelId Model Id
-     * @param coldStart whether the checkpoint comes from cold start
-     */
-    public void write(ModelState<EntityModel> modelState, String modelId, boolean coldStart) {
-        Instant instant = modelState.getLastCheckpointTime();
-        // Instant.MIN is the default value. We don't save until we are sure.
-        if ((instant == Instant.MIN || instant.plus(checkpointInterval).isAfter(clock.instant())) && !coldStart) {
-            return;
+        String detectorId = modelState.getDetectorId();
+        source.put(DETECTOR_ID, detectorId);
+        source.put(FIELD_MODEL, serializedModel);
+        source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+        source.put(CommonName.SCHEMA_VERSION_FIELD, indexUtil.getSchemaVersion(ADIndex.CHECKPOINT));
+        Optional<Entity> entity = model.getEntity();
+        if (entity.isPresent()) {
+            source.put(CommonName.ENTITY_KEY, entity.get());
         }
-        // It is possible 2 states of the same model id gets saved: one overwrite another.
-        // This can happen if previous checkpoint hasn't been saved to disk, while the
-        // 1st one creates a new state without restoring.
-        if (modelState.getModel() != null) {
-            try {
-                // we can have ConcurrentModificationException when calling toCheckpoint
-                // and updating rcf model at the same time. To prevent this,
-                // we need to have a deep copy of models or have a lock. Both
-                // options are costly.
-                // As we are gonna retry serializing either when the entity is
-                // evicted out of cache or during the next maintenance period,
-                // don't do anything when the exception happens.
-                String serializedModel = toCheckpoint(modelState.getModel());
-                Map<String, Object> source = new HashMap<>();
-                source.put(DETECTOR_ID, modelState.getDetectorId());
-                source.put(FIELD_MODEL, serializedModel);
-                source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
-                source.put(CommonName.SCHEMA_VERSION_FIELD, indexUtil.getSchemaVersion(ADIndex.CHECKPOINT));
-                requests.add(new IndexRequest(indexName).id(modelId).source(source));
-                modelState.setLastCheckpointTime(clock.instant());
-                if (requests.size() >= maxBulkRequestSize) {
-                    flush();
-                }
-            } catch (ConcurrentModificationException e) {
-                logger.info(new ParameterizedMessage("Concurrent modification while serializing models for [{}]", modelId), e);
-            }
-        }
+
+        return source;
     }
 
     /**
@@ -385,8 +274,12 @@ public class CheckpointDao {
             .map(source -> (String) source.get(FIELD_MODEL));
     }
 
-    String toCheckpoint(EntityModel model) {
+    public String toCheckpoint(EntityModel model) {
         return AccessController.doPrivileged((PrivilegedAction<String>) () -> {
+            if (model == null) {
+                logger.warn("Empty model");
+                return null;
+            }
             JsonObject json = new JsonObject();
             json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
             if (model.getRcf() != null) {
@@ -475,28 +368,52 @@ public class CheckpointDao {
         }
     }
 
-    private Entry<EntityModel, Instant> fromEntityModelCheckpoint(Map<String, Object> checkpoint, String modelId) {
+    /**
+     * Load json checkpoint into models
+     *
+     * @param checkpoint json checkpoint contents
+     * @param modelId Model Id
+     * @return a pair of entity model and its last checkpoint time; or empty if
+     *  the raw checkpoint is too large
+     */
+    public Optional<Entry<EntityModel, Instant>> fromEntityModelCheckpoint(Map<String, Object> checkpoint, String modelId) {
         try {
-            return AccessController.doPrivileged((PrivilegedAction<Entry<EntityModel, Instant>>) () -> {
+            return AccessController.doPrivileged((PrivilegedAction<Optional<Entry<EntityModel, Instant>>>) () -> {
                 String model = (String) (checkpoint.get(FIELD_MODEL));
+                if (model.length() > maxCheckpointBytes) {
+                    logger.warn(new ParameterizedMessage("[{}]'s model too large: [{}] bytes", modelId, model.length()));
+                    return Optional.empty();
+                }
                 JsonObject json = parser.parse(model).getAsJsonObject();
+                // verified, don't need privileged call to get permission
                 ArrayDeque<double[]> samples = new ArrayDeque<>(
                     Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
                 );
                 RandomCutForest rcf = null;
                 if (json.has(ENTITY_RCF)) {
+                    // verified, don't need privileged call to get permission
                     rcf = rcfSerde.fromJson(json.getAsJsonPrimitive(ENTITY_RCF).getAsString());
                 }
                 ThresholdingModel threshold = null;
                 if (json.has(ENTITY_THRESHOLD)) {
+                    // verified, don't need privileged call to get permission
                     threshold = this.gson.fromJson(json.getAsJsonPrimitive(ENTITY_THRESHOLD).getAsString(), thresholdingModelClass);
                 }
 
                 String lastCheckpointTimeString = (String) (checkpoint.get(TIMESTAMP));
                 Instant timestamp = Instant.parse(lastCheckpointTimeString);
-                return new SimpleImmutableEntry<>(new EntityModel(modelId, samples, rcf, threshold), timestamp);
+                Entity entity = null;
+                Object serializedEntity = checkpoint.get(CommonName.ENTITY_KEY);
+                if (serializedEntity != null) {
+                    try {
+                        entity = Entity.fromJsonArray(serializedEntity);
+                    } catch (Exception e) {
+                        logger.error(new ParameterizedMessage("fail to parse entity", serializedEntity), e);
+                    }
+                }
+                return Optional.of(new SimpleImmutableEntry<>(new EntityModel(entity, samples, rcf, threshold), timestamp));
             });
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             logger.warn("Exception while deserializing checkpoint", e);
             throw e;
         }
@@ -511,7 +428,7 @@ public class CheckpointDao {
         clientUtil.<GetRequest, GetResponse>asyncRequest(new GetRequest(indexName, modelId), client::get, ActionListener.wrap(response -> {
             Optional<Map<String, Object>> checkpointString = processRawCheckpoint(response);
             if (checkpointString.isPresent()) {
-                listener.onResponse(Optional.of(fromEntityModelCheckpoint(checkpointString.get(), modelId)));
+                listener.onResponse(fromEntityModelCheckpoint(checkpointString.get(), modelId));
             } else {
                 listener.onResponse(Optional.empty());
             }
@@ -541,7 +458,7 @@ public class CheckpointDao {
             .map(source -> (String) source.get(FIELD_MODEL));
     }
 
-    private Optional<Map<String, Object>> processRawCheckpoint(GetResponse response) {
+    public Optional<Map<String, Object>> processRawCheckpoint(GetResponse response) {
         return Optional.ofNullable(response).filter(GetResponse::isExists).map(GetResponse::getSource);
     }
 }

@@ -34,10 +34,8 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.ml.CheckpointDao.FIELD_MODEL;
@@ -70,32 +68,23 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.action.bulk.BulkAction;
-import org.opensearch.action.bulk.BulkItemResponse;
-import org.opensearch.action.bulk.BulkRequest;
-import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
-import org.opensearch.index.engine.VersionConflictEngineException;
-import org.opensearch.index.shard.ShardId;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
 import com.google.gson.Gson;
@@ -136,7 +125,8 @@ public class CheckpointDaoTests {
 
     private Gson gson;
     private Class<? extends ThresholdingModel> thresholdingModelClass;
-    private int maxBulkSize;
+
+    private int maxCheckpointBytes = 1_000_000;
 
     @Before
     public void setup() {
@@ -150,8 +140,6 @@ public class CheckpointDaoTests {
 
         when(clock.instant()).thenReturn(Instant.now());
 
-        maxBulkSize = 10;
-
         checkpointDao = new CheckpointDao(
             client,
             clientUtil,
@@ -159,11 +147,8 @@ public class CheckpointDaoTests {
             gson,
             rcfSerde,
             thresholdingModelClass,
-            clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             indexUtil,
-            maxBulkSize,
-            200.0
+            maxCheckpointBytes
         );
 
         when(indexUtil.doesCheckpointIndexExist()).thenReturn(true);
@@ -438,227 +423,10 @@ public class CheckpointDaoTests {
         assertEquals(null, response);
     }
 
-    private BulkResponse createBulkResponse(int succeeded, int failed, String[] failedId) {
-        BulkItemResponse[] bulkItemResponses = new BulkItemResponse[succeeded + failed];
-
-        ShardId shardId = new ShardId(CommonName.CHECKPOINT_INDEX_NAME, "", 1);
-        int i = 0;
-        for (; i < failed; i++) {
-            bulkItemResponses[i] = new BulkItemResponse(
-                i,
-                DocWriteRequest.OpType.UPDATE,
-                new BulkItemResponse.Failure(
-                    CommonName.CHECKPOINT_INDEX_NAME,
-                    CommonName.MAPPING_TYPE,
-                    failedId[i],
-                    new VersionConflictEngineException(shardId, "id", "test")
-                )
-            );
-        }
-
-        for (; i < failed + succeeded; i++) {
-            bulkItemResponses[i] = new BulkItemResponse(
-                i,
-                DocWriteRequest.OpType.UPDATE,
-                new UpdateResponse(shardId, CommonName.MAPPING_TYPE, "1", 0L, 1L, 1L, DocWriteResponse.Result.CREATED)
-            );
-        }
-
-        return new BulkResponse(bulkItemResponses, 507);
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void flush_less_than_1k() {
-        int writeRequests = maxBulkSize - 1;
-        for (int i = 0; i < writeRequests; i++) {
-            ModelState<EntityModel> state = MLUtil.randomModelState();
-            checkpointDao.write(state, state.getModelId(), true);
-        }
-
-        doAnswer(invocation -> {
-            BulkRequest request = invocation.getArgument(1);
-            assertEquals(writeRequests, request.numberOfActions());
-            ActionListener<BulkResponse> listener = invocation.getArgument(2);
-
-            listener.onResponse(createBulkResponse(request.numberOfActions(), 0, null));
-            return null;
-        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-
-        checkpointDao.flush();
-
-        verify(clientUtil, times(1)).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-    }
-
-    @SuppressWarnings("unchecked")
-    public void flush_more_than_1k() {
-        int writeRequests = maxBulkSize + 1;
-
-        doAnswer(invocation -> {
-            BulkRequest request = invocation.getArgument(1);
-            assertEquals(maxBulkSize, request.numberOfActions());
-            ActionListener<BulkResponse> listener = invocation.getArgument(2);
-
-            listener.onResponse(createBulkResponse(request.numberOfActions(), 0, null));
-            return null;
-        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-
-        for (int i = 0; i < writeRequests; i++) {
-            ModelState<EntityModel> state = MLUtil.randomModelState();
-            // should trigger auto flush
-            checkpointDao.write(state, state.getModelId(), true);
-        }
-
-        verify(clientUtil, times(1)).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-    }
-
-    @Test
-    public void flush_more_than_1k_has_index() {
-        flush_more_than_1k();
-    }
-
-    @Test
-    public void flush_more_than_1k_no_index() {
-        when(indexUtil.doesCheckpointIndexExist()).thenReturn(false);
-
-        doAnswer(invocation -> {
-            ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onResponse(new CreateIndexResponse(true, true, CommonName.CHECKPOINT_INDEX_NAME));
-            return null;
-        }).when(indexUtil).initCheckpointIndex(any());
-
-        flush_more_than_1k();
-    }
-
-    @Test
-    public void flush_more_than_1k_race_condition() {
-        when(indexUtil.doesCheckpointIndexExist()).thenReturn(false);
-
-        doAnswer(invocation -> {
-            ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onFailure(new ResourceAlreadyExistsException(CommonName.CHECKPOINT_INDEX_NAME));
-            return null;
-        }).when(indexUtil).initCheckpointIndex(any());
-
-        flush_more_than_1k();
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void flush_more_than_1k_unexpected_exception() {
-        when(indexUtil.doesCheckpointIndexExist()).thenReturn(false);
-
-        doAnswer(invocation -> {
-            ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onFailure(new RuntimeException(""));
-            return null;
-        }).when(indexUtil).initCheckpointIndex(any());
-
-        verify(clientUtil, never()).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void bulk_has_failure() throws InterruptedException {
-        int writeRequests = maxBulkSize - 1;
-        int failureCount = 1;
-        String[] failedId = new String[failureCount];
-        for (int i = 0; i < writeRequests; i++) {
-            ModelState<EntityModel> state = MLUtil.randomModelState();
-            checkpointDao.write(state, state.getModelId(), true);
-            if (i < failureCount) {
-                failedId[i] = state.getModelId();
-            }
-        }
-
-        doAnswer(invocation -> {
-            BulkRequest request = invocation.getArgument(1);
-            assertEquals(writeRequests, request.numberOfActions());
-            ActionListener<BulkResponse> listener = invocation.getArgument(2);
-
-            listener.onResponse(createBulkResponse(request.numberOfActions(), failureCount, failedId));
-            return null;
-        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-
-        checkpointDao.flush();
-
-        doAnswer(invocation -> {
-            BulkRequest request = invocation.getArgument(1);
-            assertEquals(failureCount, request.numberOfActions());
-            ActionListener<BulkResponse> listener = invocation.getArgument(2);
-
-            listener.onResponse(createBulkResponse(request.numberOfActions(), 0, null));
-            return null;
-        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-
-        checkpointDao.flush();
-
-        verify(clientUtil, times(2)).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void bulk_all_failure() throws InterruptedException {
-        int writeRequests = maxBulkSize - 1;
-        for (int i = 0; i < writeRequests; i++) {
-            ModelState<EntityModel> state = MLUtil.randomModelState();
-            checkpointDao.write(state, state.getModelId(), true);
-        }
-
-        doAnswer(invocation -> {
-            BulkRequest request = invocation.getArgument(1);
-            assertEquals(writeRequests, request.numberOfActions());
-            ActionListener<BulkResponse> listener = invocation.getArgument(2);
-
-            listener.onFailure(new RuntimeException(""));
-            return null;
-        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-
-        checkpointDao.flush();
-
-        doAnswer(invocation -> {
-            BulkRequest request = invocation.getArgument(1);
-            assertEquals(writeRequests, request.numberOfActions());
-            ActionListener<BulkResponse> listener = invocation.getArgument(2);
-
-            listener.onResponse(createBulkResponse(request.numberOfActions(), 0, null));
-            return null;
-        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-
-        checkpointDao.flush();
-
-        verify(clientUtil, times(2)).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void checkpoint_saved_less_than_1_hr() {
-        ModelState<EntityModel> state = MLUtil.randomModelState();
-        state.setLastCheckpointTime(Instant.now());
-        checkpointDao.write(state, state.getModelId());
-
-        checkpointDao.flush();
-
-        verify(clientUtil, never()).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void checkpoint_coldstart_checkpoint() {
-        ModelState<EntityModel> state = MLUtil.randomModelState();
-        state.setLastCheckpointTime(Instant.now());
-        // cold start checkpoint will save whatever
-        checkpointDao.write(state, state.getModelId(), true);
-
-        checkpointDao.flush();
-
-        verify(clientUtil, times(1)).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
-    }
-
     @SuppressWarnings("unchecked")
     @Test
     public void restore() throws IOException {
-        ModelState<EntityModel> state = MLUtil.randomNonEmptyModelState();
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
         EntityModel modelToSave = state.getModel();
 
         checkpointDao = new CheckpointDao(
@@ -668,11 +436,8 @@ public class CheckpointDaoTests {
             new Gson(),
             new RandomCutForestSerDe(),
             thresholdingModelClass,
-            clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             indexUtil,
-            maxBulkSize,
-            2
+            maxCheckpointBytes
         );
 
         GetResponse getResponse = mock(GetResponse.class);
