@@ -26,60 +26,22 @@
 
 package org.opensearch.ad.caching;
 
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map.Entry;
 
-import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.ml.CheckpointDao;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.test.OpenSearchTestCase;
 
 import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
-public class CacheBufferTests extends OpenSearchTestCase {
-    CacheBuffer cacheBuffer;
-    CheckpointDao checkpointDao;
-    MemoryTracker memoryTracker;
-    Clock clock;
-    String detectorId;
-    float initialPriority;
-    long memoryPerEntity;
-
-    @Override
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-
-        checkpointDao = mock(CheckpointDao.class);
-        memoryTracker = mock(MemoryTracker.class);
-        clock = mock(Clock.class);
-        when(clock.instant()).thenReturn(Instant.now());
-
-        detectorId = "123";
-        memoryPerEntity = 81920;
-
-        cacheBuffer = new CacheBuffer(
-            1,
-            1,
-            checkpointDao,
-            memoryPerEntity,
-            memoryTracker,
-            clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            detectorId
-        );
-        initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
-    }
+public class CacheBufferTests extends AbstractCacheTest {
 
     // cache.put(1, 1);
     // cache.put(2, 2);
@@ -92,25 +54,20 @@ public class CacheBufferTests extends OpenSearchTestCase {
     // cache.get(3); // returns 3
     // cache.get(4); // returns 4
     public void testRemovalCandidate() {
-        String modelId1 = "1";
-        String modelId2 = "2";
-        String modelId3 = "3";
-        String modelId4 = "4";
-
-        cacheBuffer.put(modelId1, MLUtil.randomModelState(initialPriority, modelId1));
-        cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
+        cacheBuffer.put(modelId1, modelState1);
+        cacheBuffer.put(modelId2, modelState2);
         assertEquals(modelId1, cacheBuffer.get(modelId1).getModelId());
         Entry<String, Float> removalCandidate = cacheBuffer.getPriorityTracker().getMinimumScaledPriority();
         assertEquals(modelId2, removalCandidate.getKey());
         cacheBuffer.remove();
-        cacheBuffer.put(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
+        cacheBuffer.put(modelId3, modelState3);
         assertEquals(null, cacheBuffer.get(modelId2));
         assertEquals(modelId3, cacheBuffer.get(modelId3).getModelId());
         removalCandidate = cacheBuffer.getPriorityTracker().getMinimumScaledPriority();
         assertEquals(modelId1, removalCandidate.getKey());
         cacheBuffer.remove(modelId1);
         assertEquals(null, cacheBuffer.get(modelId1));
-        cacheBuffer.put(modelId4, MLUtil.randomModelState(initialPriority, modelId4));
+        cacheBuffer.put(modelId4, modelState4);
         assertEquals(modelId3, cacheBuffer.get(modelId3).getModelId());
         assertEquals(modelId4, cacheBuffer.get(modelId4).getModelId());
     }
@@ -121,14 +78,10 @@ public class CacheBufferTests extends OpenSearchTestCase {
     // cache.put(4, 4);
     // cache.get(2) => returns 2
     public void testRemovalCandidate2() throws InterruptedException {
-        String modelId2 = "2";
-        String modelId3 = "3";
-        String modelId4 = "4";
-        float initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
-        cacheBuffer.put(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
-        cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
-        cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
-        cacheBuffer.put(modelId4, MLUtil.randomModelState(initialPriority, modelId4));
+        cacheBuffer.put(modelId3, modelState3);
+        cacheBuffer.put(modelId2, modelState2);
+        cacheBuffer.put(modelId2, modelState2);
+        cacheBuffer.put(modelId4, modelState4);
         assertTrue(cacheBuffer.getModel(modelId2).isPresent());
 
         ArgumentCaptor<Long> memoryReleased = ArgumentCaptor.forClass(Long.class);
@@ -143,7 +96,7 @@ public class CacheBufferTests extends OpenSearchTestCase {
         assertEquals(3 * memoryPerEntity, capturedMemoryReleased.stream().reduce(0L, (a, b) -> a + b).intValue());
         assertTrue(capturedreserved.get(0));
         assertTrue(!capturedreserved.get(1));
-        assertEquals(MemoryTracker.Origin.MULTI_ENTITY_DETECTOR, capturedOrigin.get(0));
+        assertEquals(MemoryTracker.Origin.HC_DETECTOR, capturedOrigin.get(0));
 
         assertTrue(!cacheBuffer.expired(Duration.ofHours(1)));
     }
@@ -155,13 +108,13 @@ public class CacheBufferTests extends OpenSearchTestCase {
         assertTrue(cacheBuffer.dedicatedCacheAvailable());
         assertTrue(!cacheBuffer.canReplaceWithinDetector(100));
 
-        cacheBuffer.put(modelId1, MLUtil.randomModelState(initialPriority, modelId1));
+        cacheBuffer.put(modelId1, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
         assertTrue(cacheBuffer.canReplaceWithinDetector(100));
         assertTrue(!cacheBuffer.dedicatedCacheAvailable());
         assertTrue(!cacheBuffer.canRemove());
-        cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
+        cacheBuffer.put(modelId2, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
         assertTrue(cacheBuffer.canRemove());
-        cacheBuffer.replace(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
+        cacheBuffer.replace(modelId3, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
         assertTrue(cacheBuffer.isActive(modelId2));
         assertTrue(cacheBuffer.isActive(modelId3));
         assertEquals(modelId3, cacheBuffer.getPriorityTracker().getHighestPriorityEntityId().get());
@@ -172,9 +125,9 @@ public class CacheBufferTests extends OpenSearchTestCase {
         String modelId1 = "1";
         String modelId2 = "2";
         String modelId3 = "3";
-        cacheBuffer.put(modelId1, MLUtil.randomModelState(initialPriority, modelId1));
-        cacheBuffer.put(modelId2, MLUtil.randomModelState(initialPriority, modelId2));
-        cacheBuffer.put(modelId3, MLUtil.randomModelState(initialPriority, modelId3));
+        cacheBuffer.put(modelId1, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+        cacheBuffer.put(modelId2, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+        cacheBuffer.put(modelId3, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
         cacheBuffer.maintenance();
         assertEquals(3, cacheBuffer.getActiveEntities());
         assertEquals(3, cacheBuffer.getAllModels().size());
