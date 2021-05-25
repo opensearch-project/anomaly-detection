@@ -36,11 +36,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
@@ -52,27 +53,30 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.NodeStateManager;
+import org.opensearch.ad.caching.DoorKeeper;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.common.lease.Releasable;
+import org.opensearch.ad.ratelimit.CheckpointWriteQueue;
+import org.opensearch.ad.ratelimit.SegmentPriority;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.randomcutforest.RandomCutForest;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 
 /**
- * Training models for multi-entity detectors
+ * Training models for HCAD detectors
  *
  */
-public class EntityColdStarter {
+public class EntityColdStarter implements MaintenanceState {
     private static final Logger logger = LogManager.getLogger(EntityColdStarter.class);
     private final Clock clock;
     private final ThreadPool threadPool;
@@ -94,9 +98,12 @@ public class EntityColdStarter {
     private final int shingleSize;
     private Instant lastThrottledColdStartTime;
     private final FeatureManager featureManager;
-    private final Cache<String, Instant> lastColdStartTime;
-    private final CheckpointDao checkpointDao;
     private int coolDownMinutes;
+    // A bloom filter checked before cold start to ensure we don't repeatedly
+    // retry cold start of the same model.
+    private Map<String, DoorKeeper> doorKeepers;
+    private final Duration modelTtl;
+    private final CheckpointWriteQueue checkpointWriteQueue;
 
     /**
      * Constructor
@@ -121,10 +128,11 @@ public class EntityColdStarter {
      * @param thresholdDownsamples the number of samples to keep during downsampling
      * @param thresholdMaxSamples the max number of samples before downsampling
      * @param featureManager Used to create features for models.
-     * @param lastColdStartTimestampTtl max time to retain last cold start timestamp
-     * @param maxCacheSize max cache size
-     * @param checkpointDao utility to interact with the checkpoint index
      * @param settings ES settings accessor
+     * @param modelTtl time-to-leave before last access time of the cold start cache.
+     *   We have a cache to record entities that have run cold starts to avoid
+     *   repeated unsuccessful cold start.
+     * @param checkpointWriteQueue queue to insert model checkpoints
      */
     public EntityColdStarter(
         Clock clock,
@@ -146,10 +154,9 @@ public class EntityColdStarter {
         int thresholdDownsamples,
         long thresholdMaxSamples,
         FeatureManager featureManager,
-        Duration lastColdStartTimestampTtl,
-        long maxCacheSize,
-        CheckpointDao checkpointDao,
-        Settings settings
+        Settings settings,
+        Duration modelTtl,
+        CheckpointWriteQueue checkpointWriteQueue
     ) {
         this.clock = clock;
         this.lastThrottledColdStartTime = Instant.MIN;
@@ -171,98 +178,148 @@ public class EntityColdStarter {
         this.thresholdDownsamples = thresholdDownsamples;
         this.thresholdMaxSamples = thresholdMaxSamples;
         this.featureManager = featureManager;
-
-        this.lastColdStartTime = CacheBuilder
-            .newBuilder()
-            .expireAfterAccess(lastColdStartTimestampTtl.toHours(), TimeUnit.HOURS)
-            .maximumSize(maxCacheSize)
-            .concurrencyLevel(1)
-            .build();
-        this.checkpointDao = checkpointDao;
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
+        this.doorKeepers = new ConcurrentHashMap<>();
+        this.modelTtl = modelTtl;
+        this.checkpointWriteQueue = checkpointWriteQueue;
+    }
+
+    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+        String modelId,
+        Entity entity,
+        String detectorId,
+        ModelState<EntityModel> modelState,
+        ActionListener<Void> listener
+    ) {
+        return ActionListener.wrap(detectorOptional -> {
+            boolean earlyExit = true;
+            try {
+                if (false == detectorOptional.isPresent()) {
+                    logger.warn(new ParameterizedMessage("AnomalyDetector [{}] is not available.", detectorId));
+                    return;
+                }
+
+                AnomalyDetector detector = detectorOptional.get();
+
+                DoorKeeper doorKeeper = doorKeepers
+                    .computeIfAbsent(
+                        detectorId,
+                        id -> {
+                            // reset every 60 intervals
+                            return new DoorKeeper(
+                                AnomalyDetectorSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
+                                AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
+                                detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                                clock
+                            );
+                        }
+                    );
+
+                // Won't retry cold start within 60 intervals for an entity
+                if (doorKeeper.mightContain(modelId)) {
+                    return;
+                }
+
+                doorKeeper.put(modelId);
+
+                ActionListener<Optional<List<double[][]>>> coldStartCallBack = ActionListener.wrap(trainingData -> {
+                    try {
+                        if (trainingData.isPresent()) {
+                            List<double[][]> dataPoints = trainingData.get();
+                            // only train models if we have enough samples
+                            if (hasEnoughSample(dataPoints, modelState) == false) {
+                                combineTrainSamples(dataPoints, modelId, modelState);
+                            } else {
+                                trainModelFromDataSegments(dataPoints, entity, modelState);
+                            }
+                            logger.info("Succeeded in training entity: {}", modelId);
+                        } else {
+                            logger.info("Cannot get training data for {}", modelId);
+                        }
+                    } finally {
+                        listener.onResponse(null);
+                    }
+
+                }, exception -> {
+                    try {
+                        logger.error(new ParameterizedMessage("Error while cold start {}", modelId), exception);
+                        Throwable cause = Throwables.getRootCause(exception);
+                        if (cause instanceof RejectedExecutionException) {
+                            logger.error("too many requests");
+                            lastThrottledColdStartTime = Instant.now();
+                        } else if (cause instanceof AnomalyDetectionException || exception instanceof AnomalyDetectionException) {
+                            // e.g., cannot find anomaly detector
+                            nodeStateManager.setException(detectorId, exception);
+                        } else {
+                            nodeStateManager.setException(detectorId, new AnomalyDetectionException(detectorId, cause));
+                        }
+                    } finally {
+                        listener.onFailure(exception);
+                    }
+                });
+
+                threadPool
+                    .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
+                    .execute(
+                        () -> getEntityColdStartData(
+                            detectorId,
+                            entity,
+                            shingleSize,
+                            new ThreadedActionListener<>(
+                                logger,
+                                threadPool,
+                                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                                coldStartCallBack,
+                                false
+                            )
+                        )
+                    );
+                earlyExit = false;
+            } finally {
+                if (earlyExit) {
+                    listener.onResponse(null);
+                }
+            }
+
+        }, exception -> {
+            logger.error(new ParameterizedMessage("fail to get detector [{}]", detectorId), exception);
+            listener.onFailure(exception);
+        });
     }
 
     /**
      * Training model for an entity
      * @param modelId model Id corresponding to the entity
-     * @param entityName the entity's name
+     * @param entity the entity's information
      * @param detectorId the detector Id corresponding to the entity
      * @param modelState model state associated with the entity
+     * @param listener call back to call after cold start
      */
-    private void coldStart(String modelId, String entityName, String detectorId, ModelState<EntityModel> modelState) {
-        // Rate limiting: if last cold start of the detector is not finished, we don't trigger another one.
-        if (nodeStateManager.isColdStartRunning(detectorId)) {
+    private void coldStart(
+        String modelId,
+        Entity entity,
+        String detectorId,
+        ModelState<EntityModel> modelState,
+        ActionListener<Void> listener
+    ) {
+        logger.debug("Trigger cold start for {}", modelId);
+
+        if (lastThrottledColdStartTime.plus(Duration.ofMinutes(coolDownMinutes)).isAfter(clock.instant())) {
+            listener.onResponse(null);
             return;
         }
 
-        // Won't retry cold start within one hour for an entity; if threadpool queue is full, won't retry within 5 minutes
-        // 5 minutes is derived by 1000 (threadpool queue size) / 4 (1 cold start per 4 seconds according to the Http logs
-        // experiment) = 250 seconds.
-        if (lastColdStartTime.getIfPresent(modelId) == null
-            && lastThrottledColdStartTime.plus(Duration.ofMinutes(coolDownMinutes)).isBefore(clock.instant())) {
-
-            final Releasable coldStartFinishingCallback = nodeStateManager.markColdStartRunning(detectorId);
-
-            logger.debug("Trigger cold start for {}", modelId);
-
-            ActionListener<Optional<List<double[][]>>> nestedListener = ActionListener.wrap(trainingData -> {
-                if (trainingData.isPresent()) {
-                    List<double[][]> dataPoints = trainingData.get();
-                    // only train models if we have enough samples
-                    if (hasEnoughSample(dataPoints, modelState) == false) {
-                        combineTrainSamples(dataPoints, modelId, modelState);
-                    } else {
-                        trainModelFromDataSegments(dataPoints, modelId, modelState);
-                    }
-                    logger.info("Succeeded in training entity: {}", modelId);
-                } else {
-                    logger.info("Cannot get training data for {}", modelId);
-                }
-            }, exception -> {
-                Throwable cause = Throwables.getRootCause(exception);
-                if (cause instanceof RejectedExecutionException) {
-                    logger.error("too many requests");
-                    lastThrottledColdStartTime = Instant.now();
-                } else if (cause instanceof AnomalyDetectionException || exception instanceof AnomalyDetectionException) {
-                    // e.g., cannot find anomaly detector
-                    nodeStateManager.setLastColdStartException(detectorId, (AnomalyDetectionException) exception);
-                } else {
-                    logger.error(new ParameterizedMessage("Error while cold start {}", modelId), exception);
-                }
-            });
-
-            final ActionListener<Optional<List<double[][]>>> listenerWithReleaseCallback = ActionListener
-                .runAfter(nestedListener, coldStartFinishingCallback::close);
-
-            threadPool
-                .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
-                .execute(
-                    () -> getEntityColdStartData(
-                        detectorId,
-                        entityName,
-                        shingleSize,
-                        new ThreadedActionListener<>(
-                            logger,
-                            threadPool,
-                            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
-                            listenerWithReleaseCallback,
-                            false
-                        )
-                    )
-                );
-
-            lastColdStartTime.put(modelId, Instant.now());
-        }
+        nodeStateManager.getAnomalyDetector(detectorId, onGetDetector(modelId, entity, detectorId, modelState, listener));
     }
 
     /**
      * Train model using given data points.
      *
      * @param dataPoints List of continuous data points, in ascending order of timestamps
-     * @param modelId The model Id
+     * @param entity Entity instance
      * @param entityState Entity state associated with the model Id
      */
-    private void trainModelFromDataSegments(List<double[][]> dataPoints, String modelId, ModelState<EntityModel> entityState) {
+    private void trainModelFromDataSegments(List<double[][]> dataPoints, Entity entity, ModelState<EntityModel> entityState) {
         if (dataPoints == null || dataPoints.size() == 0 || dataPoints.get(0) == null || dataPoints.get(0).length == 0) {
             throw new IllegalArgumentException("Data points must not be empty.");
         }
@@ -281,14 +338,14 @@ public class EntityColdStarter {
         int totalLength = 0;
         // get continuous data points and send for training
         for (double[][] continuousDataPoints : dataPoints) {
-            double[] scores = trainRCFModel(continuousDataPoints, modelId, rcf);
+            double[] scores = trainRCFModel(continuousDataPoints, rcf);
             allScores.add(scores);
             totalLength += scores.length;
         }
 
         EntityModel model = entityState.getModel();
         if (model == null) {
-            model = new EntityModel(modelId, new ArrayDeque<>(), null, null);
+            model = new EntityModel(entity, new ArrayDeque<>(), null, null);
         }
         model.setRcf(rcf);
         double[] joinedScores = new double[totalLength];
@@ -314,17 +371,16 @@ public class EntityColdStarter {
         entityState.setLastUsedTime(clock.instant());
 
         // save to checkpoint
-        checkpointDao.write(entityState, modelId, true);
+        checkpointWriteQueue.write(entityState, true, SegmentPriority.MEDIUM);
     }
 
     /**
      * Train the RCF model using given data points
      * @param dataPoints Data points
-     * @param modelId The model Id
      * @param rcf RCF model to be trained
      * @return scores returned by RCF models
      */
-    private double[] trainRCFModel(double[][] dataPoints, String modelId, RandomCutForest rcf) {
+    private double[] trainRCFModel(double[][] dataPoints, RandomCutForest rcf) {
         if (dataPoints.length == 0 || dataPoints[0].length == 0) {
             throw new IllegalArgumentException("Data points must not be empty.");
         }
@@ -349,20 +405,19 @@ public class EntityColdStarter {
      * points to shingles. Finally, full shingles will be used for cold start.
      *
      * @param detectorId detector Id
-     * @param entityName entity's name
+     * @param entity the entity's information
      * @param entityShingleSize model's shingle size
      * @param listener listener to return training data
      */
     private void getEntityColdStartData(
         String detectorId,
-        String entityName,
+        Entity entity,
         int entityShingleSize,
         ActionListener<Optional<List<double[][]>>> listener
     ) {
         ActionListener<Optional<AnomalyDetector>> getDetectorListener = ActionListener.wrap(detectorOp -> {
             if (!detectorOp.isPresent()) {
-                nodeStateManager
-                    .setLastColdStartException(detectorId, new EndRunException(detectorId, "AnomalyDetector is not available.", true));
+                nodeStateManager.setException(detectorId, new EndRunException(detectorId, "AnomalyDetector is not available.", true));
                 return;
             }
             List<double[][]> coldStartData = new ArrayList<>();
@@ -427,7 +482,7 @@ public class EntityColdStarter {
                         .getColdStartSamplesForPeriods(
                             detector,
                             sampleRanges,
-                            entityName,
+                            entity,
                             false,
                             new ThreadedActionListener<>(
                                 logger,
@@ -447,7 +502,7 @@ public class EntityColdStarter {
             searchFeatureDao
                 .getEntityMinMaxDataTime(
                     detector,
-                    entityName,
+                    entity,
                     new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, minMaxTimeListener, false)
                 );
 
@@ -491,25 +546,40 @@ public class EntityColdStarter {
 
     /**
      * Train models for the given entity
-     * @param samples Recent sample history
-     * @param modelId Model Id
-     * @param entityName The entity's name
+     * @param entity The entity info
      * @param detectorId Detector Id
      * @param modelState Model state associated with the entity
+     * @param listener callback before the method returns whenever EntityColdStarter
+     * finishes training or encounters exceptions.  The listener helps notify the
+     * cold start queue to pull another request (if any) to execute.
      */
-    public void trainModel(
-        Queue<double[]> samples,
-        String modelId,
-        String entityName,
-        String detectorId,
-        ModelState<EntityModel> modelState
-    ) {
+    public void trainModel(Entity entity, String detectorId, ModelState<EntityModel> modelState, ActionListener<Void> listener) {
+        Queue<double[]> samples = modelState.getModel().getSamples();
+        String modelId = modelState.getModelId();
+
         if (samples.size() < this.numMinSamples) {
             // we cannot get last RCF score since cold start happens asynchronously
-            coldStart(modelId, entityName, detectorId, modelState);
+            coldStart(modelId, entity, detectorId, modelState, listener);
         } else {
+            try {
+                double[][] trainData = featureManager.batchShingle(samples.toArray(new double[0][0]), this.shingleSize);
+                trainModelFromDataSegments(Collections.singletonList(trainData), entity, modelState);
+            } finally {
+                listener.onResponse(null);
+            }
+        }
+    }
+
+    public void trainModelFromExistingSamples(ModelState<EntityModel> modelState) {
+        if (modelState == null || modelState.getModel() == null || modelState.getModel().getSamples() == null) {
+            return;
+        }
+
+        EntityModel model = modelState.getModel();
+        Queue<double[]> samples = model.getSamples();
+        if (samples.size() >= this.numMinSamples) {
             double[][] trainData = featureManager.batchShingle(samples.toArray(new double[0][0]), this.shingleSize);
-            trainModelFromDataSegments(Collections.singletonList(trainData), modelId, modelState);
+            trainModelFromDataSegments(Collections.singletonList(trainData), model.getEntity().orElse(null), modelState);
         }
     }
 
@@ -548,7 +618,7 @@ public class EntityColdStarter {
     private void combineTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> entityState) {
         EntityModel model = entityState.getModel();
         if (model == null) {
-            model = new EntityModel(modelId, new ArrayDeque<>(), null, null);
+            model = new EntityModel(null, new ArrayDeque<>(), null, null);
         }
         for (double[][] consecutivePoints : coldstartDatapoints) {
             for (int i = 0; i < consecutivePoints.length; i++) {
@@ -556,6 +626,19 @@ public class EntityColdStarter {
             }
         }
         // save to checkpoint
-        checkpointDao.write(entityState, modelId, true);
+        checkpointWriteQueue.write(entityState, true, SegmentPriority.MEDIUM);
+    }
+
+    @Override
+    public void maintenance() {
+        doorKeepers.entrySet().stream().forEach(doorKeeperEntry -> {
+            String detectorId = doorKeeperEntry.getKey();
+            DoorKeeper doorKeeper = doorKeeperEntry.getValue();
+            if (doorKeeper.expired(modelTtl)) {
+                doorKeepers.remove(detectorId);
+            } else {
+                doorKeeper.maintenance();
+            }
+        });
     }
 }
