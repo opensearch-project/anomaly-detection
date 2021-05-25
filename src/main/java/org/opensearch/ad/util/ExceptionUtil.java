@@ -26,17 +26,33 @@
 
 package org.opensearch.ad.util;
 
+import java.util.EnumSet;
+import java.util.concurrent.RejectedExecutionException;
+
 import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.logging.log4j.core.util.Throwables;
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.NoShardAvailableActionException;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.support.TransportActions;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.rest.RestStatus;
 
 public class ExceptionUtil {
     public static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = OpenSearchException
         .getExceptionName(new ResourceNotFoundException("", ""));
+
+    // a positive cache of retriable error rest status
+    private static final EnumSet<RestStatus> RETRYABLE_STATUS = EnumSet
+        .of(RestStatus.REQUEST_TIMEOUT, RestStatus.CONFLICT, RestStatus.INTERNAL_SERVER_ERROR);
 
     /**
      * OpenSearch restricts the kind of exceptions can be thrown over the wire
@@ -115,5 +131,84 @@ public class ExceptionUtil {
         } else {
             return ExceptionUtils.getFullStackTrace(e);
         }
+    }
+
+    /**
+     *
+     * @param exception Exception
+     * @return whether the cause indicates the cluster is overloaded
+     */
+    public static boolean isOverloaded(Throwable exception) {
+        Throwable cause = Throwables.getRootCause(exception);
+        // LimitExceededException may indicate circuit breaker exception
+        return cause instanceof RejectedExecutionException
+            || TransportActions.isShardNotAvailableException(cause)
+            || cause instanceof LimitExceededException;
+    }
+
+    public static boolean isRetryAble(Exception e) {
+        Throwable cause = ExceptionsHelper.unwrapCause(e);
+        RestStatus status = ExceptionsHelper.status(cause);
+        return RETRYABLE_STATUS.contains(status);
+    }
+
+    public static boolean isRetryAble(RestStatus status) {
+        return RETRYABLE_STATUS.contains(status);
+    }
+
+    public static boolean isNotFound(Exception e) {
+        Throwable cause = ExceptionsHelper.unwrapCause(e);
+        RestStatus status = ExceptionsHelper.status(cause);
+        return status == RestStatus.NOT_FOUND;
+    }
+
+    /**
+     * Wrap a listener to return the given exception no matter what
+     * @param <T> The type of listener response
+     * @param original Original listener
+     * @param exceptionToReturn The exception to return
+     * @param detectorId Detector Id
+     * @return the wrapped listener
+     */
+    public static <T> ActionListener<T> wrapListener(ActionListener<T> original, Exception exceptionToReturn, String detectorId) {
+        return ActionListener
+            .wrap(
+                r -> { original.onFailure(exceptionToReturn); },
+                e -> { original.onFailure(selectHigherPriorityException(exceptionToReturn, e)); }
+            );
+    }
+
+    /**
+     * Return an exception that has higher priority.
+     * If an exception is EndRunException while another one is not, the former has
+     *  higher priority.
+     * If both exceptions are EndRunException, the one with end now true has higher
+     *  priority.
+     * Otherwise, return the second given exception.
+     * @param exception1 Exception 1
+     * @param exception2 Exception 2
+     * @return high priority exception
+     */
+    public static Exception selectHigherPriorityException(Exception exception1, Exception exception2) {
+        if (exception1 instanceof EndRunException) {
+            // we have already had EndRunException. Don't replace it with something less severe
+            EndRunException endRunException = (EndRunException) exception1;
+            if (endRunException.isEndNow()) {
+                // don't proceed if recorded exception is ending now
+                return exception1;
+            }
+            if (false == (exception2 instanceof EndRunException) || false == ((EndRunException) exception2).isEndNow()) {
+                // don't proceed if the giving exception is not ending now
+                return exception1;
+            }
+        }
+        return exception2;
+    }
+
+    public static boolean isIndexNotAvailable(Exception e) {
+        if (e == null) {
+            return false;
+        }
+        return e instanceof IndexNotFoundException || e instanceof NoShardAvailableActionException;
     }
 }
