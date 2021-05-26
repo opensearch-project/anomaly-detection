@@ -29,7 +29,7 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.ActionResponse;
-import org.opensearch.ad.constant.CommonMessageAttributes;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
@@ -67,8 +67,8 @@ public class ThresholdResultResponse extends ActionResponse implements ToXConten
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(CommonMessageAttributes.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
-        builder.field(CommonMessageAttributes.CONFIDENCE_JSON_KEY, confidence);
+        builder.field(CommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
+        builder.field(CommonName.CONFIDENCE_JSON_KEY, confidence);
         builder.endObject();
         return builder;
     }
