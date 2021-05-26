@@ -90,10 +90,8 @@ import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonMessageAttributes;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelPartitioner;
@@ -103,6 +101,7 @@ import org.opensearch.ad.ml.rcf.CombinedRcfResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.FeatureData;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
@@ -124,6 +123,7 @@ import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.index.Index;
@@ -146,7 +146,7 @@ import test.org.opensearch.ad.util.JsonDeserializer;
 import com.google.gson.JsonElement;
 
 public class AnomalyResultTests extends AbstractADTest {
-    private static Settings settings = Settings.EMPTY;
+    private Settings settings;
     private TransportService transportService;
     private ClusterService clusterService;
     private NodeStateManager stateManager;
@@ -165,7 +165,6 @@ public class AnomalyResultTests extends AbstractADTest {
     private ADCircuitBreakerService adCircuitBreakerService;
     private ADStats adStats;
     private int partitionNum;
-    private SearchFeatureDao searchFeatureDao;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -183,10 +182,13 @@ public class AnomalyResultTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
         super.setUpLog4jForJUnit(AnomalyResultTransportAction.class);
-        setupTestNodes(settings);
+
+        setupTestNodes(AnomalyDetectorSettings.MAX_ENTITIES_PER_INTERVAL, AnomalyDetectorSettings.PAGE_SIZE);
 
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
+        settings = clusterService.getSettings();
+
         stateManager = mock(NodeStateManager.class);
         // return 2 RCF partitions
         partitionNum = 2;
@@ -306,8 +308,6 @@ public class AnomalyResultTests extends AbstractADTest {
 
             return null;
         }).when(client).get(any(), any());
-
-        searchFeatureDao = mock(SearchFeatureDao.class);
     }
 
     @Override
@@ -349,7 +349,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -434,7 +434,12 @@ public class AnomalyResultTests extends AbstractADTest {
         // need to close nodes created in the setUp nodes and create new nodes
         // for the failure interceptor. Otherwise, we will get thread leak error.
         tearDownTestNodes();
-        setupTestNodes(Settings.EMPTY, failureTransportInterceptor);
+        setupTestNodes(
+            failureTransportInterceptor,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.MAX_ENTITIES_PER_INTERVAL,
+            AnomalyDetectorSettings.PAGE_SIZE
+        );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
@@ -464,7 +469,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -498,12 +503,12 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     public void testNullPointerExceptionWhenRCF() {
-        noModelExceptionTemplate(new NullPointerException(), adID, EndRunException.class, AnomalyResultTransportAction.BUG_RESPONSE);
+        noModelExceptionTemplate(new NullPointerException(), adID, EndRunException.class, CommonErrorMessages.BUG_RESPONSE);
     }
 
     public void testADExceptionWhenColdStart() {
         String error = "blah";
-        when(stateManager.fetchColdStartException(any(String.class))).thenReturn(Optional.of(new AnomalyDetectionException(adID, error)));
+        when(stateManager.fetchExceptionAndClear(any(String.class))).thenReturn(Optional.of(new AnomalyDetectionException(adID, error)));
 
         noModelExceptionTemplate(new ResourceNotFoundException(adID, ""), adID, AnomalyDetectionException.class, error);
     }
@@ -516,7 +521,7 @@ public class AnomalyResultTests extends AbstractADTest {
             .when(rcfManager)
             .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
-        when(stateManager.fetchColdStartException(any(String.class)))
+        when(stateManager.fetchExceptionAndClear(any(String.class)))
             .thenReturn(Optional.of(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
 
         // These constructors register handler in transport service
@@ -538,7 +543,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -575,7 +580,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -644,7 +649,12 @@ public class AnomalyResultTests extends AbstractADTest {
         // need to close nodes created in the setUp nodes and create new nodes
         // for the failure interceptor. Otherwise, we will get thread leak error.
         tearDownTestNodes();
-        setupTestNodes(Settings.EMPTY, failureTransportInterceptor);
+        setupTestNodes(
+            failureTransportInterceptor,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.MAX_ENTITIES_PER_INTERVAL,
+            AnomalyDetectorSettings.PAGE_SIZE
+        );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
@@ -671,7 +681,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -683,7 +693,7 @@ public class AnomalyResultTests extends AbstractADTest {
     }
 
     public void testThresholdException() {
-        thresholdExceptionTestTemplate(new NullPointerException(), adID, EndRunException.class, AnomalyResultTransportAction.BUG_RESPONSE);
+        thresholdExceptionTestTemplate(new NullPointerException(), adID, EndRunException.class, CommonErrorMessages.BUG_RESPONSE);
     }
 
     public void testCircuitBreaker() {
@@ -710,7 +720,7 @@ public class AnomalyResultTests extends AbstractADTest {
             breakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -777,7 +787,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -845,7 +855,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -880,7 +890,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         TransportRequestOptions option = TransportRequestOptions
@@ -993,9 +1003,9 @@ public class AnomalyResultTests extends AbstractADTest {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY), request.getAdID());
-        assertEquals(JsonDeserializer.getLongValue(json, CommonMessageAttributes.START_JSON_KEY), request.getStart());
-        assertEquals(JsonDeserializer.getLongValue(json, CommonMessageAttributes.END_JSON_KEY), request.getEnd());
+        assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), request.getAdID());
+        assertEquals(JsonDeserializer.getLongValue(json, CommonName.START_JSON_KEY), request.getStart());
+        assertEquals(JsonDeserializer.getLongValue(json, CommonName.END_JSON_KEY), request.getEnd());
     }
 
     public void testEmptyID() {
@@ -1035,7 +1045,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
             null, null, null, null, null, null, null, null, null, 0, new AtomicInteger(), null, 1
@@ -1092,14 +1102,14 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        verify(stateManager, times(1)).setLastColdStartException(eq(adID), any(EndRunException.class));
+        verify(stateManager, times(1)).setException(eq(adID), any(EndRunException.class));
         verify(stateManager, times(1)).markColdStartRunning(eq(adID));
     }
 
@@ -1129,14 +1139,14 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        verify(stateManager, never()).setLastColdStartException(eq(adID), any(EndRunException.class));
+        verify(stateManager, never()).setException(eq(adID), any(EndRunException.class));
         verify(stateManager, never()).markColdStartRunning(eq(adID));
     }
 
@@ -1172,14 +1182,14 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        verify(stateManager, times(1)).setLastColdStartException(eq(adID), any(InternalFailure.class));
+        verify(stateManager, times(1)).setException(eq(adID), any(InternalFailure.class));
         verify(stateManager, times(1)).markColdStartRunning(eq(adID));
     }
 
@@ -1215,14 +1225,14 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        verify(stateManager, times(1)).setLastColdStartException(eq(adID), any(EndRunException.class));
+        verify(stateManager, times(1)).setException(eq(adID), any(EndRunException.class));
         verify(stateManager, times(1)).markColdStartRunning(eq(adID));
     }
 
@@ -1265,7 +1275,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1351,7 +1361,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1398,7 +1408,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
             null, "123-rcf-0", null, "123", null, null, null, null, null, 0, new AtomicInteger(), null, 1
@@ -1430,7 +1440,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1453,7 +1463,7 @@ public class AnomalyResultTests extends AbstractADTest {
             return null;
         }).when(rcfManager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
-        when(stateManager.fetchColdStartException(any(String.class)))
+        when(stateManager.fetchExceptionAndClear(any(String.class)))
             .thenReturn(Optional.of(new EndRunException(adID, "Cannot get training data", false)));
 
         doAnswer(invocation -> {
@@ -1487,7 +1497,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1521,7 +1531,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            searchFeatureDao
+            NamedXContentRegistry.EMPTY
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);

@@ -29,18 +29,18 @@ package org.opensearch.ad.feature;
 import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 import static org.opensearch.ad.constant.CommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
 import static org.opensearch.ad.util.ParseUtils.batchFeatureQuery;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,15 +53,10 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.action.support.ThreadedActionListener;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
@@ -76,28 +71,29 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
-import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange.Bucket;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Min;
-import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation.SingleValue;
-import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.threadpool.ThreadPool;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 /**
  * DAO for features from search.
  */
-public class SearchFeatureDao {
+public class SearchFeatureDao extends AbstractRetriever {
 
     protected static final String AGG_NAME_MIN = "min_timefield";
     protected static final String AGG_NAME_TERM = "term_agg";
+
+    private static final Type multiTermsAttributesType = new TypeToken<Map<String, String>>() {
+    }.getType();
 
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
@@ -106,9 +102,8 @@ public class SearchFeatureDao {
     private final NamedXContentRegistry xContent;
     private final Interpolator interpolator;
     private final ClientUtil clientUtil;
-    private ThreadPool threadPool;
-    private int maxEntitiesPerQuery;
     private int maxEntitiesForPreview;
+    private final Gson gson;
 
     /**
      * Constructor injection.
@@ -117,28 +112,26 @@ public class SearchFeatureDao {
      * @param xContent ES XContentRegistry
      * @param interpolator interpolator for missing values
      * @param clientUtil utility for ES client
-     * @param threadPool accessor to different threadpools
      * @param settings ES settings
      * @param clusterService ES ClusterService
+     * @param gson Gson accessor
      */
     public SearchFeatureDao(
         Client client,
         NamedXContentRegistry xContent,
         Interpolator interpolator,
         ClientUtil clientUtil,
-        ThreadPool threadPool,
         Settings settings,
-        ClusterService clusterService
+        ClusterService clusterService,
+        Gson gson
     ) {
         this.client = client;
         this.xContent = xContent;
         this.interpolator = interpolator;
         this.clientUtil = clientUtil;
-        this.threadPool = threadPool;
-        this.maxEntitiesPerQuery = MAX_ENTITIES_PER_QUERY.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_PER_QUERY, it -> maxEntitiesPerQuery = it);
         this.maxEntitiesForPreview = MAX_ENTITIES_FOR_PREVIEW.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> maxEntitiesForPreview = it);
+        this.gson = gson;
     }
 
     /**
@@ -197,10 +190,18 @@ public class SearchFeatureDao {
             .includeUpper(false);
 
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().filter(rangeQuery).filter(detector.getFilterQuery());
-        TermsAggregationBuilder termsAgg = AggregationBuilders
-            .terms(AGG_NAME_TERM)
-            .field(detector.getCategoryField().get(0))
-            .size(maxEntitiesForPreview);
+        TermsAggregationBuilder termsAgg = AggregationBuilders.terms(AGG_NAME_TERM).size(maxEntitiesForPreview);
+        if (detector.getCategoryField() == null || detector.getCategoryField().isEmpty()) {
+            listener.onResponse(null);
+            return;
+        }
+
+        if (detector.getCategoryField().size() == 1) {
+            termsAgg.field(detector.getCategoryField().get(0));
+        } else {
+            termsAgg.script(ScriptMaker.makeTermsScript(detector.getCategoryField()));
+        }
+
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(boolQueryBuilder)
             .aggregation(termsAgg)
@@ -213,7 +214,6 @@ public class SearchFeatureDao {
                 listener.onResponse(Collections.emptyList());
                 return;
             }
-
             List<Entity> results = aggs
                 .asList()
                 .stream()
@@ -222,7 +222,7 @@ public class SearchFeatureDao {
                 .map(bucket -> bucket.getKeyAsString())
                 .collect(Collectors.toList())
                 .stream()
-                .map(entityValue -> new Entity(detector.getCategoryField().get(0), entityValue))
+                .map(entityValue -> parseCategoricalField(entityValue, detector))
                 .collect(Collectors.toList());
             listener.onResponse(results);
         }, listener::onFailure);
@@ -230,18 +230,45 @@ public class SearchFeatureDao {
     }
 
     /**
+     * Precondition:
+     * {@code detector != null && detector.getCategoryField().size() > 0 }
+     *
+     * @param entityValue the representation of the entity's attributes. For
+     *  single-attribute entity, it is the value of the attribute like "server_1".
+     *  For multi-attribute entity, it is a map of attribute names and values like
+     *  "<code> {service=app_0, host=server_1}" </code>.
+     * @param detector Anomaly detector
+     * @return an Entity object corresponding to the entity
+     */
+    private Entity parseCategoricalField(String entityValue, AnomalyDetector detector) {
+        List<String> categoricalFields = detector.getCategoryField();
+        if (categoricalFields.size() == 1) {
+            return Entity.createSingleAttributeEntity(detector.getDetectorId(), detector.getCategoryField().get(0), entityValue);
+        }
+        return Entity
+            .createEntityByReordering(
+                detector.getDetectorId(),
+                AccessController
+                    .doPrivileged((PrivilegedAction<Map<String, Object>>) () -> gson.fromJson(entityValue, multiTermsAttributesType))
+            );
+    }
+
+    /**
      * Get the entity's earliest and latest timestamps
      * @param detector detector config
-     * @param entityName entity's name
+     * @param entity the entity's information
      * @param listener listener to return back the requested timestamps
      */
     public void getEntityMinMaxDataTime(
         AnomalyDetector detector,
-        String entityName,
+        Entity entity,
         ActionListener<Entry<Optional<Long>, Optional<Long>>> listener
     ) {
-        TermQueryBuilder term = new TermQueryBuilder(detector.getCategoryField().get(0), entityName);
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().filter(term);
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
+
+        for (TermQueryBuilder term : entity.getTermQueryBuilders()) {
+            internalFilterQuery.filter(term);
+        }
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(internalFilterQuery)
@@ -350,21 +377,6 @@ public class SearchFeatureDao {
 
     private Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {
         return parseAggregations(Optional.ofNullable(response).map(resp -> resp.getAggregations()), featureIds);
-    }
-
-    private double parseAggregation(Aggregation aggregation) {
-        Double result = null;
-        if (aggregation instanceof SingleValue) {
-            result = ((SingleValue) aggregation).value();
-        } else if (aggregation instanceof InternalTDigestPercentiles) {
-            Iterator<Percentile> percentile = ((InternalTDigestPercentiles) aggregation).iterator();
-            if (percentile.hasNext()) {
-                result = percentile.next().getValue();
-            }
-        }
-        return Optional
-            .ofNullable(result)
-            .orElseThrow(() -> new EndRunException("Failed to parse aggregation " + aggregation, true).countedInStats(false));
     }
 
     /**
@@ -735,30 +747,14 @@ public class SearchFeatureDao {
         }
     }
 
-    private Optional<double[]> parseBucket(InternalDateRange.Bucket bucket, List<String> featureIds) {
-        return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
-    }
-
-    private Optional<double[]> parseAggregations(Optional<Aggregations> aggregations, List<String> featureIds) {
-        return aggregations
-            .map(aggs -> aggs.asMap())
-            .map(
-                map -> featureIds
-                    .stream()
-                    .mapToDouble(id -> Optional.ofNullable(map.get(id)).map(this::parseAggregation).orElse(Double.NaN))
-                    .toArray()
-            )
-            .filter(result -> Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d)));
-    }
-
     public void getColdStartSamplesForPeriods(
         AnomalyDetector detector,
         List<Entry<Long, Long>> ranges,
-        String entityName,
+        Entity entity,
         boolean includesEmptyBucket,
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
-        SearchRequest request = createColdStartFeatureSearchRequest(detector, ranges, entityName);
+        SearchRequest request = createColdStartFeatureSearchRequest(detector, ranges, entity);
 
         client.search(request, ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
@@ -795,85 +791,9 @@ public class SearchFeatureDao {
         }, listener::onFailure));
     }
 
-    /**
-     * Get features by entities.  An entity is one combination of particular
-     * categorical fields’ value. A categorical field in this setting refers to
-     * an OpenSearch field of type keyword or ip.  Specifically, an entity
-     * can be the IP address 182.3.4.5.
-     * @param detector Accessor to the detector object
-     * @param startMilli Start of time range to query
-     * @param endMilli End of time range to query
-     * @param listener Listener to return entities and their data points
-     */
-    public void getFeaturesByEntities(
-        AnomalyDetector detector,
-        long startMilli,
-        long endMilli,
-        ActionListener<Map<String, double[]>> listener
-    ) {
+    private SearchRequest createColdStartFeatureSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges, Entity entity) {
         try {
-            RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
-                .gte(startMilli)
-                .lt(endMilli)
-                .format("epoch_millis");
-
-            BoolQueryBuilder internalFilterQuery = new BoolQueryBuilder().filter(detector.getFilterQuery()).filter(rangeQuery);
-
-            /* Terms aggregation implementation.*/
-            // Support one category field
-            TermsAggregationBuilder termsAgg = AggregationBuilders
-                .terms(AGG_NAME_TERM)
-                .field(detector.getCategoryField().get(0))
-                .size(maxEntitiesPerQuery);
-            for (Feature feature : detector.getFeatureAttributes()) {
-                AggregatorFactories.Builder internalAgg = ParseUtils
-                    .parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
-                termsAgg.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
-            }
-
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .query(internalFilterQuery)
-                .size(0)
-                .aggregation(termsAgg)
-                .trackTotalHits(false);
-            SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
-
-            ActionListener<SearchResponse> termsListener = ActionListener.wrap(response -> {
-                Aggregations aggs = response.getAggregations();
-                if (aggs == null) {
-                    listener.onResponse(Collections.emptyMap());
-                    return;
-                }
-
-                Map<String, double[]> results = aggs
-                    .asList()
-                    .stream()
-                    .filter(agg -> AGG_NAME_TERM.equals(agg.getName()))
-                    .flatMap(agg -> ((Terms) agg).getBuckets().stream())
-                    .collect(Collectors.toMap(Terms.Bucket::getKeyAsString, bucket -> parseBucket(bucket, detector.getEnabledFeatureIds())))
-                    .entrySet()
-                    .stream()
-                    .filter(entry -> entry.getValue().isPresent())
-                    .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().get()));
-
-                listener.onResponse(results);
-            }, listener::onFailure);
-
-            client
-                .search(
-                    searchRequest,
-                    new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, termsListener, false)
-                );
-
-        } catch (Exception e) {
-            // TODO: catch concrete exception and check if they should be counted in stats or not
-            throw new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false);
-        }
-    }
-
-    private SearchRequest createColdStartFeatureSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges, String entityName) {
-        try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateEntityColdStartQuery(detector, ranges, entityName, xContent);
+            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateEntityColdStartQuery(detector, ranges, entity, xContent);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger
@@ -890,7 +810,8 @@ public class SearchFeatureDao {
         }
     }
 
-    private Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
+    @Override
+    public Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
         return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
     }
 }
