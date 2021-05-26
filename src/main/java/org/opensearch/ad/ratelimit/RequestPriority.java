@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ratelimit;
 
-public enum SegmentPriority {
+public enum RequestPriority {
     LOW,
     MEDIUM,
     HIGH

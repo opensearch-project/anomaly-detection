@@ -54,10 +54,10 @@ import org.opensearch.threadpool.ThreadPoolStats;
  *
  * @param <RequestType> Individual request type that is a subtype of ADRequest
  */
-public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implements MaintenanceState {
+public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest> implements MaintenanceState {
     /**
-     * Each request is associated with a segment. That is, a queue consists of segments.
-     * Segments have their corresponding priorities: HIGH, MEDIUM, and LOW. An example
+     * Each request is associated with a RequestQueue. That is, a queue consists of RequestQueues.
+     * RequestQueues have their corresponding priorities: HIGH, MEDIUM, and LOW. An example
      * of HIGH priority requests is anomaly results with errors or its anomaly grade
      * larger than zero. An example of MEDIUM priority requests is a cold start request
      * for an entity. An example of LOW priority requests is checkpoint write requests
@@ -67,14 +67,19 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
      * beyond a limit compared to MEDIUM/HIGH priority requests.
      *
      */
-    class Segment implements ExpiringState {
-        // last access time
+    class RequestQueue implements ExpiringState {
+        /*
+         * last access time of the RequestQueue
+         * This does not have to be precise, just a signal for unused old RequestQueue
+         * that can be removed.  It is fine if we have race condition.  Don't want
+         * to synchronize the access as this could penalize performance.
+         */
         private Instant lastAccessTime;
-        // data structure to hold requests. Cannot be reassigned.  This is to
-        // guarantee a segment's content cannot be null.
+        // data structure to hold requests. Cannot be reassigned. This is to
+        // guarantee a RequestQueue's content cannot be null.
         private final BlockingQueue<RequestType> content;
 
-        Segment() {
+        RequestQueue() {
             this.lastAccessTime = clock.instant();
             this.content = new LinkedBlockingQueue<RequestType>();
         }
@@ -91,34 +96,24 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
         public int size() {
             return this.content.size();
         }
-
-        /**
-         * This does not have to be precise, just a signal for unused old segment
-         * that can be removed.  It is fine if we have race condition.  Don't want
-         * to synchronize the access as this could penalize performance.
-         * @param lastAccessTime Last access time of the segment
-         */
-        public void setLastAccessTime(Instant lastAccessTime) {
-            this.lastAccessTime = lastAccessTime;
-        }
     }
 
-    private static final Logger LOG = LogManager.getLogger(RateLimitedQueue.class);
+    private static final Logger LOG = LogManager.getLogger(RateLimitedRequestWorker.class);
 
-    protected int queueSize;
+    protected volatile int queueSize;
     protected final String queueName;
     private final long heapSize;
     private final int singleRequestSize;
     private float maxHeapPercentForQueue;
 
-    // map from segment Id to its segment.
-    // For high priority requests, the segment id is SegmentPriority.HIGH.name().
-    // For low priority requests, the segment id is SegmentPriority.LOW.name().
-    // For medium priority requests, the segment id is detector id. The objective
+    // map from RequestQueue Id to its RequestQueue.
+    // For high priority requests, the RequestQueue id is RequestPriority.HIGH.name().
+    // For low priority requests, the RequestQueue id is RequestPriority.LOW.name().
+    // For medium priority requests, the RequestQueue id is detector id. The objective
     // is to separate requests from different detectors and fairly process requests
     // from each detector.
-    protected final ConcurrentSkipListMap<String, Segment> requestSegments;
-    private String lastSelectedSegmentId;
+    protected final ConcurrentSkipListMap<String, RequestQueue> requestQueues;
+    private String lastSelectedRequestQueueId;
     protected Random random;
     private ADCircuitBreakerService adCircuitBreakerService;
     protected ThreadPool threadPool;
@@ -126,13 +121,13 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
     protected int coolDownMinutes;
     private float maxQueuedTaskRatio;
     protected Clock clock;
-    private float mediumSegmentPruneRatio;
-    private float lowSegmentPruneRatio;
+    private float mediumRequestQueuePruneRatio;
+    private float lowRequestQueuePruneRatio;
     protected int maintenanceFreqConstant;
     private final Duration stateTtl;
     protected final NodeStateManager nodeStateManager;
 
-    public RateLimitedQueue(
+    public RateLimitedRequestWorker(
         String queueName,
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
@@ -144,8 +139,8 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
         Settings settings,
         float maxQueuedTaskRatio,
         Clock clock,
-        float mediumSegmentPruneRatio,
-        float lowSegmentPruneRatio,
+        float mediumRequestQueuePruneRatio,
+        float lowRequestQueuePruneRatio,
         int maintenanceFreqConstant,
         Duration stateTtl,
         NodeStateManager nodeStateManager
@@ -166,11 +161,11 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
         this.threadPool = threadPool;
         this.maxQueuedTaskRatio = maxQueuedTaskRatio;
         this.clock = clock;
-        this.mediumSegmentPruneRatio = mediumSegmentPruneRatio;
-        this.lowSegmentPruneRatio = lowSegmentPruneRatio;
+        this.mediumRequestQueuePruneRatio = mediumRequestQueuePruneRatio;
+        this.lowRequestQueuePruneRatio = lowRequestQueuePruneRatio;
 
-        this.lastSelectedSegmentId = null;
-        this.requestSegments = new ConcurrentSkipListMap<>();
+        this.lastSelectedRequestQueueId = null;
+        this.requestQueues = new ConcurrentSkipListMap<>();
         this.cooldownStart = Instant.MIN;
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
         this.maintenanceFreqConstant = maintenanceFreqConstant;
@@ -196,29 +191,29 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
      * @return next queue to fetch requests
      */
     protected Optional<BlockingQueue<RequestType>> selectNextQueue() {
-        if (true == requestSegments.isEmpty()) {
+        if (true == requestQueues.isEmpty()) {
             return Optional.empty();
         }
 
-        String startId = lastSelectedSegmentId;
+        String startId = lastSelectedRequestQueueId;
         try {
-            for (int i = 0; i < requestSegments.size(); i++) {
-                if (startId == null || requestSegments.size() == 1 || startId.equals(requestSegments.lastKey())) {
-                    startId = requestSegments.firstKey();
+            for (int i = 0; i < requestQueues.size(); i++) {
+                if (startId == null || requestQueues.size() == 1 || startId.equals(requestQueues.lastKey())) {
+                    startId = requestQueues.firstKey();
                 } else {
-                    startId = requestSegments.higherKey(startId);
+                    startId = requestQueues.higherKey(startId);
                 }
 
-                if (startId.equals(SegmentPriority.LOW.name())) {
+                if (startId.equals(RequestPriority.LOW.name())) {
                     continue;
                 }
 
-                Segment segment = requestSegments.get(startId);
-                if (segment == null) {
+                RequestQueue requestQueue = requestQueues.get(startId);
+                if (requestQueue == null) {
                     continue;
                 }
 
-                BlockingQueue<RequestType> requests = segment.content;
+                BlockingQueue<RequestType> requests = requestQueue.content;
 
                 if (requests != null && false == requests.isEmpty()) {
                     clearExpiredRequests(requests);
@@ -229,10 +224,10 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
                 }
             }
 
-            Segment segment = requestSegments.get(SegmentPriority.LOW.name());
+            RequestQueue requestQueue = requestQueues.get(RequestPriority.LOW.name());
 
-            if (segment != null) {
-                BlockingQueue<RequestType> requests = segment.content;
+            if (requestQueue != null) {
+                BlockingQueue<RequestType> requests = requestQueue.content;
                 if (requests != null && false == requests.isEmpty()) {
                     clearExpiredRequests(requests);
                     if (false == requests.isEmpty()) {
@@ -244,8 +239,8 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
             return Optional.empty();
         } finally {
             // it is fine we may have race conditions. We are not trying to
-            // be precise. The objective is to select each segment with equal probability.
-            lastSelectedSegmentId = startId;
+            // be precise. The objective is to select each RequestQueue with equal probability.
+            lastSelectedRequestQueueId = startId;
         }
     }
 
@@ -270,13 +265,16 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
 
     protected void putOnly(RequestType request) {
         try {
-            Segment requestQueue = requestSegments
+            // consider MEDIUM priority here because only medium priority RequestQueues use
+            // detector id as the key of the RequestQueue map. low and high priority requests
+            // just use the RequestQueue priority (i.e., low or high) as the key of the RequestQueue map.
+            RequestQueue requestQueue = requestQueues
                 .computeIfAbsent(
-                    SegmentPriority.MEDIUM == request.getPriority() ? request.getDetectorId() : request.getPriority().name(),
-                    k -> new Segment()
+                    RequestPriority.MEDIUM == request.getPriority() ? request.getDetectorId() : request.getPriority().name(),
+                    k -> new RequestQueue()
                 );
 
-            requestQueue.setLastAccessTime(clock.instant());
+            requestQueue.lastAccessTime = clock.instant();
             requestQueue.put(request);
         } catch (Exception e) {
             LOG.error(new ParameterizedMessage("Failed to add requests to [{}]", this.queueName), e);
@@ -296,56 +294,56 @@ public abstract class RateLimitedQueue<RequestType extends QueuedRequest> implem
         }
     }
 
-    private void prune(Map<String, Segment> segments) {
-        for (Map.Entry<String, Segment> segmentEntry : segments.entrySet()) {
-            if (segmentEntry.getKey().equals(SegmentPriority.HIGH.name())) {
+    private void prune(Map<String, RequestQueue> requestQueues) {
+        for (Map.Entry<String, RequestQueue> requestQueueEntry : requestQueues.entrySet()) {
+            if (requestQueueEntry.getKey().equals(RequestPriority.HIGH.name())) {
                 continue;
             }
-            // remove more requests in the low priority segment
-            float removeRatio = mediumSegmentPruneRatio;
-            if (segmentEntry.getKey().equals(SegmentPriority.LOW.name())) {
-                removeRatio = lowSegmentPruneRatio;
+            // remove more requests in the low priority RequestQueue
+            float removeRatio = mediumRequestQueuePruneRatio;
+            if (requestQueueEntry.getKey().equals(RequestPriority.LOW.name())) {
+                removeRatio = lowRequestQueuePruneRatio;
             }
 
-            Segment segment = segmentEntry.getValue();
+            RequestQueue requestQueue = requestQueueEntry.getValue();
 
-            if (segment == null) {
+            if (requestQueue == null) {
                 continue;
             }
 
-            BlockingQueue<RequestType> segmentContent = segment.content;
+            BlockingQueue<RequestType> requestQueueContent = requestQueue.content;
             // remove 10% of old requests
-            int deletedRequests = (int) (segmentContent.size() * removeRatio);
-            while (segmentContent != null && false == segmentContent.isEmpty() && deletedRequests-- >= 0) {
-                segmentContent.poll();
+            int deletedRequests = (int) (requestQueueContent.size() * removeRatio);
+            while (requestQueueContent != null && false == requestQueueContent.isEmpty() && deletedRequests-- >= 0) {
+                requestQueueContent.poll();
             }
         }
     }
 
     private void maintainForMemory() {
-        // removed expired segment
-        maintenance(requestSegments, stateTtl);
+        // removed expired RequestQueue
+        maintenance(requestQueues, stateTtl);
 
         if (isSizeExceeded()) {
             // remove until reaching below queueSize
             do {
-                prune(requestSegments);
+                prune(requestQueues);
             } while (isSizeExceeded());
         } else if (adCircuitBreakerService.isOpen()) {
-            // remove a few items in each segment
-            prune(requestSegments);
+            // remove a few items in each RequestQueue
+            prune(requestQueues);
         }
     }
 
     private boolean isSizeExceeded() {
-        Collection<Segment> segments = requestSegments.values();
+        Collection<RequestQueue> queues = requestQueues.values();
         int totalSize = 0;
 
         // When faced with a backlog beyond the limit, we prefer fresh requests
         // and throws away old requests.
         // release space so that put won't block
-        for (Segment segment : segments) {
-            totalSize += segment.size();
+        for (RequestQueue q : queues) {
+            totalSize += q.size();
         }
         return totalSize >= queueSize;
     }

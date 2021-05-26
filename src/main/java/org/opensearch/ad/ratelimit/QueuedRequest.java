@@ -14,7 +14,7 @@ package org.opensearch.ad.ratelimit;
 public abstract class QueuedRequest {
     protected long expirationEpochMs;
     protected String detectorId;
-    protected SegmentPriority priority;
+    protected RequestPriority priority;
 
     /**
      *
@@ -22,7 +22,7 @@ public abstract class QueuedRequest {
      * @param detectorId Detector Id
      * @param priority how urgent the request is
      */
-    protected QueuedRequest(long expirationEpochMs, String detectorId, SegmentPriority priority) {
+    protected QueuedRequest(long expirationEpochMs, String detectorId, RequestPriority priority) {
         this.expirationEpochMs = expirationEpochMs;
         this.detectorId = detectorId;
         this.priority = priority;
@@ -37,11 +37,11 @@ public abstract class QueuedRequest {
      * request belongs one segment. The subtype will define the id.
      * @return Segment Id
      */
-    public SegmentPriority getPriority() {
+    public RequestPriority getPriority() {
         return priority;
     }
 
-    public void setPriority(SegmentPriority priority) {
+    public void setPriority(RequestPriority priority) {
         this.priority = priority;
     }
 

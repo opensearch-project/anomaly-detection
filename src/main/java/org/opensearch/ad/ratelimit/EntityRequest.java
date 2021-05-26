@@ -25,7 +25,7 @@ public class EntityRequest extends QueuedRequest {
      * @param priority the entity's priority
      * @param entity the entity's attributes
      */
-    public EntityRequest(long expirationEpochMs, String detectorId, SegmentPriority priority, Entity entity) {
+    public EntityRequest(long expirationEpochMs, String detectorId, RequestPriority priority, Entity entity) {
         super(expirationEpochMs, detectorId, priority);
         this.entity = entity;
     }

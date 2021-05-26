@@ -20,7 +20,7 @@ public class EntityFeatureRequest extends EntityRequest {
     public EntityFeatureRequest(
         long expirationEpochMs,
         String detectorId,
-        SegmentPriority priority,
+        RequestPriority priority,
         Entity entity,
         double[] currentFeature,
         long dataStartTimeMs
