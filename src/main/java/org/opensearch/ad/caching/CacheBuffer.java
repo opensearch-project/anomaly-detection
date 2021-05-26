@@ -245,11 +245,11 @@ public class CacheBuffer implements ExpiringState, MaintenanceState {
                 memoryTracker.releaseMemory(memoryConsumptionPerEntity, false, Origin.MULTI_ENTITY_DETECTOR);
             }
             checkpointDao.write(valueRemoved, keyToRemove);
-        }
 
-        EntityModel modelRemoved = valueRemoved.getModel();
-        if (modelRemoved != null) {
-            modelRemoved.clear();
+            EntityModel modelRemoved = valueRemoved.getModel();
+            if (modelRemoved != null) {
+                modelRemoved.clear();
+            }
         }
 
         return valueRemoved;
