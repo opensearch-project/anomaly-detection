@@ -182,4 +182,11 @@ public class CacheBufferTests extends OpenSearchTestCase {
         cacheBuffer.maintenance();
         assertEquals(0, cacheBuffer.getActiveEntities());
     }
+
+    /**
+     * Test that if we remove a non-existent key, there is no exception
+     */
+    public void testRemovedNull() {
+        assertEquals(null, cacheBuffer.remove("foo"));
+    }
 }
