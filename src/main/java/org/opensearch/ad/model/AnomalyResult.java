@@ -76,6 +76,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String ENTITY_FIELD = "entity";
     public static final String USER_FIELD = "user";
     public static final String TASK_ID_FIELD = "task_id";
+    public static final String MODEL_ID_FIELD = "model_id";
 
     private final String detectorId;
     private final String taskId;
@@ -88,9 +89,20 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     private final Instant executionStartTime;
     private final Instant executionEndTime;
     private final String error;
-    private final List<Entity> entity;
+    private final Entity entity;
     private User user;
     private final Integer schemaVersion;
+    /*
+     * model id for easy aggregations of entities. The front end needs to query
+     * for entities ordered by the descending order of anomaly grades and the
+     * number of anomalies. After supporting multi-category fields, it is hard
+     * to write such queries since the entity information is stored in a nested
+     * object array. Also, the front end has all code/queries/ helper functions
+     * in place to rely on a single key per entity combo. This PR adds model id
+     * to anomaly result to help the transition to multi-categorical field less
+     * painful.
+     */
+    private final String modelId;
 
     public AnomalyResult(
         String detectorId,
@@ -134,7 +146,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionStartTime,
         Instant executionEndTime,
         String error,
-        List<Entity> entity,
+        Entity entity,
         User user,
         Integer schemaVersion
     ) {
@@ -152,7 +164,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             error,
             entity,
             user,
-            schemaVersion
+            schemaVersion,
+            null
         );
     }
 
@@ -168,9 +181,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionStartTime,
         Instant executionEndTime,
         String error,
-        List<Entity> entity,
+        Entity entity,
         User user,
-        Integer schemaVersion
+        Integer schemaVersion,
+        String modelId
     ) {
         this.detectorId = detectorId;
         this.taskId = taskId;
@@ -186,6 +200,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.entity = entity;
         this.user = user;
         this.schemaVersion = schemaVersion;
+        this.modelId = modelId;
     }
 
     public AnomalyResult(StreamInput input) throws IOException {
@@ -204,11 +219,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.executionEndTime = input.readInstant();
         this.error = input.readOptionalString();
         if (input.readBoolean()) {
-            int entitySize = input.readVInt();
-            this.entity = new ArrayList<>(entitySize);
-            for (int i = 0; i < entitySize; i++) {
-                entity.add(new Entity(input));
-            }
+            this.entity = new Entity(input);
         } else {
             this.entity = null;
         }
@@ -219,6 +230,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         }
         this.schemaVersion = input.readInt();
         this.taskId = input.readOptionalString();
+        this.modelId = input.readOptionalString();
     }
 
     @Override
@@ -254,13 +266,16 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             xContentBuilder.field(ERROR_FIELD, error);
         }
         if (entity != null) {
-            xContentBuilder.field(ENTITY_FIELD, entity.toArray());
+            xContentBuilder.field(ENTITY_FIELD, entity);
         }
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
         }
         if (taskId != null) {
             xContentBuilder.field(TASK_ID_FIELD, taskId);
+        }
+        if (modelId != null) {
+            xContentBuilder.field(MODEL_ID_FIELD, modelId);
         }
         return xContentBuilder.endObject();
     }
@@ -276,10 +291,11 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionStartTime = null;
         Instant executionEndTime = null;
         String error = null;
-        List<Entity> entityList = null;
+        Entity entity = null;
         User user = null;
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         String taskId = null;
+        String modelId = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -321,11 +337,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                     error = parser.text();
                     break;
                 case ENTITY_FIELD:
-                    entityList = new ArrayList<>();
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
-                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
-                        entityList.add(Entity.parse(parser));
-                    }
+                    entity = Entity.parse(parser);
                     break;
                 case USER_FIELD:
                     user = User.parse(parser);
@@ -335,6 +347,9 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                     break;
                 case TASK_ID_FIELD:
                     taskId = parser.text();
+                    break;
+                case MODEL_ID_FIELD:
+                    modelId = parser.text();
                     break;
                 default:
                     parser.skipChildren();
@@ -353,9 +368,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             executionStartTime,
             executionEndTime,
             error,
-            entityList,
+            entity,
             user,
-            schemaVersion
+            schemaVersion,
+            modelId
         );
     }
 
@@ -378,7 +394,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             && Objects.equal(getExecutionStartTime(), that.getExecutionStartTime())
             && Objects.equal(getExecutionEndTime(), that.getExecutionEndTime())
             && Objects.equal(getError(), that.getError())
-            && Objects.equal(getEntity(), that.getEntity());
+            && Objects.equal(getEntity(), that.getEntity())
+            && Objects.equal(getModelId(), that.getModelId());
     }
 
     @Generated
@@ -397,7 +414,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 getExecutionStartTime(),
                 getExecutionEndTime(),
                 getError(),
-                getEntity()
+                getEntity(),
+                getModelId()
             );
     }
 
@@ -417,6 +435,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .append("executionEndTime", executionEndTime)
             .append("error", error)
             .append("entity", entity)
+            .append("modelId", modelId)
             .toString();
     }
 
@@ -464,8 +483,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         return error;
     }
 
-    public List<Entity> getEntity() {
+    public Entity getEntity() {
         return entity;
+    }
+
+    public String getModelId() {
+        return modelId;
     }
 
     @Override
@@ -485,10 +508,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeOptionalString(error);
         if (entity != null) {
             out.writeBoolean(true);
-            out.writeVInt(entity.size());
-            for (Entity entityItem : entity) {
-                entityItem.writeTo(out);
-            }
+            entity.writeTo(out);
         } else {
             out.writeBoolean(false);
         }
@@ -500,5 +520,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         }
         out.writeInt(schemaVersion);
         out.writeOptionalString(taskId);
+        out.writeOptionalString(modelId);
     }
 }

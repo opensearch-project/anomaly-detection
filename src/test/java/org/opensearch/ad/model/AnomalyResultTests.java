@@ -93,7 +93,8 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             randomAlphaOfLength(5),
             null,
             TestHelpers.randomUser(),
-            CommonValue.NO_SCHEMA_VERSION
+            CommonValue.NO_SCHEMA_VERSION,
+            null
         );
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -131,7 +132,8 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             randomAlphaOfLength(5),
             null,
             null,
-            CommonValue.NO_SCHEMA_VERSION
+            CommonValue.NO_SCHEMA_VERSION,
+            null
         );
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
