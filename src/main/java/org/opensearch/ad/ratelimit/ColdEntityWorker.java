@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.ratelimit;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE;
@@ -61,15 +46,16 @@ import org.opensearch.threadpool.ThreadPool;
  * entity requests. 
  *
  */
-public class ColdEntityQueue extends RateLimitedQueue<EntityFeatureRequest> {
-    private static final Logger LOG = LogManager.getLogger(ColdEntityQueue.class);
+public class ColdEntityWorker extends RateLimitedRequestWorker<EntityFeatureRequest> {
+    private static final Logger LOG = LogManager.getLogger(ColdEntityWorker.class);
 
-    private int batchSize;
-    private final CheckpointReadQueue checkpointReadQueue;
+    private volatile int batchSize;
+    private final CheckpointReadWorker checkpointReadQueue;
+    // indicate whether a future pull over cold entity queues is scheduled
     private boolean scheduled;
-    private int expectedExecutionTimeInSecsPerRequest;
+    private volatile int expectedExecutionTimeInSecsPerRequest;
 
-    public ColdEntityQueue(
+    public ColdEntityWorker(
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
         Setting<Float> maxHeapPercentForQueueSetting,
@@ -83,7 +69,7 @@ public class ColdEntityQueue extends RateLimitedQueue<EntityFeatureRequest> {
         float mediumSegmentPruneRatio,
         float lowSegmentPruneRatio,
         int maintenanceFreqConstant,
-        CheckpointReadQueue checkpointReadQueue,
+        CheckpointReadWorker checkpointReadQueue,
         Duration stateTtl,
         NodeStateManager nodeStateManager
     ) {
@@ -134,9 +120,7 @@ public class ColdEntityQueue extends RateLimitedQueue<EntityFeatureRequest> {
                 scheduled = false;
             } else {
                 // there might be more to fetch
-                // schedule a pull from queue every few seconds. Add randomness to
-                // cope with the case that we want to execute at least 1 request every
-                // three seconds, but cannot guarantee that.
+                // schedule a pull from queue every few seconds.
                 schedulePulling(getScheduleDelay(requestSize));
                 scheduled = true;
             }
@@ -163,6 +147,11 @@ public class ColdEntityQueue extends RateLimitedQueue<EntityFeatureRequest> {
     }
 
     /**
+     * The method calculates the delay we have to set to control the rate of cold
+     * entity processing. We wait longer if the requestSize is larger to give the
+     * system more time to processing requests.  We ddd randomness to cope with the
+     * case that we want to execute at least 1 request every few seconds, but
+     * cannot guarantee that.
      * @param requestSize requests to process
      * @return the delay for the next scheduled run
      */
