@@ -59,6 +59,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorProfileName;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
@@ -159,7 +160,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         String detectorID = request.getDetectorID();
         String typesStr = request.getTypeStr();
         String rawPath = request.getRawPath();
-        String entityValue = request.getEntityValue();
+        Entity entityValue = request.getEntityValue();
         boolean all = request.isAll();
         boolean returnJob = request.isReturnJob();
         boolean returnTask = request.isReturnTask();

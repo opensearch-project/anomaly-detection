@@ -30,6 +30,7 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 
@@ -42,7 +43,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
     private String typeStr;
     private String rawPath;
     private boolean all;
-    private String entityValue;
+    private Entity entityValue;
 
     public GetAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
@@ -54,7 +55,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         rawPath = in.readString();
         all = in.readBoolean();
         if (in.readBoolean()) {
-            entityValue = in.readString();
+            entityValue = new Entity(in);
         }
     }
 
@@ -66,7 +67,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         String typeStr,
         String rawPath,
         boolean all,
-        String entityValue
+        Entity entityValue
     ) {
         super();
         this.detectorID = detectorID;
@@ -107,7 +108,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         return all;
     }
 
-    public String getEntityValue() {
+    public Entity getEntityValue() {
         return entityValue;
     }
 
@@ -123,7 +124,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         out.writeBoolean(all);
         if (this.entityValue != null) {
             out.writeBoolean(true);
-            out.writeString(entityValue);
+            entityValue.writeTo(out);
         } else {
             out.writeBoolean(false);
         }
