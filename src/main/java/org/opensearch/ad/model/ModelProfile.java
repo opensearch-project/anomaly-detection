@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -26,84 +26,78 @@
 
 package org.opensearch.ad.model;
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 import java.io.IOException;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
-import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 
-public class ModelProfile implements Writeable, ToXContent {
-    // field name in toXContent
-    public static final String MODEL_ID = "model_id";
-    public static final String MODEL_SIZE_IN_BYTES = "model_size_in_bytes";
-    public static final String NODE_ID = "node_id";
-
+/**
+ * Used to show model information in profile API
+ *
+ */
+public class ModelProfile implements Writeable, ToXContentObject {
     private final String modelId;
+    private final Entity entity;
     private final long modelSizeInBytes;
-    private final String nodeId;
 
-    public ModelProfile(String modelId, long modelSize, String nodeId) {
+    public ModelProfile(String modelId, Entity entity, long modelSizeInBytes) {
         super();
         this.modelId = modelId;
-        this.modelSizeInBytes = modelSize;
-        this.nodeId = nodeId;
+        this.entity = entity;
+        this.modelSizeInBytes = modelSizeInBytes;
     }
 
     public ModelProfile(StreamInput in) throws IOException {
-        modelId = in.readString();
-        modelSizeInBytes = in.readLong();
-        nodeId = in.readString();
+        this.modelId = in.readString();
+        if (in.readBoolean()) {
+            this.entity = new Entity(in);
+        } else {
+            this.entity = null;
+        }
+        this.modelSizeInBytes = in.readLong();
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(modelId);
+        if (entity != null) {
+            out.writeBoolean(true);
+            entity.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
+        out.writeLong(modelSizeInBytes);
     }
 
     public String getModelId() {
         return modelId;
     }
 
-    public long getModelSize() {
-        return modelSizeInBytes;
+    public Entity getEntity() {
+        return entity;
     }
 
-    public String getNodeId() {
-        return nodeId;
+    public long getModelSizeInBytes() {
+        return modelSizeInBytes;
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject();
-        builder.field(MODEL_ID, modelId);
-        if (modelSizeInBytes > 0) {
-            builder.field(MODEL_SIZE_IN_BYTES, modelSizeInBytes);
+        builder.field(CommonName.MODEL_ID_KEY, modelId);
+        if (entity != null) {
+            builder.field(CommonName.ENTITY_KEY, entity);
         }
-        builder.field(NODE_ID, nodeId);
-        builder.endObject();
+        if (modelSizeInBytes > 0) {
+            builder.field(CommonName.MODEL_SIZE_IN_BYTES, modelSizeInBytes);
+        }
         return builder;
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(modelId);
-        out.writeLong(modelSizeInBytes);
-        out.writeString(nodeId);
     }
 
     @Override
@@ -118,8 +112,6 @@ public class ModelProfile implements Writeable, ToXContent {
             ModelProfile other = (ModelProfile) obj;
             EqualsBuilder equalsBuilder = new EqualsBuilder();
             equalsBuilder.append(modelId, other.modelId);
-            equalsBuilder.append(modelSizeInBytes, other.modelSizeInBytes);
-            equalsBuilder.append(nodeId, other.nodeId);
 
             return equalsBuilder.isEquals();
         }
@@ -128,17 +120,19 @@ public class ModelProfile implements Writeable, ToXContent {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(modelId).append(modelSizeInBytes).append(nodeId).toHashCode();
+        return new HashCodeBuilder().append(modelId).toHashCode();
     }
 
     @Override
     public String toString() {
         ToStringBuilder builder = new ToStringBuilder(this);
-        builder.append(MODEL_ID, modelId);
+        builder.append(CommonName.MODEL_ID_KEY, modelId);
         if (modelSizeInBytes > 0) {
-            builder.append(MODEL_SIZE_IN_BYTES, modelSizeInBytes);
+            builder.append(CommonName.MODEL_SIZE_IN_BYTES, modelSizeInBytes);
         }
-        builder.append(NODE_ID, nodeId);
+        if (entity != null) {
+            builder.append(CommonName.ENTITY_KEY, entity);
+        }
         return builder.toString();
     }
 }

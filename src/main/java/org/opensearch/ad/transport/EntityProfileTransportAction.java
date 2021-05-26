@@ -40,9 +40,10 @@ import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -63,10 +64,10 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
 
     private static final Logger LOG = LogManager.getLogger(EntityProfileTransportAction.class);
     public static final String NO_NODE_FOUND_MSG = "Cannot find model hosting node";
+    public static final String NO_MODEL_ID_FOUND_MSG = "Cannot find model id";
     static final String FAIL_TO_GET_ENTITY_PROFILE_MSG = "Cannot get entity profile info";
 
     private final TransportService transportService;
-    private final ModelManager modelManager;
     private final HashRing hashRing;
     private final TransportRequestOptions option;
     private final ClusterService clusterService;
@@ -77,14 +78,12 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         ActionFilters actionFilters,
         TransportService transportService,
         Settings settings,
-        ModelManager modelManager,
         HashRing hashRing,
         ClusterService clusterService,
         CacheProvider cacheProvider
     ) {
         super(EntityProfileAction.NAME, transportService, actionFilters, EntityProfileRequest::new);
         this.transportService = transportService;
-        this.modelManager = modelManager;
         this.hashRing = hashRing;
         this.option = TransportRequestOptions
             .builder()
@@ -99,15 +98,22 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
     protected void doExecute(Task task, EntityProfileRequest request, ActionListener<EntityProfileResponse> listener) {
 
         String adID = request.getAdID();
-        String entityValue = request.getEntityValue();
-        String modelId = modelManager.getEntityModelId(adID, entityValue);
-        Optional<DiscoveryNode> node = hashRing.getOwningNode(modelId);
-        if (!node.isPresent()) {
+        Entity entityValue = request.getEntityValue();
+        Optional<String> modelIdOptional = entityValue.getModelId(adID);
+        if (false == modelIdOptional.isPresent()) {
+            listener.onFailure(new AnomalyDetectionException(adID, NO_MODEL_ID_FOUND_MSG));
+            return;
+        }
+        // we use entity value (e.g., app_0) to find its node
+        // This should be consistent with how we land a model node in AnomalyResultTransportAction
+        Optional<DiscoveryNode> node = hashRing.getOwningNode(entityValue.toString());
+        if (false == node.isPresent()) {
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
             return;
         }
 
         String nodeId = node.get().getId();
+        String modelId = modelIdOptional.get();
         DiscoveryNode localNode = clusterService.localNode();
         if (localNode.getId().equals(nodeId)) {
             EntityCache cache = cacheProvider.get();
@@ -121,9 +127,9 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
                 builder.setTotalUpdates(cache.getTotalUpdates(adID, modelId));
             }
             if (profilesToCollect.contains(EntityProfileName.MODELS)) {
-                long modelSize = cache.getModelSize(adID, modelId);
-                if (modelSize > 0) {
-                    builder.setModelProfile(new ModelProfile(modelId, modelSize, localNode.getId()));
+                Optional<ModelProfile> modleProfile = cache.getModelProfile(adID, modelId);
+                if (modleProfile.isPresent()) {
+                    builder.setModelProfile(new ModelProfileOnNode(nodeId, modleProfile.get()));
                 }
             }
             listener.onResponse(builder.build());

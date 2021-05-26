@@ -26,8 +26,6 @@
 
 package org.opensearch.ad.stats.suppliers;
 
-import static org.opensearch.ad.ml.ModelState.DETECTOR_ID_KEY;
-import static org.opensearch.ad.ml.ModelState.MODEL_ID_KEY;
 import static org.opensearch.ad.ml.ModelState.MODEL_TYPE_KEY;
 
 import java.util.ArrayList;
@@ -41,6 +39,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.opensearch.ad.caching.CacheProvider;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
 
 /**
@@ -53,7 +52,9 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
     /**
      * Set that contains the model stats that should be exposed.
      */
-    public static Set<String> MODEL_STATE_STAT_KEYS = new HashSet<>(Arrays.asList(MODEL_ID_KEY, DETECTOR_ID_KEY, MODEL_TYPE_KEY));
+    public static Set<String> MODEL_STATE_STAT_KEYS = new HashSet<>(
+        Arrays.asList(CommonName.MODEL_ID_KEY, CommonName.DETECTOR_ID_KEY, MODEL_TYPE_KEY, CommonName.ENTITY_KEY)
+    );
 
     /**
      * Constructor
