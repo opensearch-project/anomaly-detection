@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -111,8 +112,12 @@ public class ColdEntityWorker extends RateLimitedRequestWorker<EntityFeatureRequ
             if (requests == null || requests.isEmpty()) {
                 return 0;
             }
-            checkpointReadQueue.putAll(requests);
-            requestSize = requests.size();
+            // guarantee we only send low priority requests
+            List<EntityFeatureRequest> filteredRequests = requests.stream()
+                .filter(request -> request.priority == RequestPriority.LOW)
+                .collect(Collectors.toList());
+            checkpointReadQueue.putAll(filteredRequests);
+            requestSize = filteredRequests.size();
         } catch (Exception e) {
             LOG.error("Error enqueuing cold entity requests", e);
         } finally {
