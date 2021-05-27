@@ -31,19 +31,14 @@ import static org.opensearch.common.settings.Setting.Property.Deprecated;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.common.settings.Settings;
 
-public class EnabledSetting {
+public class EnabledSetting extends AbstractSetting {
 
     private static Logger logger = LogManager.getLogger(EnabledSetting.class);
 
@@ -63,7 +58,7 @@ public class EnabledSetting {
 
     public static final String LEGACY_OPENDISTRO_AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
 
-    private final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
+    private static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
             Setting LegacyADPluginEnabledSetting = Setting
                 .boolSetting(LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED, true, NodeScope, Dynamic, Deprecated);
@@ -91,46 +86,15 @@ public class EnabledSetting {
         }
     });
 
-    /** Latest setting value for each registered key. Thread-safe is required. */
-    private final Map<String, Object> latestSettings = new ConcurrentHashMap<>();
-
-    private ClusterService clusterService;
-
-    private EnabledSetting() {}
+    private EnabledSetting(Map<String, Setting<?>> settings) {
+        super(settings);
+    }
 
     public static synchronized EnabledSetting getInstance() {
         if (INSTANCE == null) {
-            INSTANCE = new EnabledSetting();
+            INSTANCE = new EnabledSetting(settings);
         }
         return INSTANCE;
-    }
-
-    private void setSettingsUpdateConsumers() {
-        for (Setting<?> setting : settings.values()) {
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(setting, newVal -> {
-                logger.info("[AD] The value of setting [{}] changed to [{}]", setting.getKey(), newVal);
-                latestSettings.put(setting.getKey(), newVal);
-            });
-        }
-    }
-
-    /**
-     * Get setting value by key. Return default value if not configured explicitly.
-     *
-     * @param key   setting key.
-     * @param <T> Setting type
-     * @return T     setting value or default
-     */
-    @SuppressWarnings("unchecked")
-    public <T> T getSettingValue(String key) {
-        return (T) latestSettings.getOrDefault(key, getSetting(key).getDefault(Settings.EMPTY));
-    }
-
-    private Setting<?> getSetting(String key) {
-        if (settings.containsKey(key)) {
-            return settings.get(key);
-        }
-        throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
     /**
@@ -147,14 +111,5 @@ public class EnabledSetting {
      */
     public static boolean isADBreakerEnabled() {
         return EnabledSetting.getInstance().getSettingValue(EnabledSetting.AD_BREAKER_ENABLED);
-    }
-
-    public void init(ClusterService clusterService) {
-        this.clusterService = clusterService;
-        setSettingsUpdateConsumers();
-    }
-
-    public List<Setting<?>> getSettings() {
-        return new ArrayList<>(settings.values());
     }
 }
