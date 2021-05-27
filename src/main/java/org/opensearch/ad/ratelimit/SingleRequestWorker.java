@@ -28,10 +28,10 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 
-public abstract class SingleRequestQueue<RequestType extends QueuedRequest> extends ConcurrentQueue<RequestType> {
-    private static final Logger LOG = LogManager.getLogger(SingleRequestQueue.class);
+public abstract class SingleRequestWorker<RequestType extends QueuedRequest> extends ConcurrentWorker<RequestType> {
+    private static final Logger LOG = LogManager.getLogger(SingleRequestWorker.class);
 
-    public SingleRequestQueue(
+    public SingleRequestWorker(
         String queueName,
         long heapSize,
         int singleRequestSize,

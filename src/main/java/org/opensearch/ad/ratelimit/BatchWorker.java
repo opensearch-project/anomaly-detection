@@ -35,12 +35,12 @@ import org.opensearch.threadpool.ThreadPool;
  * @param <BatchRequestType> Batch request type like BulkRequest
  * @param <BatchResponseType> Response type like BulkResponse
  */
-public abstract class BatchQueue<RequestType extends QueuedRequest, BatchRequestType, BatchResponseType> extends
-    ConcurrentQueue<RequestType> {
-    private static final Logger LOG = LogManager.getLogger(BatchQueue.class);
+public abstract class BatchWorker<RequestType extends QueuedRequest, BatchRequestType, BatchResponseType> extends
+    ConcurrentWorker<RequestType> {
+    private static final Logger LOG = LogManager.getLogger(BatchWorker.class);
     protected int batchSize;
 
-    public BatchQueue(
+    public BatchWorker(
         String queueName,
         long heapSize,
         int singleRequestSize,
@@ -96,7 +96,7 @@ public abstract class BatchQueue<RequestType extends QueuedRequest, BatchRequest
     protected abstract void executeBatchRequest(BatchRequestType request, ActionListener<BatchResponseType> listener);
 
     /**
-     * We convert from queued requests understood by AD to batchRequest understood by ES.
+     * We convert from queued requests understood by AD to batchRequest understood by OpenSearch.
      * @param toProcess Queued requests
      * @return batch requests
      */

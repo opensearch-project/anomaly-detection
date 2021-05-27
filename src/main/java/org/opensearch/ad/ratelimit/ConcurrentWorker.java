@@ -35,8 +35,8 @@ import org.opensearch.threadpool.ThreadPool;
  *
  * @param <RequestType> Individual request type that is a subtype of ADRequest
  */
-public abstract class ConcurrentQueue<RequestType extends QueuedRequest> extends RateLimitedQueue<RequestType> {
-    private static final Logger LOG = LogManager.getLogger(ConcurrentQueue.class);
+public abstract class ConcurrentWorker<RequestType extends QueuedRequest> extends RateLimitedRequestWorker<RequestType> {
+    private static final Logger LOG = LogManager.getLogger(ConcurrentWorker.class);
 
     private Semaphore permits;
 
@@ -71,7 +71,7 @@ public abstract class ConcurrentQueue<RequestType extends QueuedRequest> extends
      * @param stateTtl max idle state duration.  Used to clean unused states.
      * @param nodeStateManager node state accessor
      */
-    public ConcurrentQueue(
+    public ConcurrentWorker(
         String queueName,
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
@@ -155,6 +155,9 @@ public abstract class ConcurrentQueue<RequestType extends QueuedRequest> extends
 
     /**
      * Execute requests in toProcess.  The implementation needs to call cleanUp after done.
+     * The 1st callback is executed after processing one request. So we keep looking for
+     * new requests if there is any after finishing one request. Otherwise, just release
+     * (the 2nd callback) without calling process.
      * @param afterProcessCallback callback after processing requests
      * @param emptyQueueCallback callback for empty queues
      */
