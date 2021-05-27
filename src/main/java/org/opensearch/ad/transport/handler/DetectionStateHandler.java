@@ -167,6 +167,7 @@ public class DetectionStateHandler extends AnomalyIndexHandler<DetectorInternalS
                 if (cause instanceof IndexNotFoundException) {
                     super.index(handler.createNewState(null), detectorId);
                 } else {
+                    // e.g., can happen during node reboot
                     LOG.error("Failed to get detector state " + detectorId, exception);
                 }
             }));
