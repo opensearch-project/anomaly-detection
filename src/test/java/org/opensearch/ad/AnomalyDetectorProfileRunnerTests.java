@@ -37,6 +37,7 @@ import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_IN
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,7 +64,7 @@ import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileNodeResponse;
 import org.opensearch.ad.transport.ProfileResponse;
@@ -404,8 +405,22 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                 }
             };
 
-            ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize, 0L, 0L);
-            ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1, 0L, 0L);
+            ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(
+                discoveryNode1,
+                modelSizeMap1,
+                shingleSize,
+                0L,
+                0L,
+                new ArrayList<>()
+            );
+            ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
+                discoveryNode2,
+                modelSizeMap2,
+                -1,
+                0L,
+                0L,
+                new ArrayList<>()
+            );
             List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
             List<FailedNodeException> failures = Collections.emptyList();
             ProfileResponse profileResponse = new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, failures);
@@ -486,7 +501,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
             assertEquals(shingleSize, profileResponse.getShingleSize());
             assertEquals(modelSize * 2, profileResponse.getTotalSizeInBytes());
             assertEquals(2, profileResponse.getModelProfile().length);
-            for (ModelProfile profile : profileResponse.getModelProfile()) {
+            for (ModelProfileOnNode profile : profileResponse.getModelProfile()) {
                 assertTrue(node1.equals(profile.getNodeId()) || node2.equals(profile.getNodeId()));
                 assertEquals(modelSize, profile.getModelSize());
                 if (node1.equals(profile.getNodeId())) {

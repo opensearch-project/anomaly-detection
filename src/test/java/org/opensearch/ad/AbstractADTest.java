@@ -36,8 +36,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -57,9 +59,11 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.http.HttpRequest;
@@ -212,7 +216,7 @@ public class AbstractADTest extends OpenSearchTestCase {
                 AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
                 1,
                 1000,
-                "opendistro.ad." + AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+                "opensearch.ad." + AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
             )
         );
     }
@@ -223,17 +227,33 @@ public class AbstractADTest extends OpenSearchTestCase {
         threadPool = null;
     }
 
-    public void setupTestNodes(Settings settings, TransportInterceptor transportInterceptor) {
+    /**
+     *
+     * @param transportInterceptor Interceptor to for transport requests. Used
+     *  to mock transport layer.
+     * @param nodeSettings node override of setting
+     * @param setting the supported setting set.
+     */
+    public void setupTestNodes(TransportInterceptor transportInterceptor, final Settings nodeSettings, Setting<?>... setting) {
         nodesCount = randomIntBetween(2, 10);
         testNodes = new FakeNode[nodesCount];
+        Set<Setting<?>> settingSet = new HashSet<>(Arrays.asList(setting));
         for (int i = 0; i < testNodes.length; i++) {
-            testNodes[i] = new FakeNode("node" + i, threadPool, settings, transportInterceptor);
+            testNodes[i] = new FakeNode("node" + i, threadPool, nodeSettings, settingSet, transportInterceptor);
         }
         FakeNode.connectNodes(testNodes);
     }
 
-    public void setupTestNodes(Settings settings) {
-        setupTestNodes(settings, TransportService.NOOP_TRANSPORT_INTERCEPTOR);
+    public void setupTestNodes(Setting<?>... setting) {
+        setupTestNodes(TransportService.NOOP_TRANSPORT_INTERCEPTOR, Settings.EMPTY, setting);
+    }
+
+    public void setupTestNodes(Settings nodeSettings) {
+        setupTestNodes(TransportService.NOOP_TRANSPORT_INTERCEPTOR, nodeSettings);
+    }
+
+    public void setupTestNodes(TransportInterceptor transportInterceptor) {
+        setupTestNodes(transportInterceptor, Settings.EMPTY);
     }
 
     public void tearDownTestNodes() {
@@ -340,7 +360,7 @@ public class AbstractADTest extends OpenSearchTestCase {
         }, null);
     }
 
-    protected boolean areEqualWithArrayValue(Map<String, double[]> first, Map<String, double[]> second) {
+    protected boolean areEqualWithArrayValue(Map<Entity, double[]> first, Map<Entity, double[]> second) {
         if (first.size() != second.size()) {
             return false;
         }

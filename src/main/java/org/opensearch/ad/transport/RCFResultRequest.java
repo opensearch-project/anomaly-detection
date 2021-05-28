@@ -33,7 +33,7 @@ import java.io.IOException;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonMessageAttributes;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -107,9 +107,9 @@ public class RCFResultRequest extends ActionRequest implements ToXContentObject 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(CommonMessageAttributes.ID_JSON_KEY, adID);
-        builder.field(CommonMessageAttributes.MODEL_ID_JSON_KEY, modelID);
-        builder.startArray(CommonMessageAttributes.FEATURE_JSON_KEY);
+        builder.field(CommonName.ID_JSON_KEY, adID);
+        builder.field(CommonName.MODEL_ID_KEY, modelID);
+        builder.startArray(CommonName.FEATURE_JSON_KEY);
         for (double feature : features) {
             builder.value(feature);
         }

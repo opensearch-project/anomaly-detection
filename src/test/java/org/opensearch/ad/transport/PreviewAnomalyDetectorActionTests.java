@@ -73,7 +73,7 @@ public class PreviewAnomalyDetectorActionTests extends OpenSearchSingleNodeTestC
     public void testPreviewResponse() throws Exception {
         BytesStreamOutput out = new BytesStreamOutput();
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        AnomalyResult result = TestHelpers.randomMultiEntityAnomalyDetectResult(0.8d, 0d);
+        AnomalyResult result = TestHelpers.randomHCADAnomalyDetectResult(0.8d, 0d);
         PreviewAnomalyDetectorResponse response = new PreviewAnomalyDetectorResponse(ImmutableList.of(result), detector);
         response.writeTo(out);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());

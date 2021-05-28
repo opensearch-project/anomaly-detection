@@ -50,7 +50,7 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonMessageAttributes;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -313,7 +313,7 @@ public class RCFPollingTests extends AbstractADTest {
     }
 
     public void testGetRemoteNormalResponse() {
-        setupTestNodes(Settings.EMPTY, normalTransportInterceptor);
+        setupTestNodes(normalTransportInterceptor, Settings.EMPTY);
         try {
             TransportService realTransportService = testNodes[0].transportService;
             clusterService = testNodes[0].clusterService;
@@ -341,7 +341,7 @@ public class RCFPollingTests extends AbstractADTest {
     }
 
     public void testGetRemoteFailureResponse() {
-        setupTestNodes(Settings.EMPTY, failureTransportInterceptor);
+        setupTestNodes(failureTransportInterceptor, Settings.EMPTY);
         try {
             TransportService realTransportService = testNodes[0].transportService;
             clusterService = testNodes[0].clusterService;
@@ -376,7 +376,7 @@ public class RCFPollingTests extends AbstractADTest {
     public void testRequestToXContent() throws IOException, JsonPathNotFoundException {
         RCFPollingRequest response = new RCFPollingRequest(detectorId);
         String json = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
-        assertEquals(detectorId, JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY));
+        assertEquals(detectorId, JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY));
     }
 
     public void testNullDetectorId() {

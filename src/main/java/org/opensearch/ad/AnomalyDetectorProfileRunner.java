@@ -74,7 +74,6 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParseException;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHits;
@@ -250,7 +249,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 onGetDetectorForPrepare(listener, profilesToCollect);
             }
         }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
+            if (ExceptionUtil.isIndexNotAvailable(exception)) {
                 logger.info(exception.getMessage());
                 onGetDetectorForPrepare(listener, profilesToCollect);
             } else {
@@ -364,7 +363,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 listener.onResponse(profileBuilder.build());
             }
         }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
+            if (ExceptionUtil.isIndexNotAvailable(exception)) {
                 // detector state index is not created yet
                 listener.onResponse(new DetectorProfile.Builder().build());
             } else {
@@ -482,7 +481,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 listener.onResponse(profileBuilder.build());
             }
         }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
+            if (ExceptionUtil.isIndexNotAvailable(exception)) {
                 // anomaly result index is not created yet
                 processInitResponse(detector, profilesToCollect, totalUpdates, false, profileBuilder, listener);
             } else {
@@ -525,7 +524,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             Exception causeException = (Exception) cause;
             if (ExceptionUtil
                 .isException(causeException, ResourceNotFoundException.class, ExceptionUtil.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
-                || (causeException instanceof IndexNotFoundException
+                || (ExceptionUtil.isIndexNotAvailable(causeException)
                     && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
                 // cannot find checkpoint
                 // We don't want to show the estimated time remaining to initialize

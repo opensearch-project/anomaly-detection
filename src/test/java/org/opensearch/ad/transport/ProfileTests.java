@@ -31,6 +31,7 @@ import static java.util.Collections.emptySet;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,7 +47,7 @@ import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
@@ -147,7 +148,14 @@ public class ProfileTests extends OpenSearchTestCase {
     public void testProfileNodeResponse() throws IOException, JsonPathNotFoundException {
 
         // Test serialization
-        ProfileNodeResponse profileNodeResponse = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize, 0, 0);
+        ProfileNodeResponse profileNodeResponse = new ProfileNodeResponse(
+            discoveryNode1,
+            modelSizeMap1,
+            shingleSize,
+            0,
+            0,
+            new ArrayList<>()
+        );
         BytesStreamOutput output = new BytesStreamOutput();
         profileNodeResponse.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
@@ -163,7 +171,7 @@ public class ProfileTests extends OpenSearchTestCase {
         for (Map.Entry<String, Long> profile : modelSizeMap1.entrySet()) {
             assertEquals(
                 "toXContent has the wrong model size",
-                JsonDeserializer.getLongValue(json, ProfileNodeResponse.MODEL_SIZE_IN_BYTES, profile.getKey()),
+                JsonDeserializer.getLongValue(json, CommonName.MODEL_SIZE_IN_BYTES, profile.getKey()),
                 profile.getValue().longValue()
             );
         }
@@ -194,8 +202,15 @@ public class ProfileTests extends OpenSearchTestCase {
     @Test
     public void testProfileResponse() throws IOException, JsonPathNotFoundException {
 
-        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize, 0, 0);
-        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1, 0, 0);
+        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(
+            discoveryNode1,
+            modelSizeMap1,
+            shingleSize,
+            0,
+            0,
+            new ArrayList<>()
+        );
+        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1, 0, 0, new ArrayList<>());
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
         List<FailedNodeException> failures = Collections.emptyList();
         ProfileResponse profileResponse = new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, failures);
@@ -204,7 +219,7 @@ public class ProfileTests extends OpenSearchTestCase {
         assertEquals(shingleSize, profileResponse.getShingleSize());
         assertEquals(modelSize * 2, profileResponse.getTotalSizeInBytes());
         assertEquals(2, profileResponse.getModelProfile().length);
-        for (ModelProfile profile : profileResponse.getModelProfile()) {
+        for (ModelProfileOnNode profile : profileResponse.getModelProfile()) {
             assertTrue(node1.equals(profile.getNodeId()) || node2.equals(profile.getNodeId()));
             assertEquals(modelSize, profile.getModelSize());
             if (node1.equals(profile.getNodeId())) {
@@ -240,20 +255,20 @@ public class ProfileTests extends OpenSearchTestCase {
             JsonElement element = modelsJson.get(i);
             assertTrue(
                 "toXContent has the wrong model id",
-                JsonDeserializer.getTextValue(element, ModelProfile.MODEL_ID).equals(model1Id)
-                    || JsonDeserializer.getTextValue(element, ModelProfile.MODEL_ID).equals(model0Id)
+                JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model1Id)
+                    || JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model0Id)
             );
 
             assertEquals(
                 "toXContent has the wrong model size",
-                JsonDeserializer.getLongValue(element, ModelProfile.MODEL_SIZE_IN_BYTES),
+                JsonDeserializer.getLongValue(element, CommonName.MODEL_SIZE_IN_BYTES),
                 modelSize
             );
 
-            if (JsonDeserializer.getTextValue(element, ModelProfile.MODEL_ID).equals(model1Id)) {
-                assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfile.NODE_ID), node1);
+            if (JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model1Id)) {
+                assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfileOnNode.NODE_ID), node1);
             } else {
-                assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfile.NODE_ID), node2);
+                assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfileOnNode.NODE_ID), node2);
             }
 
         }
