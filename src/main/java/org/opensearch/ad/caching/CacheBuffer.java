@@ -47,8 +47,8 @@ import org.opensearch.ad.MemoryTracker.Origin;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.InitProgressProfile;
-import org.opensearch.ad.ratelimit.CheckpointWriteQueue;
-import org.opensearch.ad.ratelimit.SegmentPriority;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.ratelimit.RequestPriority;
 
 /**
  * We use a layered cache to manage active entities’ states.  We have a two-level
@@ -87,7 +87,7 @@ public class CacheBuffer implements ExpiringState {
     private long reservedBytes;
     private final PriorityTracker priorityTracker;
     private final Clock clock;
-    private final CheckpointWriteQueue checkpointWriteQueue;
+    private final CheckpointWriteWorker checkpointWriteQueue;
     private final Random random;
 
     public CacheBuffer(
@@ -98,7 +98,7 @@ public class CacheBuffer implements ExpiringState {
         Clock clock,
         Duration modelTtl,
         String detectorId,
-        CheckpointWriteQueue checkpointWriteQueue,
+        CheckpointWriteWorker checkpointWriteQueue,
         Random random
     ) {
         this.memoryConsumptionPerEntity = memoryConsumptionPerEntity;
@@ -241,23 +241,18 @@ public class CacheBuffer implements ExpiringState {
         ModelState<EntityModel> valueRemoved = items.remove(keyToRemove);
 
         if (valueRemoved != null) {
-            if (reserved) {
-                // release in reserved memory
-                memoryTracker.releaseMemory(memoryConsumptionPerEntity, true, Origin.HC_DETECTOR);
-            } else {
+            if (!reserved) {
                 // release in shared memory
                 memoryTracker.releaseMemory(memoryConsumptionPerEntity, false, Origin.HC_DETECTOR);
             }
 
             EntityModel modelRemoved = valueRemoved.getModel();
             if (modelRemoved != null) {
-                if (modelRemoved.getRcf() == null || modelRemoved.getThreshold() == null) {
-                    // only have samples. If we don't save, we throw the new samples and might
-                    // never be able to initialize the model
-                    checkpointWriteQueue.write(valueRemoved, true, SegmentPriority.MEDIUM);
-                } else {
-                    checkpointWriteQueue.write(valueRemoved, false, SegmentPriority.MEDIUM);
-                }
+                // null model has only samples. For null model we save a checkpoint
+                // regardless of last checkpoint time. whether If we don't save,
+                // we throw the new samples and might never be able to initialize the model
+                boolean isNullModel = modelRemoved.getRcf() == null || modelRemoved.getThreshold() == null;
+                checkpointWriteQueue.write(valueRemoved, isNullModel, RequestPriority.MEDIUM);
 
                 modelRemoved.clear();
             }
@@ -353,7 +348,7 @@ public class CacheBuffer implements ExpiringState {
             }
         });
 
-        checkpointWriteQueue.writeAll(modelsToSave, detectorId, false, SegmentPriority.MEDIUM);
+        checkpointWriteQueue.writeAll(modelsToSave, detectorId, false, RequestPriority.MEDIUM);
         return removedStates;
     }
 

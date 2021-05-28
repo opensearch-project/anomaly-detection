@@ -66,7 +66,7 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.ad.ratelimit.CheckpointWriteQueue;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
@@ -96,7 +96,7 @@ public class PriorityCache implements EntityCache {
     private Map<String, DoorKeeper> doorKeepers;
     private ThreadPool threadPool;
     private Random random;
-    private CheckpointWriteQueue checkpointWriteQueue;
+    private CheckpointWriteWorker checkpointWriteQueue;
     // iterating through all of inactive entities is heavy. We don't want to do
     // it again and again for no obvious benefits.
     private Instant lastInActiveEntityMaintenance;
@@ -113,7 +113,7 @@ public class PriorityCache implements EntityCache {
         ClusterService clusterService,
         Duration modelTtl,
         ThreadPool threadPool,
-        CheckpointWriteQueue checkpointWriteQueue,
+        CheckpointWriteWorker checkpointWriteQueue,
         int maintenanceFreqConstant
     ) {
         this.checkpointDao = checkpointDao;
@@ -858,7 +858,6 @@ public class PriorityCache implements EntityCache {
      * @param newDedicatedCacheSize the new dedicated cache size to validate
      */
     private void validateDedicatedCacheSize(Integer newDedicatedCacheSize) {
-        LOG.info("hello:" + newDedicatedCacheSize + " " + dedicatedCacheSize);
         if (this.dedicatedCacheSize < newDedicatedCacheSize) {
             int delta = newDedicatedCacheSize - this.dedicatedCacheSize;
             long totalIncreasedBytes = 0;
