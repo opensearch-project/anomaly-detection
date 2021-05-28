@@ -123,10 +123,12 @@ public abstract class ConcurrentWorker<RequestType extends QueuedRequest> extend
     public void maintenance() {
         super.maintenance();
 
-        if (lastExecuteTime.plus(executionTtl).isBefore(clock.instant())) {
+        if (lastExecuteTime.plus(executionTtl).isBefore(clock.instant()) && permits.availablePermits() == 0 && false == isQueueEmpty()) {
             LOG.warn("previous execution has been running for too long.  Maybe there are bugs.");
 
-            // release one permit
+            // Release one permit.  This is a stop gap solution as I don't know
+            // whether the system is under heavy workload or not. Release multiple
+            // permits might cause the situation even worse. So I am conservative here.
             permits.release();
         }
     }
