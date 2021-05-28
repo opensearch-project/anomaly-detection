@@ -120,8 +120,12 @@ public class CompositeRetriever extends AbstractRetriever {
         );
     }
 
-    public void start(ActionListener<Page> listener) {
-        try {
+    /**
+     * @return an iterator over pages
+     * @throws IOException - if we cannot construct valid queries according to
+     *  detector definition
+     */
+    public PageIterator iterator() throws IOException {
             RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
                 .gte(dataStartEpoch)
                 .lt(dataEndEpoch)
@@ -153,28 +157,23 @@ public class CompositeRetriever extends AbstractRetriever {
                 .aggregation(composite)
                 .trackTotalHits(false);
 
-            Page page = new Page(null, searchSourceBuilder, null);
-            page.next(client, anomalyDetector, listener);
-
-        } catch (Exception e) {
-            listener
-                .onFailure(new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false));
-        }
+            return new PageIterator(searchSourceBuilder);
     }
 
-    public class Page {
+    public class PageIterator {
+        private SearchSourceBuilder source;
         // a map from categorical field name to values (type: java.lang.Comparable)
         Map<String, Object> afterKey;
-        SearchSourceBuilder source;
-        Map<Entity, double[]> results;
 
-        public Page(Map<String, Object> afterKey, SearchSourceBuilder source, Map<Entity, double[]> results) {
-            this.afterKey = afterKey;
+        public PageIterator(SearchSourceBuilder source) {
             this.source = source;
-            this.results = results;
+            this.afterKey = null;
         }
 
-        public void next(Client client, AnomalyDetector anomalyDetector, ActionListener<Page> listener) {
+        /**
+         * Results are returned using listener
+         */
+        public void next(ActionListener<Page> listener) {
             SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]), source);
             client.search(searchRequest, new ActionListener<SearchResponse>() {
                 @Override
@@ -198,7 +197,7 @@ public class CompositeRetriever extends AbstractRetriever {
 
             try {
                 Page page = analyzePage(response);
-                if (totalResults < maxEntities && page.afterKey != null) {
+                if (totalResults < maxEntities && afterKey != null) {
                     updateCompositeAfterKey(response, source);
                     listener.onResponse(page);
                 } else {
@@ -261,7 +260,8 @@ public class CompositeRetriever extends AbstractRetriever {
 
             totalResults += results.size();
 
-            return new Page(composite.afterKey(), source, results);
+            afterKey = composite.afterKey();
+            return new Page(results);
         }
 
         private void updateCompositeAfterKey(SearchResponse r, SearchSourceBuilder search) {
@@ -309,21 +309,14 @@ public class CompositeRetriever extends AbstractRetriever {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Not a composite response; {}", agg.getClass()));
         }
 
-        public boolean isEmpty() {
-            return results == null || results.isEmpty();
-        }
-
-        public Map<Entity, double[]> getResults() {
-            return results;
-        }
-
-        public boolean hasTimeLeft() {
-            // next interval has not started
-            return expirationEpochMs > clock.millis();
-        }
-
-        public void next(ActionListener<Page> listener) {
-            this.next(client, anomalyDetector, listener);
+        /**
+         * Whether next page exists.  Conditions are:
+         * 1) we haven't fetched any page yet (totalResults == 0) or afterKey is not null
+         * 2) next detection interval has not started
+         * @return true if the iteration has more pages.
+         */
+        public boolean hasNext() {
+            return (totalResults == 0 ||  (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
         }
 
         @Override
@@ -336,6 +329,31 @@ public class CompositeRetriever extends AbstractRetriever {
             if (source != null) {
                 toStringBuilder.append("source", source);
             }
+
+            return toStringBuilder.toString();
+        }
+    }
+
+    public class Page {
+
+        Map<Entity, double[]> results;
+
+        public Page(Map<Entity, double[]> results) {
+            this.results = results;
+        }
+
+        public boolean isEmpty() {
+            return results == null || results.isEmpty();
+        }
+
+        public Map<Entity, double[]> getResults() {
+            return results;
+        }
+
+        @Override
+        public String toString() {
+            ToStringBuilder toStringBuilder = new ToStringBuilder(this);
+
             if (results != null) {
                 toStringBuilder.append("results", results);
             }

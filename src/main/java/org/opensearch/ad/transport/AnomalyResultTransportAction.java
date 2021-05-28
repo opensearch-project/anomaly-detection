@@ -74,6 +74,7 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.CompositeRetriever.Page;
+import org.opensearch.ad.feature.CompositeRetriever.PageIterator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
@@ -296,6 +297,92 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
+    //
+
+    /**
+     * didn't use ActionListener.wrap so that I can
+     * 1) use this to refer to the listener inside the listener
+     * 2) pass parameters using constructors
+     *
+     */
+    class PageListener implements ActionListener<CompositeRetriever.Page> {
+        private PageIterator pageIterator;
+        private String detectorId;
+        private long dataStartTime;
+        private long dataEndTime;
+
+        PageListener(PageIterator pageIterator, String detectorId, long dataStartTime, long dataEndTime) {
+            this.pageIterator = pageIterator;
+            this.detectorId = detectorId;
+            this.dataStartTime = dataStartTime;
+            this.dataEndTime = dataEndTime;
+        }
+
+        @Override
+        public void onResponse(CompositeRetriever.Page entityFeatures) {
+            if (entityFeatures != null && false == entityFeatures.isEmpty()) {
+                // wrap expensive operation inside ad threadpool
+                threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
+                    Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures.getResults()
+                        .entrySet()
+                        .stream()
+                        .collect(
+                            Collectors.groupingBy(
+                                // from entity name to its node
+                                e -> hashRing.getOwningNode(e.getKey().toString()).get(),
+                                Collectors.toMap(Entry::getKey, Entry::getValue)
+                            )
+                        )
+                        .entrySet();
+
+                    Iterator<Entry<DiscoveryNode, Map<Entity, double[]>>> iterator = node2Entities.iterator();
+
+                    while (iterator.hasNext()) {
+                        Entry<DiscoveryNode, Map<Entity, double[]>> entry = iterator.next();
+                        DiscoveryNode modelNode = entry.getKey();
+                        if (modelNode == null) {
+                            iterator.remove();
+                            continue;
+                        }
+                        String modelNodeId = modelNode.getId();
+                        if (stateManager.isMuted(modelNodeId)) {
+                            LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", modelNodeId));
+                            iterator.remove();
+                        }
+                    }
+
+                    final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
+                    int nodeCount = node2Entities.size();
+                    AtomicInteger responseCount = new AtomicInteger();
+                    node2Entities.stream().forEach(nodeEntity -> {
+                        DiscoveryNode node = nodeEntity.getKey();
+                        transportService.sendRequest(
+                            node,
+                            EntityResultAction.NAME,
+                            new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
+                            option,
+                            new ActionListenerResponseHandler<>(
+                                new EntityResultListener(node.getId(), detectorId, failure, nodeCount, pageIterator, this, responseCount),
+                                AcknowledgedResponse::new,
+                                ThreadPool.Names.SAME
+                            )
+                        );
+                    });
+                });
+            }
+        }
+
+        @Override
+        public void onFailure(Exception e) {
+            Exception convertedException = convertedQueryFailureException(e, detectorId);
+            if (false == (convertedException instanceof AnomalyDetectionException)) {
+                Throwable cause = ExceptionsHelper.unwrapCause(convertedException);
+                convertedException = new InternalFailure(detectorId, cause);
+            }
+            stateManager.setException(detectorId, convertedException);
+        }
+    }
+
     private ActionListener<Optional<AnomalyDetector>> onGetDetector(
         ActionListener<AnomalyResultResponse> listener,
         String adID,
@@ -336,85 +423,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     }
                 }
 
-                ActionListener<CompositeRetriever.Page> getEntityFeatureslistener =
-                    // didn't use ActionListener.wrap so that I can use this to refer to the listener inside the listener
-                    new ActionListener<CompositeRetriever.Page>() {
-                        @Override
-                        public void onResponse(CompositeRetriever.Page entityFeatures) {
-                            if (entityFeatures != null && false == entityFeatures.isEmpty()) {
-                                // wrap expensive operation inside ad threadpool
-                                threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
-                                    Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
-                                        .getResults()
-                                        .entrySet()
-                                        .stream()
-                                        .collect(
-                                            Collectors
-                                                .groupingBy(
-                                                    // from entity name to its node
-                                                    e -> hashRing.getOwningNode(e.getKey().toString()).get(),
-                                                    Collectors.toMap(Entry::getKey, Entry::getValue)
-                                                )
-                                        )
-                                        .entrySet();
-
-                                    Iterator<Entry<DiscoveryNode, Map<Entity, double[]>>> iterator = node2Entities.iterator();
-
-                                    while (iterator.hasNext()) {
-                                        Entry<DiscoveryNode, Map<Entity, double[]>> entry = iterator.next();
-                                        DiscoveryNode modelNode = entry.getKey();
-                                        if (modelNode == null) {
-                                            iterator.remove();
-                                            continue;
-                                        }
-                                        String modelNodeId = modelNode.getId();
-                                        if (stateManager.isMuted(modelNodeId)) {
-                                            LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", modelNodeId));
-                                            iterator.remove();
-                                        }
-                                    }
-
-                                    final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
-                                    int nodeCount = node2Entities.size();
-                                    AtomicInteger responseCount = new AtomicInteger();
-                                    node2Entities.stream().forEach(nodeEntity -> {
-                                        DiscoveryNode node = nodeEntity.getKey();
-                                        transportService
-                                            .sendRequest(
-                                                node,
-                                                EntityResultAction.NAME,
-                                                new EntityResultRequest(adID, nodeEntity.getValue(), dataStartTime, dataEndTime),
-                                                option,
-                                                new ActionListenerResponseHandler<>(
-                                                    new EntityResultListener(
-                                                        node.getId(),
-                                                        adID,
-                                                        failure,
-                                                        nodeCount,
-                                                        entityFeatures,
-                                                        this,
-                                                        responseCount
-                                                    ),
-                                                    AcknowledgedResponse::new,
-                                                    ThreadPool.Names.SAME
-                                                )
-                                            );
-                                    });
-                                });
-                            }
-                        }
-
-                        @Override
-                        public void onFailure(Exception e) {
-                            Exception convertedException = convertedQueryFailureException(e, adID);
-                            if (false == (convertedException instanceof AnomalyDetectionException)) {
-                                Throwable cause = ExceptionsHelper.unwrapCause(convertedException);
-                                convertedException = new InternalFailure(adID, cause);
-                            }
-                            stateManager.setException(adID, convertedException);
-                        }
-                    };
-
                 // assume request are in epoch milliseconds
                 long nextDetectionStartTime = request.getEnd() + (long) (anomalyDetector.getDetectorIntervalInMilliseconds()
                     * intervalRatioForRequest);
@@ -431,7 +439,20 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     pageSize
                 );
 
-                compositeRetriever.start(getEntityFeatureslistener);
+                PageIterator pageIterator = null;
+
+                try {
+                    pageIterator = compositeRetriever.iterator();
+                } catch (Exception e) {
+                    listener.onFailure(new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                    return;
+                }
+
+                PageListener getEntityFeatureslistener = new PageListener(pageIterator, adID, dataStartTime, dataEndTime);
+
+                if (pageIterator.hasNext()) {
+                    pageIterator.next(getEntityFeatureslistener);
+                }
 
                 // We don't know when the pagination will not finish. To not
                 // block the following interval request to start, we return immediately.
@@ -1139,25 +1160,25 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AtomicReference<AnomalyDetectionException> failure;
         private int nodeCount;
         private AtomicInteger responseCount;
-        private Page page;
-        private ActionListener<CompositeRetriever.Page> pageListener;
+        private PageIterator pageIterator;
+        private PageListener pageListener;
 
         EntityResultListener(
             String nodeId,
             String adID,
             AtomicReference<AnomalyDetectionException> failure,
             int nodeCount,
-            Page page,
-            ActionListener<CompositeRetriever.Page> pageListener,
+            PageIterator pageIterator,
+            PageListener pageListener,
             AtomicInteger responseCount
         ) {
             this.nodeId = nodeId;
             this.adID = adID;
             this.failure = failure;
             this.nodeCount = nodeCount;
-            this.page = page;
-            this.pageListener = pageListener;
+            this.pageIterator = pageIterator;
             this.responseCount = responseCount;
+            this.pageListener = pageListener;
         }
 
         @Override
@@ -1172,8 +1193,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
-                if (nodeCount == responseCount.incrementAndGet() && page.hasTimeLeft()) {
-                    page.next(pageListener);
+                if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
+                    pageIterator.next(pageListener);
                 }
             }
         }
@@ -1193,8 +1214,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
-                if (nodeCount == responseCount.incrementAndGet() && page.hasTimeLeft()) {
-                    page.next(pageListener);
+                if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
+                    pageIterator.next(pageListener);
                 }
             }
         }
