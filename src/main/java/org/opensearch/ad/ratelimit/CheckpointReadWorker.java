@@ -72,18 +72,18 @@ import org.opensearch.threadpool.ThreadPool;
  * updated checkpoint back to disk.
  *
  */
-public class CheckpointReadQueue extends BatchQueue<EntityFeatureRequest, MultiGetRequest, MultiGetResponse> {
-    private static final Logger LOG = LogManager.getLogger(CheckpointReadQueue.class);
+public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, MultiGetRequest, MultiGetResponse> {
+    private static final Logger LOG = LogManager.getLogger(CheckpointReadWorker.class);
     private final ModelManager modelManager;
     private final CheckpointDao checkpointDao;
-    private final EntityColdStartQueue entityColdStartQueue;
-    private final ResultWriteQueue resultWriteQueue;
+    private final EntityColdStartWorker entityColdStartQueue;
+    private final ResultWriteWorker resultWriteQueue;
     private final AnomalyDetectionIndices indexUtil;
     private final CacheProvider cacheProvider;
-    private final CheckpointWriteQueue checkpointWriteQueue;
+    private final CheckpointWriteWorker checkpointWriteQueue;
     private final EntityColdStarter entityColdStarter;
 
-    public CheckpointReadQueue(
+    public CheckpointReadWorker(
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
         Setting<Float> maxHeapPercentForQueueSetting,
@@ -101,13 +101,13 @@ public class CheckpointReadQueue extends BatchQueue<EntityFeatureRequest, MultiG
         Duration executionTtl,
         ModelManager modelManager,
         CheckpointDao checkpointDao,
-        EntityColdStartQueue entityColdStartQueue,
-        ResultWriteQueue resultWriteQueue,
+        EntityColdStartWorker entityColdStartQueue,
+        ResultWriteWorker resultWriteQueue,
         NodeStateManager stateManager,
         AnomalyDetectionIndices indexUtil,
         CacheProvider cacheProvider,
         Duration stateTtl,
-        CheckpointWriteQueue checkpointWriteQueue,
+        CheckpointWriteWorker checkpointWriteQueue,
         EntityColdStarter entityColdStarter
     ) {
         super(
@@ -148,6 +148,13 @@ public class CheckpointReadQueue extends BatchQueue<EntityFeatureRequest, MultiG
         clientUtil.<MultiGetRequest, MultiGetResponse>execute(MultiGetAction.INSTANCE, request, listener);
     }
 
+    /**
+     * Convert the input list of EntityFeatureRequest to a multi-get request.
+     * RateLimitedRequestWorker.getRequests has already limited the number of
+     * requests in the input list. So toBatchRequest method can take the input
+     * and send the multi-get directly.
+     * @return The converted multi-get request
+     */
     @Override
     protected MultiGetRequest toBatchRequest(List<EntityFeatureRequest> toProcess) {
         MultiGetRequest multiGetRequest = new MultiGetRequest();
@@ -212,11 +219,11 @@ public class CheckpointReadQueue extends BatchQueue<EntityFeatureRequest, MultiG
             processCheckpointIteration(0, toProcess, successfulRequests, retryableRequests);
         }, exception -> {
             if (ExceptionUtil.isOverloaded(exception)) {
-                LOG.error("too many get AD model checkpoint requests or shard not avialble");
+                LOG.error("too many get AD model checkpoint requests or shard not available");
                 setCoolDownStart();
             } else if (ExceptionUtil.isRetryAble(exception)) {
                 // retry all of them
-                super.putAll(toProcess);
+                putAll(toProcess);
             } else {
                 LOG.error("Fail to restore models", exception);
             }
@@ -335,9 +342,10 @@ public class CheckpointReadQueue extends BatchQueue<EntityFeatureRequest, MultiG
                         new ResultWriteRequest(
                             origRequest.getExpirationEpochMs(),
                             detectorId,
-                            result.getGrade() > 0 ? SegmentPriority.HIGH : SegmentPriority.MEDIUM,
+                            result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                             new AnomalyResult(
                                 detectorId,
+                                null,
                                 result.getRcfScore(),
                                 result.getGrade(),
                                 result.getConfidence(),
@@ -349,7 +357,8 @@ public class CheckpointReadQueue extends BatchQueue<EntityFeatureRequest, MultiG
                                 null,
                                 origRequest.getEntity(),
                                 detector.getUser(),
-                                indexUtil.getSchemaVersion(ADIndex.RESULT)
+                                indexUtil.getSchemaVersion(ADIndex.RESULT),
+                                modelState.getModelId()
                             )
                         )
                     );
@@ -361,7 +370,7 @@ public class CheckpointReadQueue extends BatchQueue<EntityFeatureRequest, MultiG
             if (false == loaded) {
                 // not in memory. Maybe cold entities or some other entities
                 // have filled the slot while waiting for loading checkpoints.
-                checkpointWriteQueue.write(modelState, true, SegmentPriority.LOW);
+                checkpointWriteQueue.write(modelState, true, RequestPriority.LOW);
             }
 
             processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
