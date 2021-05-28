@@ -45,12 +45,12 @@ import org.opensearch.threadpool.ThreadPool;
  * round-robin fashion.
  *
  */
-public class EntityColdStartQueue extends SingleRequestQueue<EntityRequest> {
-    private static final Logger LOG = LogManager.getLogger(EntityColdStartQueue.class);
+public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
+    private static final Logger LOG = LogManager.getLogger(EntityColdStartWorker.class);
 
     private final EntityColdStarter entityColdStarter;
 
-    public EntityColdStartQueue(
+    public EntityColdStartWorker(
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
         Setting<Float> maxHeapPercentForQueueSetting,
@@ -118,7 +118,7 @@ public class EntityColdStartQueue extends SingleRequestQueue<EntityRequest> {
 
         ActionListener<Void> failureListener = ActionListener.delegateResponse(listener, (delegateListener, e) -> {
             if (ExceptionUtil.isOverloaded(e)) {
-                LOG.error("ES is overloaded");
+                LOG.error("OpenSearch is overloaded");
                 setCoolDownStart();
             }
             nodeStateManager.setException(detectorId, e);

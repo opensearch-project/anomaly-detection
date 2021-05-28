@@ -64,8 +64,8 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.ratelimit.CheckpointWriteQueue;
-import org.opensearch.ad.ratelimit.SegmentPriority;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
@@ -101,9 +101,10 @@ public class EntityColdStarter implements MaintenanceState {
     private int coolDownMinutes;
     // A bloom filter checked before cold start to ensure we don't repeatedly
     // retry cold start of the same model.
+    // keys are detector ids.
     private Map<String, DoorKeeper> doorKeepers;
     private final Duration modelTtl;
-    private final CheckpointWriteQueue checkpointWriteQueue;
+    private final CheckpointWriteWorker checkpointWriteQueue;
 
     /**
      * Constructor
@@ -129,7 +130,7 @@ public class EntityColdStarter implements MaintenanceState {
      * @param thresholdMaxSamples the max number of samples before downsampling
      * @param featureManager Used to create features for models.
      * @param settings ES settings accessor
-     * @param modelTtl time-to-leave before last access time of the cold start cache.
+     * @param modelTtl time-to-live before last access time of the cold start cache.
      *   We have a cache to record entities that have run cold starts to avoid
      *   repeated unsuccessful cold start.
      * @param checkpointWriteQueue queue to insert model checkpoints
@@ -156,7 +157,7 @@ public class EntityColdStarter implements MaintenanceState {
         FeatureManager featureManager,
         Settings settings,
         Duration modelTtl,
-        CheckpointWriteQueue checkpointWriteQueue
+        CheckpointWriteWorker checkpointWriteQueue
     ) {
         this.clock = clock;
         this.lastThrottledColdStartTime = Instant.MIN;
@@ -371,7 +372,7 @@ public class EntityColdStarter implements MaintenanceState {
         entityState.setLastUsedTime(clock.instant());
 
         // save to checkpoint
-        checkpointWriteQueue.write(entityState, true, SegmentPriority.MEDIUM);
+        checkpointWriteQueue.write(entityState, true, RequestPriority.MEDIUM);
     }
 
     /**
@@ -626,7 +627,7 @@ public class EntityColdStarter implements MaintenanceState {
             }
         }
         // save to checkpoint
-        checkpointWriteQueue.write(entityState, true, SegmentPriority.MEDIUM);
+        checkpointWriteQueue.write(entityState, true, RequestPriority.MEDIUM);
     }
 
     @Override

@@ -66,7 +66,7 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.ratelimit.CheckpointWriteQueue;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
@@ -98,7 +98,7 @@ public class EntityColdStarterTests extends AbstractADTest {
     Runnable releaseSemaphore;
     ActionListener<Void> listener;
     CountDownLatch inProgressLatch;
-    CheckpointWriteQueue checkpointWriteQueue;
+    CheckpointWriteWorker checkpointWriteQueue;
     Entity entity;
 
     @SuppressWarnings("unchecked")
@@ -164,7 +164,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
         );
 
-        checkpointWriteQueue = mock(CheckpointWriteQueue.class);
+        checkpointWriteQueue = mock(CheckpointWriteWorker.class);
 
         entityColdStarter = new EntityColdStarter(
             clock,
