@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.FeatureManager;
@@ -143,6 +144,9 @@ public final class AnomalyDetectorRunner {
         // TODO return exception like IllegalArgumentException to explain data is not enough for preview
         // This also requires front-end change to handle error message correspondingly
         // We return empty list for now to avoid breaking front-end
+        if (e instanceof OpenSearchSecurityException) {
+            listener.onFailure(e);
+        }
         listener.onResponse(Collections.emptyList());
     }
 

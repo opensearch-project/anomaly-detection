@@ -165,7 +165,7 @@ public class PreviewAnomalyDetectorTransportAction extends
             listener
                 .onFailure(
                     new OpenSearchException(
-                        "Unexpected error running anomaly detector " + detector.getDetectorId(),
+                        "Unexpected error running anomaly detector " + detector.getDetectorId() + ". " + exception.getMessage(),
                         RestStatus.INTERNAL_SERVER_ERROR
                     )
                 );
