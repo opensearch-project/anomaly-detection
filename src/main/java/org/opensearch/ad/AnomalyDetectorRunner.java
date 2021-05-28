@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.FeatureManager;
@@ -51,6 +52,7 @@ import org.opensearch.ad.model.EntityAnomalyResult;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
+import org.opensearch.common.util.concurrent.ThreadContext;
 
 /**
  * Runner to trigger an anomaly detector.
@@ -77,8 +79,14 @@ public final class AnomalyDetectorRunner {
      * @param listener handle anomaly result
      * @throws IOException - if a user gives wrong query input when defining a detector
      */
-    public void executeDetector(AnomalyDetector detector, Instant startTime, Instant endTime, ActionListener<List<AnomalyResult>> listener)
-        throws IOException {
+    public void executeDetector(
+        AnomalyDetector detector,
+        Instant startTime,
+        Instant endTime,
+        ThreadContext.StoredContext context,
+        ActionListener<List<AnomalyResult>> listener
+    ) throws IOException {
+        context.restore();
         List<String> categoryField = detector.getCategoryField();
         if (categoryField != null && !categoryField.isEmpty()) {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
@@ -136,6 +144,9 @@ public final class AnomalyDetectorRunner {
         // TODO return exception like IllegalArgumentException to explain data is not enough for preview
         // This also requires front-end change to handle error message correspondingly
         // We return empty list for now to avoid breaking front-end
+        if (e instanceof OpenSearchSecurityException) {
+            listener.onFailure(e);
+        }
         listener.onResponse(Collections.emptyList());
     }
 

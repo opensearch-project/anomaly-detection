@@ -99,7 +99,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         String detectorId = request.getDetectorID();
         RestRequest.Method method = request.getMethod();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, detectorId, method, listener, () -> adExecute(request, user, listener));
+            resolveUserAndExecute(user, detectorId, method, listener, () -> adExecute(request, user, context, listener));
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
@@ -141,7 +141,12 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         }
     }
 
-    protected void adExecute(IndexAnomalyDetectorRequest request, User user, ActionListener<IndexAnomalyDetectorResponse> listener) {
+    protected void adExecute(
+        IndexAnomalyDetectorRequest request,
+        User user,
+        ThreadContext.StoredContext storedContext,
+        ActionListener<IndexAnomalyDetectorResponse> listener
+    ) {
         anomalyDetectionIndices.updateMappingIfNecessary();
         String detectorId = request.getDetectorID();
         long seqNo = request.getSeqNo();
@@ -154,8 +159,9 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
+        storedContext.restore();
         checkIndicesAndExecute(detector.getIndices(), () -> {
-            try {
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                     clusterService,
                     client,

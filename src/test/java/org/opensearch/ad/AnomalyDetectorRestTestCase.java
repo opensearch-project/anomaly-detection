@@ -31,6 +31,7 @@ import static org.opensearch.common.xcontent.json.JsonXContent.jsonXContent;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -59,6 +60,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParserUtils;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,28 +78,60 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return super.restClientSettings();
     }
 
+    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, String indexName, RestClient client)
+        throws IOException {
+        return createRandomAnomalyDetector(refresh, withMetadata, client, true, indexName);
+    }
+
     protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client) throws IOException {
         return createRandomAnomalyDetector(refresh, withMetadata, client, true);
     }
 
     protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client, boolean featureEnabled)
         throws IOException {
+        return createRandomAnomalyDetector(refresh, withMetadata, client, featureEnabled, null);
+    }
+
+    protected AnomalyDetector createRandomAnomalyDetector(
+        Boolean refresh,
+        Boolean withMetadata,
+        RestClient client,
+        boolean featureEnabled,
+        String indexName
+    ) throws IOException {
         Map<String, Object> uiMetadata = null;
         if (withMetadata) {
             uiMetadata = TestHelpers.randomUiMetadata();
         }
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(uiMetadata, null, featureEnabled);
-        String indexName = detector.getIndices().get(0);
-        TestHelpers
-            .makeRequest(
-                client,
-                "POST",
-                "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
-                ImmutableMap.of(),
-                toHttpEntity("{\"name\": \"test\"}"),
-                null,
-                false
-            );
+
+        AnomalyDetector detector = null;
+
+        if (indexName == null) {
+            detector = TestHelpers.randomAnomalyDetector(uiMetadata, null, featureEnabled);
+            TestHelpers
+                .makeRequest(
+                    client,
+                    "POST",
+                    "/" + detector.getIndices().get(0) + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
+                    ImmutableMap.of(),
+                    toHttpEntity("{\"name\": \"test\"}"),
+                    null,
+                    false
+                );
+        } else {
+            detector = TestHelpers
+                .randomAnomalyDetector(
+                    ImmutableList.of(indexName),
+                    ImmutableList.of(TestHelpers.randomFeature(featureEnabled)),
+                    uiMetadata,
+                    Instant.now(),
+                    null,
+                    OpenSearchRestTestCase.randomLongBetween(1, 1000),
+                    null,
+                    true
+                );
+        }
+
         AnomalyDetector createdDetector = createAnomalyDetector(detector, refresh, client);
 
         if (withMetadata) {

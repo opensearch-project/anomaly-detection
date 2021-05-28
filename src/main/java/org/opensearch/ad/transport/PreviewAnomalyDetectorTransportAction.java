@@ -104,7 +104,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 detectorId,
                 filterByEnabled,
                 listener,
-                () -> previewExecute(request, listener),
+                () -> previewExecute(request, context, listener),
                 client,
                 clusterService,
                 xContentRegistry
@@ -115,7 +115,11 @@ public class PreviewAnomalyDetectorTransportAction extends
         }
     }
 
-    void previewExecute(PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
+    void previewExecute(
+        PreviewAnomalyDetectorRequest request,
+        ThreadContext.StoredContext context,
+        ActionListener<PreviewAnomalyDetectorResponse> listener
+    ) {
         try {
             AnomalyDetector detector = request.getDetector();
             String detectorId = request.getDetectorId();
@@ -127,9 +131,10 @@ public class PreviewAnomalyDetectorTransportAction extends
                     listener.onFailure(new OpenSearchException(error, RestStatus.BAD_REQUEST));
                     return;
                 }
-                anomalyDetectorRunner.executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
+                anomalyDetectorRunner
+                    .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
             } else {
-                previewAnomalyDetector(listener, detectorId, startTime, endTime);
+                previewAnomalyDetector(listener, detectorId, startTime, endTime, context);
             }
         } catch (Exception e) {
             logger.error(e);
@@ -160,7 +165,7 @@ public class PreviewAnomalyDetectorTransportAction extends
             listener
                 .onFailure(
                     new OpenSearchException(
-                        "Unexpected error running anomaly detector " + detector.getDetectorId(),
+                        "Unexpected error running anomaly detector " + detector.getDetectorId() + ". " + exception.getMessage(),
                         RestStatus.INTERNAL_SERVER_ERROR
                     )
                 );
@@ -171,11 +176,12 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> listener,
         String detectorId,
         Instant startTime,
-        Instant endTime
+        Instant endTime,
+        ThreadContext.StoredContext context
     ) {
         if (!StringUtils.isBlank(detectorId)) {
             GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
-            client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime));
+            client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, context));
         } else {
             listener.onFailure(new OpenSearchException("Wrong input, no detector id", RestStatus.BAD_REQUEST));
         }
@@ -184,7 +190,8 @@ public class PreviewAnomalyDetectorTransportAction extends
     private ActionListener<GetResponse> onGetAnomalyDetectorResponse(
         ActionListener<PreviewAnomalyDetectorResponse> listener,
         Instant startTime,
-        Instant endTime
+        Instant endTime,
+        ThreadContext.StoredContext context
     ) {
         return ActionListener.wrap(new CheckedConsumer<GetResponse, Exception>() {
             @Override
@@ -204,7 +211,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                     AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
                     anomalyDetectorRunner
-                        .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
+                        .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
                 } catch (IOException e) {
                     listener.onFailure(e);
                 }
