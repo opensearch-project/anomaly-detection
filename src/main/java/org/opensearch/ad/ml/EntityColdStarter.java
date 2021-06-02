@@ -382,6 +382,11 @@ public class EntityColdStarter {
                         maxTrainSamples
                     );
 
+                    if (sampleRanges.isEmpty()) {
+                        listener.onResponse(Optional.empty());
+                        return;
+                    }
+
                     ActionListener<List<Optional<double[]>>> getFeaturelistener = ActionListener.wrap(featureSamples -> {
                         ArrayList<double[]> continuousSampledFeatures = new ArrayList<>(maxTrainSamples);
 
