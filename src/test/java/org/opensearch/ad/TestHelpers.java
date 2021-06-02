@@ -444,6 +444,29 @@ public class TestHelpers {
         );
     }
 
+    public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval, boolean hcDetector, boolean featureEnabled)
+        throws IOException {
+        List<String> categoryField = hcDetector ? ImmutableList.of(randomAlphaOfLength(5)) : null;
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomFeature(featureEnabled)),
+            randomQuery(),
+            interval,
+            randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 2000),
+            null,
+            randomInt(),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            categoryField,
+            randomUser()
+        );
+    }
+
     public static SearchSourceBuilder randomFeatureQuery() throws IOException {
         String query = "{\"query\":{\"match\":{\"user\":{\"query\":\"kimchy\",\"operator\":\"OR\",\"prefix_length\":0,"
             + "\"max_expansions\":50,\"fuzzy_transpositions\":true,\"lenient\":false,\"zero_terms_query\":\"NONE\","

@@ -39,9 +39,9 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -63,6 +63,7 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
@@ -108,15 +109,12 @@ public class EntityColdStarterTests extends AbstractADTest {
         Client client = mock(Client.class);
         ClientUtil clientUtil = mock(ClientUtil.class);
 
-        String categoryField = "a";
         AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetectorUsingCategoryFields(detectorId, Collections.singletonList(categoryField));
+            .randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), true, true);
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
             listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
             return null;
-            // }).when(clientUtil).asyncRequest(eq(new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detectorId)), any(),
-            // any(ActionListener.class));
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
         ModelPartitioner modelPartitioner = mock(ModelPartitioner.class);
@@ -247,7 +245,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         int maxWaitTimes = 20;
         int i = 0;
         while (stateManager.isColdStartRunning(detectorId) && i < maxWaitTimes) {
-            // wait for 1 second
+            // wait for 500 milliseconds
             Thread.sleep(500L);
             i++;
         }
@@ -438,8 +436,26 @@ public class EntityColdStarterTests extends AbstractADTest {
         assertTrue(model.getThreshold() == null);
         // 1st segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 1 + 1 = 65
         // 65 + origin 1 data points
-        assertEquals(66, model.getSamples().size());
-
+        assertEquals("real sample size is " + model.getSamples().size(), 66, model.getSamples().size());
     }
 
+    public void testEmptyDataRange() throws InterruptedException {
+        Queue<double[]> samples = MLUtil.createQueueSamples(1);
+        EntityModel model = new EntityModel(modelId, samples, null, null);
+        modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
+
+        doAnswer(invocation -> {
+            ActionListener<Entry<Optional<Long>, Optional<Long>>> listener = invocation.getArgument(2);
+            listener.onResponse(new SimpleImmutableEntry<>(Optional.of(894056973000L), Optional.of(894057860000L)));
+            return null;
+        }).when(searchFeatureDao).getEntityMinMaxDataTime(any(), any(), any());
+
+        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        waitForColdStartFinish();
+
+        assertTrue(model.getRcf() == null);
+        assertTrue(model.getThreshold() == null);
+        // the min-max range is too small and thus no data range can be found
+        assertEquals("real sample size is " + model.getSamples().size(), 1, model.getSamples().size());
+    }
 }
