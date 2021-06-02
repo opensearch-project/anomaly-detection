@@ -73,7 +73,6 @@ import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.CompositeRetriever;
-import org.opensearch.ad.feature.CompositeRetriever.Page;
 import org.opensearch.ad.feature.CompositeRetriever.PageIterator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
@@ -323,15 +322,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 // wrap expensive operation inside ad threadpool
                 threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
-                    Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures.getResults()
+                    Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
+                        .getResults()
                         .entrySet()
                         .stream()
                         .collect(
-                            Collectors.groupingBy(
-                                // from entity name to its node
-                                e -> hashRing.getOwningNode(e.getKey().toString()).get(),
-                                Collectors.toMap(Entry::getKey, Entry::getValue)
-                            )
+                            Collectors
+                                .groupingBy(
+                                    // from entity name to its node
+                                    e -> hashRing.getOwningNode(e.getKey().toString()).get(),
+                                    Collectors.toMap(Entry::getKey, Entry::getValue)
+                                )
                         )
                         .entrySet();
 
@@ -356,17 +357,26 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     AtomicInteger responseCount = new AtomicInteger();
                     node2Entities.stream().forEach(nodeEntity -> {
                         DiscoveryNode node = nodeEntity.getKey();
-                        transportService.sendRequest(
-                            node,
-                            EntityResultAction.NAME,
-                            new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
-                            option,
-                            new ActionListenerResponseHandler<>(
-                                new EntityResultListener(node.getId(), detectorId, failure, nodeCount, pageIterator, this, responseCount),
-                                AcknowledgedResponse::new,
-                                ThreadPool.Names.SAME
-                            )
-                        );
+                        transportService
+                            .sendRequest(
+                                node,
+                                EntityResultAction.NAME,
+                                new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
+                                option,
+                                new ActionListenerResponseHandler<>(
+                                    new EntityResultListener(
+                                        node.getId(),
+                                        detectorId,
+                                        failure,
+                                        nodeCount,
+                                        pageIterator,
+                                        this,
+                                        responseCount
+                                    ),
+                                    AcknowledgedResponse::new,
+                                    ThreadPool.Names.SAME
+                                )
+                            );
                     });
                 });
             }
@@ -444,7 +454,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 try {
                     pageIterator = compositeRetriever.iterator();
                 } catch (Exception e) {
-                    listener.onFailure(new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                    listener
+                        .onFailure(
+                            new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true)
+                        );
                     return;
                 }
 

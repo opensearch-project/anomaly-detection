@@ -25,8 +25,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
@@ -126,38 +124,34 @@ public class CompositeRetriever extends AbstractRetriever {
      *  detector definition
      */
     public PageIterator iterator() throws IOException {
-            RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
-                .gte(dataStartEpoch)
-                .lt(dataEndEpoch)
-                .format("epoch_millis");
+        RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
+            .gte(dataStartEpoch)
+            .lt(dataEndEpoch)
+            .format("epoch_millis");
 
-            BoolQueryBuilder internalFilterQuery = new BoolQueryBuilder().filter(anomalyDetector.getFilterQuery()).filter(rangeQuery);
+        BoolQueryBuilder internalFilterQuery = new BoolQueryBuilder().filter(anomalyDetector.getFilterQuery()).filter(rangeQuery);
 
-            // multiple categorical fields are supported
-            CompositeAggregationBuilder composite = AggregationBuilders
-                .composite(
-                    AGG_NAME_COMP,
-                    anomalyDetector
-                        .getCategoryField()
-                        .stream()
-                        .map(f -> new TermsValuesSourceBuilder(f).field(f))
-                        .collect(Collectors.toList())
-                )
-                .size(pageSize);
-            for (Feature feature : anomalyDetector.getFeatureAttributes()) {
-                AggregatorFactories.Builder internalAgg = ParseUtils
-                    .parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
-                composite.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
-            }
+        // multiple categorical fields are supported
+        CompositeAggregationBuilder composite = AggregationBuilders
+            .composite(
+                AGG_NAME_COMP,
+                anomalyDetector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+            )
+            .size(pageSize);
+        for (Feature feature : anomalyDetector.getFeatureAttributes()) {
+            AggregatorFactories.Builder internalAgg = ParseUtils
+                .parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
+            composite.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
+        }
 
-            // In order to optimize the early termination it is advised to set track_total_hits in the request to false.
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .query(internalFilterQuery)
-                .size(0)
-                .aggregation(composite)
-                .trackTotalHits(false);
+        // In order to optimize the early termination it is advised to set track_total_hits in the request to false.
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+            .query(internalFilterQuery)
+            .size(0)
+            .aggregation(composite)
+            .trackTotalHits(false);
 
-            return new PageIterator(searchSourceBuilder);
+        return new PageIterator(searchSourceBuilder);
     }
 
     public class PageIterator {
@@ -172,6 +166,7 @@ public class CompositeRetriever extends AbstractRetriever {
 
         /**
          * Results are returned using listener
+         * @param listener Listener to return results
          */
         public void next(ActionListener<Page> listener) {
             SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]), source);
@@ -216,11 +211,15 @@ public class CompositeRetriever extends AbstractRetriever {
          *  ** query source builder to next page if any
          *  ** a map of composite keys to its values.  The values are arranged
          *    according to the order of anomalyDetector.getEnabledFeatureIds().
-         * @throws IOException when writing to file errs.
          */
-        private Page analyzePage(SearchResponse response) throws IOException {
-            CompositeAggregation composite = getComposite(response);
+        private Page analyzePage(SearchResponse response) {
+            Optional<CompositeAggregation> compositeOptional = getComposite(response);
 
+            if (false == compositeOptional.isPresent()) {
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Empty resposne: %s", response));
+            }
+
+            CompositeAggregation composite = compositeOptional.get();
             Map<Entity, double[]> results = new HashMap<>();
             /*
              *
@@ -265,13 +264,13 @@ public class CompositeRetriever extends AbstractRetriever {
         }
 
         private void updateCompositeAfterKey(SearchResponse r, SearchSourceBuilder search) {
-            CompositeAggregation composite = getComposite(r);
+            Optional<CompositeAggregation> composite = getComposite(r);
 
-            if (composite == null) {
+            if (false == composite.isPresent()) {
                 throw new IllegalArgumentException(String.format(Locale.ROOT, "Empty resposne: %s", r));
             }
 
-            updateSourceAfterKey(composite.afterKey(), search);
+            updateSourceAfterKey(composite.get().afterKey(), search);
         }
 
         private void updateSourceAfterKey(Map<String, Object> afterKey, SearchSourceBuilder search) {
@@ -288,22 +287,26 @@ public class CompositeRetriever extends AbstractRetriever {
         }
 
         private boolean shouldRetryDueToEmptyPage(SearchResponse response) {
-            CompositeAggregation composite = getComposite(response);
+            Optional<CompositeAggregation> composite = getComposite(response);
             // if there are no buckets but a next page, go fetch it instead of sending an empty response to the client
-            return composite != null && composite.getBuckets().isEmpty() && composite.afterKey() != null && !composite.afterKey().isEmpty();
+            if (false == composite.isPresent()) {
+                return false;
+            }
+            CompositeAggregation aggr = composite.get();
+            return aggr.getBuckets().isEmpty() && aggr.afterKey() != null && !aggr.afterKey().isEmpty();
         }
 
-        CompositeAggregation getComposite(SearchResponse response) {
+        Optional<CompositeAggregation> getComposite(SearchResponse response) {
             if (response == null || response.getAggregations() == null) {
-                return null;
+                return Optional.empty();
             }
             Aggregation agg = response.getAggregations().get(AGG_NAME_COMP);
             if (agg == null) {
-                return null;
+                return Optional.empty();
             }
 
             if (agg instanceof CompositeAggregation) {
-                return (CompositeAggregation) agg;
+                return Optional.of((CompositeAggregation) agg);
             }
 
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Not a composite response; {}", agg.getClass()));
@@ -316,7 +319,7 @@ public class CompositeRetriever extends AbstractRetriever {
          * @return true if the iteration has more pages.
          */
         public boolean hasNext() {
-            return (totalResults == 0 ||  (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
+            return (totalResults == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
         }
 
         @Override
