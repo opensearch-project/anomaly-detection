@@ -186,6 +186,9 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                             // submit to cold start queue
                             entityColdStartQueue.put(origRequest);
                         }
+                        // If it is checkpoint index not found exception, I don't
+                        // need to retry as checkpoint read is bound to fail. Just
+                        // send everything to the cold start queue and return.
                         return;
                     } else if (ExceptionUtil.isNotFound(failure)) {
                         if (notFoundModels == null) {
