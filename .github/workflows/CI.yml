@@ -98,8 +98,6 @@ jobs:
           if docker pull opensearchstaging/opensearch:$version
           then
             echo "FROM opensearchstaging/opensearch:$version" >> Dockerfile
-            ## The ESRestTest Client uses http by default.
-            ## Need to disable the security plugin to call the rest api over http.
             echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-anomaly-detection ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-anomaly-detection; fi" >> Dockerfile
             echo "ADD anomaly-detection/build/distributions/opensearch-anomaly-detection-$plugin_version.zip /tmp/" >> Dockerfile
             echo "RUN /usr/share/opensearch/bin/opensearch-plugin install --batch file:/tmp/opensearch-anomaly-detection-$plugin_version.zip" >> Dockerfile
