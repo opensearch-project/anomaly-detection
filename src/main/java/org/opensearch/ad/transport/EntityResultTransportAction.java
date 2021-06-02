@@ -61,12 +61,12 @@ import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.ratelimit.CheckpointReadQueue;
-import org.opensearch.ad.ratelimit.ColdEntityQueue;
+import org.opensearch.ad.ratelimit.CheckpointReadWorker;
+import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.EntityFeatureRequest;
-import org.opensearch.ad.ratelimit.ResultWriteQueue;
+import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
-import org.opensearch.ad.ratelimit.SegmentPriority;
+import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.inject.Inject;
@@ -74,6 +74,25 @@ import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
+/**
+ * Entry-point for HCAD workflow.  We have created multiple queues for coordinating
+ * the workflow. The overrall workflow is:
+ * 1. We store as many frequently used entity models in a cache as allowed by the
+ *  memory limit (10% heap). If an entity feature is a hit, we use the in-memory model
+ *  to detect anomalies and record results using the result write queue.
+ * 2. If an entity feature is a miss, we check if there is free memory or any other
+ *  entity's model can be evacuated. An in-memory entity's frequency may be lower
+ *  compared to the cache miss entity. If that's the case, we replace the lower
+ *  frequency entity's model with the higher frequency entity's model. To load the
+ *  higher frequency entity's model, we first check if a model exists on disk by
+ *  sending a checkpoint read queue request. If there is a checkpoint, we load it
+ *  to memory, perform detection, and save the result using the result write queue.
+ *  Otherwise, we enqueue a cold start request to the cold start queue for model
+ *  training. If training is successful, we save the learned model via the checkpoint
+ *  write queue.
+ * 3. We also have the cold entity queue configured for cold entities, and the model
+ * training and inference are connected by serial juxtaposition to limit resource usage.
+ */
 public class EntityResultTransportAction extends HandledTransportAction<EntityResultRequest, AcknowledgedResponse> {
 
     private static final Logger LOG = LogManager.getLogger(EntityResultTransportAction.class);
@@ -82,10 +101,10 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private CacheProvider cache;
     private final NodeStateManager stateManager;
     private AnomalyDetectionIndices indexUtil;
-    private ResultWriteQueue resultWriteQueue;
-    private CheckpointReadQueue checkpointReadQueue;
+    private ResultWriteWorker resultWriteQueue;
+    private CheckpointReadWorker checkpointReadQueue;
     private EntityColdStarter coldStarter;
-    private ColdEntityQueue coldEntityQueue;
+    private ColdEntityWorker coldEntityQueue;
     private ThreadPool threadPool;
 
     @Inject
@@ -97,10 +116,10 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         CacheProvider entityCache,
         NodeStateManager stateManager,
         AnomalyDetectionIndices indexUtil,
-        ResultWriteQueue resultWriteQueue,
-        CheckpointReadQueue checkpointReadQueue,
+        ResultWriteWorker resultWriteQueue,
+        CheckpointReadWorker checkpointReadQueue,
         EntityColdStarter coldStarer,
-        ColdEntityQueue coldEntityQueue,
+        ColdEntityWorker coldEntityQueue,
         ThreadPool threadPool
     ) {
         super(EntityResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
@@ -171,7 +190,6 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
             }
 
             Instant executionStartTime = Instant.now();
-            // Map<String, EntityFeatureRequest> cacheMissEntities = new HashMap<>();
             Map<Entity, double[]> cacheMissEntities = new HashMap<>();
             for (Entry<Entity, double[]> entityEntry : request.getEntities().entrySet()) {
                 Entity categoricalValues = entityEntry.getKey();
@@ -186,7 +204,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 ModelState<EntityModel> entityModel = cache.get().get(modelId, detector);
                 if (entityModel == null) {
                     // cache miss
-                    cacheMissEntities.put(entityEntry.getKey(), entityEntry.getValue());
+                    cacheMissEntities.put(categoricalValues, datapoint);
                     continue;
                 }
                 ThresholdingResult result = getAnomalyResultForEntity(datapoint, entityModel, modelId, detector, categoricalValues);
@@ -199,7 +217,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                             new ResultWriteRequest(
                                 System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
                                 detectorId,
-                                result.getGrade() > 0 ? SegmentPriority.HIGH : SegmentPriority.MEDIUM,
+                                result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                                 new AnomalyResult(
                                     detectorId,
                                     null,
@@ -241,9 +259,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                         new EntityFeatureRequest(
                             System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
                             detectorId,
-                            // will change once we know the anomaly grade. Set it to low since most of the entities should not count as
-                            // hot entities if the traffic is not totally random
-                            SegmentPriority.MEDIUM,
+                            // hot entities has MEDIUM priority
+                            RequestPriority.MEDIUM,
                             hotEntity,
                             hotEntityValue,
                             request.getStart()
@@ -262,9 +279,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                         new EntityFeatureRequest(
                             System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
                             detectorId,
-                            // will change once we know the anomaly grade. Set it to low since most of the entities should not count as
-                            // hot entities if the traffic is not totally random
-                            SegmentPriority.LOW,
+                            // cold entities has LOW priority
+                            RequestPriority.LOW,
                             coldEntity,
                             coldEntityValue,
                             request.getStart()

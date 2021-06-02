@@ -82,9 +82,9 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.ratelimit.CheckpointReadQueue;
-import org.opensearch.ad.ratelimit.ColdEntityQueue;
-import org.opensearch.ad.ratelimit.ResultWriteQueue;
+import org.opensearch.ad.ratelimit.CheckpointReadWorker;
+import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -129,12 +129,12 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     double[] cacheHitData;
     String tooLongEntity;
     double[] tooLongData;
-    ResultWriteQueue resultWriteQueue;
-    CheckpointReadQueue checkpointReadQueue;
+    ResultWriteWorker resultWriteQueue;
+    CheckpointReadWorker checkpointReadQueue;
     int minSamples;
     Instant now;
     EntityColdStarter coldStarter;
-    ColdEntityQueue coldEntityQueue;
+    ColdEntityWorker coldEntityQueue;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -210,8 +210,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         AnomalyDetectionIndices indexUtil = mock(AnomalyDetectionIndices.class);
         when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
 
-        resultWriteQueue = mock(ResultWriteQueue.class);
-        checkpointReadQueue = mock(CheckpointReadQueue.class);
+        resultWriteQueue = mock(ResultWriteWorker.class);
+        checkpointReadQueue = mock(CheckpointReadWorker.class);
 
         minSamples = 1;
 
@@ -223,7 +223,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             return null;
         }).when(coldStarter).trainModelFromExistingSamples(any());
 
-        coldEntityQueue = mock(ColdEntityQueue.class);
+        coldEntityQueue = mock(ColdEntityWorker.class);
 
         entityResult = new EntityResultTransportAction(
             actionFilters,

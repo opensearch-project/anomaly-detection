@@ -35,8 +35,8 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.NoShardAvailableActionException;
+import org.opensearch.action.UnavailableShardsException;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.action.support.TransportActions;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
@@ -141,15 +141,17 @@ public class ExceptionUtil {
     public static boolean isOverloaded(Throwable exception) {
         Throwable cause = Throwables.getRootCause(exception);
         // LimitExceededException may indicate circuit breaker exception
+        // UnavailableShardsException can happen when the system cannot respond
+        // to requests
         return cause instanceof RejectedExecutionException
-            || TransportActions.isShardNotAvailableException(cause)
+            || cause instanceof UnavailableShardsException
             || cause instanceof LimitExceededException;
     }
 
     public static boolean isRetryAble(Exception e) {
         Throwable cause = ExceptionsHelper.unwrapCause(e);
         RestStatus status = ExceptionsHelper.status(cause);
-        return RETRYABLE_STATUS.contains(status);
+        return isRetryAble(status);
     }
 
     public static boolean isRetryAble(RestStatus status) {
