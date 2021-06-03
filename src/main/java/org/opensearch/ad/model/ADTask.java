@@ -73,6 +73,7 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String PARENT_TASK_ID_FIELD = "parent_task_id";
     public static final String ESTIMATED_MINUTES_LEFT_FIELD = "estimated_minutes_left";
     public static final String USER_FIELD = "user";
+    public static final String HISTORICAL_TASK_PREFIX = "HISTORICAL";
 
     private String taskId = null;
     private Instant lastUpdateTime = null;
@@ -199,6 +200,10 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public boolean isHistoricalTask() {
+        return taskType.startsWith(HISTORICAL_TASK_PREFIX);
     }
 
     public static class Builder {

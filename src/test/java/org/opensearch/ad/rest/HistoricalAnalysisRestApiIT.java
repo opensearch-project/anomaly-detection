@@ -173,6 +173,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertEquals(newDetector.getDescription(), updatedDetector.getDescription());
     }
 
+    @Ignore
     public void testUpdateRunningHistoricalAnalysis() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
@@ -214,6 +215,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     }
 
     // TODO: fix delete
+    @Ignore
     public void testDeleteRunningHistoricalDetector() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
@@ -234,6 +236,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         waitUntilTaskFinished(detectorId);
     }
 
+    @Ignore
     public void testSearchTasks() throws IOException, InterruptedException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();

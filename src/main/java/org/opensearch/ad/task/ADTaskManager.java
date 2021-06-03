@@ -36,7 +36,12 @@ import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.LAST_UPDATE_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.STATE_FIELD;
 import static org.opensearch.ad.model.ADTask.STOPPED_BY_FIELD;
+import static org.opensearch.ad.model.ADTask.TASK_TYPE_FIELD;
+import static org.opensearch.ad.model.ADTaskType.ALL_HISTORICAL_TASK_TYPES;
+import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
+import static org.opensearch.ad.model.ADTaskType.REALTIME_TASK_TYPES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.ad.util.ExceptionUtil.getErrorMessage;
@@ -62,13 +67,16 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
+import org.opensearch.action.bulk.BulkAction;
 import org.opensearch.action.bulk.BulkItemResponse;
+import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
@@ -114,8 +122,8 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.UpdateByQueryAction;
@@ -142,7 +150,7 @@ public class ADTaskManager {
     private final ADTaskCacheManager adTaskCacheManager;
 
     private final HashRing hashRing;
-    private volatile Integer maxAdTaskDocsPerDetector;
+    private volatile Integer maxOldAdTaskDocsPerDetector;
     private volatile Integer pieceIntervalSeconds;
     private volatile TimeValue requestTimeout;
 
@@ -164,10 +172,10 @@ public class ADTaskManager {
         this.adTaskCacheManager = adTaskCacheManager;
         this.hashRing = hashRing;
 
-        this.maxAdTaskDocsPerDetector = MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(settings);
+        this.maxOldAdTaskDocsPerDetector = MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(settings);
         clusterService
             .getClusterSettings()
-            .addSettingsUpdateConsumer(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, it -> maxAdTaskDocsPerDetector = it);
+            .addSettingsUpdateConsumer(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, it -> maxOldAdTaskDocsPerDetector = it);
 
         this.pieceIntervalSeconds = BATCH_TASK_PIECE_INTERVAL_SECONDS.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(BATCH_TASK_PIECE_INTERVAL_SECONDS, it -> pieceIntervalSeconds = it);
@@ -209,7 +217,7 @@ public class ADTaskManager {
     }
 
     /**
-     * Forward historical analysis task  to coordinating node.
+     * Forward historical analysis task to coordinating node.
      *
      * @param detector anomaly detector
      * @param detectionDateRange historical analysis date range
@@ -289,6 +297,97 @@ public class ADTaskManager {
     }
 
     /**
+     * Start anomaly detector on coordinating node.
+     * Will init task index if not exist and write new AD task to index. If task index
+     * exists, will check if there is task running. If no running task, reset old task
+     * as not latest and clean old tasks which exceeds max old task doc limitation.
+     * Then find out node with least load and dispatch task to that node(worker node).
+     *
+     * @param detector anomaly detector
+     * @param detectionDateRange detection date range
+     * @param user user
+     * @param transportService transport service
+     * @param listener action listener
+     */
+    public void startDetector(
+        AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
+        User user,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
+        try {
+            if (detectionIndices.doesDetectorStateIndexExist()) {
+                // If detection index exist, check if latest AD task is running
+                getLatestADTask(detector.getDetectorId(), getADTaskTypes(detectionDateRange), (adTask) -> {
+                    if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
+                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
+                    } else {
+                        listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
+                    }
+                }, transportService, listener);
+            } else {
+                // If detection index doesn't exist, create index and execute detector.
+                detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
+                    if (r.isAcknowledged()) {
+                        logger.info("Created {} with mappings.", CommonName.DETECTION_STATE_INDEX);
+                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
+                    } else {
+                        String error = "Create index " + CommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
+                        logger.warn(error);
+                        listener.onFailure(new OpenSearchStatusException(error, RestStatus.INTERNAL_SERVER_ERROR));
+                    }
+                }, e -> {
+                    if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
+                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
+                    } else {
+                        logger.error("Failed to init anomaly detection state index", e);
+                        listener.onFailure(e);
+                    }
+                }));
+            }
+        } catch (Exception e) {
+            logger.error("Failed to start detector " + detector.getDetectorId(), e);
+            listener.onFailure(e);
+        }
+    }
+
+    private ADTaskType getADTaskType(AnomalyDetector detector, DetectionDateRange detectionDateRange) {
+        if (detectionDateRange == null) {
+            return detector.isMultientityDetector() ? ADTaskType.REALTIME_HC_DETECTOR : ADTaskType.REALTIME_SINGLE_ENTITY;
+        } else {
+            return detector.isMultientityDetector() ? ADTaskType.HISTORICAL_HC_DETECTOR : ADTaskType.HISTORICAL_SINGLE_ENTITY;
+        }
+    }
+
+    private List<ADTaskType> getADTaskTypes(DetectionDateRange detectionDateRange) {
+        return getADTaskTypes(detectionDateRange, false);
+    }
+
+    /**
+     * Get list of task types.
+     * 1. If detection date range is null, will return all realtime task types
+     * 2. If detection date range is not null, will return all historical detector level tasks types
+     *    if resetLatestTaskStateFlag is true; otherwise return all historical tasks types include
+     *    HC entity level task type.
+     * @param detectionDateRange detection date range
+     * @param resetLatestTaskStateFlag reset latest task state or not
+     * @return list of AD task types
+     */
+    private List<ADTaskType> getADTaskTypes(DetectionDateRange detectionDateRange, boolean resetLatestTaskStateFlag) {
+        if (detectionDateRange == null) {
+            return REALTIME_TASK_TYPES;
+        } else {
+            if (resetLatestTaskStateFlag) {
+                // return all task types include HC entity task to make sure we can reset all tasks latest flag
+                return ALL_HISTORICAL_TASK_TYPES;
+            } else {
+                return HISTORICAL_DETECTOR_TASK_TYPES;
+            }
+        }
+    }
+
+    /**
      * Stop detector.
      * For realtime detector, will set detector job as disabled.
      * For historical detector, will set its AD task as cancelled.
@@ -311,7 +410,13 @@ public class ADTaskManager {
         getDetector(detectorId, (detector) -> {
             if (historical) {
                 // stop historical detector AD task
-                getLatestADTask(detectorId, (task) -> stopHistoricalAnalysis(detectorId, task, user, listener), transportService, listener);
+                getLatestADTask(
+                    detectorId,
+                    HISTORICAL_DETECTOR_TASK_TYPES,
+                    (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
+                    transportService,
+                    listener
+                );
             } else {
                 // stop realtime detector job
                 handler.stopAnomalyDetectorJob(detectorId);
@@ -371,10 +476,15 @@ public class ADTaskManager {
         }, exception -> listener.onFailure(exception)));
     }
 
+    private List<String> taskTypeToString(List<ADTaskType> adTaskTypes) {
+        return adTaskTypes.stream().map(type -> type.name()).collect(Collectors.toList());
+    }
+
     /**
      * Get latest AD task and execute consumer function.
      *
      * @param detectorId detector id
+     * @param adTaskTypes AD task types
      * @param function consumer function
      * @param transportService transport service
      * @param listener action listener
@@ -382,6 +492,7 @@ public class ADTaskManager {
      */
     public <T> void getLatestADTask(
         String detectorId,
+        List<ADTaskType> adTaskTypes,
         Consumer<Optional<ADTask>> function,
         TransportService transportService,
         ActionListener<T> listener
@@ -389,6 +500,9 @@ public class ADTaskManager {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
+        if (adTaskTypes != null && adTaskTypes.size() > 0) {
+            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(adTaskTypes)));
+        }
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(query);
         SearchRequest searchRequest = new SearchRequest();
@@ -410,7 +524,8 @@ public class ADTaskManager {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 ADTask adTask = ADTask.parse(parser, searchHit.getId());
 
-                if (!isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
+                // TODO: support resetting realtime task as stopped
+                if (adTask.isHistoricalTask() && !isADTaskEnded(adTask) && lastUpdateTimeExpired(adTask)) {
                     // If AD task is still running, but its last updated time not refreshed
                     // for 2 pieces intervals, we will get task profile to check if it's
                     // really running and reset state as STOPPED if not running.
@@ -418,6 +533,7 @@ public class ADTaskManager {
                     // as running. We can reset the task state when next read happen.
                     getADTaskProfile(adTask, ActionListener.wrap(taskProfile -> {
                         if (taskProfile.getNodeId() == null) {
+                            logger.debug("Reset task as STOPPED, taskId {}", adTask.getTaskId());
                             // If no node is running this task, reset it as STOPPED.
                             resetTaskStateAsStopped(adTask, transportService);
                             adTask.setState(ADTaskState.STOPPED.name());
@@ -559,7 +675,7 @@ public class ADTaskManager {
      * @param listener action listener
      */
     public void getLatestADTaskProfile(String detectorId, TransportService transportService, ActionListener<DetectorProfile> listener) {
-        getLatestADTask(detectorId, adTask -> {
+        getLatestADTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
             if (adTask.isPresent()) {
                 getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfile -> {
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
@@ -690,9 +806,9 @@ public class ADTaskManager {
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
-                getLatestADTask(detector.getDetectorId(), (adTask) -> {
+                getLatestADTask(detector.getDetectorId(), HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
-                        executeHistoricalAnalysis(detector, detectionDateRange, user, listener);
+                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
                         listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
                     }
@@ -702,7 +818,7 @@ public class ADTaskManager {
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
                         logger.info("Created {} with mappings.", CommonName.DETECTION_STATE_INDEX);
-                        executeHistoricalAnalysis(detector, detectionDateRange, user, listener);
+                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
                         String error = "Create index " + CommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
                         logger.warn(error);
@@ -710,7 +826,7 @@ public class ADTaskManager {
                     }
                 }, e -> {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
-                        executeHistoricalAnalysis(detector, detectionDateRange, user, listener);
+                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
                         logger.error("Failed to init anomaly detection state index", e);
                         listener.onFailure(e);
@@ -723,7 +839,7 @@ public class ADTaskManager {
         }
     }
 
-    private void executeHistoricalAnalysis(
+    private void executeAnomalyDetector(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
         User user,
@@ -734,6 +850,8 @@ public class ADTaskManager {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detector.getDetectorId()));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
+        // make sure we reset all latest task as false when user switch from single entity to HC, vice versa.
+        query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(getADTaskTypes(detectionDateRange, true))));
         updateByQueryRequest.setQuery(query);
         updateByQueryRequest.setRefresh(true);
         updateByQueryRequest.setScript(new Script("ctx._source.is_latest = false;"));
@@ -760,11 +878,13 @@ public class ADTaskManager {
     ) {
         String userName = user == null ? null : user.getName();
         Instant now = Instant.now();
+        String taskType = getADTaskType(detector, detectionDateRange).name();
         ADTask adTask = new ADTask.Builder()
             .detectorId(detector.getDetectorId())
             .detector(detector)
             .detectionDateRange(detectionDateRange)
             .isLatest(true)
+            .taskType(taskType)
             .taskType(ADTaskType.HISTORICAL.name())
             .executionStartTime(now)
             .taskProgress(0.0f)
@@ -773,33 +893,34 @@ public class ADTaskManager {
             .lastUpdateTime(now)
             .startedBy(userName)
             .coordinatingNode(clusterService.localNode().getId())
+            .detectionDateRange(detectionDateRange)
             .user(user)
             .build();
 
+        createADTaskDirectly(
+            adTask,
+            r -> onIndexADTaskResponse(
+                r,
+                adTask,
+                (response, delegatedListener) -> cleanOldAdTaskDocs(response, adTask, delegatedListener),
+                listener
+            ),
+            listener
+        );
+    }
+
+    public <T> void createADTaskDirectly(ADTask adTask, Consumer<IndexResponse> function, ActionListener<T> listener) {
         IndexRequest request = new IndexRequest(CommonName.DETECTION_STATE_INDEX);
         try (XContentBuilder builder = XContentFactory.jsonBuilder()) {
             request
                 .source(adTask.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE))
                 .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-            client
-                .index(
-                    request,
-                    ActionListener
-                        .wrap(
-                            r -> onIndexADTaskResponse(
-                                r,
-                                adTask,
-                                (response, delegatedListener) -> cleanOldAdTaskDocs(response, adTask, delegatedListener),
-                                listener
-                            ),
-                            e -> {
-                                logger.error("Failed to create AD task for detector " + detector.getDetectorId(), e);
-                                listener.onFailure(e);
-                            }
-                        )
-                );
+            client.index(request, ActionListener.wrap(r -> function.accept(r), e -> {
+                logger.error("Failed to create AD task for detector " + adTask.getDetectorId(), e);
+                listener.onFailure(e);
+            }));
         } catch (Exception e) {
-            logger.error("Failed to create AD task for detector " + detector.getDetectorId(), e);
+            logger.error("Failed to create AD task for detector " + adTask.getDetectorId(), e);
             listener.onFailure(e);
         }
     }
@@ -829,7 +950,9 @@ public class ADTaskManager {
             // Put detector id in cache. If detector id already in cache, will throw
             // DuplicateTaskException. This is to solve race condition when user send
             // multiple start request for one historical detector.
-            adTaskCacheManager.add(adTask.getDetectorId());
+            if (adTask.isHistoricalTask()) {
+                adTaskCacheManager.add(adTask.getDetectorId());
+            }
         } catch (Exception e) {
             delegatedListener.onFailure(e);
             return;
@@ -839,65 +962,87 @@ public class ADTaskManager {
         }
     }
 
-    private void cleanOldAdTaskDocs(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void cleanOldAdTaskDocs(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> delegatedListener) {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, adTask.getDetectorId()));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, false));
+
+        if (adTask.isHistoricalTask()) {
+            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(HISTORICAL_DETECTOR_TASK_TYPES)));
+        } else {
+            query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(REALTIME_TASK_TYPES)));
+        }
+
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder
             .query(query)
             .sort(EXECUTION_START_TIME_FIELD, SortOrder.DESC)
             // Search query "from" starts from 0.
-            .from(maxAdTaskDocsPerDetector - 1)
+            .from(maxOldAdTaskDocsPerDetector)
             .trackTotalHits(true)
-            .size(1);
+            .size(MAX_OLD_AD_TASK_DOCS);
         searchRequest.source(sourceBuilder).indices(CommonName.DETECTION_STATE_INDEX);
         String detectorId = adTask.getDetectorId();
 
-        client.search(searchRequest, ActionListener.wrap(r -> {
+        deleteTaskDocs(detectorId, searchRequest, () -> {
+            if (adTask.isHistoricalTask()) {
+                // run batch result action for historical detection
+                runBatchResultAction(response, adTask, delegatedListener);
+            } else {
+                // return response directly for realtime detection
+                AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
+                    response.getId(),
+                    response.getVersion(),
+                    response.getSeqNo(),
+                    response.getPrimaryTerm(),
+                    RestStatus.OK
+                );
+                delegatedListener.onResponse(anomalyDetectorJobResponse);
+            }
+        }, delegatedListener);
+    }
+
+    private <T> void deleteTaskDocs(
+        String detectorId,
+        SearchRequest searchRequest,
+        AnomalyDetectorFunction function,
+        ActionListener<T> listener
+    ) {
+        ActionListener<SearchResponse> searchListener = ActionListener.wrap(r -> {
             Iterator<SearchHit> iterator = r.getHits().iterator();
             if (iterator.hasNext()) {
-                logger
-                    .debug(
-                        "AD tasks count for detector {} is {}, exceeds limit of {}",
-                        detectorId,
-                        r.getHits().getTotalHits().value,
-                        maxAdTaskDocsPerDetector
-                    );
-                SearchHit searchHit = r.getHits().getAt(0);
-                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    ADTask task = ADTask.parse(parser, searchHit.getId());
-
-                    DeleteByQueryRequest request = new DeleteByQueryRequest(CommonName.DETECTION_STATE_INDEX);
-                    RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(EXECUTION_START_TIME_FIELD);
-                    rangeQueryBuilder.lt(task.getExecutionStartTime().toEpochMilli()).format("epoch_millis");
-                    request.setQuery(rangeQueryBuilder);
-                    client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(res -> {
-                        logger
-                            .debug(
-                                "Deleted {} old AD tasks started equals or before {} for detector {}",
-                                res.getDeleted(),
-                                adTask.getExecutionStartTime().toEpochMilli(),
-                                detectorId
-                            );
-                        runBatchResultAction(response, adTask, listener);
-                    }, e -> {
-                        logger.warn("Failed to clean AD tasks for detector " + detectorId, e);
+                BulkRequest bulkRequest = new BulkRequest();
+                while (iterator.hasNext()) {
+                    SearchHit searchHit = iterator.next();
+                    try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                        ADTask adTask = ADTask.parse(parser, searchHit.getId());
+                        logger.debug("Delete old task: {} of detector: {}", adTask.getTaskId(), adTask.getDetectorId());
+                        bulkRequest.add(new DeleteRequest(CommonName.DETECTION_STATE_INDEX).id(adTask.getTaskId()));
+                    } catch (Exception e) {
                         listener.onFailure(e);
-                    }));
-                } catch (Exception e) {
-                    logger.warn("Failed to parse AD tasks for detector " + detectorId, e);
-                    listener.onFailure(e);
+                    }
                 }
+                client.execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(res -> {
+                    logger.info("AD tasks deleted for detector {}", detectorId);
+                    function.execute();
+                }, e -> {
+                    logger.warn("Failed to clean AD tasks for detector " + detectorId, e);
+                    listener.onFailure(e);
+                }));
             } else {
-                runBatchResultAction(response, adTask, listener);
+                function.execute();
             }
         }, e -> {
-            logger.warn("Failed to search AD tasks for detector " + detectorId, e);
-            listener.onFailure(e);
-        }));
+            if (e instanceof IndexNotFoundException) {
+                function.execute();
+            } else {
+                listener.onFailure(e);
+            }
+        });
+
+        client.search(searchRequest, searchListener);
     }
 
     private void runBatchResultAction(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
@@ -1059,5 +1204,65 @@ public class ADTaskManager {
      */
     public void removeDetectorFromCache(String detectorId) {
         adTaskCacheManager.removeDetector(detectorId);
+    }
+
+    public void updateLatestADTask(String detectorId, List<ADTaskType> taskTypes, Map<String, Object> updatedFields) {
+        updateLatestADTask(
+            detectorId,
+            taskTypes,
+            updatedFields,
+            ActionListener
+                .wrap(
+                    r -> logger.debug("updated latest task of {}", detectorId),
+                    e -> logger.warn("failed to update latest task for detector {}", detectorId)
+                )
+        );
+    }
+
+    public void updateLatestADTask(
+        String detectorId,
+        List<ADTaskType> taskTypes,
+        Map<String, Object> updatedFields,
+        ActionListener listener
+    ) {
+        getLatestADTask(detectorId, taskTypes, (adTask) -> {
+            if (adTask.isPresent()) {
+                updateADTask(adTask.get().getTaskId(), updatedFields);
+            }
+        }, null, listener);
+    }
+
+    /**
+     * Update latest realtime task.
+     *
+     * @param detectorId detector id
+     * @param state task state
+     * @param error error
+     * @param listener action listener
+     */
+    public void updateLatestRealtimeTask(
+        String detectorId,
+        ADTaskState state,
+        Exception error,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
+        getLatestADTask(detectorId, REALTIME_TASK_TYPES, (adTask) -> {
+            if (adTask.isPresent() && !isADTaskEnded(adTask.get())) {
+                Map<String, Object> updatedFields = new HashMap<>();
+                updatedFields.put(ADTask.STATE_FIELD, state.name());
+                if (error != null) {
+                    updatedFields.put(ADTask.ERROR_FIELD, error.getMessage());
+                }
+                updateADTask(adTask.get().getTaskId(), updatedFields, ActionListener.wrap(r -> {
+                    if (error == null) {
+                        listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
+                    } else {
+                        listener.onFailure(error);
+                    }
+                }, e -> { listener.onFailure(e); }));
+            } else {
+                listener.onFailure(new OpenSearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK));
+            }
+        }, null, listener);
     }
 }

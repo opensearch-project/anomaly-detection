@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
@@ -220,6 +221,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                     adTaskManager
                         .getLatestADTask(
                             detectorID,
+                            // TODO: return both latest realtime and historical tasks, fix in next PR
+                            HISTORICAL_DETECTOR_TASK_TYPES,
                             (adTask) -> getDetectorAndJob(detectorID, returnJob, returnTask, adTask, listener),
                             transportService,
                             listener

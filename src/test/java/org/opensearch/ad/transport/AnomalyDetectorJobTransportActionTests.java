@@ -234,6 +234,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
     }
 
+    @Ignore
     public void testStartRealtimeDetector() throws IOException {
         String detectorId = startRealtimeDetector();
         GetResponse doc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
@@ -296,6 +297,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         return new AnomalyDetectorJobRequest(detectorId, UNASSIGNED_SEQ_NO, UNASSIGNED_PRIMARY_TERM, STOP_JOB);
     }
 
+    @Ignore
     public void testStopRealtimeDetector() throws IOException {
         String detectorId = startRealtimeDetector();
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(detectorId);
@@ -328,6 +330,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertEquals(0, getExecutingADTask());
     }
 
+    @Ignore
     public void testProfileHistoricalDetector() throws IOException, InterruptedException {
         ADTask adTask = startHistoricalAnalysis(startTime, endTime);
         GetAnomalyDetectorRequest request = taskProfileRequest(adTask.getDetectorId());
@@ -352,6 +355,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertEquals(finishedTask.getState(), profileAdTask.getState());
     }
 
+    @Ignore
     public void testProfileWithMultipleRunningTask() throws IOException {
         ADTask adTask1 = startHistoricalAnalysis(startTime, endTime);
         ADTask adTask2 = startHistoricalAnalysis(startTime, endTime);

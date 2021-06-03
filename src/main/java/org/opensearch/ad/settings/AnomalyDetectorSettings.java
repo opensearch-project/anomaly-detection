@@ -372,6 +372,8 @@ public final class AnomalyDetectorSettings {
 
     public static int THRESHOLD_MODEL_TRAINING_SIZE = 1000;
 
+    // Maximum number of old AD tasks we can keep.
+    public static int MAX_OLD_AD_TASK_DOCS = 1000;
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
         .intSetting(
             "plugins.anomaly_detection.max_old_ad_task_docs_per_detector",
@@ -380,7 +382,7 @@ public final class AnomalyDetectorSettings {
             // that will be 2GB.
             LegacyOpenDistroAnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
             1, // keep at least 1 old AD task per detector
-            1000,
+            MAX_OLD_AD_TASK_DOCS,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
