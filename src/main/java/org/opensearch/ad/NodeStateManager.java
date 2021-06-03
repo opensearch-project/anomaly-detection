@@ -36,6 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -87,7 +88,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param clock A UTC clock
      * @param stateTtl Max time to keep state in memory
      * @param modelPartitioner Used to partiton a RCF forest
-
+    
      */
     public NodeStateManager(
         Client client,
@@ -284,7 +285,11 @@ public class NodeStateManager implements MaintenanceState, CleanState {
 
     /**
      * Get a detector's exception.  The method has side effect.
-     * We reset error after calling the method since cold start exception can stop job running.
+     * We reset error after calling the method because
+     * 1) We record a detector's exception in each interval.  There is no need
+     *  to record it twice.
+     * 2) EndRunExceptions can stop job running. We only want to send the same
+     *  signal once for each exception.
      * @param adID detector id
      * @return the detector's exception
      */
@@ -295,7 +300,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         }
 
         Optional<AnomalyDetectionException> exception = state.getException();
-        // since an exception can stop job running, we set it to null after using it once.
         exception.ifPresent(e -> state.setException(null));
         return exception;
     }
@@ -317,6 +321,9 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param e Exception to set
      */
     public void setException(String detectorId, Exception e) {
+        if (e == null || Strings.isEmpty(detectorId)) {
+            return;
+        }
         NodeState state = states.computeIfAbsent(detectorId, d -> new NodeState(detectorId, clock));
         Optional<AnomalyDetectionException> exception = state.getException();
         if (exception.isPresent()) {
@@ -327,7 +334,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         }
 
         AnomalyDetectionException adExep = null;
-        if (e != null && e instanceof AnomalyDetectionException) {
+        if (e instanceof AnomalyDetectionException) {
             adExep = (AnomalyDetectionException) e;
         } else {
             adExep = new AnomalyDetectionException(detectorId, e);
