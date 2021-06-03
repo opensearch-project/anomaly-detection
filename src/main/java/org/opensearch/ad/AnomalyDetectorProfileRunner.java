@@ -135,6 +135,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser);
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);
+                    // TODO: remove isRealTimeDetector, change profile
                     if (!detector.isRealTimeDetector() && profilesToCollect.contains(DetectorProfileName.AD_TASK)) {
                         adTaskManager.getLatestADTaskProfile(detectorId, transportService, listener);
                         return;

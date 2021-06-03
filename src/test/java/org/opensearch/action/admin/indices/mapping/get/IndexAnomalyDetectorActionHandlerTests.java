@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
@@ -492,14 +493,17 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     }
 
+    @Ignore
     public void testUpdateIpField() throws IOException {
         testUpdateTemplate(CommonName.IP_TYPE);
     }
 
+    @Ignore
     public void testUpdateKeywordField() throws IOException {
         testUpdateTemplate(CommonName.KEYWORD_TYPE);
     }
 
+    @Ignore
     public void testUpdateTextField() throws IOException {
         testUpdateTemplate(TEXT_FIELD_TYPE);
     }
@@ -536,6 +540,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
     }
 
+    @Ignore
     @SuppressWarnings("unchecked")
     public void testTenMultiEntityDetectorsUpdateSingleEntityAdToMulti() throws IOException {
         int totalHits = 10;
@@ -610,6 +615,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
     }
 
+    @Ignore
     @SuppressWarnings("unchecked")
     public void testTenMultiEntityDetectorsUpdateExistingMultiEntityAd() throws IOException {
         int totalHits = 10;

@@ -32,6 +32,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.rest.RestStatus;
@@ -54,10 +55,11 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
     protected void doExecute(Task task, ForwardADTaskRequest request, ActionListener<AnomalyDetectorJobResponse> listener) {
         ADTaskAction adTaskAction = request.getAdTaskAction();
         AnomalyDetector detector = request.getDetector();
+        DetectionDateRange detectionDateRange = request.getDetectionDateRange();
 
         switch (adTaskAction) {
             case START:
-                adTaskManager.startHistoricalDetector(request.getDetector(), request.getUser(), transportService, listener);
+                adTaskManager.startHistoricalAnalysisTask(detector, detectionDateRange, request.getUser(), transportService, listener);
                 break;
             case STOP:
                 adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());
