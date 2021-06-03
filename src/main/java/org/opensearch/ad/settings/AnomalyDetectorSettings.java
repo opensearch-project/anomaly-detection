@@ -111,6 +111,8 @@ public final class AnomalyDetectorSettings {
             // doc a doc too. One result corresponding to 4 Lucene docs.
             // A single Lucene doc is roughly 46.8 bytes (measured by experiments).
             // 1.35 billion docs is about 65 GB. One shard can have at most 65 GB.
+            // This number in Lucene doc count is used in RolloverRequest#addMaxIndexDocsCondition
+            // for adding condition to check if the index has at least numDocs.
             1_350_000_000L,
             0L,
             Setting.Property.NodeScope,
@@ -282,14 +284,6 @@ public final class AnomalyDetectorSettings {
     // ======================================
     // cache related parameters
     // ======================================
-    // Each detector has its dedicated cache that stores ten entities' states per node. A detector's hottest entities load their states into
-    // the dedicated cache. Other detectors cannot use space reserved by a detector's dedicated cache. Previously, the size of the dedicated
-    // cache is not dynamically adjustable by users. This PR creates a dynamic setting AnomalyDetectorSettings.DEDICATED_CACHE_SIZE to make
-    // dedicated cache's size flexible. When that setting is changed, if the size decreases, we will release memory if required (e.g., when
-    // a user also decreased AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE, the max memory percentage that AD can use); if the size
-    // increases, we may reject the setting change if we cannot fulfill that request (e.g., when it will uses more memory than allowed for
-    // AD).
-
     /*
      * Opensearch-only setting
      * Each detector has its dedicated cache that stores ten entities' states per node.
@@ -304,7 +298,9 @@ public final class AnomalyDetectorSettings {
      *
      * With compact rcf, rcf with 30 trees and shingle size 4 is of 500KB.
      * The recommended max heap size is 32 GB. Even if users use all of the heap
-     * for AD, the max number of entity model cannot surpass 3.2 * 10^10 / 5*10^5 = 6.4 * 10 ^4
+     * for AD, the max number of entity model cannot surpass
+     * 3.2 GB/500KB = 3.2 * 10^10 / 5*10^5 = 6.4 * 10 ^4
+     * where 3.2 GB is from 10% memory limit of AD plugin.
      * That's why I am using 60_000 as the max limit.
      */
     public static final Setting<Integer> DEDICATED_CACHE_SIZE = Setting
@@ -336,14 +332,19 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    // Default number of entities retrieved for Preview API
-    public static final int DEFAULT_ENTITIES_FOR_PREVIEW = 30;
-
     // Maximum number of entities retrieved for Preview API
+    // Not using legacy value 30 as default.
+    // Setting default value to 30 of 2-categorical field detector causes heavy GC
+    // (half of the time is GC on my 1GB heap machine). This is because we use
+    // terms aggregation to find the top entities in preview. Terms aggregation
+    // does not support multiple terms. The current solution is concatenation of
+    // category fields using painless script, which tugs on memory.
+    // Default value 10 won't cause heavy GC.
+    // Since every entity is likely to give some anomalies, 10 is enough.
     public static final Setting<Integer> MAX_ENTITIES_FOR_PREVIEW = Setting
         .intSetting(
             "plugins.anomaly_detection.max_entities_for_preview",
-            LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+            10,
             1,
             1000,
             Setting.Property.NodeScope,
@@ -668,7 +669,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Duration QUEUE_MAINTENANCE = Duration.ofMinutes(5);
+    public static final Duration QUEUE_MAINTENANCE = Duration.ofMinutes(10);
 
     // we won't accept a checkpoint larger than 10MB. Or we risk OOM.
     public static final int MAX_CHECKPOINT_BYTES = 10_000_000;

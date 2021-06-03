@@ -425,7 +425,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            clientUtil,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             anomalyDetectionIndices,
             checkpoint,
@@ -491,7 +490,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            clientUtil,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             entityColdStarter,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
@@ -517,10 +515,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            entityColdStarter,
             modelPartitioner,
             featureManager,
-            memoryTracker,
-            entityColdStarter
+            memoryTracker
         );
 
         MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
@@ -547,7 +545,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            clientUtil,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             multiEntityResultHandler,
             xContentRegistry,
@@ -569,7 +566,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            clientUtil,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             modelManager,
             checkpoint,
