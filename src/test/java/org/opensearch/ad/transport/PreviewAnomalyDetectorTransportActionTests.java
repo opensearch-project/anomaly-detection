@@ -198,7 +198,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testPreviewTransportActionWithNoDetector() throws IOException, InterruptedException {
         // When detectorId is null, preview should fail
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(null, "", Instant.now(), Instant.now());
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(null, "123", Instant.now(), Instant.now());
         ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
             @Override
             public void onResponse(PreviewAnomalyDetectorResponse response) {
@@ -207,7 +207,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertTrue(e.getMessage().contains("Wrong input, no detector id"));
+                Assert.assertTrue(e.getMessage().contains("Could not execute get query to find detector"));
                 inProgressLatch.countDown();
             }
         };
