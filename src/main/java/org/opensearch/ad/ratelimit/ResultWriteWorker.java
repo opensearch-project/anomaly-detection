@@ -33,7 +33,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
@@ -66,7 +65,6 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
         float mediumSegmentPruneRatio,
         float lowSegmentPruneRatio,
         int maintenanceFreqConstant,
-        ClientUtil clientUtil,
         Duration executionTtl,
         MultiEntityResultHandler resultHandler,
         NamedXContentRegistry xContentRegistry,
@@ -88,7 +86,6 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            clientUtil,
             RESULT_WRITE_QUEUE_CONCURRENCY,
             executionTtl,
             RESULT_WRITE_QUEUE_BATCH_SIZE,

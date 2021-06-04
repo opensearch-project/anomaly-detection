@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -28,10 +27,7 @@ import java.util.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ExceptionsHelper;
-import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.bulk.BulkAction;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
@@ -43,7 +39,6 @@ import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
@@ -73,7 +68,6 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
         float mediumSegmentPruneRatio,
         float lowSegmentPruneRatio,
         int maintenanceFreqConstant,
-        ClientUtil clientUtil,
         Duration executionTtl,
         AnomalyDetectionIndices indexUtil,
         CheckpointDao checkpoint,
@@ -97,7 +91,6 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            clientUtil,
             CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
             executionTtl,
             CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
@@ -112,25 +105,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
 
     @Override
     protected void executeBatchRequest(BulkRequest request, ActionListener<BulkResponse> listener) {
-        if (indexUtil.doesCheckpointIndexExist()) {
-            clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
-        } else {
-            indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
-                if (initResponse.isAcknowledged()) {
-                    clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
-                } else {
-                    throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
-                }
-            }, exception -> {
-                if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                    // It is possible the index has been created while we sending the create request
-                    clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
-                } else {
-                    LOG.error(String.format(Locale.ROOT, "Unexpected error creating checkpoint index"), exception);
-                    listener.onFailure(exception);
-                }
-            }));
-        }
+        checkpoint.batchWrite(request, listener);
     }
 
     @Override

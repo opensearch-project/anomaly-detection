@@ -47,11 +47,17 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.bulk.BulkAction;
 import org.opensearch.action.bulk.BulkItemResponse;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.get.MultiGetAction;
+import org.opensearch.action.get.MultiGetRequest;
+import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.IndicesOptions;
@@ -460,5 +466,31 @@ public class CheckpointDao {
 
     public Optional<Map<String, Object>> processRawCheckpoint(GetResponse response) {
         return Optional.ofNullable(response).filter(GetResponse::isExists).map(GetResponse::getSource);
+    }
+
+    public void batchRead(MultiGetRequest request, ActionListener<MultiGetResponse> listener) {
+        clientUtil.<MultiGetRequest, MultiGetResponse>execute(MultiGetAction.INSTANCE, request, listener);
+    }
+
+    public void batchWrite(BulkRequest request, ActionListener<BulkResponse> listener) {
+        if (indexUtil.doesCheckpointIndexExist()) {
+            clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
+        } else {
+            indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
+                if (initResponse.isAcknowledged()) {
+                    clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
+                } else {
+                    throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
+                }
+            }, exception -> {
+                if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                    // It is possible the index has been created while we sending the create request
+                    clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
+                } else {
+                    logger.error(String.format(Locale.ROOT, "Unexpected error creating checkpoint index"), exception);
+                    listener.onFailure(exception);
+                }
+            }));
+        }
     }
 }
