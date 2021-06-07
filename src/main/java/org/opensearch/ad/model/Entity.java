@@ -169,12 +169,12 @@ public class Entity implements ToXContentObject, Writeable {
                     default:
                         break;
                 }
-                // reset every time I have seen a name-value pair.
-                if (parsedName != null && parsedValue != null) {
-                    entities.put(parsedName, parsedValue);
-                    parsedValue = null;
-                    parsedName = null;
-                }
+            }
+            // reset every time I have seen a name-value pair.
+            if (parsedName != null && parsedValue != null) {
+                entities.put(parsedName, parsedValue);
+                parsedValue = null;
+                parsedName = null;
             }
         }
         return new Entity(entities);
