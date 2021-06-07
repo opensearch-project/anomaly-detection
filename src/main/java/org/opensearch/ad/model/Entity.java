@@ -129,6 +129,14 @@ public class Entity implements ToXContentObject, Writeable {
         this.attributes = new TreeMap<>(input.readMap(StreamInput::readString, StreamInput::readString));
     }
 
+    /**
+     * Formatter when serializing to json.  Used in cases when saving anomaly result for HCAD.
+     * The order is Alphabetical sorting (the one used by JDK to compare Strings).
+     * Example:
+     *  z0
+     *  z11
+     *  z2
+     */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startArray();
@@ -157,14 +165,15 @@ public class Entity implements ToXContentObject, Writeable {
                         break;
                     case ATTRIBUTE_VALUE_FIELD:
                         parsedValue = parser.text();
-                        if (parsedName != null && parsedValue != null) {
-                            entities.put(parsedName, parsedValue);
-                        }
-                        parsedValue = null;
-                        parsedName = null;
                         break;
                     default:
                         break;
+                }
+                // reset every time I have seen a name-value pair.
+                if (parsedName != null && parsedValue != null) {
+                    entities.put(parsedName, parsedValue);
+                    parsedValue = null;
+                    parsedName = null;
                 }
             }
         }

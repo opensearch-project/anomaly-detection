@@ -177,7 +177,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
         GetAnomalyDetectorRequest newRequest = new GetAnomalyDetectorRequest(input);
-        Assert.assertNull(newRequest.getEntityValue());
+        Assert.assertNull(newRequest.getEntity());
     }
 
     @SuppressWarnings("unchecked")

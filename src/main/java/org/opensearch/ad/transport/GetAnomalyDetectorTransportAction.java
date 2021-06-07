@@ -160,14 +160,14 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         String detectorID = request.getDetectorID();
         String typesStr = request.getTypeStr();
         String rawPath = request.getRawPath();
-        Entity entityValue = request.getEntityValue();
+        Entity entity = request.getEntity();
         boolean all = request.isAll();
         boolean returnJob = request.isReturnJob();
         boolean returnTask = request.isReturnTask();
 
         try {
             if (!Strings.isEmpty(typesStr) || rawPath.endsWith(PROFILE) || rawPath.endsWith(PROFILE + "/")) {
-                if (entityValue != null) {
+                if (entity != null) {
                     Set<EntityProfileName> entityProfilesToCollect = getEntityProfilesToCollect(typesStr, all);
                     EntityProfileRunner profileRunner = new EntityProfileRunner(
                         client,
@@ -177,7 +177,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                     profileRunner
                         .profile(
                             detectorID,
-                            entityValue,
+                            entity,
                             entityProfilesToCollect,
                             ActionListener
                                 .wrap(
