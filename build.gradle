@@ -278,7 +278,7 @@ evaluationDependsOnChildren()
 task release(type: Copy, group: 'build') {
     dependsOn allprojects*.tasks.build
     from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into "build/plugins/opendistro-anomaly-detection"
+    into "build/plugins/opensearch-anomaly-detection"
     includeEmptyDirs = false
     // ES versions < 6.3 have a top-level opensearch directory inside the plugin zip which we need to remove
     eachFile { it.path = it.path - "opensearch/" }
@@ -327,6 +327,23 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.indices.AnomalyDetectionIndices',
         'org.opensearch.ad.transport.handler.MultiEntityResultHandler',
         'org.opensearch.ad.util.ThrowingSupplierWrapper',
+        'org.opensearch.ad.ratelimit.*',
+        'org.opensearch.ad.transport.EntityResultTransportAction',
+        'org.opensearch.ad.transport.EntityResultTransportAction.*',
+        'org.opensearch.ad.transport.AnomalyResultTransportAction.*',
+        'org.opensearch.ad.transport.ProfileNodeResponse',
+        'org.opensearch.ad.transport.ADResultBulkResponse',
+        'org.opensearch.ad.transport.AggregationType',
+        'org.opensearch.ad.EntityProfileRunner',
+        'org.opensearch.ad.NodeStateManager',
+        'org.opensearch.ad.util.BulkUtil',
+        'org.opensearch.ad.util.ExceptionUtil',
+        'org.opensearch.ad.feature.SearchFeatureDao',
+        'org.opensearch.ad.feature.CompositeRetriever.*',
+        'org.opensearch.ad.feature.ScriptMaker',
+        'org.opensearch.ad.ml.EntityModel',
+        'org.opensearch.ad.caching.PriorityCache',
+        'org.opensearch.ad.ml.CheckpointDao',
 ]
 
 jacocoTestCoverageVerification {
@@ -431,11 +448,11 @@ afterEvaluate {
         prefix '/usr'
 
         license 'ASL-2.0'
-        maintainer 'OpenDistro for Elasticsearch Team <opendistro@amazon.com>'
-        url 'https://opendistro.github.io/for-elasticsearch/downloads.html'
+        maintainer 'OpenSearch <opensearch@amazon.com>'
+        url 'https://opensearch.org/downloads.html'
         summary '''
-         Anomaly Detection plugin for OpenDistro for Elasticsearch.
-         Reference documentation can be found at https://opendistro.github.io/for-elasticsearch-docs/.
+         Anomaly Detection plugin for OpenSearch.
+         Reference documentation can be found at https://docs-beta.opensearch.org/docs/ad/.
     '''.stripIndent().replace('\n', ' ').trim()
     }
 
