@@ -195,10 +195,11 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         );
     }
 
-    public void testTwoCategoricalFields() throws IOException {
+    // we support upto 2 category fields now
+    public void testThreeCategoricalFields() throws IOException {
         expectThrows(
             IllegalArgumentException.class,
-            () -> TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a", "b"))
+            () -> TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a", "b", "c"))
         );
     }
 
