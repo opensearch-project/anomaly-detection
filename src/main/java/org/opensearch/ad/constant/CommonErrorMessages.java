@@ -39,7 +39,7 @@ public class CommonErrorMessages {
     public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG = "AD memory circuit is broken.";
     public static final String DISABLED_ERR_MSG = "AD plugin is disabled. To enable update plugins.anomaly_detection.enabled to true";
     // We need this invalid query tag to show proper error message on frontend
-    // refer to AD Kibana code: https://tinyurl.com/8b5n8hat
+    // refer to AD Dashboard code: https://tinyurl.com/8b5n8hat
     public static final String INVALID_SEARCH_QUERY_MSG = "Invalid search query.";
     public static final String ALL_FEATURES_DISABLED_ERR_MSG =
         "Having trouble querying data because all of your features have been disabled.";
