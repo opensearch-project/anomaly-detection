@@ -967,6 +967,7 @@ public class ModelManager implements DetectorModelSize {
                 modelState.setModel(entityModel);
             }
 
+            // trainModelFromExistingSamples may be able to make models not null
             if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
                 entityColdStarter.trainModelFromExistingSamples(modelState);
             }
