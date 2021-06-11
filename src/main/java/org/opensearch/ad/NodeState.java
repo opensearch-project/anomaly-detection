@@ -49,7 +49,7 @@ public class NodeState implements ExpiringState {
     // last detection error recorded in result index. Used by DetectorStateHandler
     // to check if the error for a detector has changed or not. If changed, trigger indexing.
     private Optional<String> lastDetectionError;
-    // last training error. Used to save cold start error by a concurrent cold start thread.
+    // last error.
     private Optional<AnomalyDetectionException> exception;
     // flag indicating whether checkpoint for the detector exists
     private boolean checkPointExists;
