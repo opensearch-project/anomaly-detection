@@ -131,7 +131,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                             AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
                             AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
                             AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
-                            AnomalyDetectorSettings.MAX_ENTITIES_PER_INTERVAL,
+                            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
                             AnomalyDetectorSettings.PAGE_SIZE
                         )
                 )
@@ -194,10 +194,6 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(
             AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(Settings.EMPTY)
-        );
-        assertEquals(
-            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY.get(Settings.EMPTY),
-            LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY.get(Settings.EMPTY)
         );
         // MAX_ENTITIES_FOR_PREVIEW does not use legacy setting
         assertEquals(Integer.valueOf(10), AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(Settings.EMPTY));
@@ -360,7 +356,6 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             .put("opendistro.anomaly_detection.max_retry_for_end_run_exception", 15)
             .put("opendistro.anomaly_detection.filter_by_backend_roles", true)
             .put("opendistro.anomaly_detection.model_max_size_percent", 0.6D)
-            .put("opendistro.anomaly_detection.max_entities_per_query", 18)
             .put("opendistro.anomaly_detection.max_entities_for_preview", 19)
             .put("opendistro.anomaly_detection.index_pressure_soft_limit", 20F)
             .put("opendistro.anomaly_detection.max_primary_shards", 21)
@@ -389,7 +384,6 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings), Integer.valueOf(15));
         assertEquals(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(true));
         assertEquals(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings), Double.valueOf(0.6D));
-        assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY.get(settings), Integer.valueOf(18));
         // MAX_ENTITIES_FOR_PREVIEW uses default instead of legacy fallback
         assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(10));
         // INDEX_PRESSURE_SOFT_LIMIT uses default instead of legacy fallback
@@ -420,7 +414,6 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION,
                 LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
                 LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
                 LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,

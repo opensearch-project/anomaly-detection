@@ -34,13 +34,9 @@ import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.common.settings.Setting;
 
 public class EnabledSetting extends AbstractSetting {
-
-    private static Logger logger = LogManager.getLogger(EnabledSetting.class);
 
     /**
      * Singleton instance

@@ -322,12 +322,13 @@ public final class AnomalyDetectorSettings {
     public static final int DOOR_KEEPER_MAINTENANCE_FREQ = 60;
 
     // Increase the value will adding pressure to indexing anomaly results and our feature query
+    // OpenSearch-only setting as previous the legacy default is too low (1000)
     public static final Setting<Integer> MAX_ENTITIES_PER_QUERY = Setting
         .intSetting(
             "plugins.anomaly_detection.max_entities_per_query",
-            LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-            1,
-            100_000_000,
+            1_000_000,
+            0,
+            2_000_000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -694,15 +695,4 @@ public final class AnomalyDetectorSettings {
     // 1.0 means we use all of the detection interval to process requests.
     // to ensure we don't block next interval, it is better to set it less than 1.0.
     public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.8f;
-
-    // Increase the value will adding pressure to indexing anomaly results and our feature query
-    public static final Setting<Integer> MAX_ENTITIES_PER_INTERVAL = Setting
-        .intSetting(
-            "plugins.anomaly_detection.max_entities_per_interval",
-            10_000,
-            0,
-            1_000_000,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
-        );
 }
