@@ -135,6 +135,15 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         }, listener::onFailure));
     }
 
+    /**
+     * Verify if the input entity exists or not in case of typos.
+     * @param entity Entity accessor
+     * @param categoryFields category fields defined for a detector
+     * @param detectorId Detector Id
+     * @param profilesToCollect Profile to collect from the input
+     * @param detector Detector config accessor
+     * @param listener Callback to send responses.
+     */
     private void validateEntity(
         Entity entity,
         List<String> categoryFields,

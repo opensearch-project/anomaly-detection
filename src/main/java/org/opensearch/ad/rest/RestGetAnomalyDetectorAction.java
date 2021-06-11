@@ -161,9 +161,9 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
              * GET _opendistro/_anomaly_detection/detectors/<detectorId>/_profile/init_progress
              * {
              *     "entity": [{
-                      "name": "clientip",
-                      "value": "13.24.0.0"
-                   }]
+             *         "name": "clientip",
+             *         "value": "13.24.0.0"
+             *      }]
              * }
              */
             Optional<Entity> entity = Entity.fromJsonObject(request.contentParser());
