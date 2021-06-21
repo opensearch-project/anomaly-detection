@@ -82,7 +82,7 @@ public class PriorityCache implements EntityCache {
     // detector id -> CacheBuffer, weight based
     private final Map<String, CacheBuffer> activeEnities;
     private final CheckpointDao checkpointDao;
-    private int dedicatedCacheSize;
+    private volatile int dedicatedCacheSize;
     // LRU Cache
     private Cache<String, ModelState<EntityModel>> inActiveEntities;
     private final MemoryTracker memoryTracker;

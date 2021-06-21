@@ -74,6 +74,8 @@ public class CacheBuffer implements ExpiringState {
     // max entities to track per detector
     private final int MAX_TRACKING_ENTITIES = 1000000;
 
+    // the reserved cache size. So no matter how many entities there are, we will
+    // keep the size for minimum capacity entities
     private int minimumCapacity;
 
     // key -> value
@@ -340,6 +342,30 @@ public class CacheBuffer implements ExpiringState {
                     // checkpoint is relatively big compared to other queued requests
                     // save checkpoints with 1/6 probability as we expect to save
                     // all every 6 hours statistically
+                    //
+                    // Background:
+                    // We will save a checkpoint when
+                    //
+                    // (a)removing the model from cache.
+                    // (b) cold start
+                    // (c) no complete model only a few samples. If we don't save new samples,
+                    // we will never be able to have enough samples for a trained mode.
+                    // (d) periodically save in case of exceptions.
+                    //
+                    // This branch is doing d). Previously, I will do it every hour for all
+                    // in-cache models. Consider we are moving to 1M entities, this will bring
+                    // the cluster in a heavy payload every hour. That's why I am doing it randomly
+                    // (expected 6 hours for each checkpoint statistically).
+                    //
+                    // I am doing it random since maintaining a state of which one has been saved
+                    // and which one hasn't are not cheap. Also, the models in the cache can be
+                    // dynamically changing. Will have to maintain the state in the removing logic.
+                    // Random is a lazy way to deal with this as it is stateless and statistically sound.
+                    //
+                    // If a checkpoint does not fall into the 6-hour bucket in a particular scenario, the model
+                    // is stale (i.e., we don't recover from the freshest model in disaster.).
+                    //
+                    // All in all, randomness is mostly due to performance and easy maintenance.
                     modelsToSave.add(modelState);
                 }
 
@@ -470,7 +496,7 @@ public class CacheBuffer implements ExpiringState {
 
     public void setMinimumCapacity(int minimumCapacity) {
         if (minimumCapacity < 0) {
-            throw new IllegalArgumentException("minimum capacity should be larger than or equals 0");
+            throw new IllegalArgumentException("minimum capacity should be larger than or equal 0");
         }
         this.minimumCapacity = minimumCapacity;
         this.reservedBytes = memoryConsumptionPerEntity * minimumCapacity;
