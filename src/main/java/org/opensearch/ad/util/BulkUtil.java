@@ -58,7 +58,7 @@ public class BulkUtil {
                     res.add(cloneIndexRequest((IndexRequest) request));
                 }
             } catch (ClassCastException e) {
-                logger.error("We only support IndexRequest");
+                logger.error("We only support IndexRequest", e);
                 throw e;
             }
 
