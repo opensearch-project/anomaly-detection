@@ -96,6 +96,7 @@ public final class AnomalyDetectorRunner {
                     // This also requires front-end change to handle error message correspondingly
                     // We return empty list for now to avoid breaking front-end
                     listener.onResponse(Collections.emptyList());
+                    return;
                 }
                 ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener
                     .wrap(
@@ -146,6 +147,7 @@ public final class AnomalyDetectorRunner {
         // We return empty list for now to avoid breaking front-end
         if (e instanceof OpenSearchSecurityException) {
             listener.onFailure(e);
+            return;
         }
         listener.onResponse(Collections.emptyList());
     }
