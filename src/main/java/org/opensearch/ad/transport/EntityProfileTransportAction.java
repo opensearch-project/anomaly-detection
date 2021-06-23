@@ -104,14 +104,13 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
             listener.onFailure(new AnomalyDetectionException(adID, NO_MODEL_ID_FOUND_MSG));
             return;
         }
-        // we use entity value (e.g., app_0) to find its node
+        // we use entity's toString (e.g., app_0) to find its node
         // This should be consistent with how we land a model node in AnomalyResultTransportAction
         Optional<DiscoveryNode> node = hashRing.getOwningNode(entityValue.toString());
         if (false == node.isPresent()) {
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
             return;
         }
-
         String nodeId = node.get().getId();
         String modelId = modelIdOptional.get();
         DiscoveryNode localNode = clusterService.localNode();
@@ -133,9 +132,12 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
                 }
             }
             listener.onResponse(builder.build());
-        } else {
-            // redirect
-            LOG.debug("Sending entity profile request to {} for detector {}, entity {}", nodeId, adID, entityValue);
+        } else if (request.remoteAddress() == null) {
+            // redirect if request comes from local host.
+            // If a request comes from remote machine, it is already redirected.
+            // One redirection should be enough.
+            // We don't want a potential infinite loop due to any bug and thus give up.
+            LOG.info("Sending entity profile request to {} for detector {}, entity {}", nodeId, adID, entityValue);
 
             try {
                 transportService
@@ -173,6 +175,21 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
                 listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG, e));
             }
 
+        } else {
+            // Prior to Opensearch 1.1, we map a node using model id in the profile API.
+            // This is not consistent how we map node in AnomalyResultTransportAction, where
+            // we use entity values. We fixed that bug in Opensearch 1.1. But this can cause
+            // issue when a request involving an old node according to model id.
+            // The new node finds the entity value does not map to itself, so it redirects to another node.
+            // The redirection can cause an infinite loop. This branch breaks the loop and gives up.
+            LOG
+                .error(
+                    "Fail to get entity profile for detector {}, entity {}. Maybe because old and new node"
+                        + " are using different keys for the hash ring.",
+                    adID,
+                    entityValue
+                );
+            listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG));
         }
     }
 }

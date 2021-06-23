@@ -59,7 +59,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.bytes.BytesReference;
@@ -235,7 +234,7 @@ public class AbstractADTest extends OpenSearchTestCase {
      * @param setting the supported setting set.
      */
     public void setupTestNodes(TransportInterceptor transportInterceptor, final Settings nodeSettings, Setting<?>... setting) {
-        setupTestNodes(transportInterceptor, randomIntBetween(2, 10), nodeSettings, setting);
+        setupTestNodes(transportInterceptor, randomIntBetween(2, 10), nodeSettings, Version.CURRENT, setting);
     }
 
     /**
@@ -250,13 +249,14 @@ public class AbstractADTest extends OpenSearchTestCase {
         TransportInterceptor transportInterceptor,
         int numberOfNodes,
         final Settings nodeSettings,
+        Version version,
         Setting<?>... setting
     ) {
         nodesCount = numberOfNodes;
         testNodes = new FakeNode[nodesCount];
         Set<Setting<?>> settingSet = new HashSet<>(Arrays.asList(setting));
         for (int i = 0; i < testNodes.length; i++) {
-            testNodes[i] = new FakeNode("node" + i, threadPool, nodeSettings, settingSet, transportInterceptor);
+            testNodes[i] = new FakeNode("node" + i, threadPool, nodeSettings, settingSet, transportInterceptor, version);
         }
         FakeNode.connectNodes(testNodes);
     }
@@ -375,14 +375,6 @@ public class AbstractADTest extends OpenSearchTestCase {
             }
 
         }, null);
-    }
-
-    protected boolean areEqualWithArrayValue(Map<Entity, double[]> first, Map<Entity, double[]> second) {
-        if (first.size() != second.size()) {
-            return false;
-        }
-
-        return first.entrySet().stream().allMatch(e -> Arrays.equals(e.getValue(), second.get(e.getKey())));
     }
 
     protected IndexMetadata indexMeta(String name, long creationDate, String... aliases) {

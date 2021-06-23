@@ -27,9 +27,12 @@
 package org.opensearch.ad.e2e;
 
 import static org.opensearch.ad.TestHelpers.toHttpEntity;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -44,12 +47,17 @@ import java.util.Set;
 
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.opensearch.ad.ODFERestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
+import org.opensearch.common.Strings;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.json.JsonXContent;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;
@@ -57,10 +65,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class DetectionResultEvalutationIT extends ODFERestTestCase {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
 
     public void testDataset() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
+            disableResourceNotFoundFaultTolerence();
             verifyAnomaly("synthetic", 1, 1500, 8, .9, .9, 10);
         }
     }
@@ -301,5 +311,31 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * In real time AD, we mute a node for a detector if that node keeps returning
+     * ResourceNotFoundException (5 times in a row).  This is a problem for batch mode
+     * testing as we issue a large amount of requests quickly. Due to the speed, we
+     * won't be able to finish cold start before the ResourceNotFoundException mutes
+     * a node.  Since our test case has only one node, there is no other nodes to fall
+     * back on.  Here we disable such fault tolerance by setting max retries before
+     * muting to a large number and the actual wait time during muting to 0.
+     *
+     * @throws IOException when failing to create http request body
+     */
+    private void disableResourceNotFoundFaultTolerence() throws IOException {
+        XContentBuilder settingCommand = JsonXContent.contentBuilder();
+
+        settingCommand.startObject();
+        settingCommand.startObject("persistent");
+        settingCommand.field(MAX_RETRY_FOR_UNRESPONSIVE_NODE.getKey(), 100_000);
+        settingCommand.field(BACKOFF_MINUTES.getKey(), 0);
+        settingCommand.endObject();
+        settingCommand.endObject();
+        Request request = new Request("PUT", "/_cluster/settings");
+        request.setJsonEntity(Strings.toString(settingCommand));
+
+        adminClient().performRequest(request);
     }
 }

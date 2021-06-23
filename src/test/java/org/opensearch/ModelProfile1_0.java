@@ -9,57 +9,76 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+/*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
+package org.opensearch;
 
 import java.io.IOException;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
 
-public class ModelProfileOnNode implements Writeable, ToXContent {
+public class ModelProfile1_0 implements Writeable, ToXContent {
     // field name in toXContent
+    public static final String MODEL_ID = "model_id";
+    public static final String MODEL_SIZE_IN_BYTES = "model_size_in_bytes";
     public static final String NODE_ID = "node_id";
 
+    private final String modelId;
+    private final long modelSizeInBytes;
     private final String nodeId;
-    private final ModelProfile modelProfile;
 
-    public ModelProfileOnNode(String nodeId, ModelProfile modelProfile) {
+    public ModelProfile1_0(String modelId, long modelSize, String nodeId) {
+        super();
+        this.modelId = modelId;
+        this.modelSizeInBytes = modelSize;
         this.nodeId = nodeId;
-        this.modelProfile = modelProfile;
     }
 
-    public ModelProfileOnNode(StreamInput in) throws IOException {
-        this.nodeId = in.readString();
-        this.modelProfile = new ModelProfile(in);
+    public ModelProfile1_0(StreamInput in) throws IOException {
+        modelId = in.readString();
+        modelSizeInBytes = in.readLong();
+        nodeId = in.readString();
     }
 
     public String getModelId() {
-        return modelProfile.getModelId();
+        return modelId;
     }
 
     public long getModelSize() {
-        return modelProfile.getModelSizeInBytes();
+        return modelSizeInBytes;
     }
 
     public String getNodeId() {
         return nodeId;
     }
 
-    public ModelProfile getModelProfile() {
-        return modelProfile;
-    }
-
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        modelProfile.toXContent(builder, params);
+        builder.field(MODEL_ID, modelId);
+        if (modelSizeInBytes > 0) {
+            builder.field(MODEL_SIZE_IN_BYTES, modelSizeInBytes);
+        }
         builder.field(NODE_ID, nodeId);
         builder.endObject();
         return builder;
@@ -67,8 +86,9 @@ public class ModelProfileOnNode implements Writeable, ToXContent {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(modelId);
+        out.writeLong(modelSizeInBytes);
         out.writeString(nodeId);
-        modelProfile.writeTo(out);
     }
 
     @Override
@@ -79,10 +99,11 @@ public class ModelProfileOnNode implements Writeable, ToXContent {
             return false;
         if (getClass() != obj.getClass())
             return false;
-        if (obj instanceof ModelProfileOnNode) {
-            ModelProfileOnNode other = (ModelProfileOnNode) obj;
+        if (obj instanceof ModelProfile1_0) {
+            ModelProfile1_0 other = (ModelProfile1_0) obj;
             EqualsBuilder equalsBuilder = new EqualsBuilder();
-            equalsBuilder.append(modelProfile, other.modelProfile);
+            equalsBuilder.append(modelId, other.modelId);
+            equalsBuilder.append(modelSizeInBytes, other.modelSizeInBytes);
             equalsBuilder.append(nodeId, other.nodeId);
 
             return equalsBuilder.isEquals();
@@ -92,13 +113,16 @@ public class ModelProfileOnNode implements Writeable, ToXContent {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(modelProfile).append(nodeId).toHashCode();
+        return new HashCodeBuilder().append(modelId).append(modelSizeInBytes).append(nodeId).toHashCode();
     }
 
     @Override
     public String toString() {
         ToStringBuilder builder = new ToStringBuilder(this);
-        builder.append(CommonName.MODEL, modelProfile);
+        builder.append(MODEL_ID, modelId);
+        if (modelSizeInBytes > 0) {
+            builder.append(MODEL_SIZE_IN_BYTES, modelSizeInBytes);
+        }
         builder.append(NODE_ID, nodeId);
         return builder.toString();
     }

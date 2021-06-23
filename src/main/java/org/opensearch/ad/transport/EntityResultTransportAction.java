@@ -50,6 +50,7 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.EntityModel;
@@ -189,6 +190,19 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
             for (Entry<Entity, double[]> entityEntry : request.getEntities().entrySet()) {
                 Entity categoricalValues = entityEntry.getKey();
 
+                if (isEntityeFromOldNodeMsg(categoricalValues)
+                    && detector.getCategoryField() != null
+                    && detector.getCategoryField().size() == 1) {
+                    Map<String, String> attrValues = categoricalValues.getAttributes();
+                    // handle a request from a version before OpenSearch 1.1.
+                    categoricalValues = Entity
+                        .createSingleAttributeEntity(
+                            detectorId,
+                            detector.getCategoryField().get(0),
+                            attrValues.get(CommonName.EMPTY_FIELD)
+                        );
+                }
+
                 Optional<String> modelIdOptional = categoricalValues.getModelId(detectorId);
                 if (false == modelIdOptional.isPresent()) {
                     continue;
@@ -306,5 +320,26 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 );
             listener.onFailure(exception);
         });
+    }
+
+    /**
+     * Whether the received entity comes from an node that doesn't support multi-category fields.
+     * This can happen during rolling-upgrade or blue/green deployment.
+     *
+     * Specifically, when receiving an EntityResultRequest from an incompatible node,
+     * EntityResultRequest(StreamInput in) gets an String that represents an entity.
+     * But Entity class requires both an category field name and value. Since we
+     * don't have access to detector config in EntityResultRequest(StreamInput in),
+     * we put CommonName.EMPTY_FIELD as the placeholder.  In this method,
+     * we use the same CommonName.EMPTY_FIELD to check if the deserialized entity
+     * comes from an incompatible node.  If it is, we will add the field name back
+     * as EntityResultTranportAction has access to the detector config object.
+     *
+     * @param categoricalValues deserialized Entity from inbound message.
+     * @return Whether the received entity comes from an node that doesn't support multi-category fields.
+     */
+    private boolean isEntityeFromOldNodeMsg(Entity categoricalValues) {
+        Map<String, String> attrValues = categoricalValues.getAttributes();
+        return (attrValues != null && attrValues.containsKey(CommonName.EMPTY_FIELD));
     }
 }

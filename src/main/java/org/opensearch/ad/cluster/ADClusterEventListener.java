@@ -32,6 +32,7 @@ import java.util.concurrent.Semaphore;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.ClusterChangedEvent;
@@ -128,7 +129,16 @@ public class ADClusterEventListener implements ClusterStateListener {
                     Optional<DiscoveryNode> node = hashRing.getOwningNode(modelId);
                     if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
                         LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
-                        modelManager.stopModel(modelManager.getDetectorIdForModelId(modelId), modelId);
+                        modelManager
+                            .stopModel(
+                                modelManager.getDetectorIdForModelId(modelId),
+                                modelId,
+                                ActionListener
+                                    .wrap(
+                                        r -> LOG.info("Stopped model [{}] with response [{}]", modelId, r),
+                                        e -> LOG.error("Fail to stop model " + modelId, e)
+                                    )
+                            );
                     }
                 }
             }

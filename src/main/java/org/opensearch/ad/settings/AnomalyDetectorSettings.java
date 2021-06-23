@@ -202,7 +202,7 @@ public final class AnomalyDetectorSettings {
     // RCF
     public static final int NUM_SAMPLES_PER_TREE = 256;
 
-    public static final int NUM_TREES = 100;
+    public static final int NUM_TREES = 30;
 
     public static final int TRAINING_SAMPLE_INTERVAL = 64;
 
@@ -221,6 +221,21 @@ public final class AnomalyDetectorSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
+
+    // for a batch operation, we want all of the bounding box in-place for speed
+    public static final double BATCH_BOUNDING_BOX_CACHE_RATIO = 1;
+
+    // for a real-time operation, we trade off speed for memory as real time opearation
+    // only has to do one update/scoring per interval
+    public static final double REAL_TIME_BOUNDING_BOX_CACHE_RATIO = 0;
+
+    public static final int DEFAULT_SHINGLE_SIZE = 8;
+
+    // Multi-entity detector model setting:
+    // TODO (kaituo): change to 4
+    public static final int DEFAULT_MULTI_ENTITY_SHINGLE = 1;
+
+    public static final int MAX_SHINGLE_SIZE = 1024;
 
     // Thresholding
     public static final double THRESHOLD_MIN_PVALUE = 0.995;
@@ -244,10 +259,9 @@ public final class AnomalyDetectorSettings {
 
     public static final int MIN_TRAIN_SAMPLES = 512;
 
-    public static final int DEFAULT_SHINGLE_SIZE = 8;
-
     public static final int MAX_IMPUTATION_NEIGHBOR_DISTANCE = 2;
 
+    // shingling
     public static final double MAX_SHINGLE_PROPORTION_MISSING = 0.25;
 
     // AD JOB
@@ -264,14 +278,10 @@ public final class AnomalyDetectorSettings {
     // minute. Since these states' life time is hour, we keep its size 10 * 1000 = 10000.
     public static final int MAX_SMALL_STATES = 10000;
 
-    // Multi-entity detector model setting:
-    // TODO (kaituo): change to 4
-    public static final int DEFAULT_MULTI_ENTITY_SHINGLE = 1;
-
     // how many categorical fields we support
     public static final int CATEGORY_FIELD_LIMIT = 1;
 
-    public static final int MULTI_ENTITY_NUM_TREES = 10;
+    public static final int MULTI_ENTITY_NUM_TREES = 30;
 
     // ======================================
     // cache related parameters
@@ -670,9 +680,6 @@ public final class AnomalyDetectorSettings {
 
     public static final Duration QUEUE_MAINTENANCE = Duration.ofMinutes(10);
 
-    // we won't accept a checkpoint larger than 10MB. Or we risk OOM.
-    public static final int MAX_CHECKPOINT_BYTES = 10_000_000;
-
     public static final float MAX_QUEUED_TASKS_RATIO = 0.5f;
 
     public static final float MEDIUM_SEGMENT_PRUNE_RATIO = 0.1f;
@@ -681,6 +688,26 @@ public final class AnomalyDetectorSettings {
 
     // expensive maintenance (e.g., queue maintenance) with 1/10000 probability
     public static final int MAINTENANCE_FREQ_CONSTANT = 10000;
+
+    // ======================================
+    // Checkpoint setting
+    // ======================================
+    // we won't accept a checkpoint larger than 30MB. Or we risk OOM.
+    // For reference, in RCF 1.0, the checkpoint of a RCF with 50 trees, 10 dimensions,
+    // 256 samples is of 3.2MB.
+    // In compact rcf, the same RCF is of 163KB.
+    // Since we allow at most 5 features, and the default shingle size is 8 and default
+    // tree number size is 100, we can have at most 25.6 MB in RCF 1.0.
+    // It is possible that cx increases the max features or shingle size, but we don't want
+    // to risk OOM for the flexibility.
+    public static final int MAX_CHECKPOINT_BYTES = 30_000_000;
+
+    // Sets the cap on the number of buffer that can be allocated by the rcf deserialization
+    // buffer pool. Each buffer is of 512 bytes. Memory occupied by 20 buffers is 10.24 KB.
+    public static final int MAX_TOTAL_RCF_SERIALIZATION_BUFFERS = 20;
+
+    // the size of the buffer used for rcf deserialization
+    public static final int SERIALIZATION_BUFFER_BYTES = 512;
 
     // ======================================
     // pagination setting

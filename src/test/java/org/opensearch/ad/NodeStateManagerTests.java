@@ -33,6 +33,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -41,31 +43,43 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
+import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodeRole;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.search.SearchModule;
+import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableMap;
 
-public class NodeStateManagerTests extends OpenSearchTestCase {
+public class NodeStateManagerTests extends AbstractADTest {
     private NodeStateManager stateManager;
     private ModelPartitioner modelPartitioner;
     private Client client;
@@ -79,11 +93,22 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
     private String adId = "123";
 
     private GetResponse checkpointResponse;
+    private ClusterService clusterService;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
         SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
         return new NamedXContentRegistry(searchModule.getNamedXContents());
+    }
+
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        setUpThreadPool(AnomalyResultTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
     }
 
     @Override
@@ -104,7 +129,30 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
         throttler = new Throttler(clock);
 
         clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, mock(ThreadPool.class));
-        stateManager = new NodeStateManager(client, xContentRegistry(), settings, clientUtil, clock, duration, modelPartitioner);
+        Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
+        nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
+        nodestateSetting.add(BACKOFF_MINUTES);
+        ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
+
+        DiscoveryNode discoveryNode = new DiscoveryNode(
+            "node1",
+            OpenSearchTestCase.buildNewFakeTransportAddress(),
+            Collections.emptyMap(),
+            DiscoveryNodeRole.BUILT_IN_ROLES,
+            Version.CURRENT
+        );
+
+        clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
+        stateManager = new NodeStateManager(
+            client,
+            xContentRegistry(),
+            settings,
+            clientUtil,
+            clock,
+            duration,
+            modelPartitioner,
+            clusterService
+        );
 
         checkpointResponse = mock(GetResponse.class);
     }
@@ -194,22 +242,22 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
 
     public void testShouldMute() {
         String nodeId = "123";
-        assertTrue(!stateManager.isMuted(nodeId));
+        assertTrue(!stateManager.isMuted(nodeId, adId));
 
         when(clock.millis()).thenReturn(10000L);
-        IntStream.range(0, 4).forEach(j -> stateManager.addPressure(nodeId));
+        IntStream.range(0, 4).forEach(j -> stateManager.addPressure(nodeId, adId));
 
         when(clock.millis()).thenReturn(20000L);
-        assertTrue(stateManager.isMuted(nodeId));
+        assertTrue(stateManager.isMuted(nodeId, adId));
 
         // > 15 minutes have passed, we should not mute anymore
         when(clock.millis()).thenReturn(1000001L);
-        assertTrue(!stateManager.isMuted(nodeId));
+        assertTrue(!stateManager.isMuted(nodeId, adId));
 
         // the backpressure counter should be reset
         when(clock.millis()).thenReturn(100001L);
-        stateManager.resetBackpressureCounter(nodeId);
-        assertTrue(!stateManager.isMuted(nodeId));
+        stateManager.resetBackpressureCounter(nodeId, adId);
+        assertTrue(!stateManager.isMuted(nodeId, adId));
     }
 
     public void testMaintenanceDoNothing() {
@@ -226,7 +274,8 @@ public class NodeStateManagerTests extends OpenSearchTestCase {
             new ClientUtil(settings, client, throttler, context),
             clock,
             duration,
-            modelPartitioner
+            modelPartitioner,
+            clusterService
         );
 
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);

@@ -85,8 +85,6 @@ import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.Strings;
-import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.ToXContent;
@@ -170,8 +168,6 @@ public class EntityResultTransportActionTests extends AbstractADTest {
 
         manager = new ModelManager(
             null,
-            null,
-            null,
             clock,
             0,
             0,
@@ -183,7 +179,6 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             0,
             0,
             0,
-            null,
             0,
             null,
             null,
@@ -311,18 +306,6 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         future.actionGet(timeoutMs);
 
         verify(resultWriteQueue, never()).put(any());
-    }
-
-    public void testSerialzationRequest() throws IOException {
-        BytesStreamOutput output = new BytesStreamOutput();
-        request.writeTo(output);
-
-        StreamInput streamInput = output.bytes().streamInput();
-        EntityResultRequest readRequest = new EntityResultRequest(streamInput);
-        assertThat(detectorId, equalTo(readRequest.getDetectorId()));
-        assertThat(start, equalTo(readRequest.getStart()));
-        assertThat(end, equalTo(readRequest.getEnd()));
-        assertTrue(areEqualWithArrayValue(entities, readRequest.getEntities()));
     }
 
     public void testValidRequest() {

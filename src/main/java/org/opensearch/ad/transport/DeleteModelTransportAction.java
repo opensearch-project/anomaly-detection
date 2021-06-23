@@ -31,6 +31,7 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
@@ -117,7 +118,15 @@ public class DeleteModelTransportAction extends
         String adID = request.getAdID();
         LOG.info("Delete model for {}", adID);
         // delete in-memory models and model checkpoint
-        modelManager.clear(adID);
+        modelManager
+            .clear(
+                adID,
+                ActionListener
+                    .wrap(
+                        r -> LOG.info("Deleted model for [{}] with response [{}] ", adID, r),
+                        e -> LOG.error("Fail to delete model for " + adID, e)
+                    )
+            );
 
         // delete buffered shingle data
         featureManager.clear(adID);

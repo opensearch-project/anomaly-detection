@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.CheckpointDao;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 
 /**
@@ -55,6 +56,7 @@ public class ModelCheckpointIndexRetention implements Runnable {
     private static final long MAX_SHARD_SIZE_IN_BYTE = 50 * 1024 * 1024 * 1024L;
     // We can't clean up all of the checkpoints. At least keep models for 1 day
     private static final Duration MINIMUM_CHECKPOINT_TTL = Duration.ofDays(1);
+    static final String CHECKPOINT_NOT_EXIST_MSG = "Checkpoint index does not exist.";
 
     private final Duration defaultCheckpointTtl;
     private final Clock clock;
@@ -118,7 +120,15 @@ public class ModelCheckpointIndexRetention implements Runnable {
                     }
                 },
                     // The docs will be deleted in next scheduled windows. No need for retrying.
-                    exception -> LOG.error("checkpoint index retention based on shard size fails", exception)
+                    exception -> {
+                        if (exception instanceof IndexNotFoundException) {
+                            // the method will be called hourly
+                            // don't log stack trace as most of OpenSearch domains have no AD installed
+                            LOG.debug(CHECKPOINT_NOT_EXIST_MSG);
+                        } else {
+                            LOG.error("checkpoint index retention based on shard size fails", exception);
+                        }
+                    }
                 )
             );
     }
