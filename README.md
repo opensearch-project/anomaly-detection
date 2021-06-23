@@ -31,7 +31,7 @@ You should use anomaly detection plugin with the same version of [OpenSearch Ale
   
 ## Documentation
 
-Please see [our documentation](https://docs-beta.opensearch.org/docs/ad/).
+Please see [our documentation](https://docs-beta.opensearch.org/monitoring-plugins/ad/index/).
 
 ## Contributing
 
