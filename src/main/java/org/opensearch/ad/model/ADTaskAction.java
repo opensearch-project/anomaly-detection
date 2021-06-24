@@ -28,5 +28,9 @@ package org.opensearch.ad.model;
 
 public enum ADTaskAction {
     START,
-    STOP
+    FINISHED,
+    CANCEL,
+    NEXT_ENTITY,
+    PUSH_BACK_ENTITY,
+    CLEAN_RUNNING_ENTITY
 }

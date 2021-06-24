@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
@@ -84,6 +85,7 @@ public class SearchADTasksTransportActionTests extends HistoricalAnalysisIntegTe
         assertEquals(0, response.getHits().getTotalHits().value);
     }
 
+    @Ignore
     public void testSearchWithExistingTask() throws IOException {
         startHistoricalAnalysis(startTime, endTime);
         SearchRequest searchRequest = searchRequest(true);

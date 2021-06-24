@@ -339,6 +339,10 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.task.ADTaskManager',
         'org.opensearch.ad.task.ADTaskCacheManager',
         'org.opensearch.ad.transport.ForwardADTaskTransportAction',
+        'org.opensearch.ad.task.ADHCBatchTaskCache',
+        'org.opensearch.ad.task.ADBatchTaskRunner',
+        'org.opensearch.ad.transport.ForwardADTaskRequest',
+        'org.opensearch.ad.task.ADBatchTaskCache'
 ]
 
 jacocoTestCoverageVerification {

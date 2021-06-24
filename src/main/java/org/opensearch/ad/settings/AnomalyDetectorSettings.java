@@ -406,4 +406,26 @@ public final class AnomalyDetectorSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
+
+    // Maximum number of entities we support for historical analysis.
+    public static final int MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS = 10_000;
+    public static final Setting<Integer> MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_top_entities_for_historical_analysis",
+            50,
+            1,
+            MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Integer> MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_running_entities_per_detector_for_historical_analysis",
+            1,
+            1,
+            1000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 }

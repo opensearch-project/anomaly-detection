@@ -55,4 +55,6 @@ public class CommonErrorMessages {
     public static String NULL_DETECTION_INTERVAL = "Detection interval should be set";
     public static String INVALID_SHINGLE_SIZE = "Shingle size must be a positive integer";
     public static String INVALID_DETECTION_INTERVAL = "Detection interval must be a positive integer";
+    public static String EXCEED_HISTORICAL_ANALYSIS_LIMIT = "Exceed max historical analysis limit per node";
+    public static String NO_ELIGIBLE_NODE_TO_RUN_DETECTOR = "No eligible node to run detector ";
 }

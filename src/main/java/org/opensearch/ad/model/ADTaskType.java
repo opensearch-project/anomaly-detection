@@ -31,9 +31,6 @@ import java.util.List;
 import com.google.common.collect.ImmutableList;
 
 public enum ADTaskType {
-    // TODO: remove these old task types
-    REALTIME,
-    HISTORICAL,
     REALTIME_SINGLE_ENTITY,
     REALTIME_HC_DETECTOR,
     HISTORICAL_SINGLE_ENTITY,

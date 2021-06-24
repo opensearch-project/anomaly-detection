@@ -902,7 +902,7 @@ public class TestHelpers {
         ADTask task = ADTask
             .builder()
             .taskId(taskId)
-            .taskType(ADTaskType.HISTORICAL.name())
+            .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
             .detectorId(detectorId)
             .detector(detector)
             .state(state.name())
@@ -930,7 +930,7 @@ public class TestHelpers {
         ADTask task = ADTask
             .builder()
             .taskId(taskId)
-            .taskType(ADTaskType.HISTORICAL.name())
+            .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
             .detectorId(randomAlphaOfLength(5))
             .detector(detector)
             .state(state.name())
