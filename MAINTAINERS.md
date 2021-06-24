@@ -12,7 +12,6 @@
 | Tyler Ohlsen            | [ohtyler](https://github.com/ohltyler)                  | Amazon      |
 | Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                   | Amazon      |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)                 | Amazon      |
-| Weicong Sun             | [weicongs-amazon](https://github.com/weicongs-amazon)   | Amazon      |
 | Yaliang Wu              | [ylwu-amzn](https://github.com/ylwu-amzn)               | Amazon      |
 | Yizhe Liu               | [yizheliu-amazon](https://github.com/yizheliu-amazon)   | Amazon      |
 
