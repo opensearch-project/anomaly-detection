@@ -564,9 +564,9 @@ public final class AnomalyDetectorSettings {
     /**
      * Max concurrent entity cold starts per node
      */
-    public static final Setting<Integer> ENTITY_COLDSTART_QUEUE_CONCURRENCY = Setting
+    public static final Setting<Integer> ENTITY_COLD_START_QUEUE_CONCURRENCY = Setting
         .intSetting(
-            "plugins.anomaly_detection.entity_coldstart_queue_concurrency",
+            "plugins.anomaly_detection.entity_cold_start_queue_concurrency",
             1,
             1,
             10,
@@ -608,19 +608,6 @@ public final class AnomalyDetectorSettings {
         .intSetting(
             "plugins.anomaly_detection.result_write_queue_concurrency",
             2,
-            1,
-            10,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
-        );
-
-    /**
-     * Max concurrent cold entity processing per node
-     */
-    public static final Setting<Integer> COLD_ENTITY_QUEUE_CONCURRENCY = Setting
-        .intSetting(
-            "plugins.anomaly_detection.cold_entity_queue_concurrency",
-            1,
             1,
             10,
             Setting.Property.NodeScope,

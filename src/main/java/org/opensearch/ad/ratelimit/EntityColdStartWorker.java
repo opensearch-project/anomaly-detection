@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COLD_ENTITY_QUEUE_CONCURRENCY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -83,7 +83,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            COLD_ENTITY_QUEUE_CONCURRENCY,
+            ENTITY_COLD_START_QUEUE_CONCURRENCY,
             executionTtl,
             stateTtl,
             nodeStateManager

@@ -824,12 +824,11 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 // rate limiting
                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_CONCURRENCY,
                 AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
-                AnomalyDetectorSettings.ENTITY_COLDSTART_QUEUE_CONCURRENCY,
+                AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY,
                 AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY,
                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE,
                 AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
                 AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE,
-                AnomalyDetectorSettings.COLD_ENTITY_QUEUE_CONCURRENCY,
                 AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
                 AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,

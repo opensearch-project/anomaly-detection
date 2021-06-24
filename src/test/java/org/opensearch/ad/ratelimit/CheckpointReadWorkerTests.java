@@ -50,7 +50,6 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingResult;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -80,7 +79,6 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     ResultWriteWorker resultWriteQueue;
     AnomalyDetectionIndices anomalyDetectionIndices;
     CacheProvider cacheProvider;
-    Entity entity, entity2;
     EntityCache entityCache;
     EntityFeatureRequest request, request2;
 
@@ -153,9 +151,6 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue
         );
-
-        entity = Entity.createSingleAttributeEntity(detectorId, categoryField, "value");
-        entity2 = Entity.createSingleAttributeEntity(detectorId, categoryField, "value2");
 
         request = new EntityFeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity, new double[] { 0 }, 0);
         request2 = new EntityFeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity2, new double[] { 0 }, 0);

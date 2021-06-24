@@ -26,6 +26,7 @@ import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.threadpool.ThreadPool;
 
 public class AbstractRateLimitingTest extends AbstractADTest {
@@ -34,6 +35,7 @@ public class AbstractRateLimitingTest extends AbstractADTest {
     NodeStateManager nodeStateManager;
     String detectorId;
     String categoryField;
+    Entity entity, entity2;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -56,5 +58,8 @@ public class AbstractRateLimitingTest extends AbstractADTest {
             listener.onResponse(Optional.of(detector));
             return null;
         }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+
+        entity = Entity.createSingleAttributeEntity(detectorId, categoryField, "value");
+        entity2 = Entity.createSingleAttributeEntity(detectorId, categoryField, "value2");
     }
 }
