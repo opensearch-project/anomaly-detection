@@ -4,15 +4,16 @@
 [![Forum](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/Use-this-category-for-all-questions-around-machine-learning-plugins)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
 
+<img src="https://opensearch.org/assets/brand/SVG/Logo/opensearch_logo_default.svg" height="64px"/>
+
 <!-- TOC -->
 
 - [OpenSearch Anomaly Detection](#opensearch-anomaly-detection)
-- [Highlights](#highlights)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [Code of Conduct](#code-of-conduct)
 - [Security](#security)
-- [Licensing](#licensing)
+- [License](#license)
 - [Copyright](#copyright)
 
 <!-- /TOC -->
@@ -21,38 +22,33 @@
 
 The OpenSearch Anomaly Detection plugin enables you to leverage Machine Learning based algorithms to automatically detect anomalies as your log data is ingested. Combined with [OpenSearch Alerting](https://github.com/opensearch-project/alerting), you can monitor your data in near real time and automatically send alert notifications . With an intuitive OpenSearch Dashboards interface, and a powerful API, it is easy to set up, tune, and monitor your anomaly detectors.
 
-## Highlights
-
 Anomaly detection is using the [Random Cut Forest (RCF) algorithm](https://github.com/aws/random-cut-forest-by-aws) for detecting anomalous data points.
 
 Anomaly detections run a scheduled job using [job-scheduler](https://github.com/opensearch-project/job-scheduler).
 
-You should use anomaly detection plugin with the same version of [OpenSearch Alerting](https://github.com/opensearch-project/alerting). You can also create a monitor based on the anomaly detector. A scheduled monitor run checks the anomaly detection results regularly, and collects anomalies to trigger alerts based on custom trigger conditions.
+You can use this plugin with the same version of the [OpenSearch Alerting Plugin](https://github.com/opensearch-project/alerting) to create monitors based on created anomaly detectors. A scheduled monitor run checks the anomaly detection results regularly, and collects anomalies to trigger alerts based on custom trigger conditions.
   
 ## Documentation
 
 Please see [our documentation](https://docs-beta.opensearch.org/monitoring-plugins/ad/index/).
 
+
 ## Contributing
 
-We welcome you to get involved in development, documentation, and testing of the anomaly detection plugin.
-
-See our [contribution guidelines](CONTRIBUTING.md) and the [developer guide](DEVELOPER_GUIDE.md) to get started.
-
-If you are looking for a quick contribution, we still don't have 100% unit test coverage for now. Check out [GitHub issues](https://github.com/opensearch-project/anomaly-detection/issues) for other ideas.
+See [developer guide](DEVELOPER_GUIDE.md) and [how to contribute to this project](CONTRIBUTING.md).
 
 ## Code of Conduct
 
-This project has adopted an [Open Source Code of Conduct](CODE_OF_CONDUCT.md).
+This project has adopted the [Amazon Open Source Code of Conduct](CODE_OF_CONDUCT.md). For more information see the [Code of Conduct FAQ](https://aws.github.io/code-of-conduct-faq), or contact [opensource-codeofconduct@amazon.com](mailto:opensource-codeofconduct@amazon.com) with any additional questions or comments.
 
 ## Security
 
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public GitHub issue.
 
-## Licensing
+## License
 
-See the [LICENSE](LICENSE.txt) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
+This project is licensed under the [Apache v2.0 License](LICENSE.txt).
 
 ## Copyright
 
-Copyright 2021 OpenSearch Contributors
+Copyright 2020-2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
