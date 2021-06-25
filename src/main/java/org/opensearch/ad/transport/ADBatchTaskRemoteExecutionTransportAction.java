@@ -53,6 +53,6 @@ public class ADBatchTaskRemoteExecutionTransportAction extends
 
     @Override
     protected void doExecute(Task task, ADBatchAnomalyResultRequest request, ActionListener<ADBatchAnomalyResultResponse> listener) {
-        adBatchTaskRunner.startADBatchTask(request.getAdTask(), true, transportService, listener);
+        adBatchTaskRunner.startADBatchTaskOnWorkerNode(request.getAdTask(), true, transportService, listener);
     }
 }

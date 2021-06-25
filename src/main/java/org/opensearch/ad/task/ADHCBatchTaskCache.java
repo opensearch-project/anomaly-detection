@@ -21,7 +21,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.google.common.util.concurrent.RateLimiter;
 
 /**
- * AD HC detector batch task cache.
+ * AD HC detector batch task cache which will mainly hold these for HC detector
+ * 1. pending entities queue
+ * 2. running entities queue
+ * 3. temp entities queue
+ * 4. task retry times
+ * 5. task rate limiters
+ *
  * TODO: some methods in this class are not being used currently. Just add them here to save some effort in later PRs.
  */
 public class ADHCBatchTaskCache {
@@ -115,7 +121,8 @@ public class ADHCBatchTaskCache {
     }
 
     /**
-     * Add list of entities into pending entity queue.
+     * Add list of entities into pending entity queue. Will check if these entities exists
+     * in temp entities queue first. If yes, will remove from temp entities queue.
      * @param entities a list of entity
      */
     public void addEntities(List<String> entities) {
@@ -183,6 +190,9 @@ public class ADHCBatchTaskCache {
         return this.rateLimiters.computeIfAbsent(taskId, id -> RateLimiter.create(1));
     }
 
+    /**
+     * Clear pending/running/temp entities queues, task retry times and rate limiter cache.
+     */
     public void clear() {
         this.pendingEntities.clear();
         this.runningEntities.clear();
@@ -191,6 +201,11 @@ public class ADHCBatchTaskCache {
         this.rateLimiters.clear();
     }
 
+    /**
+     * Poll one entity from pending entities queue. If entity exists, move it into
+     * temp entities queue.
+     * @return entity value
+     */
     public String pollEntity() {
         String entity = this.pendingEntities.poll();
         if (entity != null) {
@@ -199,14 +214,27 @@ public class ADHCBatchTaskCache {
         return entity;
     }
 
+    /**
+     * Clear pending entities queue.
+     */
     public void clearPendingEntities() {
         this.pendingEntities.clear();
     }
 
+    /**
+     * Increase task retry times by 1.
+     * @param taskId task id
+     * @return current retry time
+     */
     public int increaseTaskRetry(String taskId) {
         return this.taskRetryTimes.computeIfAbsent(taskId, id -> new AtomicInteger(0)).getAndIncrement();
     }
 
+    /**
+     * Check if entity exists in temp entities queue, pending entities queue or running
+     * entities queue. If exists, remove from these queues.
+     * @param entity entity value
+     */
     public void removeEntity(String entity) {
         if (entity == null) {
             return;

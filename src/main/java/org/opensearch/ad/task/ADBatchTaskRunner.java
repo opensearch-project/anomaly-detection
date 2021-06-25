@@ -210,9 +210,9 @@ public class ADBatchTaskRunner {
     }
 
     /**
-     * Run AD task on worker node.
-     * 1. For HC detector, will get top entities first. If top entities already initialized,
-     * Will execute AD task directly.
+     * Run AD task.
+     * 1. For HC detector, will get top entities first(initialize top entities). If top
+     *    entities already initialized, will execute AD task directly.
      * 2. For single entity detector, execute AD task directly.
      * @param adTask single entity or HC detector task
      * @param transportService transport service
@@ -223,7 +223,6 @@ public class ADBatchTaskRunner {
         if (isHCDetector && !adTaskCacheManager.topEntityInited(adTask.getDetectorId())) {
             // Initialize top entities for HC detector
             adTaskCacheManager.add(adTask);
-
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
                 ActionListener<ADBatchAnomalyResultResponse> hcDelegatedListener = getInternalHCDelegatedListener(adTask);
                 ActionListener<String> internalHCListener = internalHCListener(adTask, transportService, hcDelegatedListener);
@@ -236,7 +235,7 @@ public class ADBatchTaskRunner {
             listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), false));
         } else {
             // Execute AD task for single entity detector or HC detector which top entities initialized
-            executeADTask(adTask, transportService, listener);
+            forwardOrExecuteADTask(adTask, transportService, listener);
         }
     }
 
@@ -248,6 +247,16 @@ public class ADBatchTaskRunner {
             );
     }
 
+    /**
+     * Create internal action listener for HC task. The action listener will be used in
+     * {@link ADBatchTaskRunner#getTopEntities(ADTask, ActionListener)}. Will call
+     * listener's onResponse method when get top entities done.
+     *
+     * @param adTask AD task
+     * @param transportService transport service
+     * @param listener action listener
+     * @return action listener
+     */
     private ActionListener<String> internalHCListener(
         ADTask adTask,
         TransportService transportService,
@@ -260,10 +269,11 @@ public class ADBatchTaskRunner {
             int numberOfEligibleDataNodes = nodeFilter.getNumberOfEligibleDataNodes();
             int maxRunningEntities = Math
                 .min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
-            executeADTask(adTask, transportService, listener);
+            forwardOrExecuteADTask(adTask, transportService, listener);
             // As we have started one entity task, need to minus 1 for max allowed running entities.
             adTaskCacheManager.setAllowedRunningEntities(adTask.getDetectorId(), maxRunningEntities - 1);
         }, e -> {
+            logger.debug("Failed to run task " + adTask.getTaskId(), e);
             if (adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
                 adTaskCacheManager.remove(adTask.getTaskId());
                 adTaskManager.entityTaskDone(adTask, e, transportService);
@@ -369,7 +379,7 @@ public class ADBatchTaskRunner {
                 );
             } else {
                 logger.debug("finish to search top entities at " + System.currentTimeMillis());
-                // remove HC detector task from cache
+                // remove HC detector level task from cache
                 adTaskCacheManager.remove(adTask.getTaskId());
                 List<String> topNEntities = priorityTracker.getTopNEntities(maxTopEntitiesPerHcDetector);
                 adTaskCacheManager.addPendingEntities(adTask.getDetectorId(), topNEntities);
@@ -388,29 +398,32 @@ public class ADBatchTaskRunner {
     }
 
     /**
-     * Run AD task.
-     * 1. Set AD task state as {@link ADTaskState#INIT}
-     * 2. Gather node stats and find node with least load to run AD task.
+     * Forward AD task to work node.
+     * 1. For HC detector, return directly if no more pending entity. Otherwise check if
+     *    there is AD task created for this entity. If yes, just forward the entity task
+     *    to worker node; otherwise, create entity task first, then forward.
+     * 2. For single entity detector, set task as INIT state and forward task to worker
+     *    node.
      *
      * @param adTask AD task
      * @param transportService transport service
      * @param listener action listener
      */
-    public void executeADTask(ADTask adTask, TransportService transportService, ActionListener<ADBatchAnomalyResultResponse> listener) {
-        Map<String, Object> updatedFields = new HashMap<>();
-        updatedFields.put(STATE_FIELD, ADTaskState.INIT.name());
-        updatedFields.put(INIT_PROGRESS_FIELD, 0.0f);
-
+    public void forwardOrExecuteADTask(
+        ADTask adTask,
+        TransportService transportService,
+        ActionListener<ADBatchAnomalyResultResponse> listener
+    ) {
         String detectorId = adTask.getDetectorId();
         boolean isHCDetector = adTask.getDetector().isMultientityDetector();
-        String entity = isHCDetector ? adTaskCacheManager.pollEntity(detectorId) : null;
-        logger.debug("Start to run entity: {} of detector {}", entity, detectorId);
         if (isHCDetector) {
+            String entity = adTaskCacheManager.pollEntity(detectorId);
+            logger.debug("Start to run entity: {} of detector {}", entity, detectorId);
             if (entity == null) {
                 listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), false));
                 return;
             }
-            ActionListener<Object> wrappedListener = ActionListener.wrap(r -> { logger.debug("Entity task created successfully"); }, e -> {
+            ActionListener<Object> wrappedListener = ActionListener.wrap(r -> logger.debug("Entity task created successfully"), e -> {
                 logger.error("Failed to start entity task for detector: {}, entity: {}", detectorId, entity);
                 // If fail, move the entity into pending task queue
                 adTaskCacheManager.addPendingEntity(detectorId, entity);
@@ -427,7 +440,7 @@ public class ADBatchTaskRunner {
                         transportService,
                         listener
                     );
-                    executeSingleEntityTask(adEntityTask, transportService, delegatedListener);
+                    forwardOrExecuteEntityTask(adEntityTask, transportService, delegatedListener);
                 } else {
                     logger.info("Create entity task for entity:{}", entity);
                     Instant now = Instant.now();
@@ -459,12 +472,14 @@ public class ADBatchTaskRunner {
                             transportService,
                             listener
                         );
-                        executeSingleEntityTask(adEntityTask, transportService, delegatedListener);
+                        forwardOrExecuteEntityTask(adEntityTask, transportService, delegatedListener);
                     }, wrappedListener);
                 }
             }, transportService, false, wrappedListener);
-
         } else {
+            Map<String, Object> updatedFields = new HashMap<>();
+            updatedFields.put(STATE_FIELD, ADTaskState.INIT.name());
+            updatedFields.put(INIT_PROGRESS_FIELD, 0.0f);
             ActionListener<ADBatchAnomalyResultResponse> delegatedListener = getDelegatedListener(adTask, transportService, listener);
             adTaskManager
                 .updateADTask(
@@ -472,7 +487,7 @@ public class ADBatchTaskRunner {
                     updatedFields,
                     ActionListener
                         .wrap(
-                            r -> executeSingleEntityTask(adTask, transportService, delegatedListener),
+                            r -> forwardOrExecuteEntityTask(adTask, transportService, delegatedListener),
                             e -> { delegatedListener.onFailure(e); }
                         )
                 );
@@ -498,7 +513,7 @@ public class ADBatchTaskRunner {
             listener.onResponse(r);
             if (adTask.isEntityTask()) {
                 // When reach this line, the entity task already been put into worker node's cache.
-                // Then it's safe to move entity from temp queue to running queue.
+                // Then it's safe to move entity from temp entities queue to running entities queue.
                 adTaskCacheManager.moveToRunningEntity(adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
             }
             startNewEntityTaskLane(adTask, transportService);
@@ -507,15 +522,15 @@ public class ADBatchTaskRunner {
             handleException(adTask, e);
 
             if (adTask.isEntityTask()) {
+                // if (adTaskManager.isRetryableError(adTask.getError())
+                // && !adTaskCacheManager.exceedRetryLimit(adTask.getDetectorId(), adTask.getTaskId())) {
+                // // If the error is retryable, move entity from temp queue to the end of pending queue
+                // adTaskCacheManager.pushBackEntity(adTask.getTaskId(), adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
+                // } else {
+                // adTaskCacheManager.removeEntity(adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
+                // logger.warn("Entity task failed, task id: {}", adTask.getTaskId());
+                // }
                 // When reach this line, it means entity task failed to start on worker node
-                if (adTaskManager.isRetryableError(adTask.getError())
-                    && !adTaskCacheManager.exceedRetryLimit(adTask.getDetectorId(), adTask.getTaskId())) {
-                    // If the error is retryable, move entity from temp queue to the end of pending queue
-                    adTaskCacheManager.pushBackEntity(adTask.getTaskId(), adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
-                } else {
-                    adTaskCacheManager.removeEntity(adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
-                    logger.warn("Entity task failed, task id: {}", adTask.getTaskId());
-                }
                 // Sleep some time before polling next entity task.
                 waitBeforeNextEntity(SLEEP_TIME_FOR_NEXT_ENTITY_TASK_IN_MILIS);
                 adTaskManager.entityTaskDone(adTask, e, transportService);
@@ -523,7 +538,7 @@ public class ADBatchTaskRunner {
             }
         });
 
-        ThreadedActionListener threadedActionListener = new ThreadedActionListener<>(
+        ThreadedActionListener<ADBatchAnomalyResultResponse> threadedActionListener = new ThreadedActionListener<>(
             logger,
             threadPool,
             AD_BATCH_TASK_THREAD_POOL_NAME,
@@ -541,7 +556,7 @@ public class ADBatchTaskRunner {
         }
     }
 
-    private void executeSingleEntityTask(
+    private void forwardOrExecuteEntityTask(
         ADTask adTask,
         TransportService transportService,
         ActionListener<ADBatchAnomalyResultResponse> delegatedListener
@@ -549,7 +564,7 @@ public class ADBatchTaskRunner {
         dispatchTask(adTask, ActionListener.wrap(node -> {
             if (clusterService.localNode().getId().equals(node.getId())) {
                 // Execute batch task locally
-                startADBatchTask(adTask, false, transportService, delegatedListener);
+                startADBatchTaskOnWorkerNode(adTask, false, transportService, delegatedListener);
             } else {
                 // Execute batch task remotely
                 transportService
@@ -569,7 +584,7 @@ public class ADBatchTaskRunner {
     private void startNewEntityTaskLane(ADTask adTask, TransportService transportService) {
         if (ADTaskType.HISTORICAL_HC_ENTITY.name().equals(adTask.getTaskType())
             && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
-            executeADTask(adTask, transportService, getInternalHCDelegatedListener(adTask));
+            forwardOrExecuteADTask(adTask, transportService, getInternalHCDelegatedListener(adTask));
         }
     }
 
@@ -638,7 +653,7 @@ public class ADBatchTaskRunner {
      * @param transportService transport service
      * @param delegatedListener action listener
      */
-    public void startADBatchTask(
+    public void startADBatchTaskOnWorkerNode(
         ADTask adTask,
         boolean runTaskRemotely,
         TransportService transportService,
@@ -651,7 +666,7 @@ public class ADBatchTaskRunner {
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
                 ActionListener<String> internalListener = internalBatchTaskListener(adTask, transportService);
                 try {
-                    executeADBatchTask(adTask, internalListener);
+                    executeADBatchTaskOnWorkerNode(adTask, internalListener);
                 } catch (Exception e) {
                     internalListener.onFailure(e);
                 }
@@ -690,7 +705,7 @@ public class ADBatchTaskRunner {
             if (!adTask.getDetector().isMultientityDetector()) {
                 adTaskManager.cleanDetectorCache(adTask, transportService, () -> handleException(adTask, e));
             } else {
-                waitBeforeNextEntity(5000);
+                waitBeforeNextEntity(SLEEP_TIME_FOR_NEXT_ENTITY_TASK_IN_MILIS);
                 adTaskManager.entityTaskDone(adTask, e, transportService);
                 handleException(adTask, e);
             }
@@ -717,7 +732,7 @@ public class ADBatchTaskRunner {
         adTaskManager.handleADTaskException(adTask, e);
     }
 
-    private void executeADBatchTask(ADTask adTask, ActionListener<String> internalListener) {
+    private void executeADBatchTaskOnWorkerNode(ADTask adTask, ActionListener<String> internalListener) {
         // track AD executing batch task and total batch task execution count
         adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).increment();
         adStats.getStat(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName()).increment();

@@ -53,7 +53,12 @@ import com.amazon.randomcutforest.RandomCutForest;
 import com.google.common.collect.ImmutableList;
 
 /**
- * AD batch task cache which will hold RCF, threshold model, shingle and training data.
+ * AD batch task cache which will mainly hold these for one task:
+ * 1. RCF
+ * 2. threshold model
+ * 3. shingle
+ * 4. training data
+ * 5. entity if task is for HC detector
  */
 public class ADBatchTaskCache {
     private final String detectorId;
