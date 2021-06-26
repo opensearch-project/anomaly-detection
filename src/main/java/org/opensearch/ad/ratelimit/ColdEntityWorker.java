@@ -105,33 +105,41 @@ public class ColdEntityWorker extends RateLimitedRequestWorker<EntityFeatureRequ
             .addSettingsUpdateConsumer(EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS, it -> this.expectedExecutionTimeInSecsPerRequest = it);
     }
 
-    private int pullRequests() {
-        int requestSize = 0;
+    private void pullRequests() {
+        int pulledRequestSize = 0;
+        int filteredRequestSize = 0;
         try {
             List<EntityFeatureRequest> requests = getRequests(batchSize);
             if (requests == null || requests.isEmpty()) {
-                return 0;
+                return;
             }
+            // pulledRequestSize > batchSize means there are more requests in the queue
+            pulledRequestSize = requests.size();
             // guarantee we only send low priority requests
             List<EntityFeatureRequest> filteredRequests = requests
                 .stream()
                 .filter(request -> request.priority == RequestPriority.LOW)
                 .collect(Collectors.toList());
-            checkpointReadQueue.putAll(filteredRequests);
-            requestSize = filteredRequests.size();
+            if (!filteredRequests.isEmpty()) {
+                checkpointReadQueue.putAll(filteredRequests);
+                filteredRequestSize = filteredRequests.size();
+            }
         } catch (Exception e) {
             LOG.error("Error enqueuing cold entity requests", e);
         } finally {
-            if (requestSize < batchSize) {
+            if (pulledRequestSize < batchSize) {
                 scheduled = false;
             } else {
                 // there might be more to fetch
                 // schedule a pull from queue every few seconds.
-                schedulePulling(getScheduleDelay(requestSize));
                 scheduled = true;
+                if (filteredRequestSize == 0) {
+                    pullRequests();
+                } else {
+                    schedulePulling(getScheduleDelay(filteredRequestSize));
+                }
             }
         }
-        return requestSize;
     }
 
     private synchronized void schedulePulling(TimeValue delay) {
