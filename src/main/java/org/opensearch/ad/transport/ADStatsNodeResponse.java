@@ -100,6 +100,7 @@ public class ADStatsNodeResponse extends BaseNodeResponse implements ToXContentF
      * @return XContentBuilder
      * @throws IOException thrown by builder for invalid field
      */
+    @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         for (String stat : statsMap.keySet()) {
             builder.field(stat, statsMap.get(stat));

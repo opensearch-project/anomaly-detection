@@ -197,13 +197,22 @@ public class ModelState<T> implements ExpiringState {
                 put(CommonName.MODEL_ID_KEY, modelId);
                 put(CommonName.DETECTOR_ID_KEY, detectorId);
                 put(MODEL_TYPE_KEY, modelType);
-                put(LAST_USED_TIME_KEY, lastUsedTime);
-                put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime);
-                put(PRIORITY_KEY, priority);
+                /* A stats API broadcasts requests to all nodes and renders node responses using toXContent.
+                 *
+                 * For the local node, the stats API's calls toXContent on the node response directly.
+                 * For remote node, the coordinating node gets a serialized content from
+                 * ADStatsNodeResponse.writeTo, deserializes the content, and renders the result using toXContent.
+                 * Since ADStatsNodeResponse.writeTo uses StreamOutput::writeGenericValue, we can only use
+                 *  a long instead of the Instant object itself as
+                 *  StreamOutput::writeGenericValue only recognizes built-in types.*/
+                put(LAST_USED_TIME_KEY, lastUsedTime.toEpochMilli());
+                if (lastCheckpointTime != Instant.MIN) {
+                    put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime.toEpochMilli());
+                }
                 if (model != null && model instanceof EntityModel) {
                     EntityModel summary = (EntityModel) model;
                     if (summary.getEntity().isPresent()) {
-                        put(CommonName.ENTITY_KEY, summary.getEntity().get());
+                        put(CommonName.ENTITY_KEY, summary.getEntity().get().toStat());
                     }
                 }
             }

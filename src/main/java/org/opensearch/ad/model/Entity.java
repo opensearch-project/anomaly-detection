@@ -39,7 +39,6 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
@@ -147,6 +146,33 @@ public class Entity implements ToXContentObject, Writeable {
         return builder;
     }
 
+    /**
+     * Return a map representing the entity, used in the stats API.
+     *
+     * A stats API broadcasts requests to all nodes and renders node responses using toXContent.
+     *
+     * For the local node, the stats API's calls toXContent on the node response directly.
+     * For remote node, the coordinating node gets a serialized content from
+     * ADStatsNodeResponse.writeTo, deserializes the content, and renders the result using toXContent.
+     * Since ADStatsNodeResponse.writeTo uses StreamOutput::writeGenericValue, we can only use
+     *  a List&lt;Map&lt;String, String&gt;&gt; instead of the Entity object itself as
+     *  StreamOutput::writeGenericValue only recognizes built-in types.
+     *
+     * This functions returns a map consistent with what toXContent returns.
+     *
+     * @return a map representing the entity
+     */
+    public List<Map<String, String>> toStat() {
+        List<Map<String, String>> res = new ArrayList<>(attributes.size() * 2);
+        for (Map.Entry<String, String> attr : attributes.entrySet()) {
+            Map<String, String> elements = new TreeMap<>();
+            elements.put(ATTRIBUTE_NAME_FIELD, attr.getKey());
+            elements.put(ATTRIBUTE_VALUE_FIELD, attr.getValue());
+            res.add(elements);
+        }
+        return res;
+    }
+
     public static Entity parse(XContentParser parser) throws IOException {
         SortedMap<String, String> entities = new TreeMap<>();
         String parsedValue = null;
@@ -202,9 +228,13 @@ public class Entity implements ToXContentObject, Writeable {
         out.writeMap(attributes, StreamOutput::writeString, StreamOutput::writeString);
     }
 
+    /**
+     * Used to print Entity info and localizing a node in a hash ring.
+     * @return a normalized String representing the entity.
+     */
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("attributes", normalizedAttributes(attributes)).append("modelId", modelId.get()).toString();
+        return normalizedAttributes(attributes);
     }
 
     /**

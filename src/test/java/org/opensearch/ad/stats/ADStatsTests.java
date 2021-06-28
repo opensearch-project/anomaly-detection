@@ -125,7 +125,7 @@ public class ADStatsTests extends OpenSearchTestCase {
             }
         };
 
-        adStats = new ADStats(indexUtils, modelManager, statsMap);
+        adStats = new ADStats(statsMap);
     }
 
     @Test

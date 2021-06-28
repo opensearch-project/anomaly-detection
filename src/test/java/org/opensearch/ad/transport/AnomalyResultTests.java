@@ -289,7 +289,7 @@ public class AnomalyResultTests extends AbstractADTest {
             }
         };
 
-        adStats = new ADStats(indexUtils, normalModelManager, statsMap);
+        adStats = new ADStats(statsMap);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

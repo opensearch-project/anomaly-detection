@@ -105,7 +105,7 @@ import org.opensearch.transport.TransportService;
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
-public class MultientityResultTests extends AbstractADTest {
+public class MultiEntityResultTests extends AbstractADTest {
     private AnomalyResultTransportAction action;
     private AnomalyResultRequest request;
     private TransportInterceptor entityResultInterceptor;
@@ -215,7 +215,7 @@ public class MultientityResultTests extends AbstractADTest {
                 put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
             }
         };
-        adStats = new ADStats(indexUtils, normalModelManager, statsMap);
+        adStats = new ADStats(statsMap);
 
         searchFeatureDao = mock(SearchFeatureDao.class);
 
