@@ -92,7 +92,7 @@ jobs:
           ## plugin_version=`echo $plugin|awk -F- '{print $4}'| cut -d. -f 1-4`
           ## TODO: remove these two hard code versions below after GA release
           version=1.0.0-rc1
-          plugin_version=1.0.0.0-rc1
+          plugin_version=1.0.0.0
           echo $version
           cd ..
           if docker pull opensearchstaging/opensearch:$version
