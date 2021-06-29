@@ -30,7 +30,7 @@ import org.opensearch.gradle.test.RestIntegTestTask
 buildscript {
     ext {
         opensearch_group = "org.opensearch"
-        opensearch_version = System.getProperty("opensearch.version", "1.0.0")
+        opensearch_version = System.getProperty("opensearch.version", "1.0.0-rc1")
         common_utils_version = '1.0.0.0'
         job_scheduler_version = '1.0.0.0'
     }
