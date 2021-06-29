@@ -137,6 +137,12 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
     /**
      * Verify if the input entity exists or not in case of typos.
+     *
+     * If a user deletes the entity after job start, then we will not be able to
+     * get this entity in the index. For this case, we will not return a profile
+     * for this entity even if it's running on some data node. the entity's model
+     * will be deleted by another entity or by maintenance due to long inactivity.
+     *
      * @param entity Entity accessor
      * @param categoryFields category fields defined for a detector
      * @param detectorId Detector Id
