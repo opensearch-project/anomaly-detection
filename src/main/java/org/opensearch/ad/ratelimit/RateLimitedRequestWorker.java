@@ -96,12 +96,44 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         public int size() {
             return this.content.size();
         }
+
+        public boolean isEmpty() {
+            return content.size() == 0;
+        }
+
+        /**
+         * Remove requests in the queue
+         * @param numberToRemove number of requests to remove
+         * @return removed requests
+         */
+        public int drain(int numberToRemove) {
+            int removed = 0;
+            while (removed <= numberToRemove) {
+                if (content.poll() != null) {
+                    removed++;
+                } else {
+                    // stop if the queue is empty
+                    break;
+                }
+            }
+            return removed;
+        }
+
+        /**
+         * Remove requests in the queue
+         * @param removeRatio the removing ratio
+         * @return removed requests
+         */
+        public int drain(float removeRatio) {
+            int numberToRemove = (int) (content.size() * removeRatio);
+            return drain(numberToRemove);
+        }
     }
 
     private static final Logger LOG = LogManager.getLogger(RateLimitedRequestWorker.class);
 
     protected volatile int queueSize;
-    protected final String queueName;
+    protected final String workerName;
     private final long heapSize;
     private final int singleRequestSize;
     private float maxHeapPercentForQueue;
@@ -128,7 +160,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
     protected final NodeStateManager nodeStateManager;
 
     public RateLimitedRequestWorker(
-        String queueName,
+        String workerName,
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
         Setting<Float> maxHeapPercentForQueueSetting,
@@ -151,11 +183,12 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         this.queueSize = (int) (heapSizeInBytes * maxHeapPercentForQueue / singleRequestSizeInBytes);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(maxHeapPercentForQueueSetting, it -> {
             int oldQueueSize = queueSize;
+            this.maxHeapPercentForQueue = it;
             this.queueSize = (int) (this.heapSize * maxHeapPercentForQueue / this.singleRequestSize);
             LOG.info(new ParameterizedMessage("Queue size changed from [{}] to [{}]", oldQueueSize, queueSize));
         });
 
-        this.queueName = queueName;
+        this.workerName = workerName;
         this.random = random;
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.threadPool = threadPool;
@@ -173,8 +206,8 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         this.nodeStateManager = nodeStateManager;
     }
 
-    protected String getQueueName() {
-        return queueName;
+    protected String getWorkerName() {
+        return workerName;
     }
 
     /**
@@ -277,16 +310,18 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
             requestQueue.lastAccessTime = clock.instant();
             requestQueue.put(request);
         } catch (Exception e) {
-            LOG.error(new ParameterizedMessage("Failed to add requests to [{}]", this.queueName), e);
+            LOG.error(new ParameterizedMessage("Failed to add requests to [{}]", this.workerName), e);
         }
     }
 
     private void maintainForThreadPool() {
         for (final ThreadPoolStats.Stats stats : threadPool.stats()) {
             String name = stats.getName();
-            // cold entity queue mostly use these 3 threadpools
+            // we mostly use these 3 threadpools
             if (ThreadPool.Names.SEARCH.equals(name) || ThreadPool.Names.GET.equals(name) || ThreadPool.Names.WRITE.equals(name)) {
-                if (stats.getQueue() > (int) (maxQueuedTaskRatio * threadPool.info(name).getQueueSize().singles())) {
+                int maxQueueSize = (int) (maxQueuedTaskRatio * threadPool.info(name).getQueueSize().singles());
+                // in case that users set queue size to -1 (unbounded)
+                if (maxQueueSize > 0 && stats.getQueue() > maxQueueSize) {
                     setCoolDownStart();
                     break;
                 }
@@ -299,24 +334,58 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
             if (requestQueueEntry.getKey().equals(RequestPriority.HIGH.name())) {
                 continue;
             }
-            // remove more requests in the low priority RequestQueue
-            float removeRatio = mediumRequestQueuePruneRatio;
-            if (requestQueueEntry.getKey().equals(RequestPriority.LOW.name())) {
-                removeRatio = lowRequestQueuePruneRatio;
-            }
 
             RequestQueue requestQueue = requestQueueEntry.getValue();
+
+            if (requestQueue == null || requestQueue.isEmpty()) {
+                continue;
+            }
+
+            // remove more requests in the low priority RequestQueue
+            if (requestQueueEntry.getKey().equals(RequestPriority.LOW.name())) {
+                requestQueue.drain(lowRequestQueuePruneRatio);
+            } else {
+                requestQueue.drain(mediumRequestQueuePruneRatio);
+            }
+        }
+    }
+
+    private void prune(Map<String, RequestQueue> requestQueues, int exceededSize) {
+        // used to compute the average number of requests to remove in medium priority queues
+        int numberOfQueuesToExclude = 0;
+        int leftItemsToRemove = exceededSize;
+
+        RequestQueue requestQueue = requestQueues.get(RequestPriority.LOW.name());
+
+        if (requestQueue != null) {
+            int removedFromLow = requestQueue.drain(exceededSize);
+            if (removedFromLow >= exceededSize) {
+                return;
+            } else {
+                leftItemsToRemove++;
+                leftItemsToRemove -= removedFromLow;
+            }
+        }
+
+        if (requestQueues.get(RequestPriority.HIGH.name()) != null) {
+            numberOfQueuesToExclude++;
+        }
+
+        int numberOfRequestsToRemoveInMediumQueues = leftItemsToRemove / (requestQueues.size() - numberOfQueuesToExclude);
+
+        for (Map.Entry<String, RequestQueue> requestQueueEntry : requestQueues.entrySet()) {
+            if (requestQueueEntry.getKey().equals(RequestPriority.HIGH.name())
+                || requestQueueEntry.getKey().equals(RequestPriority.LOW.name())) {
+                continue;
+            }
+
+            requestQueue = requestQueueEntry.getValue();
 
             if (requestQueue == null) {
                 continue;
             }
 
-            BlockingQueue<RequestType> requestQueueContent = requestQueue.content;
-            // remove 10% of old requests
-            int deletedRequests = (int) (requestQueueContent.size() * removeRatio);
-            while (requestQueueContent != null && false == requestQueueContent.isEmpty() && deletedRequests-- >= 0) {
-                requestQueueContent.poll();
-            }
+            requestQueue.drain(numberOfRequestsToRemoveInMediumQueues);
         }
     }
 
@@ -324,18 +393,16 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         // removed expired RequestQueue
         maintenance(requestQueues, stateTtl);
 
-        if (isSizeExceeded()) {
-            // remove until reaching below queueSize
-            do {
-                prune(requestQueues);
-            } while (isSizeExceeded());
+        int exceededSize = exceededSize();
+        if (exceededSize > 0) {
+            prune(requestQueues, exceededSize);
         } else if (adCircuitBreakerService.isOpen()) {
             // remove a few items in each RequestQueue
             prune(requestQueues);
         }
     }
 
-    private boolean isSizeExceeded() {
+    private int exceededSize() {
         Collection<RequestQueue> queues = requestQueues.values();
         int totalSize = 0;
 
@@ -345,7 +412,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         for (RequestQueue q : queues) {
             totalSize += q.size();
         }
-        return totalSize >= queueSize;
+        return totalSize - queueSize;
     }
 
     public boolean isQueueEmpty() {
@@ -434,7 +501,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
 
             process();
         } catch (Exception e) {
-            LOG.error(new ParameterizedMessage("Failed to add requests to [{}]", getQueueName()), e);
+            LOG.error(new ParameterizedMessage("Failed to add requests to [{}]", getWorkerName()), e);
         }
     }
 
@@ -449,14 +516,14 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                 try {
                     process();
                 } catch (Exception e) {
-                    LOG.error(new ParameterizedMessage("Fail to process requests in [{}].", this.queueName), e);
+                    LOG.error(new ParameterizedMessage("Fail to process requests in [{}].", this.workerName), e);
                 }
             }, new TimeValue(coolDownMinutes, TimeUnit.MINUTES), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
         } else {
             try {
                 triggerProcess();
             } catch (Exception e) {
-                LOG.error(String.format(Locale.ROOT, "Failed to process requests from %s", getQueueName()), e);
+                LOG.error(String.format(Locale.ROOT, "Failed to process requests from %s", getWorkerName()), e);
                 if (e != null && e instanceof AnomalyDetectionException) {
                     AnomalyDetectionException adExep = (AnomalyDetectionException) e;
                     nodeStateManager.setException(adExep.getAnomalyDetectorId(), adExep);

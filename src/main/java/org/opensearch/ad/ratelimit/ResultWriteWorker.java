@@ -47,6 +47,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultBulkRequest, ADResultBulkResponse> {
     private static final Logger LOG = LogManager.getLogger(ResultWriteWorker.class);
+    public static final String WORKER_NAME = "result-write";
 
     private final MultiEntityResultHandler resultHandler;
     private NamedXContentRegistry xContentRegistry;
@@ -72,7 +73,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
         Duration stateTtl
     ) {
         super(
-            "result-write",
+            WORKER_NAME,
             heapSizeInBytes,
             singleRequestSizeInBytes,
             maxHeapPercentForQueueSetting,

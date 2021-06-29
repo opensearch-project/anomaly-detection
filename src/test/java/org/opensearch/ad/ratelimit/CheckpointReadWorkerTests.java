@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.mockito.Mockito;
@@ -40,6 +41,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
+import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -59,6 +61,8 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.threadpool.ThreadPoolStats;
+import org.opensearch.threadpool.ThreadPoolStats.Stats;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -80,14 +84,14 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     AnomalyDetectionIndices anomalyDetectionIndices;
     CacheProvider cacheProvider;
     EntityCache entityCache;
-    EntityFeatureRequest request, request2;
+    EntityFeatureRequest request, request2, request3;
+    ClusterSettings clusterSettings;
 
     @Override
-    @SuppressWarnings("unchecked")
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
+        clusterSettings = new ClusterSettings(
             Settings.EMPTY,
             Collections
                 .unmodifiableSet(
@@ -154,6 +158,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
 
         request = new EntityFeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity, new double[] { 0 }, 0);
         request2 = new EntityFeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity2, new double[] { 0 }, 0);
+        request3 = new EntityFeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity3, new double[] { 0 }, 0);
     }
 
     static class RegularSetUpConfig {
@@ -521,5 +526,193 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         verify(coldstartQueue, never()).put(any());
         verify(entityCache, never()).hostIfPossible(any(), any());
         assertTrue(retried.get());
+    }
+
+    public void testRemoveUnusedQueues() {
+        // do nothing when putting a request to keep queues not empty
+        ExecutorService executorService = mock(ExecutorService.class);
+        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+
+        worker = new CheckpointReadWorker(
+            Integer.MAX_VALUE,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            new Random(42),
+            mock(ADCircuitBreakerService.class),
+            threadPool,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            clock,
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            modelManager,
+            checkpoint,
+            coldstartQueue,
+            resultWriteQueue,
+            nodeStateManager,
+            anomalyDetectionIndices,
+            cacheProvider,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue
+        );
+
+        regularTestSetUp(new RegularSetUpConfig.Builder().build());
+
+        assertTrue(!worker.isQueueEmpty());
+        assertEquals(CheckpointReadWorker.WORKER_NAME, worker.getWorkerName());
+
+        // make RequestQueue.expired return true
+        when(clock.instant()).thenReturn(Instant.now().plusSeconds(AnomalyDetectorSettings.HOURLY_MAINTENANCE.getSeconds() + 1));
+
+        // removed the expired queue
+        worker.maintenance();
+
+        assertTrue(worker.isQueueEmpty());
+    }
+
+    private void maintenanceSetup() {
+        // do nothing when putting a request to keep queues not empty
+        ExecutorService executorService = mock(ExecutorService.class);
+        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        when(threadPool.stats()).thenReturn(new ThreadPoolStats(new ArrayList<Stats>()));
+    }
+
+    public void testSettingUpdatable() {
+        maintenanceSetup();
+
+        // can host two requests in the queue
+        worker = new CheckpointReadWorker(
+            2000,
+            1,
+            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            new Random(42),
+            mock(ADCircuitBreakerService.class),
+            threadPool,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            clock,
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            modelManager,
+            checkpoint,
+            coldstartQueue,
+            resultWriteQueue,
+            nodeStateManager,
+            anomalyDetectionIndices,
+            cacheProvider,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue
+        );
+
+        List<EntityFeatureRequest> requests = new ArrayList<>();
+        requests.add(request);
+        requests.add(request2);
+        worker.putAll(requests);
+        // size not exceeded, thus no effect
+        worker.maintenance();
+        assertTrue(!worker.isQueueEmpty());
+
+        Settings newSettings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT.getKey(), "0.0001")
+            .build();
+        Settings.Builder target = Settings.builder();
+        clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
+        clusterSettings.applySettings(target.build());
+        // size not exceeded after changing setting
+        worker.maintenance();
+        assertTrue(worker.isQueueEmpty());
+    }
+
+    public void testOpenCircuitBreaker() {
+        maintenanceSetup();
+
+        ADCircuitBreakerService breaker = mock(ADCircuitBreakerService.class);
+        when(breaker.isOpen()).thenReturn(true);
+
+        worker = new CheckpointReadWorker(
+            Integer.MAX_VALUE,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            new Random(42),
+            breaker,
+            threadPool,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            clock,
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            modelManager,
+            checkpoint,
+            coldstartQueue,
+            resultWriteQueue,
+            nodeStateManager,
+            anomalyDetectionIndices,
+            cacheProvider,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue
+        );
+
+        List<EntityFeatureRequest> requests = new ArrayList<>();
+        requests.add(request);
+        requests.add(request2);
+        worker.putAll(requests);
+
+        // due to open circuit breaker, removed one request
+        worker.maintenance();
+        assertTrue(!worker.isQueueEmpty());
+
+        // one request per batch
+        Settings newSettings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), "1")
+            .build();
+        Settings.Builder target = Settings.builder();
+        clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
+        clusterSettings.applySettings(target.build());
+
+        // enable executing requests
+        setUpADThreadPool(threadPool);
+
+        // listener returns response back and trigger calls to process extra requests
+        doAnswer(invocation -> {
+            MultiGetItemResponse[] items = new MultiGetItemResponse[1];
+            items[0] = new MultiGetItemResponse(
+                new GetResponse(
+                    new GetResult(
+                        CommonName.CHECKPOINT_INDEX_NAME,
+                        "_doc",
+                        entity.getModelId(detectorId).get(),
+                        1,
+                        1,
+                        0,
+                        true,
+                        null,
+                        null,
+                        null
+                    )
+                ),
+                null
+            );
+            ActionListener<MultiGetResponse> listener = invocation.getArgument(1);
+            listener.onResponse(new MultiGetResponse(items));
+            return null;
+        }).when(checkpoint).batchRead(any(), any());
+
+        // trigger request execution
+        worker.put(request3);
+        assertTrue(worker.isQueueEmpty());
+
+        // two requests in the queue trigger two batches
+        verify(checkpoint, times(2)).batchRead(any(), any());
     }
 }

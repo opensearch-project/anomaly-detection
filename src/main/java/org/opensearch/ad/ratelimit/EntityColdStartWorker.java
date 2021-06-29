@@ -46,6 +46,7 @@ import org.opensearch.threadpool.ThreadPool;
  */
 public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
     private static final Logger LOG = LogManager.getLogger(EntityColdStartWorker.class);
+    public static final String WORKER_NAME = "cold-start";
 
     private final EntityColdStarter entityColdStarter;
 
@@ -69,7 +70,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
         NodeStateManager nodeStateManager
     ) {
         super(
-            "cold-start",
+            WORKER_NAME,
             heapSizeInBytes,
             singleRequestSizeInBytes,
             maxHeapPercentForQueueSetting,

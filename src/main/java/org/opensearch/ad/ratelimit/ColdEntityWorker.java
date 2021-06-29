@@ -49,6 +49,7 @@ import org.opensearch.threadpool.ThreadPool;
  */
 public class ColdEntityWorker extends RateLimitedRequestWorker<EntityFeatureRequest> {
     private static final Logger LOG = LogManager.getLogger(ColdEntityWorker.class);
+    public static final String WORKER_NAME = "cold-entity";
 
     private volatile int batchSize;
     private final CheckpointReadWorker checkpointReadQueue;
@@ -75,7 +76,7 @@ public class ColdEntityWorker extends RateLimitedRequestWorker<EntityFeatureRequ
         NodeStateManager nodeStateManager
     ) {
         super(
-            "cold-entity",
+            WORKER_NAME,
             heapSizeInBytes,
             singleRequestSizeInBytes,
             maxHeapPercentForQueueSetting,

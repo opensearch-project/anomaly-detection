@@ -69,6 +69,7 @@ import org.opensearch.threadpool.ThreadPool;
  */
 public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, MultiGetRequest, MultiGetResponse> {
     private static final Logger LOG = LogManager.getLogger(CheckpointReadWorker.class);
+    public static final String WORKER_NAME = "checkpoint-read";
     private final ModelManager modelManager;
     private final CheckpointDao checkpointDao;
     private final EntityColdStartWorker entityColdStartQueue;
@@ -103,7 +104,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         CheckpointWriteWorker checkpointWriteQueue
     ) {
         super(
-            "checkpoint-read",
+            WORKER_NAME,
             heapSizeInBytes,
             singleRequestSizeInBytes,
             maxHeapPercentForQueueSetting,

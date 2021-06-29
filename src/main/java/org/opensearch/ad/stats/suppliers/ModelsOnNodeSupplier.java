@@ -26,9 +26,9 @@
 
 package org.opensearch.ad.stats.suppliers;
 
-import static org.opensearch.ad.ml.ModelState.MODEL_TYPE_KEY;
 import static org.opensearch.ad.ml.ModelState.LAST_CHECKPOINT_TIME_KEY;
 import static org.opensearch.ad.ml.ModelState.LAST_USED_TIME_KEY;
+import static org.opensearch.ad.ml.ModelState.MODEL_TYPE_KEY;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,7 +55,15 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
      * Set that contains the model stats that should be exposed.
      */
     public static Set<String> MODEL_STATE_STAT_KEYS = new HashSet<>(
-        Arrays.asList(CommonName.MODEL_ID_KEY, CommonName.DETECTOR_ID_KEY, MODEL_TYPE_KEY, CommonName.ENTITY_KEY, LAST_USED_TIME_KEY, LAST_CHECKPOINT_TIME_KEY)
+        Arrays
+            .asList(
+                CommonName.MODEL_ID_KEY,
+                CommonName.DETECTOR_ID_KEY,
+                MODEL_TYPE_KEY,
+                CommonName.ENTITY_KEY,
+                LAST_USED_TIME_KEY,
+                LAST_CHECKPOINT_TIME_KEY
+            )
     );
 
     /**

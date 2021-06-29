@@ -35,7 +35,7 @@ public class AbstractRateLimitingTest extends AbstractADTest {
     NodeStateManager nodeStateManager;
     String detectorId;
     String categoryField;
-    Entity entity, entity2;
+    Entity entity, entity2, entity3;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -61,5 +61,6 @@ public class AbstractRateLimitingTest extends AbstractADTest {
 
         entity = Entity.createSingleAttributeEntity(detectorId, categoryField, "value");
         entity2 = Entity.createSingleAttributeEntity(detectorId, categoryField, "value2");
+        entity3 = Entity.createSingleAttributeEntity(detectorId, categoryField, "value3");
     }
 }

@@ -46,6 +46,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, BulkRequest, BulkResponse> {
     private static final Logger LOG = LogManager.getLogger(CheckpointWriteWorker.class);
+    public static final String WORKER_NAME = "checkpoint-write";
 
     private final CheckpointDao checkpoint;
     private final String indexName;
@@ -73,7 +74,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
         Duration stateTtl
     ) {
         super(
-            "checkpoint-write",
+            WORKER_NAME,
             heapSizeInBytes,
             singleRequestSizeInBytes,
             maxHeapPercentForQueueSetting,
