@@ -121,7 +121,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -165,7 +164,7 @@ public class ADTaskManager {
     private final HashRing hashRing;
     private volatile Integer maxOldAdTaskDocsPerDetector;
     private volatile Integer pieceIntervalSeconds;
-    private volatile TimeValue requestTimeout;
+    private volatile TransportRequestOptions transportRequestOptions;
 
     public ADTaskManager(
         Settings settings,
@@ -193,8 +192,24 @@ public class ADTaskManager {
         this.pieceIntervalSeconds = BATCH_TASK_PIECE_INTERVAL_SECONDS.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(BATCH_TASK_PIECE_INTERVAL_SECONDS, it -> pieceIntervalSeconds = it);
 
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        transportRequestOptions = TransportRequestOptions
+            .builder()
+            .withType(TransportRequestOptions.Type.REG)
+            .withTimeout(REQUEST_TIMEOUT.get(settings))
+            .build();
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(
+                REQUEST_TIMEOUT,
+                it -> {
+                    transportRequestOptions = TransportRequestOptions
+                        .builder()
+                        .withType(TransportRequestOptions.Type.REG)
+                        .withTimeout(it)
+                        .build();
+                }
+            );
+
     }
 
     /**
@@ -299,7 +314,7 @@ public class ADTaskManager {
                 node,
                 ForwardADTaskAction.NAME,
                 new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction),
-                getTransportRequestOptions(),
+                transportRequestOptions,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
             );
     }
@@ -323,13 +338,9 @@ public class ADTaskManager {
                 getCoordinatingNode(adTask),
                 ForwardADTaskAction.NAME,
                 new ForwardADTaskRequest(adTask, adTaskAction),
-                getTransportRequestOptions(),
+                transportRequestOptions,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
             );
-    }
-
-    private TransportRequestOptions getTransportRequestOptions() {
-        return TransportRequestOptions.builder().withType(TransportRequestOptions.Type.REG).withTimeout(requestTimeout).build();
     }
 
     private DiscoveryNode getCoordinatingNode(ADTask adTask) {
@@ -1652,7 +1663,7 @@ public class ADTaskManager {
      * @param adTask ad entity task
      * @param listener action listener
      */
-    public void runBatchResultActionForEntity(ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
+    public void runNextEntityForHCADHistorical(ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
         client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
             String remoteOrLocal = r.isRunTaskRemotely() ? "remote" : "local";
             logger

@@ -100,7 +100,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskManager.setHCDetectorTaskDone(adTask, state, listener);
                     } else {
                         logger.debug("Run next entity for detector " + detectorId);
-                        adTaskManager.runBatchResultActionForEntity(adTask, listener);
+                        adTaskManager.runNextEntityForHCADHistorical(adTask, listener);
                         adTaskManager
                             .updateADHCDetectorTask(
                                 detectorId,
@@ -143,7 +143,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
                         adTaskManager.setHCDetectorTaskDone(adTask, ADTaskState.FINISHED, listener);
                     } else {
-                        adTaskManager.runBatchResultActionForEntity(adTask, listener);
+                        adTaskManager.runNextEntityForHCADHistorical(adTask, listener);
                     }
                 } else {
                     logger.warn("Can only push back entity task");

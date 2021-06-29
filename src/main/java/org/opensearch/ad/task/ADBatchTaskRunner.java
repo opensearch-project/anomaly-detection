@@ -267,6 +267,10 @@ public class ADBatchTaskRunner {
             int totalEntities = adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId());
             logger.info("total top entities: {}", totalEntities);
             int numberOfEligibleDataNodes = nodeFilter.getNumberOfEligibleDataNodes();
+
+            // maxAdBatchTaskPerNode means how many task can run on per data node, which is hard limitation per node.
+            // maxRunningEntitiesPerDetector means how many entities can run per detector on whole cluster, which is
+            // soft limit to control how many entities to run in parallel per HC detector.
             int maxRunningEntities = Math
                 .min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
             forwardOrExecuteADTask(adTask, transportService, listener);
@@ -428,13 +432,19 @@ public class ADBatchTaskRunner {
                 // If fail, move the entity into pending task queue
                 adTaskCacheManager.addPendingEntity(detectorId, entity);
             });
+            // This is to handle retry case
             adTaskManager.getLatestADTask(detectorId, entity, ImmutableList.of(ADTaskType.HISTORICAL_HC_ENTITY), existingEntityTask -> {
                 if (existingEntityTask.isPresent()) { // retry failed entity caused by limit exceed exception
                     // TODO: if task failed due to limit exceed exception in half way, resume from the break point or just clear the
                     // old AD tasks and rerun it? Currently we just support rerunning task failed due to limit exceed exception
                     // before starting.
                     ADTask adEntityTask = existingEntityTask.get();
-                    logger.debug("Rerun entity task for task id: {}", adEntityTask.getTaskId());
+                    logger
+                        .debug(
+                            "Rerun entity task for task id: {}, error of last run: {}",
+                            adEntityTask.getTaskId(),
+                            adEntityTask.getError()
+                        );
                     ActionListener<ADBatchAnomalyResultResponse> delegatedListener = getDelegatedListener(
                         adEntityTask,
                         transportService,
@@ -522,14 +532,6 @@ public class ADBatchTaskRunner {
             handleException(adTask, e);
 
             if (adTask.isEntityTask()) {
-                // if (adTaskManager.isRetryableError(adTask.getError())
-                // && !adTaskCacheManager.exceedRetryLimit(adTask.getDetectorId(), adTask.getTaskId())) {
-                // // If the error is retryable, move entity from temp queue to the end of pending queue
-                // adTaskCacheManager.pushBackEntity(adTask.getTaskId(), adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
-                // } else {
-                // adTaskCacheManager.removeEntity(adTask.getDetectorId(), adTask.getEntity().get(0).getValue());
-                // logger.warn("Entity task failed, task id: {}", adTask.getTaskId());
-                // }
                 // When reach this line, it means entity task failed to start on worker node
                 // Sleep some time before polling next entity task.
                 waitBeforeNextEntity(SLEEP_TIME_FOR_NEXT_ENTITY_TASK_IN_MILIS);
@@ -684,7 +686,6 @@ public class ADBatchTaskRunner {
             // If batch task finished normally, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
-
             if (!adTask.getDetector().isMultientityDetector()) {
                 // TODO: check if it's necessary to set task as FINISHED here
                 adTaskManager
