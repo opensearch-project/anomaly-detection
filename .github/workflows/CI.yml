@@ -94,7 +94,6 @@ jobs:
           version=1.0.0-rc1
           plugin_version=1.0.0.0
           echo $version
-          ls build/distributions/
           cd ..
           if docker pull opensearchstaging/opensearch:$version
           then
