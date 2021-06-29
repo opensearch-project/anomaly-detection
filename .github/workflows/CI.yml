@@ -42,7 +42,7 @@ jobs:
       - name: Checkout common-utils
         uses: actions/checkout@v2
         with:
-          ref: 'main' # TODO: update to the right branch name once it's ready. e.g. 1.x
+          ref: 'v1.0.0.0-rc1' # TODO: update to the right branch name once it's ready. e.g. 1.x
           repository: 'opensearch-project/common-utils'
           path: common-utils
       - name: Build common-utils
@@ -53,7 +53,7 @@ jobs:
       - name: Checkout job-scheduler
         uses: actions/checkout@v2
         with:
-          ref: 'main' # TODO: update to the right branch name once it's ready. e.g. 1.x
+          ref: '1.0.0.0-rc1' # TODO: update to the right branch name once it's ready. e.g. 1.x
           repository: 'opensearch-project/job-scheduler'
           path: job-scheduler
 
