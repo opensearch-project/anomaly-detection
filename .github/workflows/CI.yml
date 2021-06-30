@@ -33,37 +33,37 @@ jobs:
         with:
           repository: 'opensearch-project/OpenSearch'
           path: OpenSearch
-          ref: 1.0.0-rc1
+          ref: 1.0
       - name: Build OpenSearch
         working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal -Dbuild.version_qualifier=rc1 -Dbuild.snapshot=false
+        run: ./gradlew publishToMavenLocal -Dbuild.snapshot=false
 
       # dependencies: common-utils
       - name: Checkout common-utils
         uses: actions/checkout@v2
         with:
-          ref: '1.0.0.0-rc1' # TODO: update to the right branch name once it's ready. e.g. 1.x
+          ref: '1.0'
           repository: 'opensearch-project/common-utils'
           path: common-utils
       - name: Build common-utils
         working-directory: ./common-utils
-        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-rc1
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0
 
       # dependencies: job-scheduler
       - name: Checkout job-scheduler
         uses: actions/checkout@v2
         with:
-          ref: '1.0.0.0-rc1' # TODO: update to the right branch name once it's ready. e.g. 1.x
+          ref: '1.0'
           repository: 'opensearch-project/job-scheduler'
           path: job-scheduler
 
       - name: Build job-scheduler
         working-directory: ./job-scheduler
-        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-rc1 -Dbuild.snapshot=false
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0 -Dbuild.snapshot=false
       - name: Assemble job-scheduler
         working-directory: ./job-scheduler
         run: |
-          ./gradlew assemble -Dopensearch.version=1.0.0-rc1 -Dbuild.snapshot=false
+          ./gradlew assemble -Dopensearch.version=1.0.0 -Dbuild.snapshot=false
           echo "Creating ../src/test/resources/job-scheduler ..."
           mkdir -p ../src/test/resources/job-scheduler
           pwd
@@ -75,11 +75,11 @@ jobs:
 
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dopensearch.version=1.0.0-rc1
+          ./gradlew build -Dopensearch.version=1.0.0
 
       - name: Publish to Maven Local
         run: |
-          ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0-rc1
+          ./gradlew publishToMavenLocal -Dopensearch.version=1.0.0
 
       - name: Multi Nodes Integration Testing
         run: |
@@ -91,7 +91,7 @@ jobs:
           ## version=`echo $plugin|awk -F- '{print $4}'| cut -d. -f 1-3`
           ## plugin_version=`echo $plugin|awk -F- '{print $4}'| cut -d. -f 1-4`
           ## TODO: remove these two hard code versions below after GA release
-          version=1.0.0-rc1
+          version=1.0.0
           plugin_version=1.0.0.0
           echo $version
           cd ..
