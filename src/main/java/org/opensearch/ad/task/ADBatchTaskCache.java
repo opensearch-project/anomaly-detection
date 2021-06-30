@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.task;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
@@ -83,8 +84,8 @@ public class ADBatchTaskCache {
         AnomalyDetector detector = adTask.getDetector();
         boolean isHC = detector.isMultientityDetector();
         int numberOfTrees = isHC ? MULTI_ENTITY_NUM_TREES : NUM_TREES;
-        // use 1 for historical HC as realtime HC shingle size is hard coded as 1
-        int shingleSize = detector.isMultientityDetector() ? 1 : detector.getShingleSize();
+        // use hard coded DEFAULT_MULTI_ENTITY_SHINGLE for historical HC as realtime HC is using this
+        int shingleSize = detector.isMultientityDetector() ? DEFAULT_MULTI_ENTITY_SHINGLE : detector.getShingleSize();
         this.shingle = new ArrayDeque<>(shingleSize);
         rcfModel = RandomCutForest
             .builder()
