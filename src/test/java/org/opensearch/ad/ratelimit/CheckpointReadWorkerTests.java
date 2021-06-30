@@ -672,10 +672,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         assertTrue(!worker.isQueueEmpty());
 
         // one request per batch
-        Settings newSettings = Settings
-            .builder()
-            .put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), "1")
-            .build();
+        Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), "1").build();
         Settings.Builder target = Settings.builder();
         clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
         clusterSettings.applySettings(target.build());
@@ -714,5 +711,19 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
 
         // two requests in the queue trigger two batches
         verify(checkpoint, times(2)).batchRead(any(), any());
+    }
+
+    public void testChangePriority() {
+        assertEquals(RequestPriority.MEDIUM, request.getPriority());
+        RequestPriority newPriority = RequestPriority.HIGH;
+        request.setPriority(newPriority);
+        assertEquals(newPriority, request.getPriority());
+    }
+
+    public void testDetectorId() {
+        assertEquals(detectorId, request.getDetectorId());
+        String newDetectorId = "456";
+        request.setDetectorId(newDetectorId);
+        assertEquals(newDetectorId, request.getDetectorId());
     }
 }
