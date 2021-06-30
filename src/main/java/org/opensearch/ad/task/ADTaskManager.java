@@ -1086,8 +1086,11 @@ public class ADTaskManager {
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, false));
 
         if (adTask.isHistoricalTask()) {
+            // If historical task, only delete detector level task. It may take longer time to delete entity tasks.
+            // We will delete child task (entity task) of detector level task in hourly cron job.
             query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(HISTORICAL_DETECTOR_TASK_TYPES)));
         } else {
+            // We don't have entity level task for realtime detection, so will delete all tasks.
             query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(REALTIME_TASK_TYPES)));
         }
 
@@ -1433,7 +1436,14 @@ public class ADTaskManager {
             ActionListener
                 .wrap(
                     r -> logger.debug("AD task forwarded to coordinating node, task id {}", adTask.getTaskId()),
-                    e -> logger.debug("AD task failed to forward to coordinating node, task id {}", adTask.getTaskId())
+                    e -> logger
+                        .error(
+                            "AD task failed to forward to coordinating node "
+                                + adTask.getCoordinatingNode()
+                                + " for task "
+                                + adTask.getTaskId(),
+                            e
+                        )
                 )
         );
     }

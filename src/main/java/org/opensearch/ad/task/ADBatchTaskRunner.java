@@ -101,7 +101,6 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -139,7 +138,6 @@ public class ADBatchTaskRunner {
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ADTaskManager adTaskManager;
     private final AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler;
-    private final IndexNameExpressionResolver indexNameExpressionResolver;
     private AnomalyDetectionIndices anomalyDetectionIndices;
 
     private final ADTaskCacheManager adTaskCacheManager;
@@ -160,7 +158,6 @@ public class ADBatchTaskRunner {
         ClusterService clusterService,
         Client client,
         DiscoveryNodeFilterer nodeFilter,
-        IndexNameExpressionResolver indexNameExpressionResolver,
         ADCircuitBreakerService adCircuitBreakerService,
         FeatureManager featureManager,
         ADTaskManager adTaskManager,
@@ -173,7 +170,6 @@ public class ADBatchTaskRunner {
         this.clusterService = clusterService;
         this.client = client;
         this.anomalyResultBulkIndexHandler = anomalyResultBulkIndexHandler;
-        this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.nodeFilter = nodeFilter;
         this.adStats = adStats;
         this.adCircuitBreakerService = adCircuitBreakerService;
@@ -225,11 +221,11 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.add(adTask);
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
                 ActionListener<ADBatchAnomalyResultResponse> hcDelegatedListener = getInternalHCDelegatedListener(adTask);
-                ActionListener<String> internalHCListener = internalHCListener(adTask, transportService, hcDelegatedListener);
+                ActionListener<String> topEntitiesListener = getTopEntitiesListener(adTask, transportService, hcDelegatedListener);
                 try {
-                    getTopEntities(adTask, internalHCListener);
+                    getTopEntities(adTask, topEntitiesListener);
                 } catch (Exception e) {
-                    internalHCListener.onFailure(e);
+                    topEntitiesListener.onFailure(e);
                 }
             });
             listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), false));
@@ -257,7 +253,7 @@ public class ADBatchTaskRunner {
      * @param listener action listener
      * @return action listener
      */
-    private ActionListener<String> internalHCListener(
+    private ActionListener<String> getTopEntitiesListener(
         ADTask adTask,
         TransportService transportService,
         ActionListener<ADBatchAnomalyResultResponse> listener
@@ -382,7 +378,7 @@ public class ADBatchTaskRunner {
                     internalHCListener
                 );
             } else {
-                logger.debug("finish to search top entities at " + System.currentTimeMillis());
+                logger.debug("finish searching top entities at " + System.currentTimeMillis());
                 // remove HC detector level task from cache
                 adTaskCacheManager.remove(adTask.getTaskId());
                 List<String> topNEntities = priorityTracker.getTopNEntities(maxTopEntitiesPerHcDetector);
@@ -445,12 +441,12 @@ public class ADBatchTaskRunner {
                             adEntityTask.getTaskId(),
                             adEntityTask.getError()
                         );
-                    ActionListener<ADBatchAnomalyResultResponse> delegatedListener = getDelegatedListener(
+                    ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
                         adEntityTask,
                         transportService,
                         listener
                     );
-                    forwardOrExecuteEntityTask(adEntityTask, transportService, delegatedListener);
+                    forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
                 } else {
                     logger.info("Create entity task for entity:{}", entity);
                     Instant now = Instant.now();
@@ -477,12 +473,12 @@ public class ADBatchTaskRunner {
                         .build();
                     adTaskManager.createADTaskDirectly(adEntityTask, r -> {
                         adEntityTask.setTaskId(r.getId());
-                        ActionListener<ADBatchAnomalyResultResponse> delegatedListener = getDelegatedListener(
+                        ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
                             adEntityTask,
                             transportService,
                             listener
                         );
-                        forwardOrExecuteEntityTask(adEntityTask, transportService, delegatedListener);
+                        forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
                     }, wrappedListener);
                 }
             }, transportService, false, wrappedListener);
@@ -490,15 +486,19 @@ public class ADBatchTaskRunner {
             Map<String, Object> updatedFields = new HashMap<>();
             updatedFields.put(STATE_FIELD, ADTaskState.INIT.name());
             updatedFields.put(INIT_PROGRESS_FIELD, 0.0f);
-            ActionListener<ADBatchAnomalyResultResponse> delegatedListener = getDelegatedListener(adTask, transportService, listener);
+            ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
+                adTask,
+                transportService,
+                listener
+            );
             adTaskManager
                 .updateADTask(
                     adTask.getTaskId(),
                     updatedFields,
                     ActionListener
                         .wrap(
-                            r -> forwardOrExecuteEntityTask(adTask, transportService, delegatedListener),
-                            e -> { delegatedListener.onFailure(e); }
+                            r -> forwardOrExecuteEntityTask(adTask, transportService, workerNodeResponseListener),
+                            e -> { workerNodeResponseListener.onFailure(e); }
                         )
                 );
         }
@@ -514,7 +514,7 @@ public class ADBatchTaskRunner {
      * @param listener action listener
      * @return action listener
      */
-    private ActionListener<ADBatchAnomalyResultResponse> getDelegatedListener(
+    private ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener(
         ADTask adTask,
         TransportService transportService,
         ActionListener<ADBatchAnomalyResultResponse> listener
@@ -561,12 +561,12 @@ public class ADBatchTaskRunner {
     private void forwardOrExecuteEntityTask(
         ADTask adTask,
         TransportService transportService,
-        ActionListener<ADBatchAnomalyResultResponse> delegatedListener
+        ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener
     ) {
         dispatchTask(adTask, ActionListener.wrap(node -> {
             if (clusterService.localNode().getId().equals(node.getId())) {
                 // Execute batch task locally
-                startADBatchTaskOnWorkerNode(adTask, false, transportService, delegatedListener);
+                startADBatchTaskOnWorkerNode(adTask, false, transportService, workerNodeResponseListener);
             } else {
                 // Execute batch task remotely
                 transportService
@@ -576,10 +576,10 @@ public class ADBatchTaskRunner {
                         new ADBatchAnomalyResultRequest(adTask),
                         option,
                         // TODO: check if still need to add true/false in startADBatchTask
-                        new ActionListenerResponseHandler<>(delegatedListener, ADBatchAnomalyResultResponse::new)
+                        new ActionListenerResponseHandler<>(workerNodeResponseListener, ADBatchAnomalyResultResponse::new)
                     );
             }
-        }, e -> delegatedListener.onFailure(e)));
+        }, e -> workerNodeResponseListener.onFailure(e)));
     }
 
     // start new entity task lane

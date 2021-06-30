@@ -561,7 +561,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clusterService,
             client,
             nodeFilter,
-            indexNameExpressionResolver,
             adCircuitBreakerService,
             featureManager,
             adTaskManager,

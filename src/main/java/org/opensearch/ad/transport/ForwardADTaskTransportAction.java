@@ -83,7 +83,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 adTaskManager.startHistoricalAnalysisTask(detector, detectionDateRange, request.getUser(), transportService, listener);
                 break;
             case FINISHED:
-                // Historical analysis finished, so we need to remove detector cache.
+                // Historical analysis finished, so we need to remove detector cache. Only single entity detectors use this.
                 adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;
