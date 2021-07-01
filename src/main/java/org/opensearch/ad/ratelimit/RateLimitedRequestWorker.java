@@ -128,6 +128,34 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
             int numberToRemove = (int) (content.size() * removeRatio);
             return drain(numberToRemove);
         }
+
+        /**
+         * Remove expired requests
+         *
+         * In terms of request duration, HCAD throws a request out if it
+         * is older than the detector frequency. This duration limit frees
+         * up HCAD to work on newer requests in the subsequent detection
+         * interval instead of piling up requests that no longer matter.
+         * For example, loading model checkpoints for cache misses requires
+         * a queue configured in front of it. A request contains the checkpoint
+         * document Id and the expiry time, and the queue can hold a considerable
+         * volume of such requests since the size of the request is small.
+         * The expiry time is the start timestamp of the next detector run.
+         * Enforcing the expiry time places an upper bound on each request’s
+         * lifetime.
+         *
+         * @return the number of removed requests
+         */
+        public int clearExpiredRequests() {
+            int removed = 0;
+            RequestType head = content.peek();
+            while (head != null && head.getExpirationEpochMs() < clock.millis()) {
+                content.poll();
+                removed++;
+                head = content.peek();
+            }
+            return removed;
+        }
     }
 
     private static final Logger LOG = LogManager.getLogger(RateLimitedRequestWorker.class);
@@ -246,26 +274,19 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                     continue;
                 }
 
-                BlockingQueue<RequestType> requests = requestQueue.content;
+                requestQueue.clearExpiredRequests();
 
-                if (requests != null && false == requests.isEmpty()) {
-                    clearExpiredRequests(requests);
-
-                    if (false == requests.isEmpty()) {
-                        return Optional.of(requests);
-                    }
+                if (false == requestQueue.isEmpty()) {
+                    return Optional.of(requestQueue.content);
                 }
             }
 
             RequestQueue requestQueue = requestQueues.get(RequestPriority.LOW.name());
 
             if (requestQueue != null) {
-                BlockingQueue<RequestType> requests = requestQueue.content;
-                if (requests != null && false == requests.isEmpty()) {
-                    clearExpiredRequests(requests);
-                    if (false == requests.isEmpty()) {
-                        return Optional.of(requests);
-                    }
+                requestQueue.clearExpiredRequests();
+                if (false == requestQueue.isEmpty()) {
+                    return Optional.of(requestQueue.content);
                 }
             }
             // if we haven't find a non-empty queue , return empty.
@@ -274,25 +295,6 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
             // it is fine we may have race conditions. We are not trying to
             // be precise. The objective is to select each RequestQueue with equal probability.
             lastSelectedRequestQueueId = startId;
-        }
-    }
-
-    private void clearExpiredRequests(BlockingQueue<RequestType> requests) {
-        // In terms of request duration, HCAD throws a request out if it
-        // is older than the detector frequency. This duration limit frees
-        // up HCAD to work on newer requests in the subsequent detection
-        // interval instead of piling up requests that no longer matter.
-        // For example, loading model checkpoints for cache misses requires
-        // a queue configured in front of it. A request contains the checkpoint
-        // document Id and the expiry time, and the queue can hold a considerable
-        // volume of such requests since the size of the request is small.
-        // The expiry time is the start timestamp of the next detector run.
-        // Enforcing the expiry time places an upper bound on each request’s
-        // lifetime.
-        RequestType head = requests.peek();
-        while (head != null && head.getExpirationEpochMs() < clock.millis()) {
-            requests.poll();
-            head = requests.peek();
         }
     }
 
@@ -330,6 +332,10 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
     }
 
     private void prune(Map<String, RequestQueue> requestQueues) {
+        // pruning expired requests
+        pruneExpired();
+
+        // prune a few requests in each queue
         for (Map.Entry<String, RequestQueue> requestQueueEntry : requestQueues.entrySet()) {
             if (requestQueueEntry.getKey().equals(RequestPriority.HIGH.name())) {
                 continue;
@@ -350,23 +356,49 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         }
     }
 
+    /**
+     * pruning expired requests
+     *
+     * @return the total number of deleted requests
+     */
+    private int pruneExpired() {
+        int deleted = 0;
+        for (Map.Entry<String, RequestQueue> requestQueueEntry : requestQueues.entrySet()) {
+            RequestQueue requestQueue = requestQueueEntry.getValue();
+
+            if (requestQueue == null) {
+                continue;
+            }
+
+            deleted += requestQueue.clearExpiredRequests();
+        }
+        return deleted;
+    }
+
     private void prune(Map<String, RequestQueue> requestQueues, int exceededSize) {
+        // pruning expired requests
+        int leftItemsToRemove = exceededSize - pruneExpired();
+
+        if (leftItemsToRemove <= 0) {
+            return;
+        }
+
         // used to compute the average number of requests to remove in medium priority queues
         int numberOfQueuesToExclude = 0;
-        int leftItemsToRemove = exceededSize;
 
+        // remove low-priority requests
         RequestQueue requestQueue = requestQueues.get(RequestPriority.LOW.name());
-
         if (requestQueue != null) {
-            int removedFromLow = requestQueue.drain(exceededSize);
-            if (removedFromLow >= exceededSize) {
+            int removedFromLow = requestQueue.drain(leftItemsToRemove);
+            if (removedFromLow >= leftItemsToRemove) {
                 return;
             } else {
-                leftItemsToRemove++;
+                numberOfQueuesToExclude++;
                 leftItemsToRemove -= removedFromLow;
             }
         }
 
+        // skip high-priority requests
         if (requestQueues.get(RequestPriority.HIGH.name()) != null) {
             numberOfQueuesToExclude++;
         }
