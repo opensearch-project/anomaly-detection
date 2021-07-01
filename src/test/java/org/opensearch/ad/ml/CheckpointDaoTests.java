@@ -30,6 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.doAnswer;
@@ -71,18 +72,31 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.bulk.BulkAction;
+import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.get.MultiGetAction;
+import org.opensearch.action.get.MultiGetItemResponse;
+import org.opensearch.action.get.MultiGetRequest;
+import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.engine.VersionConflictEngineException;
+import org.opensearch.index.shard.ShardId;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -551,5 +565,84 @@ public class CheckpointDaoTests {
         }));
 
         processingLatch.await(100, TimeUnit.SECONDS);
+    }
+
+    private BulkResponse createBulkResponse(int succeeded, int failed, String[] failedId) {
+        BulkItemResponse[] bulkItemResponses = new BulkItemResponse[succeeded + failed];
+
+        ShardId shardId = new ShardId(CommonName.CHECKPOINT_INDEX_NAME, "", 1);
+        int i = 0;
+        for (; i < failed; i++) {
+            bulkItemResponses[i] = new BulkItemResponse(
+                i,
+                DocWriteRequest.OpType.UPDATE,
+                new BulkItemResponse.Failure(
+                    CommonName.CHECKPOINT_INDEX_NAME,
+                    CommonName.MAPPING_TYPE,
+                    failedId[i],
+                    new VersionConflictEngineException(shardId, "id", "test")
+                )
+            );
+        }
+
+        for (; i < failed + succeeded; i++) {
+            bulkItemResponses[i] = new BulkItemResponse(
+                i,
+                DocWriteRequest.OpType.UPDATE,
+                new UpdateResponse(shardId, CommonName.MAPPING_TYPE, "1", 0L, 1L, 1L, DocWriteResponse.Result.CREATED)
+            );
+        }
+
+        return new BulkResponse(bulkItemResponses, 507);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void batch_write_no_init() throws InterruptedException {
+        when(indexUtil.doesCheckpointIndexExist()).thenReturn(true);
+
+        doAnswer(invocation -> {
+            ActionListener<BulkResponse> listener = invocation.getArgument(2);
+
+            listener.onResponse(createBulkResponse(2, 0, null));
+            return null;
+        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
+
+        final CountDownLatch processingLatch = new CountDownLatch(1);
+        checkpointDao
+            .batchWrite(new BulkRequest(), ActionListener.wrap(response -> processingLatch.countDown(), e -> { assertTrue(false); }));
+
+        // we don't expect the waiting time elapsed before the count reached zero
+        assertTrue(processingLatch.await(100, TimeUnit.SECONDS));
+        verify(clientUtil, times(1)).execute(any(), any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void batch_read() throws InterruptedException {
+        doAnswer(invocation -> {
+            ActionListener<MultiGetResponse> listener = invocation.getArgument(2);
+
+            MultiGetItemResponse[] items = new MultiGetItemResponse[1];
+            items[0] = new MultiGetItemResponse(
+                null,
+                new MultiGetResponse.Failure(
+                    CommonName.CHECKPOINT_INDEX_NAME,
+                    "_doc",
+                    "modelId",
+                    new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME)
+                )
+            );
+            listener.onResponse(new MultiGetResponse(items));
+            return null;
+        }).when(clientUtil).execute(eq(MultiGetAction.INSTANCE), any(MultiGetRequest.class), any(ActionListener.class));
+
+        final CountDownLatch processingLatch = new CountDownLatch(1);
+        checkpointDao
+            .batchRead(new MultiGetRequest(), ActionListener.wrap(response -> processingLatch.countDown(), e -> { assertTrue(false); }));
+
+        // we don't expect the waiting time elapsed before the count reached zero
+        assertTrue(processingLatch.await(100, TimeUnit.SECONDS));
+        verify(clientUtil, times(1)).execute(any(), any(), any());
     }
 }

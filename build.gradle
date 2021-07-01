@@ -342,7 +342,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.feature.ScriptMaker',
         'org.opensearch.ad.ml.EntityModel',
         'org.opensearch.ad.caching.PriorityCache',
-        'org.opensearch.ad.ml.CheckpointDao',
 ]
 
 jacocoTestCoverageVerification {
