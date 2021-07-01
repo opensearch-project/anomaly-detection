@@ -179,6 +179,6 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         adTaskCacheManager.add(TestHelpers.randomAdTask());
         assertEquals(2, adTaskCacheManager.size());
         LimitExceededException e = expectThrows(LimitExceededException.class, () -> adTaskCacheManager.add(TestHelpers.randomAdTask()));
-        assertEquals("Can't run more than 2 historical detectors per data node", e.getMessage());
+        assertEquals("Exceed max historical analysis limit per node: 2", e.getMessage());
     }
 }

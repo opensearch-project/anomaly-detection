@@ -76,6 +76,7 @@ public final class AnomalyDetectorRunner {
      * @param detector  anomaly detector instance
      * @param startTime detection period start time
      * @param endTime   detection period end time
+     * @param context   thread context
      * @param listener handle anomaly result
      * @throws IOException - if a user gives wrong query input when defining a detector
      */

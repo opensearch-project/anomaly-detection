@@ -561,7 +561,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clusterService,
             client,
             nodeFilter,
-            indexNameExpressionResolver,
             adCircuitBreakerService,
             featureManager,
             adTaskManager,
@@ -600,6 +599,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 cacheProvider,
                 adTaskManager,
                 adBatchTaskRunner,
+                adTaskCacheManager,
                 adSearchHandler
             );
     }
@@ -689,7 +689,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
                 AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
                 AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
-                AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE
+                AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
+                AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS,
+                AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS
             );
         return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
     }

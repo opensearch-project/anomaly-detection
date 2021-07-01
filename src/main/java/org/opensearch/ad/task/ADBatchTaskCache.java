@@ -26,6 +26,8 @@
 
 package org.opensearch.ad.task;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
@@ -34,6 +36,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.TIME_DECAY;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,12 +47,19 @@ import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.google.common.collect.ImmutableList;
 
 /**
- * AD batch task cache which will hold RCF, threshold model, shingle and training data.
+ * AD batch task cache which will mainly hold these for one task:
+ * 1. RCF
+ * 2. threshold model
+ * 3. shingle
+ * 4. training data
+ * 5. entity if task is for HC detector
  */
 public class ADBatchTaskCache {
     private final String detectorId;
@@ -64,16 +74,23 @@ public class ADBatchTaskCache {
     private AtomicLong cacheMemorySize = new AtomicLong(0);
     private String cancelReason;
     private String cancelledBy;
+    private List<Entity> entity;
 
     protected ADBatchTaskCache(ADTask adTask) {
         this.detectorId = adTask.getDetectorId();
         this.taskId = adTask.getTaskId();
+        this.entity = adTask.getEntity() == null ? null : ImmutableList.copyOf(adTask.getEntity());
 
         AnomalyDetector detector = adTask.getDetector();
+        boolean isHC = detector.isMultientityDetector();
+        int numberOfTrees = isHC ? MULTI_ENTITY_NUM_TREES : NUM_TREES;
+        // use hard coded DEFAULT_MULTI_ENTITY_SHINGLE for historical HC as realtime HC is using this
+        int shingleSize = detector.isMultientityDetector() ? DEFAULT_MULTI_ENTITY_SHINGLE : detector.getShingleSize();
+        this.shingle = new ArrayDeque<>(shingleSize);
         rcfModel = RandomCutForest
             .builder()
-            .dimensions(detector.getShingleSize() * detector.getEnabledFeatureIds().size())
-            .numberOfTrees(NUM_TREES)
+            .dimensions(shingleSize * detector.getEnabledFeatureIds().size())
+            .numberOfTrees(numberOfTrees)
             .lambda(TIME_DECAY)
             .sampleSize(NUM_SAMPLES_PER_TREE)
             .outputAfter(NUM_MIN_SAMPLES)
@@ -90,7 +107,6 @@ public class ADBatchTaskCache {
         );
         this.thresholdModelTrainingData = new double[THRESHOLD_MODEL_TRAINING_SIZE];
         this.thresholdModelTrained = false;
-        this.shingle = new ArrayDeque<>(detector.getShingleSize());
     }
 
     protected String getDetectorId() {
@@ -148,6 +164,10 @@ public class ADBatchTaskCache {
 
     protected String getCancelledBy() {
         return cancelledBy;
+    }
+
+    public List<Entity> getEntity() {
+        return entity;
     }
 
     protected void cancel(String reason, String userName) {

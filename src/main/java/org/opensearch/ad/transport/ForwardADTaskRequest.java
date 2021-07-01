@@ -33,6 +33,7 @@ import java.io.IOException;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
@@ -42,6 +43,7 @@ import org.opensearch.commons.authuser.User;
 
 public class ForwardADTaskRequest extends ActionRequest {
     private AnomalyDetector detector;
+    private ADTask adTask;
     private DetectionDateRange detectionDateRange;
     private User user;
     private ADTaskAction adTaskAction;
@@ -53,9 +55,20 @@ public class ForwardADTaskRequest extends ActionRequest {
         this.adTaskAction = adTaskAction;
     }
 
+    public ForwardADTaskRequest(ADTask adTask, ADTaskAction adTaskAction) {
+        this.adTask = adTask;
+        this.adTaskAction = adTaskAction;
+        if (adTask != null) {
+            this.detector = adTask.getDetector();
+        }
+    }
+
     public ForwardADTaskRequest(StreamInput in) throws IOException {
         super(in);
         this.detector = new AnomalyDetector(in);
+        if (in.readBoolean()) {
+            this.adTask = new ADTask(in);
+        }
         if (in.readBoolean()) {
             this.detectionDateRange = new DetectionDateRange(in);
         }
@@ -69,6 +82,13 @@ public class ForwardADTaskRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         detector.writeTo(out);
+        if (adTask != null) {
+            out.writeBoolean(true);
+            adTask.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
+
         if (detectionDateRange != null) {
             out.writeBoolean(true);
             detectionDateRange.writeTo(out);
@@ -100,6 +120,10 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public AnomalyDetector getDetector() {
         return detector;
+    }
+
+    public ADTask getAdTask() {
+        return adTask;
     }
 
     public DetectionDateRange getDetectionDateRange() {
