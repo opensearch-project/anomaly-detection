@@ -50,11 +50,6 @@ public class AbstractCacheTest extends AbstractADTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        modelId1 = "1";
-        modelId2 = "2";
-        modelId3 = "3";
-        modelId4 = "4";
-
         detector = mock(AnomalyDetector.class);
         detectorId = "123";
         when(detector.getDetectorId()).thenReturn(detectorId);
@@ -66,6 +61,10 @@ public class AbstractCacheTest extends AbstractADTest {
         entity2 = Entity.createSingleAttributeEntity(detectorId, "attributeName1", "attributeVal2");
         entity3 = Entity.createSingleAttributeEntity(detectorId, "attributeName1", "attributeVal3");
         entity4 = Entity.createSingleAttributeEntity(detectorId, "attributeName1", "attributeVal4");
+        modelId1 = entity1.getModelId(detectorId).get();
+        modelId2 = entity2.getModelId(detectorId).get();
+        modelId3 = entity3.getModelId(detectorId).get();
+        modelId4 = entity4.getModelId(detectorId).get();
 
         clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());

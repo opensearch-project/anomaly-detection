@@ -34,6 +34,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import org.mockito.ArgumentCaptor;
 import org.opensearch.ad.MemoryTracker;
@@ -57,14 +58,14 @@ public class CacheBufferTests extends AbstractCacheTest {
         cacheBuffer.put(modelId1, modelState1);
         cacheBuffer.put(modelId2, modelState2);
         assertEquals(modelId1, cacheBuffer.get(modelId1).getModelId());
-        Entry<String, Float> removalCandidate = cacheBuffer.getPriorityTracker().getMinimumScaledPriority();
-        assertEquals(modelId2, removalCandidate.getKey());
+        Optional<Entry<String, Float>> removalCandidate = cacheBuffer.getPriorityTracker().getMinimumScaledPriority();
+        assertEquals(modelId2, removalCandidate.get().getKey());
         cacheBuffer.remove();
         cacheBuffer.put(modelId3, modelState3);
         assertEquals(null, cacheBuffer.get(modelId2));
         assertEquals(modelId3, cacheBuffer.get(modelId3).getModelId());
         removalCandidate = cacheBuffer.getPriorityTracker().getMinimumScaledPriority();
-        assertEquals(modelId1, removalCandidate.getKey());
+        assertEquals(modelId1, removalCandidate.get().getKey());
         cacheBuffer.remove(modelId1);
         assertEquals(null, cacheBuffer.get(modelId1));
         cacheBuffer.put(modelId4, modelState4);

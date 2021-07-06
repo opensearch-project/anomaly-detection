@@ -325,7 +325,18 @@ public class PriorityCache implements EntityCache {
         AnomalyDetector detector
     ) {
         List<Entity> hotEntities = new ArrayList<>();
-        CacheBuffer buffer = computeBufferIfAbsent(detector, detectorId);
+        List<Entity> coldEntities = new ArrayList<>();
+
+        CacheBuffer buffer = activeEnities.get(detectorId);
+        if (buffer == null) {
+            // don't want to create side-effects by creating a CacheBuffer
+            // In current implementation, this branch is impossible as we call
+            // PriorityCache.get method before invoking this method. The
+            // PriorityCache.get method creates a CacheBuffer if not present.
+            // Since this method is public, need to deal with this case in case of misuse.
+            return Pair.of(hotEntities, coldEntities);
+        }
+
         Iterator<Entity> cacheMissEntitiesIter = cacheMissEntities.iterator();
         // current buffer's dedicated cache has free slots
         while (cacheMissEntitiesIter.hasNext() && buffer.dedicatedCacheAvailable()) {
@@ -383,8 +394,6 @@ public class PriorityCache implements EntityCache {
 
         // check if we can replace in other CacheBuffer
         cacheMissEntitiesIter = otherBufferReplaceCandidates.iterator();
-
-        List<Entity> coldEntities = new ArrayList<>();
 
         while (cacheMissEntitiesIter.hasNext()) {
             // If two threads try to remove the same entity and add their own state, the 2nd remove
@@ -487,12 +496,15 @@ public class PriorityCache implements EntityCache {
         for (Map.Entry<String, CacheBuffer> entry : activeEnities.entrySet()) {
             CacheBuffer buffer = entry.getValue();
             if (buffer != originBuffer && buffer.canRemove()) {
-                Entry<String, Float> priorityEntry = buffer.getPriorityTracker().getMinimumScaledPriority();
-                float priority = priorityEntry.getValue();
+                Optional<Entry<String, Float>> priorityEntry = buffer.getPriorityTracker().getMinimumScaledPriority();
+                if (!priorityEntry.isPresent()) {
+                    continue;
+                }
+                float priority = priorityEntry.get().getValue();
                 if (candidatePriority > priority && priority < minPriority) {
                     minPriority = priority;
                     minPriorityBuffer = buffer;
-                    minPriorityEntityModelId = priorityEntry.getKey();
+                    minPriorityEntityModelId = priorityEntry.get().getKey();
                 }
             }
         }
@@ -533,10 +545,13 @@ public class PriorityCache implements EntityCache {
             removalCandiates = new PriorityQueue<>((x, y) -> Float.compare(x.getLeft(), y.getLeft()));
             for (Map.Entry<String, CacheBuffer> entry : activeEnities.entrySet()) {
                 CacheBuffer buffer = entry.getValue();
-                Entry<String, Float> priorityEntry = buffer.getPriorityTracker().getMinimumScaledPriority();
-                float priority = priorityEntry.getValue();
+                Optional<Entry<String, Float>> priorityEntry = buffer.getPriorityTracker().getMinimumScaledPriority();
+                if (!priorityEntry.isPresent()) {
+                    continue;
+                }
+                float priority = priorityEntry.get().getValue();
                 if (buffer.canRemove()) {
-                    removalCandiates.add(Triple.of(priority, buffer, priorityEntry.getKey()));
+                    removalCandiates.add(Triple.of(priority, buffer, priorityEntry.get().getKey()));
                 }
             }
         }
@@ -552,8 +567,10 @@ public class PriorityCache implements EntityCache {
 
                 if (minPriorityBuffer.canRemove()) {
                     // can remove another one
-                    Entry<String, Float> priorityEntry = minPriorityBuffer.getPriorityTracker().getMinimumScaledPriority();
-                    removalCandiates.add(Triple.of(priorityEntry.getValue(), minPriorityBuffer, priorityEntry.getKey()));
+                    Optional<Entry<String, Float>> priorityEntry = minPriorityBuffer.getPriorityTracker().getMinimumScaledPriority();
+                    if (priorityEntry.isPresent()) {
+                        removalCandiates.add(Triple.of(priorityEntry.get().getValue(), minPriorityBuffer, priorityEntry.get().getKey()));
+                    }
                 }
             }
 

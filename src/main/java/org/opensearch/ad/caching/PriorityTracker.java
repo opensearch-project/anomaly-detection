@@ -184,28 +184,40 @@ public class PriorityTracker {
     /**
      * Get the minimum priority entity and compute its scaled priority.
      * Used to compare entity priorities among detectors.
-     * @return the minimum priority entity's ID and scaled priority
+     * @return the minimum priority entity's ID and scaled priority or Optional.empty
+     *  if the priority list is empty
      */
-    public Entry<String, Float> getMinimumScaledPriority() {
+    public Optional<Entry<String, Float>> getMinimumScaledPriority() {
+        if (priorityList.isEmpty()) {
+            return Optional.empty();
+        }
         PriorityNode smallest = priorityList.first();
-        return new SimpleImmutableEntry<>(smallest.key, getScaledPriority(smallest.priority));
+        return Optional.of(new SimpleImmutableEntry<>(smallest.key, getScaledPriority(smallest.priority)));
     }
 
     /**
      * Get the minimum priority entity and compute its scaled priority.
      * Used to compare entity priorities within the same detector.
-     * @return the minimum priority entity's ID and scaled priority
+     * @return the minimum priority entity's ID and scaled priority or Optional.empty
+     *  if the priority list is empty
      */
-    public Entry<String, Float> getMinimumPriority() {
+    public Optional<Entry<String, Float>> getMinimumPriority() {
+        if (priorityList.isEmpty()) {
+            return Optional.empty();
+        }
         PriorityNode smallest = priorityList.first();
-        return new SimpleImmutableEntry<>(smallest.key, smallest.priority);
+        return Optional.of(new SimpleImmutableEntry<>(smallest.key, smallest.priority));
     }
 
     /**
      *
-     * @return the minimum priority entity's Id
+     * @return the minimum priority entity's Id or Optional.empty
+     *  if the priority list is empty
      */
     public Optional<String> getMinimumPriorityEntityId() {
+        if (priorityList.isEmpty()) {
+            return Optional.empty();
+        }
         return Optional.of(priorityList).map(list -> list.first()).map(node -> node.key);
     }
 
@@ -214,6 +226,9 @@ public class PriorityTracker {
     * @return Get maximum priority entity's Id
     */
     public Optional<String> getHighestPriorityEntityId() {
+        if (priorityList.isEmpty()) {
+            return Optional.empty();
+        }
         return Optional.of(priorityList).map(list -> list.last()).map(node -> node.key);
     }
 

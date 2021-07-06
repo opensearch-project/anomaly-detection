@@ -39,13 +39,17 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Before;
@@ -59,6 +63,7 @@ import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -200,7 +205,6 @@ public class PriorityCacheTests extends AbstractCacheTest {
         assertEquals(2, cacheProvider.getActiveEntities(detectorId));
 
         for (int i = 0; i < 10; i++) {
-            // put in dedicated cache
             cacheProvider.get(modelId3, detector2);
         }
         modelState3 = new ModelState<>(
@@ -431,5 +435,165 @@ public class PriorityCacheTests extends AbstractCacheTest {
         }
         // we should return here
         return;
+    }
+
+    private void selectTestCommon(int entityFreq) {
+        for (int i = 0; i < entityFreq; i++) {
+            // bypass doorkeeper
+            cacheProvider.get(entity1.getModelId(detectorId).get(), detector);
+        }
+        Collection<Entity> cacheMissEntities = new ArrayList<>();
+        cacheMissEntities.add(entity1);
+        Pair<List<Entity>, List<Entity>> selectedAndOther = cacheProvider.selectUpdateCandidate(cacheMissEntities, detectorId, detector);
+        List<Entity> selected = selectedAndOther.getLeft();
+        assertEquals(1, selected.size());
+        assertEquals(entity1, selected.get(0));
+        assertEquals(0, selectedAndOther.getRight().size());
+    }
+
+    public void testSelectToDedicatedCache() {
+        selectTestCommon(2);
+    }
+
+    public void testSelectToSharedCache() {
+        for (int i = 0; i < 2; i++) {
+            // bypass doorkeeper
+            cacheProvider.get(entity2.getModelId(detectorId).get(), detector);
+        }
+        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+
+        // fill in dedicated cache
+        cacheProvider.hostIfPossible(detector, modelState2);
+        selectTestCommon(2);
+        verify(memoryTracker, times(1)).canAllocate(anyLong());
+    }
+
+    public void testSelectToReplaceInCache() {
+        for (int i = 0; i < 2; i++) {
+            // bypass doorkeeper
+            cacheProvider.get(entity2.getModelId(detectorId).get(), detector);
+        }
+        when(memoryTracker.canAllocate(anyLong())).thenReturn(false);
+
+        // fill in dedicated cache
+        cacheProvider.hostIfPossible(detector, modelState2);
+        // make entity1 have enough priority to replace entity2
+        selectTestCommon(10);
+        verify(memoryTracker, times(1)).canAllocate(anyLong());
+    }
+
+    private void replaceInOtherCacheSetUp() {
+        Entity entity5 = Entity.createSingleAttributeEntity(detectorId2, "attributeName1", "attributeVal5");
+        Entity entity6 = Entity.createSingleAttributeEntity(detectorId2, "attributeName1", "attributeVal6");
+        ModelState<EntityModel> modelState5 = new ModelState<>(
+            new EntityModel(entity5, new ArrayDeque<>(), null, null),
+            entity5.getModelId(detectorId2).get(),
+            detectorId2,
+            ModelType.ENTITY.getName(),
+            clock,
+            0
+        );
+        ModelState<EntityModel> modelState6 = new ModelState<>(
+            new EntityModel(entity6, new ArrayDeque<>(), null, null),
+            entity6.getModelId(detectorId2).get(),
+            detectorId2,
+            ModelType.ENTITY.getName(),
+            clock,
+            0
+        );
+
+        for (int i = 0; i < 3; i++) {
+            // bypass doorkeeper and leave room for lower frequency entity in testSelectToCold
+            cacheProvider.get(entity5.getModelId(detectorId2).get(), detector2);
+            cacheProvider.get(entity6.getModelId(detectorId2).get(), detector2);
+        }
+        for (int i = 0; i < 10; i++) {
+            // entity1 cannot replace entity2 due to frequency
+            cacheProvider.get(entity2.getModelId(detectorId).get(), detector);
+        }
+        // put modelState5 in dedicated and modelState6 in shared cache
+        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+        cacheProvider.hostIfPossible(detector2, modelState5);
+        cacheProvider.hostIfPossible(detector2, modelState6);
+
+        // fill in dedicated cache
+        cacheProvider.hostIfPossible(detector, modelState2);
+
+        // don't allow to use shared cache afterwards
+        when(memoryTracker.canAllocate(anyLong())).thenReturn(false);
+    }
+
+    public void testSelectToReplaceInOtherCache() {
+        replaceInOtherCacheSetUp();
+
+        // make entity1 have enough priority to replace entity2
+        selectTestCommon(10);
+        // once when deciding whether to host modelState6;
+        // once when calling selectUpdateCandidate on entity1
+        verify(memoryTracker, times(2)).canAllocate(anyLong());
+    }
+
+    public void testSelectToCold() {
+        replaceInOtherCacheSetUp();
+
+        for (int i = 0; i < 2; i++) {
+            // bypass doorkeeper
+            cacheProvider.get(entity1.getModelId(detectorId).get(), detector);
+        }
+        Collection<Entity> cacheMissEntities = new ArrayList<>();
+        cacheMissEntities.add(entity1);
+        Pair<List<Entity>, List<Entity>> selectedAndOther = cacheProvider.selectUpdateCandidate(cacheMissEntities, detectorId, detector);
+        List<Entity> cold = selectedAndOther.getRight();
+        assertEquals(1, cold.size());
+        assertEquals(entity1, cold.get(0));
+        assertEquals(0, selectedAndOther.getLeft().size());
+    }
+
+    /*
+     * Test the scenario:
+     * 1. A detector's buffer uses dedicated and shared memory
+     * 2. a new detector's buffer is created and triggers clearMemory (every new
+     *  CacheBuffer creation will trigger it)
+     * 3. clearMemory found we can reclaim shared memory
+     */
+    public void testClearMemory() {
+        for (int i = 0; i < 2; i++) {
+            // bypass doorkeeper
+            cacheProvider.get(entity2.getModelId(detectorId).get(), detector);
+        }
+
+        for (int i = 0; i < 10; i++) {
+            // bypass doorkeeper and make entity1 have higher frequency
+            cacheProvider.get(entity1.getModelId(detectorId).get(), detector);
+        }
+
+        // put modelState5 in dedicated and modelState6 in shared cache
+        when(memoryTracker.canAllocate(anyLong())).thenReturn(true);
+        cacheProvider.hostIfPossible(detector, modelState1);
+        cacheProvider.hostIfPossible(detector, modelState2);
+
+        // two entities get inserted to cache
+        assertTrue(null != cacheProvider.get(entity1.getModelId(detectorId).get(), detector));
+        assertTrue(null != cacheProvider.get(entity2.getModelId(detectorId).get(), detector));
+
+        Entity entity5 = Entity.createSingleAttributeEntity(detectorId2, "attributeName1", "attributeVal5");
+        when(memoryTracker.memoryToShed()).thenReturn(memoryPerEntity);
+        for (int i = 0; i < 2; i++) {
+            // bypass doorkeeper, CacheBuffer created, and trigger clearMemory
+            cacheProvider.get(entity5.getModelId(detectorId2).get(), detector2);
+        }
+
+        assertTrue(null != cacheProvider.get(entity1.getModelId(detectorId).get(), detector));
+        // entity 2 removed
+        assertTrue(null == cacheProvider.get(entity2.getModelId(detectorId).get(), detector));
+        assertTrue(null == cacheProvider.get(entity5.getModelId(detectorId2).get(), detector));
+    }
+
+    public void testSelectEmpty() {
+        Collection<Entity> cacheMissEntities = new ArrayList<>();
+        cacheMissEntities.add(entity1);
+        Pair<List<Entity>, List<Entity>> selectedAndOther = cacheProvider.selectUpdateCandidate(cacheMissEntities, detectorId, detector);
+        assertEquals(0, selectedAndOther.getLeft().size());
+        assertEquals(0, selectedAndOther.getRight().size());
     }
 }

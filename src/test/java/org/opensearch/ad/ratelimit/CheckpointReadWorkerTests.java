@@ -15,13 +15,16 @@ import static java.util.AbstractMap.SimpleImmutableEntry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,9 +45,11 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -52,6 +57,8 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingResult;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -725,5 +732,86 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         String newDetectorId = "456";
         request.setDetectorId(newDetectorId);
         assertEquals(newDetectorId, request.getDetectorId());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testHostException() throws IOException {
+        String detectorId2 = "456";
+        Entity entity4 = Entity.createSingleAttributeEntity(detectorId2, categoryField, "value4");
+        EntityFeatureRequest request4 = new EntityFeatureRequest(
+            Integer.MAX_VALUE,
+            detectorId2,
+            RequestPriority.MEDIUM,
+            entity4,
+            new double[] { 0 },
+            0
+        );
+
+        AnomalyDetector detector2 = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId2, Arrays.asList(categoryField));
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector2));
+            return null;
+        }).when(nodeStateManager).getAnomalyDetector(eq(detectorId2), any(ActionListener.class));
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(nodeStateManager).getAnomalyDetector(eq(detectorId), any(ActionListener.class));
+
+        doAnswer(invocation -> {
+            MultiGetItemResponse[] items = new MultiGetItemResponse[2];
+            items[0] = new MultiGetItemResponse(
+                new GetResponse(
+                    new GetResult(
+                        CommonName.CHECKPOINT_INDEX_NAME,
+                        "_doc",
+                        entity.getModelId(detectorId).get(),
+                        1,
+                        1,
+                        0,
+                        true,
+                        null,
+                        null,
+                        null
+                    )
+                ),
+                null
+            );
+            items[1] = new MultiGetItemResponse(
+                new GetResponse(
+                    new GetResult(
+                        CommonName.CHECKPOINT_INDEX_NAME,
+                        "_doc",
+                        entity4.getModelId(detectorId2).get(),
+                        1,
+                        1,
+                        0,
+                        true,
+                        null,
+                        null,
+                        null
+                    )
+                ),
+                null
+            );
+            ActionListener<MultiGetResponse> listener = invocation.getArgument(1);
+            listener.onResponse(new MultiGetResponse(items));
+            return null;
+        }).when(checkpoint).batchRead(any(), any());
+
+        doThrow(LimitExceededException.class).when(entityCache).hostIfPossible(eq(detector2), any());
+
+        List<EntityFeatureRequest> requests = new ArrayList<>();
+        requests.add(request);
+        requests.add(request4);
+        worker.putAll(requests);
+        verify(coldstartQueue, never()).put(any());
+        verify(entityCache, times(2)).hostIfPossible(any(), any());
+
+        verify(nodeStateManager, times(1)).setException(eq(detectorId2), any(LimitExceededException.class));
+        verify(nodeStateManager, never()).setException(eq(detectorId), any(LimitExceededException.class));
     }
 }

@@ -297,8 +297,8 @@ public class CacheBuffer implements ExpiringState {
         if (items.isEmpty()) {
             return false;
         }
-        Entry<String, Float> minPriorityItem = priorityTracker.getMinimumPriority();
-        return minPriorityItem != null && priority > minPriorityItem.getValue();
+        Optional<Entry<String, Float>> minPriorityItem = priorityTracker.getMinimumPriority();
+        return minPriorityItem.isPresent() && priority > minPriorityItem.get().getValue();
     }
 
     /**
