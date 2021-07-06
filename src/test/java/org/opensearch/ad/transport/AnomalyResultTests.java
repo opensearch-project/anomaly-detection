@@ -52,7 +52,6 @@ import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,9 +105,6 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -274,11 +270,6 @@ public class AnomalyResultTests extends AbstractADTest {
         }).when(client).index(any(), any());
 
         indexNameResolver = new IndexNameExpressionResolver(new ThreadContext(Settings.EMPTY));
-        Clock clock = mock(Clock.class);
-        Throttler throttler = new Throttler(clock);
-        ThreadPool threadpool = mock(ThreadPool.class);
-        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, threadpool);
-        IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
 
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
             {

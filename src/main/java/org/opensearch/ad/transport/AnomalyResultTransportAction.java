@@ -231,6 +231,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *   + cold start cannot succeed
      *   + unknown prediction error
      *   + memory circuit breaker tripped
+     *   + invalid search query
      *
      *  Known causes of EndRunException with endNow returning true:
      *   + a model partition's memory size reached limit
@@ -238,7 +239,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *   + Having trouble querying feature data due to
      *    * index does not exist
      *    * all features have been disabled
-     *    * invalid search query
+     *
      *   + anomaly detector is not available
      *   + AD plugin is disabled
      *   + training data is invalid due to serious internal bug(s)
@@ -456,7 +457,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 } catch (Exception e) {
                     listener
                         .onFailure(
-                            new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true)
+                            new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false)
                         );
                     return;
                 }
@@ -622,21 +623,26 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     /**
      * Convert a query related exception to EndRunException
+     *
+     * These query exception can happen during the starting phase of the OpenSearch
+     * process.  Thus, set the stopNow parameter of these EndRunException to false
+     * and confirm the EndRunException is not a false positive.
+     *
      * @param exception Exception
      * @param adID detector Id
      * @return the converted exception if the exception is query related
      */
     private Exception convertedQueryFailureException(Exception exception, String adID) {
         if (ExceptionUtil.isIndexNotAvailable(exception)) {
-            return new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), true).countedInStats(false);
+            return new EndRunException(adID, TROUBLE_QUERYING_ERR_MSG + exception.getMessage(), false).countedInStats(false);
         } else if (exception instanceof SearchPhaseExecutionException && invalidQuery((SearchPhaseExecutionException) exception)) {
             // This is to catch invalid aggregation on wrong field type. For example,
             // sum aggregation on text field. We should end detector run for such case.
             return new EndRunException(
                 adID,
-                INVALID_SEARCH_QUERY_MSG + ((SearchPhaseExecutionException) exception).getDetailedMessage(),
+                INVALID_SEARCH_QUERY_MSG + " " + ((SearchPhaseExecutionException) exception).getDetailedMessage(),
                 exception,
-                true
+                false
             ).countedInStats(false);
         }
 

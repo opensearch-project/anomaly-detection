@@ -256,7 +256,6 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             indexUtil,
             resultWriteQueue,
             checkpointReadQueue,
-            coldStarter,
             coldEntityQueue,
             threadPool
         );

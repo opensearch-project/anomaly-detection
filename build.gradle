@@ -329,7 +329,7 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.util.ThrowingSupplierWrapper',
         'org.opensearch.ad.transport.EntityResultTransportAction',
         'org.opensearch.ad.transport.EntityResultTransportAction.*',
-        'org.opensearch.ad.transport.AnomalyResultTransportAction.*',
+        //'org.opensearch.ad.transport.AnomalyResultTransportAction.*',
         'org.opensearch.ad.transport.ProfileNodeResponse',
         'org.opensearch.ad.transport.ADResultBulkResponse',
         'org.opensearch.ad.transport.AggregationType',
@@ -338,10 +338,9 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.util.BulkUtil',
         'org.opensearch.ad.util.ExceptionUtil',
         'org.opensearch.ad.feature.SearchFeatureDao',
-        'org.opensearch.ad.feature.CompositeRetriever.*',
+        //'org.opensearch.ad.feature.CompositeRetriever.*',
         'org.opensearch.ad.feature.ScriptMaker',
         'org.opensearch.ad.ml.EntityModel',
-        'org.opensearch.ad.caching.PriorityCache',
 ]
 
 jacocoTestCoverageVerification {

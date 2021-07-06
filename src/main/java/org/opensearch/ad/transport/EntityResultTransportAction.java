@@ -52,7 +52,6 @@ import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
@@ -102,7 +101,6 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private AnomalyDetectionIndices indexUtil;
     private ResultWriteWorker resultWriteQueue;
     private CheckpointReadWorker checkpointReadQueue;
-    private EntityColdStarter coldStarter;
     private ColdEntityWorker coldEntityQueue;
     private ThreadPool threadPool;
 
@@ -117,7 +115,6 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         AnomalyDetectionIndices indexUtil,
         ResultWriteWorker resultWriteQueue,
         CheckpointReadWorker checkpointReadQueue,
-        EntityColdStarter coldStarer,
         ColdEntityWorker coldEntityQueue,
         ThreadPool threadPool
     ) {
@@ -129,7 +126,6 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         this.indexUtil = indexUtil;
         this.resultWriteQueue = resultWriteQueue;
         this.checkpointReadQueue = checkpointReadQueue;
-        this.coldStarter = coldStarer;
         this.coldEntityQueue = coldEntityQueue;
         this.threadPool = threadPool;
     }

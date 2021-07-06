@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
@@ -37,6 +38,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,6 +46,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -51,6 +55,11 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.search.SearchPhaseExecutionException;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -71,6 +80,7 @@ import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
@@ -92,7 +102,6 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
@@ -169,7 +178,8 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         settings = Settings.builder().put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
 
-        request = new AnomalyResultRequest(detectorId, 100, 200);
+        // make sure end time is larger enough than Clock.systemUTC().millis() to get PageIterator.hasNext() to pass
+        request = new AnomalyResultRequest(detectorId, 100, Clock.systemUTC().millis() + 100_000);
 
         transportService = mock(TransportService.class);
 
@@ -234,7 +244,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY
+            xContentRegistry()
         );
 
         provider = mock(CacheProvider.class);
@@ -339,11 +349,93 @@ public class MultiEntityResultTests extends AbstractADTest {
             indexUtil,
             resultWriteQueue,
             checkpointReadQueue,
-            coldStarer,
             coldEntityQueue,
             threadPool
         );
 
         when(normalModelManager.score(any(), anyString(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
+    }
+
+    /**
+     * Test query error causes EndRunException but not end now
+     * @throws InterruptedException when the await are interrupted
+     * @throws IOException when failing to create anomaly detector
+     */
+    @SuppressWarnings("unchecked")
+    public void testQueryErrorEndRunNotNow() throws InterruptedException, IOException {
+        ClientUtil clientUtil = mock(ClientUtil.class);
+
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), true, true);
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(2);
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            return null;
+        }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
+
+        ModelPartitioner modelPartitioner = mock(ModelPartitioner.class);
+        stateManager = new NodeStateManager(
+            client,
+            xContentRegistry(),
+            settings,
+            clientUtil,
+            clock,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            modelPartitioner
+        );
+
+        action = new AnomalyResultTransportAction(
+            new ActionFilters(Collections.emptySet()),
+            transportService,
+            settings,
+            client,
+            stateManager,
+            featureQuery,
+            normalModelManager,
+            normalModelPartitioner,
+            hashRing,
+            clusterService,
+            indexNameResolver,
+            adCircuitBreakerService,
+            adStats,
+            mockThreadPool,
+            xContentRegistry()
+        );
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        String allShardsFailedMsg = "all shards failed";
+        // make PageIterator.next return failure
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener
+                .onFailure(
+                    new SearchPhaseExecutionException(
+                        "search",
+                        allShardsFailedMsg,
+                        new ShardSearchFailure[] { new ShardSearchFailure(new IllegalArgumentException("blah")) }
+                    )
+                );
+            inProgressLatch.countDown();
+            return null;
+        }).when(client).search(any(), any());
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.001);
+
+        assertTrue(inProgressLatch.await(10000L, TimeUnit.MILLISECONDS));
+
+        PlainActionFuture<AnomalyResultResponse> listener2 = new PlainActionFuture<>();
+        action.doExecute(null, request, listener2);
+        Exception e = expectThrows(EndRunException.class, () -> listener2.actionGet(10000L));
+        // wrapped INVALID_SEARCH_QUERY_MSG around SearchPhaseExecutionException by convertedQueryFailureException
+        assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(CommonErrorMessages.INVALID_SEARCH_QUERY_MSG));
+        assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(allShardsFailedMsg));
+        // not end now
+        assertTrue(!((EndRunException) e).isEndNow());
     }
 }
