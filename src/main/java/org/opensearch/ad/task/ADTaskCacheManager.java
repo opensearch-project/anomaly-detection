@@ -60,7 +60,6 @@ import org.opensearch.common.util.set.Sets;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.RateLimiter;
 
 public class ADTaskCacheManager {
     private final Logger logger = LogManager.getLogger(ADTaskCacheManager.class);
@@ -712,18 +711,6 @@ public class ADTaskCacheManager {
      */
     public boolean hasEntity(String detectorId) {
         return hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).hasEntity();
-    }
-
-    /**
-     * Get rate limiter of AD task.
-     *
-     * @param detectorId detector id
-     * @param taskId AD task id
-     * @return rate limiter
-     */
-    public RateLimiter getRateLimiter(String detectorId, String taskId) {
-        ADHCBatchTaskCache hcTaskCache = getHCTaskCache(detectorId);
-        return hcTaskCache.getRateLimiter(taskId);
     }
 
     /**
