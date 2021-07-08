@@ -54,7 +54,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
  *
  */
 public class CompositeRetriever extends AbstractRetriever {
-    private static final String AGG_NAME_COMP = "comp_agg";
+    public static final String AGG_NAME_COMP = "comp_agg";
     private static final Logger LOG = LogManager.getLogger(CompositeRetriever.class);
 
     private final long dataStartEpoch;

@@ -40,6 +40,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.apache.lucene.util.SetOnce;
 import org.opensearch.Version;
 import org.opensearch.action.admin.cluster.node.tasks.cancel.TransportCancelTasksAction;
@@ -68,6 +70,8 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.nio.MockNioTransport;
 
 public class FakeNode implements Releasable {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(FakeNode.class);
+
     public FakeNode(
         String name,
         ThreadPool threadPool,
