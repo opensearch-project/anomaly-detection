@@ -426,7 +426,7 @@ public class ADBatchTaskRunner {
                 // If fail, move the entity into pending task queue
                 adTaskCacheManager.addPendingEntity(detectorId, entity);
             });
-            // This is to handle retry case
+            // This is to handle retry case. To retry entity, we need to get the old entity task created before.
             adTaskManager.getLatestADTask(detectorId, entity, ImmutableList.of(ADTaskType.HISTORICAL_HC_ENTITY), existingEntityTask -> {
                 if (existingEntityTask.isPresent()) { // retry failed entity caused by limit exceed exception
                     // TODO: if task failed due to limit exceed exception in half way, resume from the break point or just clear the

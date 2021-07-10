@@ -212,7 +212,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             false
                         );
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
-
                         adTaskManager.getLatestADTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, adTask -> {
                             DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                             if (adTask.isPresent()) {
@@ -230,7 +229,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                                 // detector state for this detector does not exist
                                 listener.onResponse(profileBuilder.build());
                             }
-                        }, transportService, delegateListener);
+                        }, transportService, false, delegateListener);
                     }
 
                     // total number of listeners we need to define. Needed by MultiResponsesDelegateActionListener to decide

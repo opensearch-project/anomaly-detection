@@ -118,7 +118,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                         } else {
                             adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
                         }
-                    }, transportService, listener);
+                    }, transportService, true, listener);
                 }), listener),
                 client,
                 clusterService,

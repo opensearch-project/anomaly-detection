@@ -416,7 +416,7 @@ public class ADTaskManager {
                     } else {
                         listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
                     }
-                }, transportService, listener);
+                }, transportService, true, listener);
             } else {
                 // If detection index doesn't exist, create index and execute detector.
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
@@ -500,12 +500,13 @@ public class ADTaskManager {
     ) {
         getDetector(detectorId, (detector) -> {
             if (historical) {
-                // stop historical analysis
+                // stop historical analyis
                 getLatestADTask(
                     detectorId,
                     HISTORICAL_DETECTOR_TASK_TYPES,
                     (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
                     transportService,
+                    true,
                     listener
                 );
             } else {
@@ -586,6 +587,7 @@ public class ADTaskManager {
      * @param adTaskTypes AD task types
      * @param function consumer function
      * @param transportService transport service
+     * @param resetTaskState reset task state or not
      * @param listener action listener
      * @param <T> action listener response type
      */
@@ -594,9 +596,10 @@ public class ADTaskManager {
         List<ADTaskType> adTaskTypes,
         Consumer<Optional<ADTask>> function,
         TransportService transportService,
+        boolean resetTaskState,
         ActionListener<T> listener
     ) {
-        getLatestADTask(detectorId, null, adTaskTypes, function, transportService, true, listener);
+        getLatestADTask(detectorId, null, adTaskTypes, function, transportService, resetTaskState, listener);
     }
 
     /**
@@ -966,6 +969,7 @@ public class ADTaskManager {
                 return;
             }
 
+            // key of adTaskProfileMap: task id
             Map<String, ADTaskProfile> adTaskProfileMap = new HashMap<>();
             for (ADTaskProfileNodeResponse node : response.getNodes()) {
                 List<ADTaskProfile> profiles = node.getAdTaskProfiles();
@@ -1034,7 +1038,7 @@ public class ADTaskManager {
                     } else {
                         listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
                     }
-                }, transportService, listener);
+                }, transportService, true, listener);
             } else {
                 // If detection index doesn't exist, create index and execute historical detector.
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
@@ -1494,7 +1498,7 @@ public class ADTaskManager {
             if (adTask.isPresent()) {
                 updateADTask(adTask.get().getTaskId(), updatedFields);
             }
-        }, null, listener);
+        }, null, false, listener);
     }
 
     /**
@@ -1528,7 +1532,7 @@ public class ADTaskManager {
             } else {
                 listener.onFailure(new OpenSearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK));
             }
-        }, null, listener);
+        }, null, false, listener);
     }
 
     /**
@@ -1856,6 +1860,29 @@ public class ADTaskManager {
 
     /**
      * Remove stale running entity from coordinating node cache. If no more entities, reset task as STOPPED.
+     *
+     * Explain details with an example.
+     *
+     * Note:
+     *    CN: coordinating mode;
+     *    WN1: worker node 1;
+     *    WN2: worker node 2.
+     *    [x,x] means running entity in cache.
+     *    eX like e1: entity.
+     *
+     * Assume HC detector can run 2 entities at most and current cluster state is:
+     *     CN: [e1, e2];
+     *     WN1: [e1]
+     *     WN2: [e2]
+     *
+     * If WN1 crashes, then e1 will never removed from CN cache. User can call get detector API with "task=true"
+     * to reset task state. Let's say User1 and User2 call get detector API at the same time. Then User1 and User2
+     * both know e1 is stale running entity and try to remove from CN cache. If User1 request arrives first, then
+     * it will remove e1 from CN, then CN cache will be [e2]. As we can run 2 entities per HC detector, so we can
+     * kick off another pending entity. Then CN cache changes to [e2, e3]. Then User2 request arrives, it will find
+     * e1 not in CN cache ([e2, e3]) which means e1 has been removed by other request. We can't kick off another
+     * pending entity for User2 request, otherwise we will run more than 2 entities for this HC detector.
+     *
      * @param adTask AD task
      * @param entity entity value
      * @param listener action listener
@@ -1867,7 +1894,6 @@ public class ADTaskManager {
             logger.debug("kick off next pending entities");
             this.runNextEntityForHCADHistorical(adTask, listener);
         } else {
-            logger.debug("no pending entities");
             if (!adTaskCacheManager.hasEntity(detectorId)) {
                 setHCDetectorTaskDone(adTask, ADTaskState.STOPPED, listener);
             }

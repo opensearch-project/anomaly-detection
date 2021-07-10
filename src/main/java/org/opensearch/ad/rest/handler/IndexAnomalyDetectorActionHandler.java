@@ -258,7 +258,7 @@ public class IndexAnomalyDetectorActionHandler {
                         // TODO: change to validateDetector method when we support HC historical detector
                         searchAdInputIndices(detectorId);
                     }
-                }, transportService, listener);
+                }, transportService, true, listener);
             }
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;
