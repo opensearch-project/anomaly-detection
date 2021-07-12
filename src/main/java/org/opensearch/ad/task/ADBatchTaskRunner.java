@@ -901,6 +901,7 @@ public class ADBatchTaskRunner {
             try {
                 if (dataPoints.size() == 0) {
                     logger.debug("No data in current piece with end time: " + pieceEndTime);
+                    // Current piece end time is the next piece's start time
                     runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
                 } else {
                     detectAnomaly(
@@ -1033,6 +1034,7 @@ public class ADBatchTaskRunner {
                 anomalyResults,
                 new ThreadedActionListener<>(logger, threadPool, AD_BATCH_TASK_THREAD_POOL_NAME, ActionListener.wrap(r -> {
                     try {
+                        // Current piece end time is the next piece's start time
                         runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
                     } catch (Exception e) {
                         internalListener.onFailure(e);
