@@ -212,7 +212,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             false
                         );
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
-                        adTaskManager.getLatestADTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, adTask -> {
+                        adTaskManager.getAndExecuteOnLatestADTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, adTask -> {
                             DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                             if (adTask.isPresent()) {
                                 long lastUpdateTimeMs = adTask.get().getLastUpdateTime().toEpochMilli();

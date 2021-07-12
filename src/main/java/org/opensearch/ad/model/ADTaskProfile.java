@@ -552,6 +552,8 @@ public class ADTaskProfile implements ToXContentObject, Writeable, Writeable.Wri
     public void write(StreamOutput out, Object value) throws IOException {
         if (value instanceof ADTaskProfile) {
             ((ADTaskProfile) value).writeTo(out);
+        } else {
+            throw new IllegalArgumentException("Can only write ADTaskProfile");
         }
     }
 }

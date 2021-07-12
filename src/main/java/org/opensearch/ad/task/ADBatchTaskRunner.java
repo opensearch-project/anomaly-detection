@@ -427,59 +427,60 @@ public class ADBatchTaskRunner {
                 adTaskCacheManager.addPendingEntity(detectorId, entity);
             });
             // This is to handle retry case. To retry entity, we need to get the old entity task created before.
-            adTaskManager.getLatestADTask(detectorId, entity, ImmutableList.of(ADTaskType.HISTORICAL_HC_ENTITY), existingEntityTask -> {
-                if (existingEntityTask.isPresent()) { // retry failed entity caused by limit exceed exception
-                    // TODO: if task failed due to limit exceed exception in half way, resume from the break point or just clear the
-                    // old AD tasks and rerun it? Currently we just support rerunning task failed due to limit exceed exception
-                    // before starting.
-                    ADTask adEntityTask = existingEntityTask.get();
-                    logger
-                        .debug(
-                            "Rerun entity task for task id: {}, error of last run: {}",
-                            adEntityTask.getTaskId(),
-                            adEntityTask.getError()
-                        );
-                    ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
-                        adEntityTask,
-                        transportService,
-                        listener
-                    );
-                    forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
-                } else {
-                    logger.info("Create entity task for entity:{}", entity);
-                    Instant now = Instant.now();
-                    String parentTaskId = adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY.name())
-                        ? adTask.getParentTaskId()
-                        : adTask.getTaskId();
-                    ADTask adEntityTask = new ADTask.Builder()
-                        .detectorId(adTask.getDetectorId())
-                        .detector(adTask.getDetector())
-                        .isLatest(true)
-                        .taskType(ADTaskType.HISTORICAL_HC_ENTITY.name())
-                        .executionStartTime(now)
-                        .taskProgress(0.0f)
-                        .initProgress(0.0f)
-                        .state(ADTaskState.INIT.name()) // TODO where to set INIT state
-                        .initProgress(0.0f) // TODO where to set INIT state
-                        .lastUpdateTime(now)
-                        .startedBy(adTask.getStartedBy())
-                        .coordinatingNode(clusterService.localNode().getId())
-                        .detectionDateRange(adTask.getDetectionDateRange())
-                        .user(adTask.getUser())
-                        .entity(ImmutableList.of(new Entity(adTask.getDetector().getCategoryField().get(0), entity)))
-                        .parentTaskId(parentTaskId)
-                        .build();
-                    adTaskManager.createADTaskDirectly(adEntityTask, r -> {
-                        adEntityTask.setTaskId(r.getId());
+            adTaskManager
+                .getAndExecuteOnLatestADTask(detectorId, entity, ImmutableList.of(ADTaskType.HISTORICAL_HC_ENTITY), existingEntityTask -> {
+                    if (existingEntityTask.isPresent()) { // retry failed entity caused by limit exceed exception
+                        // TODO: if task failed due to limit exceed exception in half way, resume from the break point or just clear the
+                        // old AD tasks and rerun it? Currently we just support rerunning task failed due to limit exceed exception
+                        // before starting.
+                        ADTask adEntityTask = existingEntityTask.get();
+                        logger
+                            .debug(
+                                "Rerun entity task for task id: {}, error of last run: {}",
+                                adEntityTask.getTaskId(),
+                                adEntityTask.getError()
+                            );
                         ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
                             adEntityTask,
                             transportService,
                             listener
                         );
                         forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
-                    }, wrappedListener);
-                }
-            }, transportService, false, wrappedListener);
+                    } else {
+                        logger.info("Create entity task for entity:{}", entity);
+                        Instant now = Instant.now();
+                        String parentTaskId = adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY.name())
+                            ? adTask.getParentTaskId()
+                            : adTask.getTaskId();
+                        ADTask adEntityTask = new ADTask.Builder()
+                            .detectorId(adTask.getDetectorId())
+                            .detector(adTask.getDetector())
+                            .isLatest(true)
+                            .taskType(ADTaskType.HISTORICAL_HC_ENTITY.name())
+                            .executionStartTime(now)
+                            .taskProgress(0.0f)
+                            .initProgress(0.0f)
+                            .state(ADTaskState.INIT.name()) // TODO where to set INIT state
+                            .initProgress(0.0f) // TODO where to set INIT state
+                            .lastUpdateTime(now)
+                            .startedBy(adTask.getStartedBy())
+                            .coordinatingNode(clusterService.localNode().getId())
+                            .detectionDateRange(adTask.getDetectionDateRange())
+                            .user(adTask.getUser())
+                            .entity(ImmutableList.of(new Entity(adTask.getDetector().getCategoryField().get(0), entity)))
+                            .parentTaskId(parentTaskId)
+                            .build();
+                        adTaskManager.createADTaskDirectly(adEntityTask, r -> {
+                            adEntityTask.setTaskId(r.getId());
+                            ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
+                                adEntityTask,
+                                transportService,
+                                listener
+                            );
+                            forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
+                        }, wrappedListener);
+                    }
+                }, transportService, false, wrappedListener);
         } else {
             Map<String, Object> updatedFields = new HashMap<>();
             updatedFields.put(STATE_FIELD, ADTaskState.INIT.name());
@@ -1138,7 +1139,7 @@ public class ADBatchTaskRunner {
 
     private void checkIfADTaskCancelled(String taskId) {
         if (adTaskCacheManager.contains(taskId) && adTaskCacheManager.isCancelled(taskId)) {
-            logger.debug("AD task cancelled, stop running task {}", taskId);
+            logger.info("AD task cancelled, stop running task {}", taskId);
             throw new ADTaskCancelledException(adTaskCacheManager.getCancelReason(taskId), adTaskCacheManager.getCancelledBy(taskId));
         }
     }

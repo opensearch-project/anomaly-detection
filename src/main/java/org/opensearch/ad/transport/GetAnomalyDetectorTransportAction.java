@@ -222,7 +222,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                 }
             } else {
                 if (returnTask) {
-                    adTaskManager.getLatestADTasks(detectorID, null, ALL_DETECTOR_TASK_TYPES, (taskList) -> {
+                    adTaskManager.getAndExecuteOnLatestADTasks(detectorID, null, ALL_DETECTOR_TASK_TYPES, (taskList) -> {
                         Optional<ADTask> realtimeAdTask = Optional.empty();
                         Optional<ADTask> historicalAdTask = Optional.empty();
 

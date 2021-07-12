@@ -410,7 +410,7 @@ public class ADTaskManager {
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
-                getLatestADTask(detector.getDetectorId(), getADTaskTypes(detectionDateRange), (adTask) -> {
+                getAndExecuteOnLatestADTask(detector.getDetectorId(), getADTaskTypes(detectionDateRange), (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
                         executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
@@ -501,7 +501,7 @@ public class ADTaskManager {
         getDetector(detectorId, (detector) -> {
             if (historical) {
                 // stop historical analyis
-                getLatestADTask(
+                getAndExecuteOnLatestADTask(
                     detectorId,
                     HISTORICAL_DETECTOR_TASK_TYPES,
                     (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
@@ -591,7 +591,7 @@ public class ADTaskManager {
      * @param listener action listener
      * @param <T> action listener response type
      */
-    public <T> void getLatestADTask(
+    public <T> void getAndExecuteOnLatestADTask(
         String detectorId,
         List<ADTaskType> adTaskTypes,
         Consumer<Optional<ADTask>> function,
@@ -599,7 +599,7 @@ public class ADTaskManager {
         boolean resetTaskState,
         ActionListener<T> listener
     ) {
-        getLatestADTask(detectorId, null, adTaskTypes, function, transportService, resetTaskState, listener);
+        getAndExecuteOnLatestADTask(detectorId, null, adTaskTypes, function, transportService, resetTaskState, listener);
     }
 
     /**
@@ -614,7 +614,7 @@ public class ADTaskManager {
      * @param listener action listener
      * @param <T> action listener response type
      */
-    public <T> void getLatestADTask(
+    public <T> void getAndExecuteOnLatestADTask(
         String detectorId,
         String entityValue,
         List<ADTaskType> adTaskTypes,
@@ -623,7 +623,7 @@ public class ADTaskManager {
         boolean resetTaskState,
         ActionListener<T> listener
     ) {
-        getLatestADTasks(detectorId, entityValue, adTaskTypes, (taskList) -> {
+        getAndExecuteOnLatestADTasks(detectorId, entityValue, adTaskTypes, (taskList) -> {
             if (taskList != null && taskList.size() > 0) {
                 function.accept(Optional.ofNullable(taskList.get(0)));
             } else {
@@ -645,7 +645,7 @@ public class ADTaskManager {
      * @param listener action listener
      * @param <T> response type of action listener
      */
-    public <T> void getLatestADTasks(
+    public <T> void getAndExecuteOnLatestADTasks(
         String detectorId,
         String entityValue,
         List<ADTaskType> adTaskTypes,
@@ -934,7 +934,7 @@ public class ADTaskManager {
         DetectorProfile profile,
         ActionListener<DetectorProfile> listener
     ) {
-        getLatestADTask(detectorId, null, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
+        getAndExecuteOnLatestADTask(detectorId, null, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
             if (adTask.isPresent()) {
                 getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfiles -> {
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
@@ -1032,7 +1032,7 @@ public class ADTaskManager {
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
-                getLatestADTask(detector.getDetectorId(), HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
+                getAndExecuteOnLatestADTask(detector.getDetectorId(), HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
                         executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
@@ -1494,7 +1494,7 @@ public class ADTaskManager {
         Map<String, Object> updatedFields,
         ActionListener listener
     ) {
-        getLatestADTask(detectorId, taskTypes, (adTask) -> {
+        getAndExecuteOnLatestADTask(detectorId, taskTypes, (adTask) -> {
             if (adTask.isPresent()) {
                 updateADTask(adTask.get().getTaskId(), updatedFields);
             }
@@ -1515,7 +1515,7 @@ public class ADTaskManager {
         Exception error,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        getLatestADTask(detectorId, REALTIME_TASK_TYPES, (adTask) -> {
+        getAndExecuteOnLatestADTask(detectorId, REALTIME_TASK_TYPES, (adTask) -> {
             if (adTask.isPresent() && !isADTaskEnded(adTask.get())) {
                 Map<String, Object> updatedFields = new HashMap<>();
                 updatedFields.put(ADTask.STATE_FIELD, state.name());
@@ -1882,6 +1882,16 @@ public class ADTaskManager {
      * kick off another pending entity. Then CN cache changes to [e2, e3]. Then User2 request arrives, it will find
      * e1 not in CN cache ([e2, e3]) which means e1 has been removed by other request. We can't kick off another
      * pending entity for User2 request, otherwise we will run more than 2 entities for this HC detector.
+     *
+     * Why we don't put the stale running entity back to pending and retry?
+     * The stale entity has been ran on some worker node and the old task run may generate some or all AD results
+     * for the stale entity. Just because of the worker node crash or entity task done message not received by
+     * coordinating node, the entity will never be deleted from running entity queue. We can check if the stale
+     * entity has all AD results generated for the whole date range. If not, we can rerun. This make the design
+     * complex as we need to store model checkpoints to resume from last break point and we need to handle kinds
+     * of edge cases. Here we just ignore the stale running entity rather than rerun it. We plan to add scheduler
+     * on historical analysis, then we will store model checkpoints. Will support resuming failed tasks by then.
+     * //TODO: support resuming failed taks
      *
      * @param adTask AD task
      * @param entity entity value

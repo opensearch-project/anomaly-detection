@@ -112,7 +112,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                 // Check if there is realtime job or historical analysis task running. If none of these running, we
                 // can delete the detector.
                 () -> adTaskManager.getDetector(detectorId, detector -> getDetectorJob(detectorId, listener, () -> {
-                    adTaskManager.getLatestADTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
+                    adTaskManager.getAndExecuteOnLatestADTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
                         if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                             listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
                         } else {
