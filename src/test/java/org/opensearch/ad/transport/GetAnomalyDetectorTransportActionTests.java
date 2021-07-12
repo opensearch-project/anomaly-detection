@@ -43,10 +43,13 @@ import org.mockito.Mockito;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfile;
+import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -68,10 +71,14 @@ import org.opensearch.transport.TransportService;
 import com.google.common.collect.ImmutableMap;
 
 public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNodeTestCase {
+
     private GetAnomalyDetectorTransportAction action;
     private Task task;
     private ActionListener<GetAnomalyDetectorResponse> response;
     private ADTaskManager adTaskManager;
+    private Entity entity;
+    private String categoryField;
+    private String categoryValue;
 
     @Override
     @Before
@@ -105,6 +112,9 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
             @Override
             public void onFailure(Exception e) {}
         };
+        categoryField = "catField";
+        categoryValue = "app-0";
+        entity = Entity.createSingleAttributeEntity("detectorId", categoryField, categoryValue);
     }
 
     @Override
@@ -150,7 +160,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
     @Test
     public void testGetAnomalyDetectorRequest() throws IOException {
-        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, false, "", "abcd", false, "value");
+        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, false, "", "abcd", false, entity);
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
@@ -167,7 +177,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
         GetAnomalyDetectorRequest newRequest = new GetAnomalyDetectorRequest(input);
-        Assert.assertNull(newRequest.getEntityValue());
+        Assert.assertNull(newRequest.getEntity());
     }
 
     @SuppressWarnings("unchecked")
@@ -203,12 +213,14 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         Assert.assertEquals(map1.get("name"), detector.getName());
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testGetAnomalyDetectorProfileResponse() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         AnomalyDetectorJob adJob = TestHelpers.randomAnomalyDetectorJob();
-        EntityProfile entityProfile = new EntityProfile.Builder("catField", "app-0").build();
+        InitProgressProfile initProgress = new InitProgressProfile("99%", 2L, 2);
+        EntityProfile entityProfile = new EntityProfile.Builder().initProgress(initProgress).build();
         GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
             4321,
             "1234",
@@ -230,8 +242,19 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         XContentBuilder builder = TestHelpers.builder();
         Assert.assertNotNull(newResponse.toXContent(builder, ToXContent.EMPTY_PARAMS));
 
+        // {init_progress={percentage=99%, estimated_minutes_left=2, needed_shingles=2}}
         Map<String, Object> map = TestHelpers.XContentBuilderToMap(builder);
-        Assert.assertEquals(map.get(EntityProfile.CATEGORY_FIELD), "catField");
-        Assert.assertEquals(map.get(EntityProfile.ENTITY_VALUE), "app-0");
+        Map<String, Object> parsedInitProgress = (Map<String, Object>) (map.get(CommonName.INIT_PROGRESS));
+        Assert.assertEquals(initProgress.getPercentage(), parsedInitProgress.get(InitProgressProfile.PERCENTAGE).toString());
+        Assert
+            .assertEquals(
+                String.valueOf(initProgress.getEstimatedMinutesLeft()),
+                parsedInitProgress.get(InitProgressProfile.ESTIMATED_MINUTES_LEFT).toString()
+            );
+        Assert
+            .assertEquals(
+                String.valueOf(initProgress.getNeededDataPoints()),
+                parsedInitProgress.get(InitProgressProfile.NEEDED_SHINGLES).toString()
+            );
     }
 }

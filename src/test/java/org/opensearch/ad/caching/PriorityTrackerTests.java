@@ -81,18 +81,18 @@ public class PriorityTrackerTests extends OpenSearchTestCase {
     public void testOverflow() {
         when(clock.instant()).thenReturn(now);
         tracker.updatePriority(entity1);
-        float priority1 = tracker.getMinimumScaledPriority().getValue();
+        float priority1 = tracker.getMinimumScaledPriority().get().getValue();
 
         // when(clock.instant()).thenReturn(now.plusSeconds(60L));
         tracker.updatePriority(entity1);
-        float priority2 = tracker.getMinimumScaledPriority().getValue();
+        float priority2 = tracker.getMinimumScaledPriority().get().getValue();
         // we incremented the priority
         assertTrue("The following is expected: " + priority2 + " > " + priority1, priority2 > priority1);
 
         when(clock.instant()).thenReturn(now.plus(3, ChronoUnit.DAYS));
         tracker.updatePriority(entity1);
         // overflow happens, we use increment as the new priority
-        assertEquals(0, tracker.getMinimumScaledPriority().getValue().floatValue(), 0.001);
+        assertEquals(0, tracker.getMinimumScaledPriority().get().getValue().floatValue(), 0.001);
     }
 
     public void testTooManyEntities() {
@@ -104,5 +104,12 @@ public class PriorityTrackerTests extends OpenSearchTestCase {
         tracker.updatePriority(entity2);
         // one entity is kicked out due to the size limit is reached.
         assertEquals(2, tracker.size());
+    }
+
+    public void testEmptyTracker() {
+        assertTrue(!tracker.getMinimumScaledPriority().isPresent());
+        assertTrue(!tracker.getMinimumPriority().isPresent());
+        assertTrue(!tracker.getMinimumPriorityEntityId().isPresent());
+        assertTrue(!tracker.getHighestPriorityEntityId().isPresent());
     }
 }

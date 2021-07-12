@@ -33,12 +33,15 @@ import static org.opensearch.test.ClusterServiceUtils.setState;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.apache.lucene.util.SetOnce;
 import org.opensearch.Version;
 import org.opensearch.action.admin.cluster.node.tasks.cancel.TransportCancelTasksAction;
@@ -51,6 +54,8 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.network.NetworkService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.BoundTransportAddress;
 import org.opensearch.common.transport.TransportAddress;
@@ -65,15 +70,23 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.nio.MockNioTransport;
 
 public class FakeNode implements Releasable {
-    public FakeNode(String name, ThreadPool threadPool, Settings settings, TransportInterceptor transportInterceptor) {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(FakeNode.class);
+
+    public FakeNode(
+        String name,
+        ThreadPool threadPool,
+        final Settings nodeSettings,
+        final Set<Setting<?>> settingsSet,
+        TransportInterceptor transportInterceptor
+    ) {
         final Function<BoundTransportAddress, DiscoveryNode> boundTransportAddressDiscoveryNodeFunction = address -> {
             discoveryNode.set(new DiscoveryNode(name, address.publishAddress(), emptyMap(), emptySet(), Version.CURRENT));
             return discoveryNode.get();
         };
         transportService = new TransportService(
-            settings,
+            Settings.EMPTY,
             new MockNioTransport(
-                settings,
+                Settings.EMPTY,
                 Version.CURRENT,
                 threadPool,
                 new NetworkService(Collections.emptyList()),
@@ -103,7 +116,10 @@ public class FakeNode implements Releasable {
         };
 
         transportService.start();
-        clusterService = createClusterService(threadPool, discoveryNode.get());
+        Set<Setting<?>> internalSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
+        internalSettings.addAll(settingsSet);
+        ClusterSettings clusterSettings = new ClusterSettings(nodeSettings, internalSettings);
+        clusterService = createClusterService(threadPool, discoveryNode.get(), clusterSettings);
         clusterService.addStateApplier(transportService.getTaskManager());
         ActionFilters actionFilters = new ActionFilters(emptySet());
         transportListTasksAction = new TransportListTasksAction(clusterService, transportService, actionFilters);
@@ -111,8 +127,8 @@ public class FakeNode implements Releasable {
         transportService.acceptIncomingRequests();
     }
 
-    public FakeNode(String name, ThreadPool threadPool, Settings settings) {
-        this(name, threadPool, settings, TransportService.NOOP_TRANSPORT_INTERCEPTOR);
+    public FakeNode(String name, ThreadPool threadPool, Set<Setting<?>> settings) {
+        this(name, threadPool, Settings.EMPTY, settings, TransportService.NOOP_TRANSPORT_INTERCEPTOR);
     }
 
     public final ClusterService clusterService;

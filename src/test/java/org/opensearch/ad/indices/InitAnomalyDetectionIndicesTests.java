@@ -99,7 +99,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS,
+                                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
                                 AnomalyDetectorSettings.MAX_PRIMARY_SHARDS

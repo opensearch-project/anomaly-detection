@@ -44,7 +44,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonMessageAttributes;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.common.Strings;
@@ -133,12 +133,8 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(
-            JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.ANOMALY_GRADE_JSON_KEY),
-            response.getAnomalyGrade(),
-            0.001
-        );
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
+        assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.ANOMALY_GRADE_JSON_KEY), response.getAnomalyGrade(), 0.001);
+        assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
     }
 
     public void testEmptyID() {
@@ -163,7 +159,7 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY), request.getAdID());
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonMessageAttributes.RCF_SCORE_JSON_KEY), request.getRCFScore(), 0.001);
+        assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), request.getAdID());
+        assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.RCF_SCORE_JSON_KEY), request.getRCFScore(), 0.001);
     }
 }

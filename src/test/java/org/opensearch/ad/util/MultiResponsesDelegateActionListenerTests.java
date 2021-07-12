@@ -28,7 +28,7 @@ package org.opensearch.ad.util;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.opensearch.ad.TestHelpers.randomMutlEntityAnomalyDetectResult;
+import static org.opensearch.ad.TestHelpers.randomHCADAnomalyDetectResult;
 
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -66,8 +66,8 @@ public class MultiResponsesDelegateActionListenerTests extends OpenSearchTestCas
 
     @SuppressWarnings("unchecked")
     public void testForceResponse() {
-        AnomalyResult anomalyResult1 = randomMutlEntityAnomalyDetectResult(0.25, 0.25, "error");
-        AnomalyResult anomalyResult2 = randomMutlEntityAnomalyDetectResult(0.5, 0.5, "error");
+        AnomalyResult anomalyResult1 = randomHCADAnomalyDetectResult(0.25, 0.25, "error");
+        AnomalyResult anomalyResult2 = randomHCADAnomalyDetectResult(0.5, 0.5, "error");
 
         EntityAnomalyResult entityAnomalyResult1 = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {
             {

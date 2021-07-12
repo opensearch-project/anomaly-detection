@@ -58,7 +58,7 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonMessageAttributes;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
@@ -141,7 +141,7 @@ public class DeleteTests extends AbstractADTest {
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
         actionFilters = mock(ActionFilters.class);
-        Settings settings = Settings.builder().put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10)).build();
+        Settings settings = Settings.builder().put("plugins.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10)).build();
         task = mock(Task.class);
         when(task.getId()).thenReturn(1000L);
         client = mock(Client.class);
@@ -201,7 +201,7 @@ public class DeleteTests extends AbstractADTest {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, CommonMessageAttributes.ID_JSON_KEY), requestSupplier.get());
+        assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), requestSupplier.get());
     }
 
     public void testJsonRequestStopDetector() throws IOException, JsonPathNotFoundException {

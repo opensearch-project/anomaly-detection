@@ -27,7 +27,7 @@
 package org.opensearch.ad.model;
 
 import static java.util.Arrays.asList;
-import static org.opensearch.ad.TestHelpers.randomMutlEntityAnomalyDetectResult;
+import static org.opensearch.ad.TestHelpers.randomHCADAnomalyDetectResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +40,8 @@ public class EntityAnomalyResultTests extends OpenSearchTestCase {
 
     @Test
     public void testGetAnomalyResults() {
-        AnomalyResult anomalyResult1 = randomMutlEntityAnomalyDetectResult(0.25, 0.25, "error");
-        AnomalyResult anomalyResult2 = randomMutlEntityAnomalyDetectResult(0.5, 0.5, "error");
+        AnomalyResult anomalyResult1 = randomHCADAnomalyDetectResult(0.25, 0.25, "error");
+        AnomalyResult anomalyResult2 = randomHCADAnomalyDetectResult(0.5, 0.5, "error");
         List<AnomalyResult> anomalyResults = new ArrayList<AnomalyResult>() {
             {
                 add(anomalyResult1);
@@ -55,8 +55,8 @@ public class EntityAnomalyResultTests extends OpenSearchTestCase {
 
     @Test
     public void testMerge() {
-        AnomalyResult anomalyResult1 = randomMutlEntityAnomalyDetectResult(0.25, 0.25, "error");
-        AnomalyResult anomalyResult2 = randomMutlEntityAnomalyDetectResult(0.5, 0.5, "error");
+        AnomalyResult anomalyResult1 = randomHCADAnomalyDetectResult(0.25, 0.25, "error");
+        AnomalyResult anomalyResult2 = randomHCADAnomalyDetectResult(0.5, 0.5, "error");
 
         EntityAnomalyResult entityAnomalyResult1 = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {
             {
@@ -75,7 +75,7 @@ public class EntityAnomalyResultTests extends OpenSearchTestCase {
 
     @Test
     public void testMerge_null() {
-        AnomalyResult anomalyResult = randomMutlEntityAnomalyDetectResult(0.25, 0.25, "error");
+        AnomalyResult anomalyResult = randomHCADAnomalyDetectResult(0.25, 0.25, "error");
 
         EntityAnomalyResult entityAnomalyResult = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {
             {
@@ -90,7 +90,7 @@ public class EntityAnomalyResultTests extends OpenSearchTestCase {
 
     @Test
     public void testMerge_self() {
-        AnomalyResult anomalyResult = randomMutlEntityAnomalyDetectResult(0.25, 0.25, "error");
+        AnomalyResult anomalyResult = randomHCADAnomalyDetectResult(0.25, 0.25, "error");
 
         EntityAnomalyResult entityAnomalyResult = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {
             {
@@ -106,7 +106,7 @@ public class EntityAnomalyResultTests extends OpenSearchTestCase {
     @Test
     public void testMerge_otherClass() {
         ADStatsResponse adStatsResponse = new ADStatsResponse();
-        AnomalyResult anomalyResult = randomMutlEntityAnomalyDetectResult(0.25, 0.25, "error");
+        AnomalyResult anomalyResult = randomHCADAnomalyDetectResult(0.25, 0.25, "error");
 
         EntityAnomalyResult entityAnomalyResult = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {
             {

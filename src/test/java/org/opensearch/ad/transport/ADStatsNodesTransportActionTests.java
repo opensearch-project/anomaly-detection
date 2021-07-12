@@ -105,7 +105,7 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
             }
         };
 
-        adStats = new ADStats(indexUtils, modelManager, statsMap);
+        adStats = new ADStats(statsMap);
         JvmService jvmService = mock(JvmService.class);
         JvmStats jvmStats = mock(JvmStats.class);
         JvmStats.Mem mem = mock(JvmStats.Mem.class);

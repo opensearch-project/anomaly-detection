@@ -56,6 +56,7 @@ import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.test.OpenSearchTestCase;
 
 import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
 
@@ -96,8 +97,8 @@ public class ADStatsTests extends OpenSearchTestCase {
 
         when(modelManager.getAllModels()).thenReturn(modelsInformation);
 
-        ModelState<EntityModel> entityModel1 = MLUtil.randomNonEmptyModelState();
-        ModelState<EntityModel> entityModel2 = MLUtil.randomNonEmptyModelState();
+        ModelState<EntityModel> entityModel1 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        ModelState<EntityModel> entityModel2 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
 
         List<ModelState<?>> entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
         EntityCache cache = mock(EntityCache.class);
@@ -124,7 +125,7 @@ public class ADStatsTests extends OpenSearchTestCase {
             }
         };
 
-        adStats = new ADStats(indexUtils, modelManager, statsMap);
+        adStats = new ADStats(statsMap);
     }
 
     @Test

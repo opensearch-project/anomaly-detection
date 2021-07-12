@@ -44,34 +44,26 @@ import org.opensearch.common.xcontent.XContentBuilder;
  */
 public class EntityProfile implements Writeable, ToXContent, Mergeable {
     // field name in toXContent
-    public static final String CATEGORY_FIELD = "category_field";
-    public static final String ENTITY_VALUE = "value";
     public static final String IS_ACTIVE = "is_active";
     public static final String LAST_ACTIVE_TIMESTAMP = "last_active_timestamp";
     public static final String LAST_SAMPLE_TIMESTAMP = "last_sample_timestamp";
 
-    private final String categoryField;
-    private final String value;
     private Boolean isActive;
     private long lastActiveTimestampMs;
     private long lastSampleTimestampMs;
     private InitProgressProfile initProgress;
-    private ModelProfile modelProfile;
+    private ModelProfileOnNode modelProfile;
     private EntityState state;
 
     public EntityProfile(
-        String categoryField,
-        String value,
         Boolean isActive,
         long lastActiveTimeStamp,
         long lastSampleTimestamp,
         InitProgressProfile initProgress,
-        ModelProfile modelProfile,
+        ModelProfileOnNode modelProfile,
         EntityState state
     ) {
         super();
-        this.categoryField = categoryField;
-        this.value = value;
         this.isActive = isActive;
         this.lastActiveTimestampMs = lastActiveTimeStamp;
         this.lastSampleTimestampMs = lastSampleTimestamp;
@@ -81,19 +73,12 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
     }
 
     public static class Builder {
-        private final String categoryField;
-        private final String value;
         private Boolean isActive = null;
         private long lastActiveTimestampMs = -1L;
         private long lastSampleTimestampMs = -1L;
         private InitProgressProfile initProgress = null;
-        private ModelProfile modelProfile = null;
+        private ModelProfileOnNode modelProfile = null;
         private EntityState state = EntityState.UNKNOWN;
-
-        public Builder(String categoryField, String value) {
-            this.categoryField = categoryField;
-            this.value = value;
-        }
 
         public Builder isActive(Boolean isActive) {
             this.isActive = isActive;
@@ -115,7 +100,7 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
             return this;
         }
 
-        public Builder modelProfile(ModelProfile modelProfile) {
+        public Builder modelProfile(ModelProfileOnNode modelProfile) {
             this.modelProfile = modelProfile;
             return this;
         }
@@ -126,22 +111,11 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
         }
 
         public EntityProfile build() {
-            return new EntityProfile(
-                categoryField,
-                value,
-                isActive,
-                lastActiveTimestampMs,
-                lastSampleTimestampMs,
-                initProgress,
-                modelProfile,
-                state
-            );
+            return new EntityProfile(isActive, lastActiveTimestampMs, lastSampleTimestampMs, initProgress, modelProfile, state);
         }
     }
 
     public EntityProfile(StreamInput in) throws IOException {
-        this.categoryField = in.readString();
-        this.value = in.readString();
         this.isActive = in.readOptionalBoolean();
         this.lastActiveTimestampMs = in.readLong();
         this.lastSampleTimestampMs = in.readLong();
@@ -149,17 +123,9 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
             this.initProgress = new InitProgressProfile(in);
         }
         if (in.readBoolean()) {
-            this.modelProfile = new ModelProfile(in);
+            this.modelProfile = new ModelProfileOnNode(in);
         }
         this.state = in.readEnum(EntityState.class);
-    }
-
-    public String getCategoryField() {
-        return categoryField;
-    }
-
-    public String getValue() {
-        return value;
     }
 
     public Optional<Boolean> getActive() {
@@ -192,7 +158,7 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
         return initProgress;
     }
 
-    public ModelProfile getModelProfile() {
+    public ModelProfileOnNode getModelProfile() {
         return modelProfile;
     }
 
@@ -207,8 +173,6 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(CATEGORY_FIELD, categoryField);
-        builder.field(ENTITY_VALUE, value);
         if (isActive != null) {
             builder.field(IS_ACTIVE, isActive);
         }
@@ -233,8 +197,6 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(categoryField);
-        out.writeString(value);
         out.writeOptionalBoolean(isActive);
         out.writeLong(lastActiveTimestampMs);
         out.writeLong(lastSampleTimestampMs);
@@ -256,8 +218,6 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
     @Override
     public String toString() {
         ToStringBuilder builder = new ToStringBuilder(this);
-        builder.append(CATEGORY_FIELD, categoryField);
-        builder.append(ENTITY_VALUE, value);
         if (isActive != null) {
             builder.append(IS_ACTIVE, isActive);
         }
@@ -290,8 +250,6 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
         if (obj instanceof EntityProfile) {
             EntityProfile other = (EntityProfile) obj;
             EqualsBuilder equalsBuilder = new EqualsBuilder();
-            equalsBuilder.append(categoryField, other.categoryField);
-            equalsBuilder.append(value, other.value);
             equalsBuilder.append(isActive, other.isActive);
             equalsBuilder.append(lastActiveTimestampMs, other.lastActiveTimestampMs);
             equalsBuilder.append(lastSampleTimestampMs, other.lastSampleTimestampMs);
@@ -307,8 +265,6 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
     @Override
     public int hashCode() {
         return new HashCodeBuilder()
-            .append(categoryField)
-            .append(value)
             .append(isActive)
             .append(lastActiveTimestampMs)
             .append(lastSampleTimestampMs)

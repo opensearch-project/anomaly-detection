@@ -27,22 +27,25 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static org.opensearch.ad.util.RestHandlerUtils.ENTITY;
 import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.client.node.NodeClient;
+import org.opensearch.common.Strings;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
@@ -72,7 +75,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         }
         String detectorId = request.param(DETECTOR_ID);
         String typesStr = request.param(TYPE);
-        String entityValue = request.param(ENTITY);
+
         String rawPath = request.rawPath();
         boolean returnJob = request.paramAsBoolean("job", false);
         boolean returnTask = request.paramAsBoolean("task", false);
@@ -85,7 +88,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             typesStr,
             rawPath,
             all,
-            entityValue
+            buildEntity(request, detectorId)
         );
 
         return channel -> client
@@ -94,7 +97,18 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return ImmutableList.of();
+        return ImmutableList
+            .of(
+                // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
+                ),
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
+                )
+            );
     }
 
     @Override
@@ -128,5 +142,36 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                         )
                 )
             );
+    }
+
+    private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
+        if (Strings.isEmpty(detectorId)) {
+            throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
+        }
+
+        String entityName = request.param(CommonName.CATEGORICAL_FIELD);
+        String entityValue = request.param(CommonName.ENTITY_KEY);
+
+        if (entityName != null && entityValue != null) {
+            // single-stream profile request:
+            // GET _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress?category_field=<field-name>&entity=<value>
+            return Entity.createSingleAttributeEntity(detectorId, entityName, entityValue);
+        } else if (request.hasContent()) {
+            /* HCAD profile request:
+             * GET _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress
+             * {
+             *     "entity": [{
+             *         "name": "clientip",
+             *         "value": "13.24.0.0"
+             *      }]
+             * }
+             */
+            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser());
+            if (entity.isPresent()) {
+                return entity.get();
+            }
+        }
+        // not a valid profile request with correct entity information
+        return null;
     }
 }

@@ -27,19 +27,18 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.transport.TransportRequestOptions;
 
-public class ADResultBulkAction extends ActionType<BulkResponse> {
+public class ADResultBulkAction extends ActionType<ADResultBulkResponse> {
 
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "write/bulk";
     public static final ADResultBulkAction INSTANCE = new ADResultBulkAction();
 
     private ADResultBulkAction() {
-        super(NAME, BulkResponse::new);
+        super(NAME, ADResultBulkResponse::new);
     }
 
     @Override

@@ -408,6 +408,25 @@ public class JsonDeserializer {
     }
 
     /**
+     * Search a float number inside a JSON string matching the input path
+     * expression
+     *
+     * @param jsonString an encoded JSON string
+     * @param paths      path fragments
+     * @return the matching double number
+     * @throws JsonPathNotFoundException if json path is invalid
+     * @throws IOException               if the underlying input source has problems
+     *                                   during parsing
+     */
+    public static double getFloatValue(String jsonString, String... paths) throws JsonPathNotFoundException, IOException {
+        JsonElement jsonNode = getChildNode(jsonString, paths);
+        if (jsonNode != null) {
+            return jsonNode.getAsFloat();
+        }
+        throw new JsonPathNotFoundException();
+    }
+
+    /**
      * Search an int number inside a JSON string matching the input path expression
      *
      * @param jsonString an encoded JSON string

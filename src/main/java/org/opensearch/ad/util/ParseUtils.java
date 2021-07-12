@@ -56,6 +56,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
@@ -392,12 +393,15 @@ public final class ParseUtils {
     public static SearchSourceBuilder generateEntityColdStartQuery(
         AnomalyDetector detector,
         List<Entry<Long, Long>> ranges,
-        String entityName,
+        Entity entity,
         NamedXContentRegistry xContentRegistry
     ) throws IOException {
 
-        TermQueryBuilder term = new TermQueryBuilder(detector.getCategoryField().get(0), entityName);
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().filter(detector.getFilterQuery()).filter(term);
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().filter(detector.getFilterQuery());
+
+        for (TermQueryBuilder term : entity.getTermQueryBuilders()) {
+            internalFilterQuery.filter(term);
+        }
 
         DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(detector.getTimeField()).format("epoch_millis");
         for (Entry<Long, Long> range : ranges) {

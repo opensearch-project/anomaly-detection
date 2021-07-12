@@ -27,10 +27,12 @@
 package org.opensearch.ad.transport;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import org.opensearch.action.support.nodes.BaseNodeResponse;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -41,13 +43,11 @@ import org.opensearch.common.xcontent.XContentBuilder;
  * Profile response on a node
  */
 public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentFragment {
-    // filed name in toXContent
-    static final String MODEL_SIZE_IN_BYTES = "model_size_in_bytes";
-
     private Map<String, Long> modelSize;
     private int shingleSize;
     private long activeEntities;
     private long totalUpdates;
+    private List<ModelProfile> modelProfiles;
 
     /**
      * Constructor
@@ -63,6 +63,9 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         shingleSize = in.readInt();
         activeEntities = in.readVLong();
         totalUpdates = in.readVLong();
+        if (in.readBoolean()) {
+            modelProfiles = in.readList(ModelProfile::new);
+        }
     }
 
     /**
@@ -73,13 +76,22 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
      * @param shingleSize shingle size
      * @param activeEntity active entity count
      * @param totalUpdates RCF model total updates
+     * @param modelProfiles a collection of model profiles like model size
      */
-    public ProfileNodeResponse(DiscoveryNode node, Map<String, Long> modelSize, int shingleSize, long activeEntity, long totalUpdates) {
+    public ProfileNodeResponse(
+        DiscoveryNode node,
+        Map<String, Long> modelSize,
+        int shingleSize,
+        long activeEntity,
+        long totalUpdates,
+        List<ModelProfile> modelProfiles
+    ) {
         super(node);
         this.modelSize = modelSize;
         this.shingleSize = shingleSize;
         this.activeEntities = activeEntity;
         this.totalUpdates = totalUpdates;
+        this.modelProfiles = modelProfiles;
     }
 
     /**
@@ -106,6 +118,12 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         out.writeInt(shingleSize);
         out.writeVLong(activeEntities);
         out.writeVLong(totalUpdates);
+        if (modelProfiles != null) {
+            out.writeBoolean(true);
+            out.writeList(modelProfiles);
+        } else {
+            out.writeBoolean(false);
+        }
     }
 
     /**
@@ -118,7 +136,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
      */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject(MODEL_SIZE_IN_BYTES);
+        builder.startObject(CommonName.MODEL_SIZE_IN_BYTES);
         for (Map.Entry<String, Long> entry : modelSize.entrySet()) {
             builder.field(entry.getKey(), entry.getValue());
         }
@@ -127,6 +145,14 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         builder.field(CommonName.SHINGLE_SIZE, shingleSize);
         builder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
         builder.field(CommonName.TOTAL_UPDATES, totalUpdates);
+
+        builder.startArray(CommonName.MODELS);
+        for (ModelProfile modelProfile : modelProfiles) {
+            builder.startObject();
+            modelProfile.toXContent(builder, params);
+            builder.endObject();
+        }
+        builder.endArray();
 
         return builder;
     }
@@ -145,5 +171,9 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
 
     public long getTotalUpdates() {
         return totalUpdates;
+    }
+
+    public List<ModelProfile> getModelProfiles() {
+        return modelProfiles;
     }
 }
