@@ -93,7 +93,8 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             randomAlphaOfLength(5),
             null,
             TestHelpers.randomUser(),
-            CommonValue.NO_SCHEMA_VERSION
+            CommonValue.NO_SCHEMA_VERSION,
+            null
         );
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -131,7 +132,8 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             randomAlphaOfLength(5),
             null,
             null,
-            CommonValue.NO_SCHEMA_VERSION
+            CommonValue.NO_SCHEMA_VERSION,
+            null
         );
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -165,7 +167,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testParseAnomalyDetectorWithEntity() throws IOException {
-        AnomalyResult detectResult = TestHelpers.randomMultiEntityAnomalyDetectResult(0.8, 0.5);
+        AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(0.8, 0.5);
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         detectResultString = detectResultString
@@ -193,7 +195,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testSerializeAnomalyResultWithEntity() throws IOException {
-        AnomalyResult detectResult = TestHelpers.randomMultiEntityAnomalyDetectResult(0.8, 0.5);
+        AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(0.8, 0.5);
         BytesStreamOutput output = new BytesStreamOutput();
         detectResult.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());

@@ -1,7 +1,7 @@
 {
   "dynamic": true,
   "_meta": {
-    "schema_version": 2
+    "schema_version": 3
   },
   "properties": {
     "detectorId": {
@@ -21,6 +21,17 @@
     },
     "schema_version": {
       "type": "integer"
+    },
+    "entity": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "value": {
+          "type": "keyword"
+        }
+      }
     }
   }
 }

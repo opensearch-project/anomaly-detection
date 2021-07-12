@@ -29,28 +29,19 @@ package org.opensearch.ad.stats;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.util.IndexUtils;
-
 /**
  * This class is the main entry-point for access to the stats that the AD plugin keeps track of.
  */
 public class ADStats {
 
-    private IndexUtils indexUtils;
-    private ModelManager modelManager;
     private Map<String, ADStat<?>> stats;
 
     /**
      * Constructor
      *
-     * @param indexUtils utility to get information about indices
-     * @param modelManager used to get information about which models are hosted on a particular node
      * @param stats Map of the stats that are to be kept
      */
-    public ADStats(IndexUtils indexUtils, ModelManager modelManager, Map<String, ADStat<?>> stats) {
-        this.indexUtils = indexUtils;
-        this.modelManager = modelManager;
+    public ADStats(Map<String, ADStat<?>> stats) {
         this.stats = stats;
     }
 

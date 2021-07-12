@@ -29,12 +29,16 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.feature.FeatureManager;
+import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -43,11 +47,12 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
-
+    private final Logger LOG = LogManager.getLogger(CronTransportAction.class);
     private NodeStateManager transportStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
+    private EntityColdStarter entityColdStarter;
 
     @Inject
     public CronTransportAction(
@@ -58,7 +63,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         NodeStateManager tarnsportStatemanager,
         ModelManager modelManager,
         FeatureManager featureManager,
-        CacheProvider cacheProvider
+        CacheProvider cacheProvider,
+        EntityColdStarter entityColdStarter
     ) {
         super(
             CronAction.NAME,
@@ -75,6 +81,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
+        this.entityColdStarter = entityColdStarter;
     }
 
     @Override
@@ -105,7 +112,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         // makes checkpoints for hosted models and stop hosting models not actively
         // used.
         // for single-entity detector
-        modelManager.maintenance();
+        modelManager
+            .maintenance(ActionListener.wrap(v -> LOG.debug("model maintenance done"), e -> LOG.error("Error maintaining model", e)));
         // for multi-entity detector
         cacheProvider.get().maintenance();
 
@@ -114,6 +122,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
 
         // delete unused transport state
         transportStateManager.maintenance();
+
+        entityColdStarter.maintenance();
 
         return new CronNodeResponse(clusterService.localNode());
     }

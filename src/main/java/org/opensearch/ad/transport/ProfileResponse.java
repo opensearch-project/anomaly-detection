@@ -31,10 +31,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.nodes.BaseNodesResponse;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -45,6 +48,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
  * This class consists of the aggregated responses from the nodes
  */
 public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> implements ToXContentFragment {
+    private static final Logger LOG = LogManager.getLogger(ProfileResponse.class);
     // filed name in toXContent
     static final String COORDINATING_NODE = CommonName.COORDINATING_NODE;
     static final String SHINGLE_SIZE = CommonName.SHINGLE_SIZE;
@@ -53,7 +57,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
     static final String MODELS = CommonName.MODELS;
     static final String TOTAL_UPDATES = CommonName.TOTAL_UPDATES;
 
-    private ModelProfile[] modelProfile;
+    private ModelProfileOnNode[] modelProfile;
     private int shingleSize;
     private String coordinatingNode;
     private long totalSizeInBytes;
@@ -69,9 +73,9 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
     public ProfileResponse(StreamInput in) throws IOException {
         super(in);
         int size = in.readVInt();
-        modelProfile = new ModelProfile[size];
+        modelProfile = new ModelProfileOnNode[size];
         for (int i = 0; i < size; i++) {
-            modelProfile[i] = new ModelProfile(in);
+            modelProfile[i] = new ModelProfileOnNode(in);
         }
         shingleSize = in.readInt();
         coordinatingNode = in.readString();
@@ -93,7 +97,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         activeEntities = 0L;
         totalUpdates = 0L;
         shingleSize = -1;
-        List<ModelProfile> modelProfileList = new ArrayList<>();
+        List<ModelProfileOnNode> modelProfileList = new ArrayList<>();
         for (ProfileNodeResponse response : nodes) {
             String curNodeId = response.getNode().getId();
             if (response.getShingleSize() >= 0) {
@@ -103,7 +107,16 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
             if (response.getModelSize() != null) {
                 for (Map.Entry<String, Long> entry : response.getModelSize().entrySet()) {
                     totalSizeInBytes += entry.getValue();
-                    modelProfileList.add(new ModelProfile(entry.getKey(), entry.getValue(), curNodeId));
+                }
+            }
+            if (response.getModelProfiles() != null && response.getModelProfiles().size() > 0) {
+                for (ModelProfile profile : response.getModelProfiles()) {
+                    modelProfileList.add(new ModelProfileOnNode(curNodeId, profile));
+                }
+            } else if (response.getModelSize() != null && response.getModelSize().size() > 0) {
+                for (Map.Entry<String, Long> entry : response.getModelSize().entrySet()) {
+                    // single-stream detectors have no entity info
+                    modelProfileList.add(new ModelProfileOnNode(curNodeId, new ModelProfile(entry.getKey(), null, entry.getValue())));
                 }
             }
 
@@ -117,14 +130,14 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         if (coordinatingNode == null) {
             coordinatingNode = "";
         }
-        this.modelProfile = modelProfileList.toArray(new ModelProfile[0]);
+        this.modelProfile = modelProfileList.toArray(new ModelProfileOnNode[0]);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeVInt(modelProfile.length);
-        for (ModelProfile profile : modelProfile) {
+        for (ModelProfileOnNode profile : modelProfile) {
             profile.writeTo(out);
         }
         out.writeInt(shingleSize);
@@ -152,14 +165,14 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         builder.field(ACTIVE_ENTITY, activeEntities);
         builder.field(TOTAL_UPDATES, totalUpdates);
         builder.startArray(MODELS);
-        for (ModelProfile profile : modelProfile) {
+        for (ModelProfileOnNode profile : modelProfile) {
             profile.toXContent(builder, params);
         }
         builder.endArray();
         return builder;
     }
 
-    public ModelProfile[] getModelProfile() {
+    public ModelProfileOnNode[] getModelProfile() {
         return modelProfile;
     }
 

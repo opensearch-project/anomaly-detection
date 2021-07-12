@@ -28,15 +28,20 @@ package org.opensearch.ad.transport;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import org.junit.Before;
@@ -44,6 +49,10 @@ import org.junit.Test;
 import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
+import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.ml.EntityModel;
+import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -56,6 +65,9 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 
 public class ADStatsTests extends OpenSearchTestCase {
     String node1, nodeName1, clusterName;
@@ -102,7 +114,7 @@ public class ADStatsTests extends OpenSearchTestCase {
     }
 
     @Test
-    public void testADStatsNodeResponse() throws IOException, JsonPathNotFoundException {
+    public void testSimpleADStatsNodeResponse() throws IOException, JsonPathNotFoundException {
         Map<String, Object> stats = new HashMap<String, Object>() {
             {
                 put("testKey", "testValue");
@@ -124,6 +136,72 @@ public class ADStatsTests extends OpenSearchTestCase {
 
         for (Map.Entry<String, Object> stat : stats.entrySet()) {
             assertEquals("toXContent does not work", JsonDeserializer.getTextValue(json, stat.getKey()), stat.getValue());
+        }
+    }
+
+    /**
+     * Test we can serialize stats with entity
+     * @throws IOException when writeTo and toXContent have errors.
+     * @throws JsonPathNotFoundException when json deserialization cannot find a path
+     */
+    @Test
+    public void testADStatsNodeResponseWithEntity() throws IOException, JsonPathNotFoundException {
+        TreeMap<String, String> attributes = new TreeMap<>();
+        String name1 = "a";
+        String name2 = "b";
+        String val1 = "a1";
+        String val2 = "a2";
+        attributes.put(name1, val1);
+        attributes.put(name2, val2);
+        String detectorId = "detectorId";
+        Entity entity = Entity.createEntityFromOrderedMap(detectorId, attributes);
+        EntityModel entityModel = new EntityModel(entity, null, null, null);
+        Clock clock = mock(Clock.class);
+        when(clock.instant()).thenReturn(Instant.now());
+        ModelState<EntityModel> state = new ModelState<EntityModel>(
+            entityModel,
+            entity.getModelId(detectorId).get(),
+            detectorId,
+            "entity",
+            clock,
+            0.1f
+        );
+        Map<String, Object> stats = state.getModelStateAsMap();
+
+        // Test serialization
+        ADStatsNodeResponse adStatsNodeResponse = new ADStatsNodeResponse(discoveryNode1, stats);
+        BytesStreamOutput output = new BytesStreamOutput();
+        adStatsNodeResponse.writeTo(output);
+        StreamInput streamInput = output.bytes().streamInput();
+        ADStatsNodeResponse readResponse = ADStatsNodeResponse.readStats(streamInput);
+        assertEquals("readStats failed", readResponse.getStatsMap(), adStatsNodeResponse.getStatsMap());
+
+        // Test toXContent
+        XContentBuilder builder = jsonBuilder();
+        adStatsNodeResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
+        String json = Strings.toString(builder);
+
+        for (Map.Entry<String, Object> stat : stats.entrySet()) {
+            if (stat.getKey().equals(ModelState.LAST_CHECKPOINT_TIME_KEY) || stat.getKey().equals(ModelState.LAST_USED_TIME_KEY)) {
+                assertEquals("toXContent does not work", JsonDeserializer.getLongValue(json, stat.getKey()), stat.getValue());
+            } else if (stat.getKey().equals(CommonName.ENTITY_KEY)) {
+                JsonArray array = JsonDeserializer.getArrayValue(json, stat.getKey());
+                assertEquals(2, array.size());
+                for (int i = 0; i < 2; i++) {
+                    JsonElement element = array.get(i);
+                    String entityName = JsonDeserializer.getChildNode(element, Entity.ATTRIBUTE_NAME_FIELD).getAsString();
+                    String entityValue = JsonDeserializer.getChildNode(element, Entity.ATTRIBUTE_VALUE_FIELD).getAsString();
+
+                    assertTrue(entityName.equals(name1) || entityName.equals(name2));
+                    if (entityName.equals(name1)) {
+                        assertEquals(val1, entityValue);
+                    } else {
+                        assertEquals(val2, entityValue);
+                    }
+                }
+            } else {
+                assertEquals("toXContent does not work", JsonDeserializer.getTextValue(json, stat.getKey()), stat.getValue());
+            }
         }
     }
 

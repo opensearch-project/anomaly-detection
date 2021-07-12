@@ -34,6 +34,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.ADIntegTestCase;
@@ -50,6 +52,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 public class AnomalyResultTransportActionTests extends ADIntegTestCase {
+    private static final Logger LOG = LogManager.getLogger(AnomalyResultTransportActionTests.class);
+
     private String testIndex;
     private Instant testDataTimeStamp;
     private long start;
@@ -144,57 +148,57 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
 
     public void testFeatureQueryWithTermsAggregationForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"terms\":{\"field\":\"type\"}}}", true);
-        assertErrorMessage(adId, "Failed to parse aggregation");
+        assertErrorMessage(adId, "Failed to parse aggregation", true);
     }
 
     public void testFeatureWithSumOfTextFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"sum\":{\"field\":\"message\"}}}", true);
-        assertErrorMessage(adId, "Text fields are not optimised for operations");
+        assertErrorMessage(adId, "Text fields are not optimised for operations", true);
     }
 
     public void testFeatureWithSumOfTypeFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"sum\":{\"field\":\"type\"}}}", true);
-        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [sum]");
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [sum]", true);
     }
 
     public void testFeatureWithMaxOfTextFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"max\":{\"field\":\"message\"}}}", true);
-        assertErrorMessage(adId, "Text fields are not optimised for operations");
+        assertErrorMessage(adId, "Text fields are not optimised for operations", true);
     }
 
     public void testFeatureWithMaxOfTypeFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"max\":{\"field\":\"type\"}}}", true);
-        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [max]");
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [max]", true);
     }
 
     public void testFeatureWithMinOfTextFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"min\":{\"field\":\"message\"}}}", true);
-        assertErrorMessage(adId, "Text fields are not optimised for operations");
+        assertErrorMessage(adId, "Text fields are not optimised for operations", true);
     }
 
     public void testFeatureWithMinOfTypeFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"min\":{\"field\":\"type\"}}}", true);
-        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [min]");
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [min]", true);
     }
 
     public void testFeatureWithAvgOfTextFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"avg\":{\"field\":\"message\"}}}", true);
-        assertErrorMessage(adId, "Text fields are not optimised for operations");
+        assertErrorMessage(adId, "Text fields are not optimised for operations", true);
     }
 
     public void testFeatureWithAvgOfTypeFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"avg\":{\"field\":\"type\"}}}", true);
-        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [avg]");
+        assertErrorMessage(adId, "Field [type] of type [keyword] is not supported for aggregation [avg]", true);
     }
 
     public void testFeatureWithCountOfTextFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"value_count\":{\"field\":\"message\"}}}", true);
-        assertErrorMessage(adId, "Text fields are not optimised for operations");
+        assertErrorMessage(adId, "Text fields are not optimised for operations", true);
     }
 
     public void testFeatureWithCardinalityOfTextFieldForHCDetector() throws IOException {
         String adId = createDetectorWithFeatureAgg("{\"test\":{\"cardinality\":{\"field\":\"message\"}}}", true);
-        assertErrorMessage(adId, "Text fields are not optimised for operations");
+        assertErrorMessage(adId, "Text fields are not optimised for operations", true);
     }
 
     private String createDetectorWithFeatureAgg(String aggQuery) throws IOException {
@@ -253,12 +257,33 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
         );
     }
 
-    private void assertErrorMessage(String adId, String errorMessage) {
+    private void assertErrorMessage(String adId, String errorMessage, boolean hcDetector) {
         AnomalyResultRequest resultRequest = new AnomalyResultRequest(adId, start, end);
-        RuntimeException e = expectThrowsAnyOf(
-            ImmutableList.of(NotSerializableExceptionWrapper.class, AnomalyDetectionException.class),
-            () -> client().execute(AnomalyResultAction.INSTANCE, resultRequest).actionGet(30_000)
-        );
-        assertTrue(e.getMessage().contains(errorMessage));
+        // wait at most 20 seconds
+        int numberofTries = 40;
+        Exception e = null;
+        if (hcDetector) {
+            while (numberofTries-- > 0) {
+                try {
+                    // HCAD records failures asynchronously. Before a failure is recorded, HCAD returns immediately without failure.
+                    client().execute(AnomalyResultAction.INSTANCE, resultRequest).actionGet(30_000);
+                    Thread.sleep(500);
+                } catch (Exception exp) {
+                    e = exp;
+                    break;
+                }
+            }
+        } else {
+            e = expectThrowsAnyOf(
+                ImmutableList.of(NotSerializableExceptionWrapper.class, AnomalyDetectionException.class),
+                () -> client().execute(AnomalyResultAction.INSTANCE, resultRequest).actionGet(30_000)
+            );
+        }
+
+        assertTrue("Unexpected error: " + e.getMessage(), e.getMessage().contains(errorMessage));
+    }
+
+    private void assertErrorMessage(String adId, String errorMessage) {
+        assertErrorMessage(adId, errorMessage, false);
     }
 }

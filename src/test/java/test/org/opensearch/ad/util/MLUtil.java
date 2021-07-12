@@ -38,6 +38,7 @@ import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingModel;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
@@ -70,48 +71,33 @@ public class MLUtil {
         return res;
     }
 
-    public static ModelState<EntityModel> randomModelState() {
-        return randomModelState(random.nextBoolean(), random.nextFloat(), randomString(15), random.nextInt(minSampleSize));
-    }
+    public static ModelState<EntityModel> randomModelState(RandomModelStateConfig config) {
+        boolean fullModel = config.getFullModel() != null && config.getFullModel().booleanValue() ? true : false;
+        float priority = config.getPriority() != null ? config.getPriority() : random.nextFloat();
+        String detectorId = config.getDetectorId() != null ? config.getDetectorId() : randomString(15);
+        int sampleSize = config.getSampleSize() != null ? config.getSampleSize() : random.nextInt(minSampleSize);
+        Clock clock = config.getClock() != null ? config.getClock() : Clock.systemUTC();
 
-    public static ModelState<EntityModel> randomModelState(boolean fullModel, float priority, String modelId, int sampleSize) {
-        String detectorId = randomString(5);
         EntityModel model = null;
         if (fullModel) {
-            model = createNonEmptyModel(modelId, sampleSize);
+            model = createNonEmptyModel(detectorId, sampleSize);
         } else {
-            model = createEmptyModel(modelId, sampleSize);
+            model = createEmptyModel(Entity.createSingleAttributeEntity(detectorId, "", ""), sampleSize);
         }
 
-        return new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), Clock.systemUTC(), priority);
+        return new ModelState<>(model, detectorId, detectorId, ModelType.ENTITY.getName(), clock, priority);
     }
 
-    public static ModelState<EntityModel> randomNonEmptyModelState() {
-        return randomModelState(true, random.nextFloat(), randomString(15), random.nextInt(minSampleSize));
-    }
-
-    public static ModelState<EntityModel> randomEmptyModelState() {
-        return randomModelState(false, random.nextFloat(), randomString(15), random.nextInt(minSampleSize));
-    }
-
-    public static ModelState<EntityModel> randomModelState(float priority, String modelId) {
-        return randomModelState(random.nextBoolean(), priority, modelId, random.nextInt(minSampleSize));
-    }
-
-    public static ModelState<EntityModel> randomModelStateWithSample(boolean fullModel, int sampleSize) {
-        return randomModelState(fullModel, random.nextFloat(), randomString(15), sampleSize);
-    }
-
-    public static EntityModel createEmptyModel(String modelId, int sampleSize) {
+    public static EntityModel createEmptyModel(Entity entity, int sampleSize) {
         Queue<double[]> samples = createQueueSamples(sampleSize);
-        return new EntityModel(modelId, samples, null, null);
+        return new EntityModel(entity, samples, null, null);
     }
 
-    public static EntityModel createEmptyModel(String modelId) {
-        return createEmptyModel(modelId, random.nextInt(minSampleSize));
+    public static EntityModel createEmptyModel(Entity entity) {
+        return createEmptyModel(entity, random.nextInt(minSampleSize));
     }
 
-    public static EntityModel createNonEmptyModel(String modelId, int sampleSize) {
+    public static EntityModel createNonEmptyModel(String detectorId, int sampleSize) {
         Queue<double[]> samples = createQueueSamples(sampleSize);
         RandomCutForest rcf = RandomCutForest
             .builder()
@@ -140,10 +126,10 @@ public class MLUtil {
             AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
         );
         threshold.train(nonZeroScores);
-        return new EntityModel(modelId, samples, rcf, threshold);
+        return new EntityModel(Entity.createSingleAttributeEntity(detectorId, "", ""), samples, rcf, threshold);
     }
 
-    public static EntityModel createNonEmptyModel(String modelId) {
-        return createNonEmptyModel(modelId, random.nextInt(minSampleSize));
+    public static EntityModel createNonEmptyModel(String detectorId) {
+        return createNonEmptyModel(detectorId, random.nextInt(minSampleSize));
     }
 }

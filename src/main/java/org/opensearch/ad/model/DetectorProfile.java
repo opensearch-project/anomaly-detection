@@ -42,7 +42,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
     private DetectorState state;
     private String error;
-    private ModelProfile[] modelProfile;
+    private ModelProfileOnNode[] modelProfile;
     private int shingleSize;
     private String coordinatingNode;
     private long totalSizeInBytes;
@@ -61,7 +61,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
 
         this.error = in.readOptionalString();
-        this.modelProfile = in.readOptionalArray(ModelProfile::new, ModelProfile[]::new);
+        this.modelProfile = in.readOptionalArray(ModelProfileOnNode::new, ModelProfileOnNode[]::new);
         this.shingleSize = in.readOptionalInt();
         this.coordinatingNode = in.readOptionalString();
         this.totalSizeInBytes = in.readOptionalLong();
@@ -78,7 +78,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
     public static class Builder {
         private DetectorState state = null;
         private String error = null;
-        private ModelProfile[] modelProfile = null;
+        private ModelProfileOnNode[] modelProfile = null;
         private int shingleSize = -1;
         private String coordinatingNode = null;
         private long totalSizeInBytes = -1;
@@ -99,7 +99,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             return this;
         }
 
-        public Builder modelProfile(ModelProfile[] modelProfile) {
+        public Builder modelProfile(ModelProfileOnNode[] modelProfile) {
             this.modelProfile = modelProfile;
             return this;
         }
@@ -196,7 +196,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
         if (modelProfile != null && modelProfile.length > 0) {
             xContentBuilder.startArray(CommonName.MODELS);
-            for (ModelProfile profile : modelProfile) {
+            for (ModelProfileOnNode profile : modelProfile) {
                 profile.toXContent(xContentBuilder, params);
             }
             xContentBuilder.endArray();
@@ -241,11 +241,11 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         this.error = error;
     }
 
-    public ModelProfile[] getModelProfile() {
+    public ModelProfileOnNode[] getModelProfile() {
         return modelProfile;
     }
 
-    public void setModelProfile(ModelProfile[] modelProfile) {
+    public void setModelProfile(ModelProfileOnNode[] modelProfile) {
         this.modelProfile = modelProfile;
     }
 

@@ -26,29 +26,31 @@
 
 package org.opensearch.ad.caching;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.ad.CleanState;
 import org.opensearch.ad.DetectorModelSize;
-import org.opensearch.ad.EntityModelSize;
 import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.model.ModelProfile;
 
-public interface EntityCache extends MaintenanceState, CleanState, DetectorModelSize, EntityModelSize {
+public interface EntityCache extends MaintenanceState, CleanState, DetectorModelSize {
     /**
      * Get the ModelState associated with the entity.  May or may not load the
      * ModelState depending on the underlying cache's eviction policy.
      *
      * @param modelId Model Id
      * @param detector Detector config object
-     * @param datapoint The most recent data point
-     * @param entityName The Entity's name
      * @return the ModelState associated with the model or null if no cached item
      * for the entity
      */
-    ModelState<EntityModel> get(String modelId, AnomalyDetector detector, double[] datapoint, String entityName);
+    ModelState<EntityModel> get(String modelId, AnomalyDetector detector);
 
     /**
      * Get the number of active entities of a detector
@@ -109,4 +111,47 @@ public interface EntityCache extends MaintenanceState, CleanState, DetectorModel
      * milliseconds when the entity's state is lastly used.  Otherwise, return -1.
      */
     long getLastActiveMs(String detectorId, String entityModelId);
+
+    /**
+     * Release memory when memory circuit breaker is open
+     */
+    void releaseMemoryForOpenCircuitBreaker();
+
+    /**
+     * Select candidate entities for which we can load models
+     * @param cacheMissEntities Cache miss entities
+     * @param detectorId Detector Id
+     * @param detector Detector object
+     * @return A list of entities that are admitted into the cache as a result of the
+     *  update and the left-over entities
+     */
+    Pair<List<Entity>, List<Entity>> selectUpdateCandidate(
+        Collection<Entity> cacheMissEntities,
+        String detectorId,
+        AnomalyDetector detector
+    );
+
+    /**
+     *
+     * @param detector Detector config
+     * @param toUpdate Model state candidate
+     * @return if we can host the given model state
+     */
+    boolean hostIfPossible(AnomalyDetector detector, ModelState<EntityModel> toUpdate);
+
+    /**
+     *
+     * @param detectorId Detector Id
+     * @return a detector's model information
+     */
+    List<ModelProfile> getAllModelProfile(String detectorId);
+
+    /**
+     * Gets an entity's model sizes
+     *
+     * @param detectorId Detector Id
+     * @param entityModelId Entity's model Id
+     * @return the entity's memory size
+     */
+    Optional<ModelProfile> getModelProfile(String detectorId, String entityModelId);
 }

@@ -51,6 +51,7 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.test.OpenSearchTestCase;
 
 import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
 
@@ -87,8 +88,8 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
 
         when(modelManager.getAllModels()).thenReturn(expectedResults);
 
-        ModelState<EntityModel> entityModel1 = MLUtil.randomNonEmptyModelState();
-        ModelState<EntityModel> entityModel2 = MLUtil.randomNonEmptyModelState();
+        ModelState<EntityModel> entityModel1 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        ModelState<EntityModel> entityModel2 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
 
         entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
         EntityCache cache = mock(EntityCache.class);

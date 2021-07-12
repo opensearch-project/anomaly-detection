@@ -30,13 +30,13 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -49,6 +49,7 @@ import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.BackPressureRouting;
 import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
@@ -74,8 +75,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     private final Clock clock;
     private final Settings settings;
     private final Duration stateTtl;
-    // last time we are throttled due to too much index pressure
-    private Instant lastIndexThrottledTime;
 
     public static final String NO_ERROR = "no_error";
 
@@ -109,7 +108,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         this.clock = clock;
         this.settings = settings;
         this.stateTtl = stateTtl;
-        this.lastIndexThrottledTime = Instant.MIN;
     }
 
     /**
@@ -160,7 +158,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             }
 
             String xc = response.getSourceAsString();
-            LOG.info("Fetched anomaly detector: {}", xc);
+            LOG.debug("Fetched anomaly detector: {}", xc);
 
             try (
                 XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, xc)
@@ -286,31 +284,62 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     }
 
     /**
-     * Set last cold start error of a detector
+     * Get a detector's exception.  The method has side effect.
+     * We reset error after calling the method because
+     * 1) We record a detector's exception in each interval.  There is no need
+     *  to record it twice.
+     * 2) EndRunExceptions can stop job running. We only want to send the same
+     *  signal once for each exception.
      * @param adID detector id
-     * @param exception exception, can be null
+     * @return the detector's exception
      */
-    public void setLastColdStartException(String adID, AnomalyDetectionException exception) {
-        NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
-        state.setLastColdStartException(exception);
-    }
-
-    /**
-     * Get last cold start exception of a detector.  The method has side effect.
-     * We reset error after calling the method since cold start exception can stop job running.
-     * @param adID detector id
-     * @return last cold start exception for the detector
-     */
-    public Optional<AnomalyDetectionException> fetchColdStartException(String adID) {
+    public Optional<AnomalyDetectionException> fetchExceptionAndClear(String adID) {
         NodeState state = states.get(adID);
         if (state == null) {
             return Optional.empty();
         }
 
-        Optional<AnomalyDetectionException> exception = state.getLastColdStartException();
-        // since cold start exception can stop job running, we set it to null after using it once.
-        exception.ifPresent(e -> setLastColdStartException(adID, null));
+        Optional<AnomalyDetectionException> exception = state.getException();
+        exception.ifPresent(e -> state.setException(null));
         return exception;
+    }
+
+    /**
+     * For single-stream detector, we have one exception per interval.  When
+     * an interval starts, it fetches and clears the exception.
+     * For HCAD, there can be one exception per entity.  To not bloat memory
+     * with exceptions, we will keep only one exception. An exception has 3 purposes:
+     * 1) stop detector if nothing else works;
+     * 2) increment error stats to ticket about high-error domain
+     * 3) debugging.
+     *
+     * For HCAD, we record all entities' exceptions in anomaly results. So 3)
+     * is covered.  As long as we keep one exception among all exceptions, 2)
+     * is covered.  So the only thing we have to pay attention is to keep EndRunException.
+     * When overriding an exception, EndRunException has priority.
+     * @param detectorId Detector Id
+     * @param e Exception to set
+     */
+    public void setException(String detectorId, Exception e) {
+        if (e == null || Strings.isEmpty(detectorId)) {
+            return;
+        }
+        NodeState state = states.computeIfAbsent(detectorId, d -> new NodeState(detectorId, clock));
+        Optional<AnomalyDetectionException> exception = state.getException();
+        if (exception.isPresent()) {
+            Exception higherPriorityException = ExceptionUtil.selectHigherPriorityException(e, exception.get());
+            if (higherPriorityException != e) {
+                return;
+            }
+        }
+
+        AnomalyDetectionException adExep = null;
+        if (e instanceof AnomalyDetectionException) {
+            adExep = (AnomalyDetectionException) e;
+        } else {
+            adExep = new AnomalyDetectionException(detectorId, e);
+        }
+        state.setException(adExep);
     }
 
     /**
@@ -341,13 +370,5 @@ public class NodeStateManager implements MaintenanceState, CleanState {
                 nodeState.setColdStartRunning(false);
             }
         };
-    }
-
-    public Instant getLastIndexThrottledTime() {
-        return lastIndexThrottledTime;
-    }
-
-    public void setLastIndexThrottledTime(Instant lastIndexThrottledTime) {
-        this.lastIndexThrottledTime = lastIndexThrottledTime;
     }
 }

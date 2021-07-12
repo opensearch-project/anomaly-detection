@@ -34,6 +34,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.cluster.service.ClusterService;
@@ -50,7 +51,7 @@ public class MemoryTracker {
 
     public enum Origin {
         SINGLE_ENTITY_DETECTOR,
-        MULTI_ENTITY_DETECTOR,
+        HC_DETECTOR,
         HISTORICAL_SINGLE_ENTITY_DETECTOR,
     }
 
@@ -66,6 +67,7 @@ public class MemoryTracker {
     // we observe threshold model uses a fixed size array and the size is the same
     private int thresholdModelBytes;
     private int sampleSize;
+    private ADCircuitBreakerService adCircuitBreakerService;
 
     /**
      * Constructor
@@ -75,13 +77,15 @@ public class MemoryTracker {
      * @param modelDesiredSizePercentage percentage of heap for the desired size of a model
      * @param clusterService Cluster service object
      * @param sampleSize The sample size used by stream samplers in a RCF forest
+     * @param adCircuitBreakerService Memory circuit breaker
      */
     public MemoryTracker(
         JvmService jvmService,
         double modelMaxSizePercentage,
         double modelDesiredSizePercentage,
         ClusterService clusterService,
-        int sampleSize
+        int sampleSize,
+        ADCircuitBreakerService adCircuitBreakerService
     ) {
         this.totalMemoryBytes = 0;
         this.totalMemoryBytesByOrigin = new EnumMap<Origin, Long>(Origin.class);
@@ -95,19 +99,19 @@ public class MemoryTracker {
             .addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
         this.thresholdModelBytes = 180_000;
         this.sampleSize = sampleSize;
-    }
-
-    public synchronized boolean isHostingAllowed(String detectorId, RandomCutForest rcf) {
-        return canAllocateReserved(detectorId, estimateModelSize(rcf));
+        this.adCircuitBreakerService = adCircuitBreakerService;
     }
 
     /**
-     * @param detectorId Detector Id, used in error message
-     * @param requiredBytes required bytes in memory
-     * @return whether there is memory required for AD
+     * This function derives from the old code: https://tinyurl.com/2eaabja6
+     *
+     * @param detectorId Detector Id
+     * @param rcf Random cut forest model
+     * @return true if there is enough memory; otherwise throw LimitExceededException.
      */
-    public synchronized boolean canAllocateReserved(String detectorId, long requiredBytes) {
-        if (reservedMemoryBytes + requiredBytes <= heapLimitBytes) {
+    public synchronized boolean isHostingAllowed(String detectorId, RandomCutForest rcf) {
+        long requiredBytes = estimateModelSize(rcf);
+        if (canAllocateReserved(requiredBytes)) {
             return true;
         } else {
             throw new LimitExceededException(
@@ -124,12 +128,21 @@ public class MemoryTracker {
     }
 
     /**
-     * Whether allocating memory is allowed
+     * @param requiredBytes required bytes to allocate
+     * @return whether there is enough memory for the required bytes.  This is
+     * true when circuit breaker is closed and there is enough reserved memory.
+     */
+    public synchronized boolean canAllocateReserved(long requiredBytes) {
+        return (false == adCircuitBreakerService.isOpen() && reservedMemoryBytes + requiredBytes <= heapLimitBytes);
+    }
+
+    /**
      * @param bytes required bytes
-     * @return true if allowed; false otherwise
+     * @return whether there is enough memory for the required bytes.  This is
+     * true when circuit breaker is closed and there is enough overall memory.
      */
     public synchronized boolean canAllocate(long bytes) {
-        return totalMemoryBytes + bytes <= heapLimitBytes;
+        return false == adCircuitBreakerService.isOpen() && totalMemoryBytes + bytes <= heapLimitBytes;
     }
 
     public synchronized void consumeMemory(long memoryToConsume, boolean reserved, Origin origin) {
@@ -243,8 +256,8 @@ public class MemoryTracker {
     }
 
     /**
-     * In case of bugs/race conditions when allocating/releasing memory, sync used bytes
-     * infrequently by recomputing memory usage.
+     * In case of bugs/race conditions or users dyanmically changing dedicated/shared
+     * cache size, sync used bytes infrequently by recomputing memory usage.
      * @param origin Origin
      * @param totalBytes total bytes from recomputing
      * @param reservedBytes reserved bytes from recomputing
@@ -256,6 +269,7 @@ public class MemoryTracker {
         if (totalBytes == recordedTotalBytes && reservedBytes == recordedReservedBytes) {
             return false;
         }
+
         LOG
             .info(
                 String

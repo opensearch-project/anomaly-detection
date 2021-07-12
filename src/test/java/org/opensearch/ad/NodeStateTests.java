@@ -104,14 +104,14 @@ public class NodeStateTests extends OpenSearchTestCase {
 
     public void testMaintenanceLastColdStartRemoved() {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000));
-        state.setLastColdStartException(new AnomalyDetectionException("123", ""));
+        state.setException(new AnomalyDetectionException("123", ""));
         when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
         assertTrue(state.expired(duration));
     }
 
     public void testMaintenanceLastColdStartNotRemoved() {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1_000_000L));
-        state.setLastColdStartException(new AnomalyDetectionException("123", ""));
+        state.setException(new AnomalyDetectionException("123", ""));
         when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
         assertTrue(!state.expired(duration));
     }

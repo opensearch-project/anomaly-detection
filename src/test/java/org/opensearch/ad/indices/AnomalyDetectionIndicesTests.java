@@ -64,10 +64,10 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
     public void setup() {
         settings = Settings
             .builder()
-            .put("opendistro.anomaly_detection.ad_result_history_rollover_period", TimeValue.timeValueHours(12))
-            .put("opendistro.anomaly_detection.ad_result_history_max_age", TimeValue.timeValueHours(24))
-            .put("opendistro.anomaly_detection.ad_result_history_max_docs", 10000L)
-            .put("opendistro.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10))
+            .put("plugins.anomaly_detection.ad_result_history_rollover_period", TimeValue.timeValueHours(12))
+            .put("plugins.anomaly_detection.ad_result_history_max_age", TimeValue.timeValueHours(24))
+            .put("plugins.anomaly_detection.ad_result_history_max_docs", 10000L)
+            .put("plugins.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10))
             .build();
 
         nodeFilter = new DiscoveryNodeFilterer(clusterService());
