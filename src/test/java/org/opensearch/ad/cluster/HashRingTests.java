@@ -114,7 +114,7 @@ public class HashRingTests extends AbstractADTest {
 
         settings = Settings
             .builder()
-            .put("opendistro.anomaly_detection.cluster_state_change_cooldown_minutes", TimeValue.timeValueMinutes(5))
+            .put("plugins.anomaly_detection.cluster_state_change_cooldown_minutes", TimeValue.timeValueMinutes(5))
             .build();
         clock = mock(Clock.class);
         when(clock.millis()).thenReturn(700000L);

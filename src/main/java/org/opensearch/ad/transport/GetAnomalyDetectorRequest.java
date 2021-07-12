@@ -30,6 +30,7 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 
@@ -42,7 +43,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
     private String typeStr;
     private String rawPath;
     private boolean all;
-    private String entityValue;
+    private Entity entity;
 
     public GetAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
@@ -54,7 +55,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         rawPath = in.readString();
         all = in.readBoolean();
         if (in.readBoolean()) {
-            entityValue = in.readString();
+            entity = new Entity(in);
         }
     }
 
@@ -66,7 +67,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         String typeStr,
         String rawPath,
         boolean all,
-        String entityValue
+        Entity entity
     ) {
         super();
         this.detectorID = detectorID;
@@ -76,7 +77,7 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         this.typeStr = typeStr;
         this.rawPath = rawPath;
         this.all = all;
-        this.entityValue = entityValue;
+        this.entity = entity;
     }
 
     public String getDetectorID() {
@@ -107,8 +108,8 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         return all;
     }
 
-    public String getEntityValue() {
-        return entityValue;
+    public Entity getEntity() {
+        return entity;
     }
 
     @Override
@@ -121,9 +122,9 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
         out.writeString(typeStr);
         out.writeString(rawPath);
         out.writeBoolean(all);
-        if (this.entityValue != null) {
+        if (this.entity != null) {
             out.writeBoolean(true);
-            out.writeString(entityValue);
+            entity.writeTo(out);
         } else {
             out.writeBoolean(false);
         }

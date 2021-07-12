@@ -73,11 +73,17 @@ public class CommonName {
     public static final String MODELS = "models";
     public static final String MODEL = "model";
     public static final String INIT_PROGRESS = "init_progress";
+    public static final String MODEL_SIZE_IN_BYTES = "model_size_in_bytes";
+    public static final String CATEGORICAL_FIELD = "category_field";
 
     public static final String TOTAL_ENTITIES = "total_entities";
     public static final String ACTIVE_ENTITIES = "active_entities";
     public static final String ENTITY_INFO = "entity_info";
     public static final String TOTAL_UPDATES = "total_updates";
+
+    // ======================================
+    // Historical detectors
+    // ======================================
     public static final String AD_TASK = "ad_task";
     public static final String AD_TASK_REMOTE = "ad_task_remote";
     public static final String CANCEL_TASK = "cancel_task";
@@ -107,4 +113,25 @@ public class CommonName {
     public static final String DATE_HISTOGRAM = "date_histogram";
     // feature aggregation name
     public static final String FEATURE_AGGS = "feature_aggs";
+
+    // ======================================
+    // Used in almost all components
+    // ======================================
+    public static final String MODEL_ID_KEY = "model_id";
+    public static final String DETECTOR_ID_KEY = "detector_id";
+    public static final String ENTITY_KEY = "entity";
+
+    // ======================================
+    // Used in toXContent
+    // ======================================
+    public static final String RCF_SCORE_JSON_KEY = "rCFScore";
+    public static final String ID_JSON_KEY = "adID";
+    public static final String FEATURE_JSON_KEY = "features";
+    public static final String CONFIDENCE_JSON_KEY = "confidence";
+    public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
+    public static final String QUEUE_JSON_KEY = "queue";
+    public static final String START_JSON_KEY = "start";
+    public static final String END_JSON_KEY = "end";
+    public static final String VALUE_JSON_KEY = "value";
+    public static final String ENTITIES_JSON_KEY = "entities";
 }

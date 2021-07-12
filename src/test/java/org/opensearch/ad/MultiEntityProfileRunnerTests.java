@@ -35,6 +35,7 @@ import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -200,8 +201,22 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
             if (InittedEverResultStatus.INITTED == initted) {
                 updates = requiredSamples + 1;
             }
-            ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(discoveryNode1, modelSizeMap1, shingleSize, 1L, updates);
-            ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, shingleSize, 1L, updates);
+            ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(
+                discoveryNode1,
+                modelSizeMap1,
+                shingleSize,
+                1L,
+                updates,
+                new ArrayList<>()
+            );
+            ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
+                discoveryNode2,
+                modelSizeMap2,
+                shingleSize,
+                1L,
+                updates,
+                new ArrayList<>()
+            );
             List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
             List<FailedNodeException> failures = Collections.emptyList();
             ProfileResponse profileResponse = new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, failures);

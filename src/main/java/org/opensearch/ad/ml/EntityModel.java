@@ -26,26 +26,34 @@
 
 package org.opensearch.ad.ml;
 
+import java.util.Optional;
 import java.util.Queue;
+
+import org.opensearch.ad.model.Entity;
 
 import com.amazon.randomcutforest.RandomCutForest;
 
 public class EntityModel {
-    private String modelId;
+    private Entity entity;
     // TODO: sample should record timestamp
     private Queue<double[]> samples;
     private RandomCutForest rcf;
     private ThresholdingModel threshold;
 
-    public EntityModel(String modelId, Queue<double[]> samples, RandomCutForest rcf, ThresholdingModel threshold) {
-        this.modelId = modelId;
+    public EntityModel(Entity entity, Queue<double[]> samples, RandomCutForest rcf, ThresholdingModel threshold) {
+        this.entity = entity;
         this.samples = samples;
         this.rcf = rcf;
         this.threshold = threshold;
     }
 
-    public String getModelId() {
-        return this.modelId;
+    /**
+     * In old checkpoint mapping, we don't have entity. It's fine we are missing
+     * entity as it is mostly used for debugging.
+     * @return entity
+     */
+    public Optional<Entity> getEntity() {
+        return Optional.ofNullable(entity);
     }
 
     public Queue<double[]> getSamples() {

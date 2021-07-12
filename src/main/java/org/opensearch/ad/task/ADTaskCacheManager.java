@@ -106,7 +106,7 @@ public class ADTaskCacheManager {
         }
         checkRunningTaskLimit();
         long neededCacheSize = calculateADTaskCacheSize(adTask);
-        if (!memoryTracker.canAllocateReserved(adTask.getDetectorId(), neededCacheSize)) {
+        if (!memoryTracker.canAllocateReserved(neededCacheSize)) {
             throw new LimitExceededException("No enough memory to run detector");
         }
         memoryTracker.consumeMemory(neededCacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);

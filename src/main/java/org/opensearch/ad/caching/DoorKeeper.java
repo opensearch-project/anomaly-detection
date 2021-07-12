@@ -38,9 +38,7 @@ import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 
 /**
- * A bloom filter placed in front of inactive entity cache to
- * filter out unpopular items that are not likely to appear more
- * than once.
+ * A bloom filter with regular reset.
  *
  * Reference: https://arxiv.org/abs/1512.00727
  *

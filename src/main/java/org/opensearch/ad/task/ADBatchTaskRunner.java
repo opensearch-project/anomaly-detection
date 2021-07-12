@@ -597,7 +597,8 @@ public class ADBatchTaskRunner {
                     error,
                     null,
                     adTask.getDetector().getUser(),
-                    anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
+                    anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
+                    null
                 );
                 anomalyResults.add(anomalyResult);
             } else {
@@ -638,7 +639,8 @@ public class ADBatchTaskRunner {
                     null,
                     null,
                     adTask.getDetector().getUser(),
-                    anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
+                    anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
+                    null
                 );
                 anomalyResults.add(anomalyResult);
             }

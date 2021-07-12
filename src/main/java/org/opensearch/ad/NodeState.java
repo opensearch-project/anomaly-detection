@@ -44,13 +44,13 @@ public class NodeState implements ExpiringState {
     private AnomalyDetector detectorDef;
     // number of partitions
     private int partitonNumber;
-    // checkpoint fetch time
+    // last access time
     private Instant lastAccessTime;
     // last detection error recorded in result index. Used by DetectorStateHandler
     // to check if the error for a detector has changed or not. If changed, trigger indexing.
     private Optional<String> lastDetectionError;
-    // last training error. Used to save cold start error by a concurrent cold start thread.
-    private Optional<AnomalyDetectionException> lastColdStartException;
+    // last error.
+    private Optional<AnomalyDetectionException> exception;
     // flag indicating whether checkpoint for the detector exists
     private boolean checkPointExists;
     // clock to get current time
@@ -64,7 +64,7 @@ public class NodeState implements ExpiringState {
         this.partitonNumber = -1;
         this.lastAccessTime = clock.instant();
         this.lastDetectionError = Optional.empty();
-        this.lastColdStartException = Optional.empty();
+        this.exception = Optional.empty();
         this.checkPointExists = false;
         this.clock = clock;
         this.coldStartRunning = false;
@@ -148,19 +148,19 @@ public class NodeState implements ExpiringState {
 
     /**
      *
-     * @return last cold start exception if any
+     * @return last exception if any
      */
-    public Optional<AnomalyDetectionException> getLastColdStartException() {
+    public Optional<AnomalyDetectionException> getException() {
         refreshLastUpdateTime();
-        return lastColdStartException;
+        return exception;
     }
 
     /**
      *
-     * @param lastColdStartError last cold start exception if any
+     * @param exception exception to record
      */
-    public void setLastColdStartException(AnomalyDetectionException lastColdStartError) {
-        this.lastColdStartException = Optional.ofNullable(lastColdStartError);
+    public void setException(AnomalyDetectionException exception) {
+        this.exception = Optional.ofNullable(exception);
         refreshLastUpdateTime();
     }
 

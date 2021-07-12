@@ -57,9 +57,11 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
@@ -87,7 +89,6 @@ public class IndexAnomalyDetectorActionHandler {
     public static final String EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG = "Can't create multi-entity anomaly detectors more than ";
     public static final String EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG = "Can't create single-entity anomaly detectors more than ";
     public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document found in indices: ";
-    public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
     public static final String NOT_FOUND_ERR_MSG = "Cannot found the categorical field %s";
 
@@ -346,11 +347,12 @@ public class IndexAnomalyDetectorActionHandler {
             return;
         }
 
-        // we only support one categorical field
-        // If there is more than 1 field or none, AnomalyDetector's constructor
+        // we only support a certain number of categorical field
+        // If there is more fields than required, AnomalyDetector's constructor
         // throws IllegalArgumentException before reaching this line
-        if (categoryField.size() != 1) {
-            listener.onFailure(new IllegalArgumentException(ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG));
+        int maxCategoryFields = NumericSetting.maxCategoricalFields();
+        if (categoryField.size() > maxCategoryFields) {
+            listener.onFailure(new IllegalArgumentException(CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields)));
             return;
         }
 

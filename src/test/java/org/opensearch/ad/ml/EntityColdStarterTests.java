@@ -31,7 +31,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,6 +45,9 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
@@ -63,7 +65,9 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
@@ -91,6 +95,12 @@ public class EntityColdStarterTests extends AbstractADTest {
     FeatureManager featureManager;
     Settings settings;
     ThreadPool threadPool;
+    AtomicBoolean released;
+    Runnable releaseSemaphore;
+    ActionListener<Void> listener;
+    CountDownLatch inProgressLatch;
+    CheckpointWriteWorker checkpointWriteQueue;
+    Entity entity;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -152,6 +162,8 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
         );
 
+        checkpointWriteQueue = mock(CheckpointWriteWorker.class);
+
         entityColdStarter = new EntityColdStarter(
             clock,
             threadPool,
@@ -172,33 +184,49 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
             AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             featureManager,
+            settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.MAX_SMALL_STATES,
-            checkpoint,
-            settings
+            checkpointWriteQueue
         );
 
         detectorId = "123";
         modelId = "123_entity_abc";
         entityName = "abc";
         priority = 0.3f;
+        entity = Entity.createSingleAttributeEntity(detectorId, "field", entityName);
+
+        released = new AtomicBoolean();
+
+        inProgressLatch = new CountDownLatch(1);
+        releaseSemaphore = () -> {
+            released.set(true);
+            inProgressLatch.countDown();
+        };
+        listener = ActionListener.wrap(releaseSemaphore);
+    }
+
+    private void checkSemaphoreRelease() throws InterruptedException {
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        assertTrue(released.get());
     }
 
     // train using samples directly
-    public void testTrainUsingSamples() {
+    public void testTrainUsingSamples() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(numMinSamples);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         RandomCutForest forest = model.getRcf();
         assertTrue(forest != null);
         assertEquals(numMinSamples, forest.getTotalUpdates());
         assertTrue(model.getThreshold() != null);
+
+        checkSemaphoreRelease();
     }
 
     public void testColdStart() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -217,7 +245,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         waitForColdStartFinish();
         RandomCutForest forest = model.getRcf();
@@ -228,17 +256,20 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         // sleep 1 secs to give time for the last timestamp record to expire when superShortLastColdStartTimeState = true
         Thread.sleep(1000L);
+        checkSemaphoreRelease();
 
+        released.set(false);
         // too frequent cold start of the same detector will fail
         samples = MLUtil.createQueueSamples(1);
-        model = new EntityModel(modelId, samples, null, null);
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        model = new EntityModel(entity, samples, null, null);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         waitForColdStartFinish();
 
         forest = model.getRcf();
 
         assertTrue(forest == null);
         assertTrue(model.getThreshold() == null);
+        checkSemaphoreRelease();
     }
 
     private void waitForColdStartFinish() throws InterruptedException {
@@ -251,23 +282,10 @@ public class EntityColdStarterTests extends AbstractADTest {
         }
     }
 
-    // cold start running, return immediately
-    public void testColdStartRunning() {
-        Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
-        modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
-
-        NodeStateManager spyNodeStateManager = spy(stateManager);
-        spyNodeStateManager.markColdStartRunning(detectorId);
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
-
-        verify(spyNodeStateManager, never()).getAnomalyDetector(any(), any());
-    }
-
     // min max: miss one
-    public void testMissMin() throws IOException {
+    public void testMissMin() throws IOException, InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -276,19 +294,20 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getEntityMinMaxDataTime(any(), any(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         verify(searchFeatureDao, never()).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
         RandomCutForest forest = model.getRcf();
         assertTrue(forest == null);
         assertTrue(model.getThreshold() == null);
+        checkSemaphoreRelease();
     }
 
     // two segments of samples, one segment has 3 samples, while another one has only 1
     public void testTwoSegmentsWithSingleSample() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -309,7 +328,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         int maxWaitTimes = 20;
         int i = 0;
@@ -324,12 +343,13 @@ public class EntityColdStarterTests extends AbstractADTest {
         // 2nd segment: 1
         assertEquals(130, forest.getTotalUpdates());
         assertTrue(model.getThreshold() != null);
+        checkSemaphoreRelease();
     }
 
     // two segments of samples, one segment has 3 samples, while another one 2 samples
     public void testTwoSegments() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -351,7 +371,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         int maxWaitTimes = 20;
         int i = 0;
@@ -366,11 +386,12 @@ public class EntityColdStarterTests extends AbstractADTest {
         // 2nd segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 1 + 1 = 65
         assertEquals(194, forest.getTotalUpdates());
         assertTrue(model.getThreshold() != null);
+        checkSemaphoreRelease();
     }
 
-    public void testThrottledColdStart() {
+    public void testThrottledColdStart() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -379,17 +400,18 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getEntityMinMaxDataTime(any(), any(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
-        entityColdStarter.trainModel(samples, modelId, entityName, "456", modelState);
+        entityColdStarter.trainModel(entity, "456", modelState, listener);
 
         // only the first one makes the call
         verify(searchFeatureDao, times(1)).getEntityMinMaxDataTime(any(), any(), any());
+        checkSemaphoreRelease();
     }
 
-    public void testColdStartException() {
+    public void testColdStartException() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -398,14 +420,15 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getEntityMinMaxDataTime(any(), any(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         assertTrue(stateManager.getLastDetectionError(detectorId) != null);
+        checkSemaphoreRelease();
     }
 
     public void testNotEnoughSamples() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -423,7 +446,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         int maxWaitTimes = 20;
         int i = 0;
@@ -441,7 +464,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
     public void testEmptyDataRange() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(modelId, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -450,7 +473,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(searchFeatureDao).getEntityMinMaxDataTime(any(), any(), any());
 
-        entityColdStarter.trainModel(samples, modelId, entityName, detectorId, modelState);
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         waitForColdStartFinish();
 
         assertTrue(model.getRcf() == null);

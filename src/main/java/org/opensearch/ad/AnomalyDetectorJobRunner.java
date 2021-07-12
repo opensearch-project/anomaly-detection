@@ -468,12 +468,14 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String detectorId = jobParameter.getName();
         detectorEndRunExceptionCount.remove(detectorId);
         try {
+            // reset error if different from previously recorded one
+            detectionStateHandler.saveError(response.getError(), detectorId);
             // skipping writing to the result index if not necessary
             // For a single-entity detector, the result is not useful if error is null
             // and rcf score (thus anomaly grade/confidence) is null.
-            // For a multi-entity detector, we don't need to save on the detector level.
-            // We always return 0 rcf score if there is no error.
-            if (response.getAnomalyScore() <= 0 && response.getError() == null) {
+            // For a HCAD detector, we don't need to save on the detector level.
+            // We return 0 or Double.NaN rcf score if there is no error.
+            if ((response.getAnomalyScore() <= 0 || Double.isNaN(response.getAnomalyScore())) && response.getError() == null) {
                 return;
             }
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
@@ -499,7 +501,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectionStateHandler.saveError(response.getError(), detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {

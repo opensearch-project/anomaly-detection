@@ -639,15 +639,16 @@ public class TestHelpers {
             error,
             null,
             user,
-            CommonValue.NO_SCHEMA_VERSION
+            CommonValue.NO_SCHEMA_VERSION,
+            null
         );
     }
 
-    public static AnomalyResult randomMultiEntityAnomalyDetectResult(double score, double grade) {
-        return randomMutlEntityAnomalyDetectResult(score, grade, null);
+    public static AnomalyResult randomHCADAnomalyDetectResult(double score, double grade) {
+        return randomHCADAnomalyDetectResult(score, grade, null);
     }
 
-    public static AnomalyResult randomMutlEntityAnomalyDetectResult(double score, double grade, String error) {
+    public static AnomalyResult randomHCADAnomalyDetectResult(double score, double grade, String error) {
         return new AnomalyResult(
             randomAlphaOfLength(5),
             score,
@@ -659,7 +660,7 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error,
-            Arrays.asList(new Entity(randomAlphaOfLength(5), randomAlphaOfLength(5))),
+            Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5), randomAlphaOfLength(5)),
             randomUser(),
             CommonValue.NO_SCHEMA_VERSION
         );

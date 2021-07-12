@@ -33,19 +33,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.opensearch.ad.ExpiringState;
+import org.opensearch.ad.constant.CommonName;
 
 /**
  * A ML model and states such as usage.
  */
 public class ModelState<T> implements ExpiringState {
 
-    public static String MODEL_ID_KEY = "model_id";
-    public static String DETECTOR_ID_KEY = "detector_id";
     public static String MODEL_TYPE_KEY = "model_type";
     public static String LAST_USED_TIME_KEY = "last_used_time";
     public static String LAST_CHECKPOINT_TIME_KEY = "last_checkpoint_time";
-    public static String PRIORITY = "priority";
-
+    public static String PRIORITY_KEY = "priority";
     private T model;
     private String modelId;
     private String detectorId;
@@ -196,12 +194,27 @@ public class ModelState<T> implements ExpiringState {
     public Map<String, Object> getModelStateAsMap() {
         return new HashMap<String, Object>() {
             {
-                put(MODEL_ID_KEY, modelId);
-                put(DETECTOR_ID_KEY, detectorId);
+                put(CommonName.MODEL_ID_KEY, modelId);
+                put(CommonName.DETECTOR_ID_KEY, detectorId);
                 put(MODEL_TYPE_KEY, modelType);
-                put(LAST_USED_TIME_KEY, lastUsedTime);
-                put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime);
-                put(PRIORITY, priority);
+                /* A stats API broadcasts requests to all nodes and renders node responses using toXContent.
+                 *
+                 * For the local node, the stats API's calls toXContent on the node response directly.
+                 * For remote node, the coordinating node gets a serialized content from
+                 * ADStatsNodeResponse.writeTo, deserializes the content, and renders the result using toXContent.
+                 * Since ADStatsNodeResponse.writeTo uses StreamOutput::writeGenericValue, we can only use
+                 *  a long instead of the Instant object itself as
+                 *  StreamOutput::writeGenericValue only recognizes built-in types.*/
+                put(LAST_USED_TIME_KEY, lastUsedTime.toEpochMilli());
+                if (lastCheckpointTime != Instant.MIN) {
+                    put(LAST_CHECKPOINT_TIME_KEY, lastCheckpointTime.toEpochMilli());
+                }
+                if (model != null && model instanceof EntityModel) {
+                    EntityModel summary = (EntityModel) model;
+                    if (summary.getEntity().isPresent()) {
+                        put(CommonName.ENTITY_KEY, summary.getEntity().get().toStat());
+                    }
+                }
             }
         };
     }

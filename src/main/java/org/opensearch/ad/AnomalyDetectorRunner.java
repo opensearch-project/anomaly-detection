@@ -29,7 +29,6 @@ package org.opensearch.ad;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -76,6 +75,7 @@ public final class AnomalyDetectorRunner {
      * @param detector  anomaly detector instance
      * @param startTime detection period start time
      * @param endTime   detection period end time
+     * @param context   stored thread context
      * @param listener handle anomaly result
      * @throws IOException - if a user gives wrong query input when defining a detector
      */
@@ -96,6 +96,7 @@ public final class AnomalyDetectorRunner {
                     // This also requires front-end change to handle error message correspondingly
                     // We return empty list for now to avoid breaking front-end
                     listener.onResponse(Collections.emptyList());
+                    return;
                 }
                 ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener
                     .wrap(
@@ -119,7 +120,7 @@ public final class AnomalyDetectorRunner {
                             ActionListener.wrap(features -> {
                                 List<ThresholdingResult> entityResults = modelManager.getPreviewResults(features.getProcessedFeatures());
                                 List<AnomalyResult> sampledEntityResults = sample(
-                                    parsePreviewResult(detector, features, entityResults, Arrays.asList(entity)),
+                                    parsePreviewResult(detector, features, entityResults, entity),
                                     maxPreviewResults
                                 );
                                 multiEntitiesResponseListener.onResponse(new EntityAnomalyResult(sampledEntityResults));
@@ -146,6 +147,7 @@ public final class AnomalyDetectorRunner {
         // We return empty list for now to avoid breaking front-end
         if (e instanceof OpenSearchSecurityException) {
             listener.onFailure(e);
+            return;
         }
         listener.onResponse(Collections.emptyList());
     }
@@ -154,7 +156,7 @@ public final class AnomalyDetectorRunner {
         AnomalyDetector detector,
         Features features,
         List<ThresholdingResult> results,
-        List<Entity> entity
+        Entity entity
     ) {
         // unprocessedFeatures[][], each row is for one date range.
         // For example, unprocessedFeatures[0][2] is for the first time range, the third feature

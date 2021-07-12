@@ -197,7 +197,14 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
 
             ActionListener<ProfileResponse> listener = (ActionListener<ProfileResponse>) args[2];
 
-            ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(discoveryNode1, new HashMap<>(), shingleSize, 0, 0);
+            ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(
+                discoveryNode1,
+                new HashMap<>(),
+                shingleSize,
+                0,
+                0,
+                new ArrayList<>()
+            );
             List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1);
             listener.onResponse(new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, Collections.emptyList()));
 

@@ -34,7 +34,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.eq;
@@ -45,8 +44,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
@@ -70,7 +67,6 @@ import junitparams.Parameters;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
-import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -96,7 +92,6 @@ import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
@@ -122,13 +117,8 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.AggregatorFactories;
-import org.opensearch.search.aggregations.BucketOrder;
-import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
-import org.opensearch.search.aggregations.InternalOrder;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
-import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
@@ -145,12 +135,12 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
-import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
 
 @PowerMockIgnore("javax.management.*")
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
-@PrepareForTest({ ParseUtils.class })
+@PrepareForTest({ ParseUtils.class, Gson.class })
 public class SearchFeatureDaoTests {
     private final Logger LOG = LogManager.getLogger(SearchFeatureDaoTests.class);
 
@@ -195,15 +185,13 @@ public class SearchFeatureDaoTests {
     @Mock
     private ClusterService clusterService;
 
-    private SearchSourceBuilder featureQuery = new SearchSourceBuilder();
-    // private Map<String, Object> searchRequestParams;
     private SearchRequest searchRequest;
     private SearchSourceBuilder searchSourceBuilder;
     private MultiSearchRequest multiSearchRequest;
     private Map<String, Aggregation> aggsMap;
-    // private List<Aggregation> aggsList;
     private IntervalTimeConfiguration detectionInterval;
-    // private Settings settings;
+    private String detectorId;
+    private Gson gson;
 
     @Before
     public void setup() throws Exception {
@@ -223,18 +211,16 @@ public class SearchFeatureDaoTests {
         Settings settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY, AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW)
-                    )
-                )
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        searchFeatureDao = spy(new SearchFeatureDao(client, xContent, interpolator, clientUtil, threadPool, settings, clusterService));
+        searchFeatureDao = spy(new SearchFeatureDao(client, xContent, interpolator, clientUtil, settings, clusterService, gson));
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
+        detectorId = "123";
+
+        when(detector.getDetectorId()).thenReturn(detectorId);
         when(detector.getTimeField()).thenReturn("testTimeField");
         when(detector.getIndices()).thenReturn(Arrays.asList("testIndices"));
         when(detector.getDetectionInterval()).thenReturn(detectionInterval);
@@ -281,6 +267,8 @@ public class SearchFeatureDaoTests {
             );
         when(multiSearchResponse.getResponses()).thenReturn(new Item[] { multiSearchResponseItem });
         when(multiSearchResponseItem.getResponse()).thenReturn(searchResponse);
+
+        gson = PowerMockito.mock(Gson.class);
     }
 
     @Test
@@ -735,156 +723,6 @@ public class SearchFeatureDaoTests {
         return new SimpleEntry<>(key, value);
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    public void testNormalGetFeaturesByEntities() throws IOException {
-        SearchHits hits = new SearchHits(new SearchHit[] {}, null, Float.NaN);
-
-        String aggregationId = "deny_max";
-        String featureName = "deny max";
-        AggregationBuilder builder = new MaxAggregationBuilder("deny_max").field("deny");
-        AggregatorFactories.Builder aggBuilder = AggregatorFactories.builder();
-        aggBuilder.addAggregator(builder);
-        when(detector.getEnabledFeatureIds()).thenReturn(Collections.singletonList(aggregationId));
-        when(detector.getFeatureAttributes()).thenReturn(Collections.singletonList(new Feature(aggregationId, featureName, true, builder)));
-        when(ParseUtils.parseAggregators(anyString(), any(), anyString())).thenReturn(aggBuilder);
-
-        String app0Name = "app_0";
-        double app0Max = 1976.0;
-        InternalAggregation app0Agg = new InternalMax(aggregationId, app0Max, DocValueFormat.RAW, Collections.emptyMap());
-        StringTerms.Bucket app0Bucket = new StringTerms.Bucket(
-            new BytesRef(app0Name.getBytes(StandardCharsets.UTF_8), 0, app0Name.getBytes(StandardCharsets.UTF_8).length),
-            3,
-            InternalAggregations.from(Collections.singletonList(app0Agg)),
-            false,
-            0,
-            DocValueFormat.RAW
-        );
-
-        String app1Name = "app_1";
-        double app1Max = 3604.0;
-        InternalAggregation app1Agg = new InternalMax(aggregationId, app1Max, DocValueFormat.RAW, Collections.emptyMap());
-        StringTerms.Bucket app1Bucket = new StringTerms.Bucket(
-            new BytesRef(app1Name.getBytes(StandardCharsets.UTF_8), 0, app1Name.getBytes(StandardCharsets.UTF_8).length),
-            3,
-            InternalAggregations.from(Collections.singletonList(app1Agg)),
-            false,
-            0,
-            DocValueFormat.RAW
-        );
-
-        List<StringTerms.Bucket> stringBuckets = ImmutableList.of(app0Bucket, app1Bucket);
-
-        StringTerms termsAgg = new StringTerms(
-            "term_agg",
-            InternalOrder.key(false),
-            BucketOrder.count(false),
-            1,
-            0,
-            Collections.emptyMap(),
-            DocValueFormat.RAW,
-            1,
-            false,
-            0,
-            stringBuckets,
-            0
-        );
-
-        InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(termsAgg));
-
-        SearchResponseSections searchSections = new SearchResponseSections(hits, internalAggregations, null, false, false, null, 1);
-
-        // Simulate response:
-        // {"took":507,"timed_out":false,"_shards":{"total":1,"successful":1,
-        // "skipped":0,"failed":0},"hits":{"max_score":null,"hits":[]},
-        // "aggregations":{"term_agg":{"doc_count_error_upper_bound":0,
-        // "sum_other_doc_count":0,"buckets":[{"key":"app_0","doc_count":3,
-        // "deny_max":{"value":1976.0}},{"key":"app_1","doc_count":3,
-        // "deny_max":{"value":3604.0}}]}}}
-        SearchResponse searchResponse = new SearchResponse(
-            searchSections,
-            null,
-            1,
-            1,
-            0,
-            507,
-            ShardSearchFailure.EMPTY_ARRAY,
-            SearchResponse.Clusters.EMPTY
-        );
-
-        doAnswer(invocation -> {
-            SearchRequest request = invocation.getArgument(0);
-            assertEquals(1, request.indices().length);
-            assertTrue(detector.getIndices().contains(request.indices()[0]));
-            AggregatorFactories.Builder aggs = request.source().aggregations();
-            assertEquals(1, aggs.count());
-            Collection<AggregationBuilder> factory = aggs.getAggregatorFactories();
-            assertTrue(!factory.isEmpty());
-            assertThat(factory.iterator().next(), instanceOf(TermsAggregationBuilder.class));
-
-            ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            listener.onResponse(searchResponse);
-            return null;
-        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
-
-        ActionListener<Map<String, double[]>> listener = mock(ActionListener.class);
-        searchFeatureDao.getFeaturesByEntities(detector, 10L, 20L, listener);
-
-        ArgumentCaptor<Map<String, double[]>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(listener).onResponse(captor.capture());
-        Map<String, double[]> result = captor.getValue();
-        assertEquals(2, result.size());
-        assertEquals(app0Max, result.get(app0Name)[0], 0.001);
-        assertEquals(app1Max, result.get(app1Name)[0], 0.001);
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void testEmptyGetFeaturesByEntities() {
-        SearchResponseSections searchSections = new SearchResponseSections(null, null, null, false, false, null, 1);
-
-        SearchResponse searchResponse = new SearchResponse(
-            searchSections,
-            null,
-            1,
-            1,
-            0,
-            507,
-            ShardSearchFailure.EMPTY_ARRAY,
-            SearchResponse.Clusters.EMPTY
-        );
-
-        doAnswer(invocation -> {
-            ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            listener.onResponse(searchResponse);
-            return null;
-        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
-
-        ActionListener<Map<String, double[]>> listener = mock(ActionListener.class);
-        searchFeatureDao.getFeaturesByEntities(detector, 10L, 20L, listener);
-
-        ArgumentCaptor<Map<String, double[]>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(listener).onResponse(captor.capture());
-        Map<String, double[]> result = captor.getValue();
-        assertEquals(0, result.size());
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test(expected = EndRunException.class)
-    public void testParseIOException() throws Exception {
-        String aggregationId = "deny_max";
-        String featureName = "deny max";
-        AggregationBuilder builder = new MaxAggregationBuilder("deny_max").field("deny");
-        AggregatorFactories.Builder aggBuilder = AggregatorFactories.builder();
-        aggBuilder.addAggregator(builder);
-        when(detector.getEnabledFeatureIds()).thenReturn(Collections.singletonList(aggregationId));
-        when(detector.getFeatureAttributes()).thenReturn(Collections.singletonList(new Feature(aggregationId, featureName, true, builder)));
-        PowerMockito.doThrow(new IOException()).when(ParseUtils.class, "parseAggregators", anyString(), any(), anyString());
-
-        ActionListener<Map<String, double[]>> listener = mock(ActionListener.class);
-        searchFeatureDao.getFeaturesByEntities(detector, 10L, 20L, listener);
-    }
-
     @SuppressWarnings("unchecked")
     @Test
     public void testGetEntityMinMaxDataTime() {
@@ -936,96 +774,13 @@ public class SearchFeatureDaoTests {
         }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
         ActionListener<Entry<Optional<Long>, Optional<Long>>> listener = mock(ActionListener.class);
-        searchFeatureDao.getEntityMinMaxDataTime(detector, "app_1", listener);
+        Entity entity = Entity.createSingleAttributeEntity(detectorId, "field", "app_1");
+        searchFeatureDao.getEntityMinMaxDataTime(detector, entity, listener);
 
         ArgumentCaptor<Entry<Optional<Long>, Optional<Long>>> captor = ArgumentCaptor.forClass(Entry.class);
         verify(listener).onResponse(captor.capture());
         Entry<Optional<Long>, Optional<Long>> result = captor.getValue();
         assertEquals((long) earliest, result.getKey().get().longValue());
         assertEquals((long) latest, result.getValue().get().longValue());
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void testGetHighestCountEntities() {
-        SearchHits hits = new SearchHits(new SearchHit[] {}, null, Float.NaN);
-
-        String entity1Name = "value1";
-        long entity1Count = 3;
-        StringTerms.Bucket entity1Bucket = new StringTerms.Bucket(
-            new BytesRef(entity1Name.getBytes(StandardCharsets.UTF_8), 0, entity1Name.getBytes(StandardCharsets.UTF_8).length),
-            entity1Count,
-            null,
-            false,
-            0,
-            DocValueFormat.RAW
-        );
-        String entity2Name = "value2";
-        long entity2Count = 1;
-        StringTerms.Bucket entity2Bucket = new StringTerms.Bucket(
-            new BytesRef(entity2Name.getBytes(StandardCharsets.UTF_8), 0, entity2Name.getBytes(StandardCharsets.UTF_8).length),
-            entity2Count,
-            null,
-            false,
-            0,
-            DocValueFormat.RAW
-        );
-        List<StringTerms.Bucket> stringBuckets = ImmutableList.of(entity1Bucket, entity2Bucket);
-        StringTerms termsAgg = new StringTerms(
-            "term_agg",
-            InternalOrder.key(false),
-            BucketOrder.count(false),
-            1,
-            0,
-            Collections.emptyMap(),
-            DocValueFormat.RAW,
-            1,
-            false,
-            0,
-            stringBuckets,
-            0
-        );
-
-        InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(termsAgg));
-
-        SearchResponseSections searchSections = new SearchResponseSections(hits, internalAggregations, null, false, false, null, 1);
-
-        SearchResponse searchResponse = new SearchResponse(
-            searchSections,
-            null,
-            1,
-            1,
-            0,
-            30,
-            ShardSearchFailure.EMPTY_ARRAY,
-            SearchResponse.Clusters.EMPTY
-        );
-
-        doAnswer(invocation -> {
-            SearchRequest request = invocation.getArgument(0);
-            assertEquals(1, request.indices().length);
-            assertTrue(detector.getIndices().contains(request.indices()[0]));
-            AggregatorFactories.Builder aggs = request.source().aggregations();
-            assertEquals(1, aggs.count());
-            Collection<AggregationBuilder> factory = aggs.getAggregatorFactories();
-            assertTrue(!factory.isEmpty());
-            assertThat(factory.iterator().next(), instanceOf(TermsAggregationBuilder.class));
-
-            ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            listener.onResponse(searchResponse);
-            return null;
-        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
-
-        when(detector.getCategoryField()).thenReturn(Collections.singletonList("fieldName"));
-        ActionListener<List<Entity>> listener = mock(ActionListener.class);
-
-        searchFeatureDao.getHighestCountEntities(detector, 10L, 20L, listener);
-
-        ArgumentCaptor<List<Entity>> captor = ArgumentCaptor.forClass(List.class);
-        verify(listener).onResponse(captor.capture());
-        List<Entity> result = captor.getValue();
-        assertEquals(2, result.size());
-        assertEquals(entity1Name, result.get(0).getValue());
-        assertEquals(entity2Name, result.get(1).getValue());
     }
 }

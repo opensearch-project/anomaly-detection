@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -57,6 +58,7 @@ import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
+import org.opensearch.ad.feature.ScriptMaker;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -68,6 +70,11 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
+import org.opensearch.ad.ratelimit.CheckpointReadWorker;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.EntityColdStartWorker;
+import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
@@ -82,6 +89,7 @@ import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.settings.LegacyOpenDistroAnomalyDetectorSettings;
+import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
@@ -176,6 +184,7 @@ import org.opensearch.env.NodeEnvironment;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
+import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
@@ -313,6 +322,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
         EnabledSetting.getInstance().init(clusterService);
+        NumericSetting.getInstance().init(clusterService);
         this.client = client;
         this.threadPool = threadPool;
         Settings settings = environment.settings();
@@ -331,35 +341,25 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             xContentRegistry,
             interpolator,
             clientUtil,
-            threadPool,
             settings,
-            clusterService
+            clusterService,
+            gson
         );
 
         JvmService jvmService = new JvmService(environment.settings());
         RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
-        CheckpointDao checkpoint = new CheckpointDao(
-            client,
-            clientUtil,
-            CommonName.CHECKPOINT_INDEX_NAME,
-            gson,
-            rcfSerde,
-            HybridThresholdingModel.class,
-            getClock(),
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            anomalyDetectionIndices,
-            AnomalyDetectorSettings.MAX_BULK_CHECKPOINT_SIZE,
-            AnomalyDetectorSettings.CHECKPOINT_BULK_PER_SECOND
-        );
 
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
+
+        ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
 
         MemoryTracker memoryTracker = new MemoryTracker(
             jvmService,
             modelMaxSizePercent,
             AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
             clusterService,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            adCircuitBreakerService
         );
 
         ModelPartitioner modelPartitioner = new ModelPartitioner(
@@ -396,6 +396,60 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AD_THREAD_POOL_NAME
         );
 
+        long heapSizeBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
+
+        CheckpointDao checkpoint = new CheckpointDao(
+            client,
+            clientUtil,
+            CommonName.CHECKPOINT_INDEX_NAME,
+            gson,
+            rcfSerde,
+            HybridThresholdingModel.class,
+            anomalyDetectionIndices,
+            AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES
+        );
+
+        Random random = new Random(42);
+
+        CheckpointWriteWorker checkpointWriteQueue = new CheckpointWriteWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            checkpoint,
+            CommonName.CHECKPOINT_INDEX_NAME,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
+
+        EntityCache cache = new PriorityCache(
+            checkpoint,
+            AnomalyDetectorSettings.DEDICATED_CACHE_SIZE.get(settings),
+            AnomalyDetectorSettings.CHECKPOINT_TTL,
+            AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
+            memoryTracker,
+            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
+            getClock(),
+            clusterService,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            checkpointWriteQueue,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT
+        );
+
+        CacheProvider cacheProvider = new CacheProvider(cache);
+
         EntityColdStarter entityColdStarter = new EntityColdStarter(
             getClock(),
             threadPool,
@@ -416,10 +470,29 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
             AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             featureManager,
+            settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.MAX_SMALL_STATES,
-            checkpoint,
-            settings
+            checkpointWriteQueue
+        );
+
+        EntityColdStartWorker coldstartQueue = new EntityColdStartWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            entityColdStarter,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager
         );
 
         ModelManager modelManager = new ModelManager(
@@ -447,24 +520,81 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             memoryTracker
         );
 
-        EntityCache cache = new PriorityCache(
-            checkpoint,
-            AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
-            AnomalyDetectorSettings.CHECKPOINT_TTL,
-            AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
-            memoryTracker,
-            modelManager,
-            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
-            getClock(),
-            clusterService,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+        MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
+            client,
             settings,
             threadPool,
-            AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND.get(settings)
+            anomalyDetectionIndices,
+            this.clientUtil,
+            this.indexUtils,
+            clusterService
         );
 
-        CacheProvider cacheProvider = new CacheProvider(cache);
+        ResultWriteWorker resultWriteQueue = new ResultWriteWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            multiEntityResultHandler,
+            xContentRegistry,
+            stateManager,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
+
+        CheckpointReadWorker checkpointReadQueue = new CheckpointReadWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            modelManager,
+            checkpoint,
+            coldstartQueue,
+            resultWriteQueue,
+            stateManager,
+            anomalyDetectionIndices,
+            cacheProvider,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue
+        );
+
+        ColdEntityWorker coldEntityQueue = new ColdEntityWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            checkpointReadQueue,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager
+        );
 
         HashRing hashRing = new HashRing(nodeFilter, getClock(), settings);
 
@@ -505,8 +635,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .put(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .build();
 
-        adStats = new ADStats(indexUtils, modelManager, stats);
-        ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
+        adStats = new ADStats(stats);
+
         this.detectorStateHandler = new DetectionStateHandler(
             client,
             settings,
@@ -517,17 +647,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             this.indexUtils,
             clusterService,
             xContentRegistry,
-            stateManager
-        );
-
-        MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
-            client,
-            settings,
-            threadPool,
-            anomalyDetectionIndices,
-            this.clientUtil,
-            this.indexUtils,
-            clusterService,
             stateManager
         );
 
@@ -598,7 +717,14 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 cacheProvider,
                 adTaskManager,
                 adBatchTaskRunner,
-                adSearchHandler
+                adSearchHandler,
+                coldstartQueue,
+                resultWriteQueue,
+                checkpointReadQueue,
+                checkpointWriteQueue,
+                coldEntityQueue,
+                entityColdStarter,
+                new ScriptMaker()
             );
     }
 
@@ -618,7 +744,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ScalingExecutorBuilder(
                     AD_THREAD_POOL_NAME,
                     1,
-                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 4),
+                    // HCAD can be heavy after supporting 1 million entities.
+                    // Limit to use at most half of the processors.
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 2),
                     TimeValue.timeValueMinutes(10),
                     AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
                 ),
@@ -635,61 +763,92 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     @Override
     public List<Setting<?>> getSettings() {
         List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
+        List<Setting<?>> numericSetting = NumericSetting.getInstance().getSettings();
 
         List<Setting<?>> systemSetting = ImmutableList
             .of(
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
-                LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT,
+                // HCAD cache
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
+                AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
+                // Detector config
                 LegacyOpenDistroAnomalyDetectorSettings.DETECTION_INTERVAL,
                 LegacyOpenDistroAnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
-                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
+                AnomalyDetectorSettings.DETECTION_INTERVAL,
+                AnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
+                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
+                // Fault tolerance
+                LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
                 LegacyOpenDistroAnomalyDetectorSettings.COOLDOWN_MINUTES,
                 LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES,
                 LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
-                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
-                LegacyOpenDistroAnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
-                LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
-                LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
-                LegacyOpenDistroAnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
-                LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
-                AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
-                AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
-                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
                 AnomalyDetectorSettings.REQUEST_TIMEOUT,
-                AnomalyDetectorSettings.DETECTION_INTERVAL,
-                AnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
-                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS,
                 AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
                 AnomalyDetectorSettings.COOLDOWN_MINUTES,
                 AnomalyDetectorSettings.BACKOFF_MINUTES,
                 AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
+                // result index rollover
+                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS,
+                LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                // resource usage control
+                LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
+                LegacyOpenDistroAnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
                 AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-                AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
+                AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT,
                 AnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
+                // Security
+                LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
                 AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
-                AnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
+                // Historical
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
+                LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
+                LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
                 AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
                 AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
                 AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
-                AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE
+                AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
+                // rate limiting
+                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_CONCURRENCY,
+                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
+                AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY,
+                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY,
+                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE,
+                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE,
+                AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
+                // query limit
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
+                LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
+                AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                AnomalyDetectorSettings.PAGE_SIZE
             );
-        return unmodifiableList(Stream.concat(enabledSetting.stream(), systemSetting.stream()).collect(Collectors.toList()));
+        return unmodifiableList(
+            Stream
+                .of(enabledSetting.stream(), systemSetting.stream(), numericSetting.stream())
+                .reduce(Stream::concat)
+                .orElseGet(Stream::empty)
+                .collect(Collectors.toList())
+        );
     }
 
     @Override
