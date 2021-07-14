@@ -30,7 +30,6 @@ import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
-import java.io.IOException;
 import java.security.InvalidParameterException;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +41,6 @@ import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
@@ -52,7 +50,6 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
@@ -72,7 +69,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.XContentParseException;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexNotFoundException;
@@ -212,7 +208,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                             false
                         );
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
-                        adTaskManager.getAndExecuteOnLatestADTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, adTask -> {
+                        adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, adTask -> {
                             DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                             if (adTask.isPresent()) {
                                 long lastUpdateTimeMs = adTask.get().getLastUpdateTime().toEpochMilli();
@@ -347,59 +343,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             }
             listener.onResponse(builder.build());
         }
-    }
-
-    /**
-     * Action listener for a detector in running or init state
-     * @param listener listener to consolidate results and return a final response
-     * @param detectorId detector id
-     * @param enabledTimeMs AD job enabled time
-     * @return the listener for a detector in disabled state
-     */
-    private ActionListener<GetResponse> onGetDetectorState(
-        MultiResponsesDelegateActionListener<DetectorProfile> listener,
-        String detectorId,
-        long enabledTimeMs
-    ) {
-        return ActionListener.wrap(getResponse -> {
-            DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
-            if (getResponse != null && getResponse.isExists()) {
-                try (
-                    XContentParser parser = XContentType.JSON
-                        .xContent()
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
-                ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    DetectorInternalState detectorState = DetectorInternalState.parse(parser);
-                    long lastUpdateTimeMs = detectorState.getLastUpdateTime().toEpochMilli();
-
-                    // if state index hasn't been updated, we should not use the error field
-                    // For example, before a detector is enabled, if the error message contains
-                    // the phrase "stopped due to blah", we should not show this when the detector
-                    // is enabled.
-                    if (lastUpdateTimeMs > enabledTimeMs && detectorState.getError() != null) {
-                        profileBuilder.error(detectorState.getError());
-                    }
-
-                    listener.onResponse(profileBuilder.build());
-
-                } catch (IOException | XContentParseException | NullPointerException e) {
-                    logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
-                    listener.onFailure(e);
-                }
-            } else {
-                // detector state for this detector does not exist
-                listener.onResponse(profileBuilder.build());
-            }
-        }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
-                // detector state index is not created yet
-                listener.onResponse(new DetectorProfile.Builder().build());
-            } else {
-                logger.error("Fail to find any detector info for detector {}", detectorId);
-                listener.onFailure(exception);
-            }
-        });
     }
 
     private void profileModels(

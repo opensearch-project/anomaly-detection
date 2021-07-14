@@ -61,6 +61,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -410,7 +411,7 @@ public class ADTaskManager {
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
-                getAndExecuteOnLatestADTask(detector.getDetectorId(), getADTaskTypes(detectionDateRange), (adTask) -> {
+                getAndExecuteOnLatestDetectorLevelTask(detector.getDetectorId(), getADTaskTypes(detectionDateRange), (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
                         executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
@@ -501,7 +502,7 @@ public class ADTaskManager {
         getDetector(detectorId, (detector) -> {
             if (historical) {
                 // stop historical analyis
-                getAndExecuteOnLatestADTask(
+                getAndExecuteOnLatestDetectorLevelTask(
                     detectorId,
                     HISTORICAL_DETECTOR_TASK_TYPES,
                     (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
@@ -591,7 +592,7 @@ public class ADTaskManager {
      * @param listener action listener
      * @param <T> action listener response type
      */
-    public <T> void getAndExecuteOnLatestADTask(
+    public <T> void getAndExecuteOnLatestDetectorLevelTask(
         String detectorId,
         List<ADTaskType> adTaskTypes,
         Consumer<Optional<ADTask>> function,
@@ -733,7 +734,7 @@ public class ADTaskManager {
             // state when get historical task with get detector API.
             String taskId = adTask.getTaskId();
             getADTaskProfile(adTask, ActionListener.wrap(taskProfiles -> {
-                if (!taskProfiles.containsKey(adTask.getTaskId()) || taskProfiles.get(adTask.getTaskId()).getNodeId() == null) {
+                if (!taskProfiles.containsKey(adTask.getTaskId())) {
                     logger.debug("AD task not running. Reset task state as stopped, task id: {}", adTask.getTaskId());
                     // If no node is running this task, reset it as STOPPED.
                     resetTaskStateAsStopped(adTask, transportService, () -> function.accept(adTasks));
@@ -855,7 +856,7 @@ public class ADTaskManager {
         query.filter(new TermsQueryBuilder(STATE_FIELD, ADTaskState.NOT_ENDED_STATES));
         updateByQueryRequest.setQuery(query);
         updateByQueryRequest.setRefresh(true);
-        String script = "ctx._source.state = '" + ADTaskState.STOPPED.name() + "';";
+        String script = String.format(Locale.ROOT, "ctx._source.%s='%s';", STATE_FIELD, ADTaskState.STOPPED.name());
         updateByQueryRequest.setScript(new Script(script));
 
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
@@ -926,6 +927,7 @@ public class ADTaskManager {
      *
      * @param detectorId detector id
      * @param transportService transport service
+     * @param profile detector profile
      * @param listener action listener
      */
     public void getLatestHistoricalTaskProfile(
@@ -1032,7 +1034,7 @@ public class ADTaskManager {
         try {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
-                getAndExecuteOnLatestADTask(detector.getDetectorId(), HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
+                getAndExecuteOnLatestDetectorLevelTask(detector.getDetectorId(), HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
                     if (!adTask.isPresent() || isADTaskEnded(adTask.get())) {
                         executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
@@ -1080,7 +1082,8 @@ public class ADTaskManager {
         query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(getADTaskTypes(detectionDateRange, true))));
         updateByQueryRequest.setQuery(query);
         updateByQueryRequest.setRefresh(true);
-        updateByQueryRequest.setScript(new Script("ctx._source.is_latest = false;"));
+        String script = String.format(Locale.ROOT, "ctx._source.%s=%s;", IS_LATEST_FIELD, false);
+        updateByQueryRequest.setScript(new Script(script));
 
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
@@ -1494,7 +1497,7 @@ public class ADTaskManager {
         Map<String, Object> updatedFields,
         ActionListener listener
     ) {
-        getAndExecuteOnLatestADTask(detectorId, taskTypes, (adTask) -> {
+        getAndExecuteOnLatestDetectorLevelTask(detectorId, taskTypes, (adTask) -> {
             if (adTask.isPresent()) {
                 updateADTask(adTask.get().getTaskId(), updatedFields);
             }
@@ -1515,7 +1518,7 @@ public class ADTaskManager {
         Exception error,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        getAndExecuteOnLatestADTask(detectorId, REALTIME_TASK_TYPES, (adTask) -> {
+        getAndExecuteOnLatestDetectorLevelTask(detectorId, REALTIME_TASK_TYPES, (adTask) -> {
             if (adTask.isPresent() && !isADTaskEnded(adTask.get())) {
                 Map<String, Object> updatedFields = new HashMap<>();
                 updatedFields.put(ADTask.STATE_FIELD, state.name());
