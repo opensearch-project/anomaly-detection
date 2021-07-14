@@ -235,8 +235,6 @@ public final class AnomalyDetectorSettings {
 
     public static final long THRESHOLD_MAX_SAMPLES = 50_000;
 
-    public static final int MIN_PREVIEW_SIZE = 400; // ok to lower
-
     // Feature processing
     public static final int MAX_TRAIN_SAMPLE = 24;
 
@@ -251,12 +249,6 @@ public final class AnomalyDetectorSettings {
     public static final int MAX_IMPUTATION_NEIGHBOR_DISTANCE = 2;
 
     public static final double MAX_SHINGLE_PROPORTION_MISSING = 0.25;
-
-    public static final double PREVIEW_SAMPLE_RATE = 0.25; // ok to adjust, higher for more data, lower for lower latency
-
-    public static final int MAX_PREVIEW_SAMPLES = 300; // ok to adjust, higher for more data, lower for lower latency
-
-    public static final int MAX_PREVIEW_RESULTS = 1_000; // ok to adjust, higher for more data, lower for lower latency
 
     // AD JOB
     public static final long DEFAULT_AD_JOB_LOC_DURATION_SECONDS = 60;
@@ -329,25 +321,6 @@ public final class AnomalyDetectorSettings {
             1_000_000,
             0,
             2_000_000,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
-        );
-
-    // Maximum number of entities retrieved for Preview API
-    // Not using legacy value 30 as default.
-    // Setting default value to 30 of 2-categorical field detector causes heavy GC
-    // (half of the time is GC on my 1GB heap machine). This is because we use
-    // terms aggregation to find the top entities in preview. Terms aggregation
-    // does not support multiple terms. The current solution is concatenation of
-    // category fields using painless script, which tugs on memory.
-    // Default value 10 won't cause heavy GC.
-    // Since every entity is likely to give some anomalies, 10 is enough.
-    public static final Setting<Integer> MAX_ENTITIES_FOR_PREVIEW = Setting
-        .intSetting(
-            "plugins.anomaly_detection.max_entities_for_preview",
-            10,
-            1,
-            1000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -682,4 +655,29 @@ public final class AnomalyDetectorSettings {
     // 1.0 means we use all of the detection interval to process requests.
     // to ensure we don't block next interval, it is better to set it less than 1.0.
     public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.8f;
+
+    // ======================================
+    // preview setting
+    // ======================================
+    public static final int MIN_PREVIEW_SIZE = 400; // ok to lower
+
+    public static final double PREVIEW_SAMPLE_RATE = 0.25; // ok to adjust, higher for more data, lower for lower latency
+
+    public static final int MAX_PREVIEW_SAMPLES = 300; // ok to adjust, higher for more data, lower for lower latency
+
+    public static final int MAX_PREVIEW_RESULTS = 1_000; // ok to adjust, higher for more data, lower for lower latency
+
+    // Maximum number of entities retrieved for Preview API
+    // Not using legacy value 30 as default.
+    // Setting default value to 30 of 2-categorical field detector causes heavy GC
+    // (half of the time is GC on my 1GB heap machine). This is because we run concurrent
+    // feature aggregations/training/prediction.
+    // Default value 5 won't cause heavy GC on an 1-GB heap JVM.
+    // Since every entity is likely to give some anomalies, 5 entities are enough.
+    public static final Setting<Integer> MAX_ENTITIES_FOR_PREVIEW = Setting
+        .intSetting("plugins.anomaly_detection.max_entities_for_preview", 5, 1, 30, Setting.Property.NodeScope, Setting.Property.Dynamic);
+
+    // max concurrent preview to limit resource usage
+    public static final Setting<Integer> MAX_CONCURRENT_PREVIEW = Setting
+        .intSetting("plugins.anomaly_detection.max_concurrent_preview", 5, 1, 20, Setting.Property.NodeScope, Setting.Property.Dynamic);
 }

@@ -29,15 +29,15 @@ package org.opensearch.ad.feature;
 import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 import static org.opensearch.ad.constant.CommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 import static org.opensearch.ad.util.ParseUtils.batchFeatureQuery;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -69,20 +69,22 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
+import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange.Bucket;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
-import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Min;
 import org.opensearch.search.builder.SearchSourceBuilder;
-
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import org.opensearch.search.sort.FieldSortBuilder;
+import org.opensearch.search.sort.SortOrder;
 
 /**
  * DAO for features from search.
@@ -90,10 +92,7 @@ import com.google.gson.reflect.TypeToken;
 public class SearchFeatureDao extends AbstractRetriever {
 
     protected static final String AGG_NAME_MIN = "min_timefield";
-    protected static final String AGG_NAME_TERM = "term_agg";
-
-    private static final Type multiTermsAttributesType = new TypeToken<Map<String, String>>() {
-    }.getType();
+    protected static final String AGG_NAME_TOP = "top_agg";
 
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
@@ -103,7 +102,8 @@ public class SearchFeatureDao extends AbstractRetriever {
     private final Interpolator interpolator;
     private final ClientUtil clientUtil;
     private int maxEntitiesForPreview;
-    private final Gson gson;
+    private int pageSize;
+    private final int minimumDocCountForPreview;
 
     /**
      * Constructor injection.
@@ -114,7 +114,8 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param clientUtil utility for ES client
      * @param settings ES settings
      * @param clusterService ES ClusterService
-     * @param gson Gson accessor
+     * @param minimumDocCount minimum doc count required for an entity; used to
+     *   make sure an entity has enough samples for preview
      */
     public SearchFeatureDao(
         Client client,
@@ -123,7 +124,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         ClientUtil clientUtil,
         Settings settings,
         ClusterService clusterService,
-        Gson gson
+        int minimumDocCount
     ) {
         this.client = client;
         this.xContent = xContent;
@@ -131,7 +132,9 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = MAX_ENTITIES_FOR_PREVIEW.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> maxEntitiesForPreview = it);
-        this.gson = gson;
+        this.pageSize = PAGE_SIZE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
+        this.minimumDocCountForPreview = minimumDocCount;
     }
 
     /**
@@ -182,6 +185,11 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener listener to return back the entities
      */
     public void getHighestCountEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
+        if (detector.getCategoryField() == null || detector.getCategoryField().isEmpty()) {
+            listener.onResponse(null);
+            return;
+        }
+
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
             .from(startTime)
             .to(endTime)
@@ -190,67 +198,200 @@ public class SearchFeatureDao extends AbstractRetriever {
             .includeUpper(false);
 
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().filter(rangeQuery).filter(detector.getFilterQuery());
-        TermsAggregationBuilder termsAgg = AggregationBuilders.terms(AGG_NAME_TERM).size(maxEntitiesForPreview);
-        if (detector.getCategoryField() == null || detector.getCategoryField().isEmpty()) {
-            listener.onResponse(null);
-            return;
-        }
+        AggregationBuilder bucketAggs = null;
 
         if (detector.getCategoryField().size() == 1) {
-            termsAgg.field(detector.getCategoryField().get(0));
+            bucketAggs = AggregationBuilders.terms(AGG_NAME_TOP).size(maxEntitiesForPreview).field(detector.getCategoryField().get(0));
         } else {
-            termsAgg.script(ScriptMaker.makeTermsScript(detector.getCategoryField()));
+            /*
+             * We don't have an efficient solution for terms aggregation on multiple fields.
+             * Terms aggregation does not support collecting terms from multiple fields in the same document.
+             *  We have to work around the limitation by using a script to retrieve terms from multiple fields.
+             *  The workaround disables the global ordinals optimization and thus causes a markedly longer
+             *  slowdown. This is because scripting is tugging on memory and has to iterate through
+             *  all of the documents at least once to create run-time fields.
+             *
+             *  We evaluated composite and terms aggregation using a generated data set with one
+             *  million entities.  Each entity has two documents. Composite aggregation finishes
+             *  around 40 seconds.  Terms aggregation performs differently on different clusters.
+             *  On a 3 data node cluster, terms aggregation does not finish running within 2 hours
+             *  on a 5 primary shard index. On a 15 data node cluster, terms  aggregation needs 217 seconds
+             *  on a 15 primary shard index. On a 30 data node cluster, terms aggregation needs 47 seconds
+             *  on a 30 primary shard index.
+             *
+             * Here we work around the problem using composite aggregation. Composite aggregation cannot
+             * give top entities without collecting all aggregated results. Paginated results are returned
+             * in the natural order of composite keys. This is fine for Preview API. Preview API needs the
+             * top entities to make sure there is enough data for training and showing the results. We
+             * can paginate entities and filter out entities that do not have enough docs (e.g., 256 docs).
+             * As long as we have collected the desired number of entities (e.g., 5 entities), we can stop
+             * pagination.
+             *
+             * Example composite query:
+             * {
+             *       "size": 0,
+             *       "query": {
+             *          "bool": {
+             *               "filter": [{
+             *                   "range": {
+             *                       "@timestamp": {
+             *                           "from": 1626118340000,
+             *                           "to": 1626294912000,
+             *                           "include_lower": true,
+             *                           "include_upper": false,
+             *                           "format": "epoch_millis",
+             *                           "boost": 1.0
+             *                       }
+             *                   }
+             *               }, {
+             *                   "match_all": {
+             *                       "boost": 1.0
+             *                   }
+             *               }],
+             *               "adjust_pure_negative": true,
+             *               "boost": 1.0
+             *           }
+             *       },
+             *       "track_total_hits": -1,
+             *       "aggregations": {
+             *           "top_agg": {
+             *               "composite": {
+             *                   "size": 1,
+             *                   "sources": [{
+             *                       "service": {
+             *                           "terms": {
+             *                               "field": "service",
+             *                               "missing_bucket": false,
+             *                               "order": "asc"
+             *                           }
+             *                       }
+             *                   }, {
+             *                       "host": {
+             *                           "terms": {
+             *                               "field": "host",
+             *                               "missing_bucket": false,
+             *                               "order": "asc"
+             *                           }
+             *                       }
+             *                   }]
+             *               },
+             *               "aggregations": {
+             *                   "bucketSort": {
+             *                       "bucket_sort": {
+             *                           "sort": [{
+             *                               "_count": {
+             *                                   "order": "desc"
+             *                               }
+             *                           }],
+             *                           "from": 0,
+             *                           "size": 5,
+             *                           "gap_policy": "SKIP"
+             *                       }
+             *                   }
+             *               }
+             *           }
+             *       }
+             *   }
+             *
+             */
+            bucketAggs = AggregationBuilders
+                .composite(
+                    AGG_NAME_TOP,
+                    detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+                )
+                .size(pageSize);
+            bucketAggs
+                .subAggregation(
+                    PipelineAggregatorBuilders
+                        .bucketSort("bucketSort", Arrays.asList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
+                        .size(maxEntitiesForPreview)
+                );
         }
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(boolQueryBuilder)
-            .aggregation(termsAgg)
+            .aggregation(bucketAggs)
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        ActionListener<SearchResponse> termsListener = ActionListener.wrap(response -> {
-            Aggregations aggs = response.getAggregations();
-            if (aggs == null) {
-                listener.onResponse(Collections.emptyList());
-                return;
-            }
-            List<Entity> results = aggs
-                .asList()
-                .stream()
-                .filter(agg -> AGG_NAME_TERM.equals(agg.getName()))
-                .flatMap(agg -> ((Terms) agg).getBuckets().stream())
-                .map(bucket -> bucket.getKeyAsString())
-                .collect(Collectors.toList())
-                .stream()
-                .map(entityValue -> parseCategoricalField(entityValue, detector))
-                .collect(Collectors.toList());
-            listener.onResponse(results);
-        }, listener::onFailure);
-        client.search(searchRequest, termsListener);
+        client.search(searchRequest, new TopEntitiesListener(listener, detector, searchSourceBuilder));
     }
 
-    /**
-     * Precondition:
-     * {@code detector != null && detector.getCategoryField().size() > 0 }
-     *
-     * @param entityValue the representation of the entity's attributes. For
-     *  single-attribute entity, it is the value of the attribute like "server_1".
-     *  For multi-attribute entity, it is a map of attribute names and values like
-     *  "<code> {service=app_0, host=server_1}" </code>.
-     * @param detector Anomaly detector
-     * @return an Entity object corresponding to the entity
-     */
-    private Entity parseCategoricalField(String entityValue, AnomalyDetector detector) {
-        List<String> categoricalFields = detector.getCategoryField();
-        if (categoricalFields.size() == 1) {
-            return Entity.createSingleAttributeEntity(detector.getDetectorId(), detector.getCategoryField().get(0), entityValue);
+    class TopEntitiesListener implements ActionListener<SearchResponse> {
+        private ActionListener<List<Entity>> listener;
+        private AnomalyDetector detector;
+        private List<Entity> topEntities;
+        private SearchSourceBuilder searchSourceBuilder;
+
+        TopEntitiesListener(ActionListener<List<Entity>> listener, AnomalyDetector detector, SearchSourceBuilder searchSourceBuilder) {
+            this.listener = listener;
+            this.detector = detector;
+            this.topEntities = new ArrayList<>();
+            this.searchSourceBuilder = searchSourceBuilder;
         }
-        return Entity
-            .createEntityByReordering(
-                detector.getDetectorId(),
-                AccessController
-                    .doPrivileged((PrivilegedAction<Map<String, Object>>) () -> gson.fromJson(entityValue, multiTermsAttributesType))
-            );
+
+        @Override
+        public void onResponse(SearchResponse response) {
+            try {
+                Aggregations aggs = response.getAggregations();
+                if (aggs == null) {
+                    listener.onResponse(Collections.emptyList());
+                    return;
+                }
+
+                Aggregation aggrResult = aggs.get(AGG_NAME_TOP);
+                if (aggrResult == null) {
+                    listener.onFailure(new IllegalArgumentException("Fail to find valid aggregation result"));
+                    return;
+                }
+
+                if (detector.getCategoryField().size() == 1) {
+                    topEntities = ((Terms) aggrResult)
+                        .getBuckets()
+                        .stream()
+                        .map(bucket -> bucket.getKeyAsString())
+                        .collect(Collectors.toList())
+                        .stream()
+                        .map(
+                            entityValue -> Entity
+                                .createSingleAttributeEntity(detector.getDetectorId(), detector.getCategoryField().get(0), entityValue)
+                        )
+                        .collect(Collectors.toList());
+                    listener.onResponse(topEntities);
+                } else {
+                    CompositeAggregation compositeAgg = (CompositeAggregation) aggrResult;
+                    List<Entity> pageResults = compositeAgg
+                        .getBuckets()
+                        .stream()
+                        .filter(bucket -> bucket.getDocCount() >= minimumDocCountForPreview)
+                        .map(bucket -> Entity.createEntityByReordering(detector.getDetectorId(), bucket.getKey()))
+                        .collect(Collectors.toList());
+                    // we only need at most maxEntitiesForPreview
+                    int amountToWrite = maxEntitiesForPreview - topEntities.size();
+                    for (int i = 0; i < amountToWrite && i < pageResults.size(); i++) {
+                        topEntities.add(pageResults.get(i));
+                    }
+                    Map<String, Object> afterKey = compositeAgg.afterKey();
+                    if (topEntities.size() >= maxEntitiesForPreview || afterKey == null) {
+                        listener.onResponse(topEntities);
+                    } else {
+                        updateSourceAfterKey(afterKey, searchSourceBuilder);
+                        client
+                            .search(
+                                new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder),
+                                this
+                            );
+                    }
+                }
+            } catch (Exception e) {
+                onFailure(e);
+            }
+        }
+
+        @Override
+        public void onFailure(Exception e) {
+            listener.onFailure(e);
+        }
     }
 
     /**

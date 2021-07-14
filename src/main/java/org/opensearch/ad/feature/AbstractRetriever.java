@@ -14,15 +14,20 @@ package org.opensearch.ad.feature;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation.SingleValue;
 import org.opensearch.search.aggregations.metrics.Percentile;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 public class AbstractRetriever {
     protected double parseAggregation(Aggregation aggregation) {
@@ -54,5 +59,18 @@ public class AbstractRetriever {
                     .toArray()
             )
             .filter(result -> Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d)));
+    }
+
+    protected void updateSourceAfterKey(Map<String, Object> afterKey, SearchSourceBuilder search) {
+        AggregationBuilder aggBuilder = search.aggregations().getAggregatorFactories().iterator().next();
+        // update after-key with the new value
+        if (aggBuilder instanceof CompositeAggregationBuilder) {
+            CompositeAggregationBuilder comp = (CompositeAggregationBuilder) aggBuilder;
+            comp.aggregateAfter(afterKey);
+        } else {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "Invalid client request; expected a composite builder but instead got {}", aggBuilder)
+            );
+        }
     }
 }

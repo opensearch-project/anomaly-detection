@@ -56,6 +56,9 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -89,6 +92,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     private FeatureManager featureManager;
     private ModelManager modelManager;
     private Task task;
+    private ADCircuitBreakerService circuitBreaker;
 
     @Override
     @Before
@@ -101,7 +105,13 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             Collections
                 .unmodifiableSet(
                     new HashSet<>(
-                        Arrays.asList(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES, AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)
+                        Arrays
+                            .asList(
+                                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
+                                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                                AnomalyDetectorSettings.PAGE_SIZE,
+                                AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW
+                            )
                     )
                 )
         );
@@ -109,6 +119,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         featureManager = mock(FeatureManager.class);
         modelManager = mock(ModelManager.class);
         runner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
+        circuitBreaker = mock(ADCircuitBreakerService.class);
+        when(circuitBreaker.isOpen()).thenReturn(false);
         action = new PreviewAnomalyDetectorTransportAction(
             Settings.EMPTY,
             mock(TransportService.class),
@@ -116,7 +128,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             mock(ActionFilters.class),
             client(),
             runner,
-            xContentRegistry()
+            xContentRegistry(),
+            circuitBreaker
         );
     }
 
@@ -277,7 +290,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             mock(ActionFilters.class),
             client,
             runner,
-            xContentRegistry()
+            xContentRegistry(),
+            circuitBreaker
         );
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
@@ -354,6 +368,37 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             listener.onResponse(TestHelpers.randomFeatures());
             return null;
         }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
+        action.doExecute(task, request, previewResponse);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void testCircuitBreakerOpen() throws IOException, InterruptedException {
+        // preview has no detector id
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(null, Arrays.asList("a"));
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
+            detector,
+            detector.getDetectorId(),
+            Instant.now(),
+            Instant.now()
+        );
+
+        when(circuitBreaker.isOpen()).thenReturn(true);
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
+            @Override
+            public void onResponse(PreviewAnomalyDetectorResponse response) {
+                Assert.assertTrue(false);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Assert.assertTrue("actual class: " + e.getClass(), e instanceof LimitExceededException);
+                Assert.assertTrue(e.getMessage().contains(CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
+                inProgressLatch.countDown();
+            }
+        };
         action.doExecute(task, request, previewResponse);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }

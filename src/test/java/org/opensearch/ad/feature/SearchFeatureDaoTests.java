@@ -211,11 +211,24 @@ public class SearchFeatureDaoTests {
         Settings settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW)))
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE))
+                )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        searchFeatureDao = spy(new SearchFeatureDao(client, xContent, interpolator, clientUtil, settings, clusterService, gson));
+        searchFeatureDao = spy(
+            new SearchFeatureDao(
+                client,
+                xContent,
+                interpolator,
+                clientUtil,
+                settings,
+                clusterService,
+                AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
+            )
+        );
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         detectorId = "123";
