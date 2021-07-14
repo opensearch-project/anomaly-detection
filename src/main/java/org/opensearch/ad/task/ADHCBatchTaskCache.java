@@ -18,8 +18,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.util.concurrent.RateLimiter;
-
 /**
  * AD HC detector batch task cache which will mainly hold these for HC detector
  * 1. pending entities queue
@@ -63,15 +61,11 @@ public class ADHCBatchTaskCache {
     // Record how many times the task has retried. Key is task id.
     private Map<String, AtomicInteger> taskRetryTimes;
 
-    // Task rate limiters. Key is task id.
-    private Map<String, RateLimiter> rateLimiters;
-
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
         this.runningEntities = new ConcurrentLinkedQueue<>();
         this.tempEntities = new ConcurrentLinkedQueue<>();
         this.taskRetryTimes = new ConcurrentHashMap<>();
-        this.rateLimiters = new ConcurrentHashMap<>();
         this.detectorTaskUpdating = false;
         this.topEntitiesInited = false;
     }
@@ -186,10 +180,6 @@ public class ADHCBatchTaskCache {
         return this.runningEntities.remove(entity);
     }
 
-    public RateLimiter getRateLimiter(String taskId) {
-        return this.rateLimiters.computeIfAbsent(taskId, id -> RateLimiter.create(1));
-    }
-
     /**
      * Clear pending/running/temp entities queues, task retry times and rate limiter cache.
      */
@@ -198,7 +188,6 @@ public class ADHCBatchTaskCache {
         this.runningEntities.clear();
         this.tempEntities.clear();
         this.taskRetryTimes.clear();
-        this.rateLimiters.clear();
     }
 
     /**

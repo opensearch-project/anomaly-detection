@@ -250,7 +250,7 @@ public class IndexAnomalyDetectorActionHandler {
             if (existingDetector.isRealTimeDetector()) {
                 validateDetector(existingDetector);
             } else {
-                adTaskManager.getLatestADTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
+                adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
                     if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                         // can't update detector if there is AD task running
                         listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
@@ -258,7 +258,7 @@ public class IndexAnomalyDetectorActionHandler {
                         // TODO: change to validateDetector method when we support HC historical detector
                         searchAdInputIndices(detectorId);
                     }
-                }, transportService, listener);
+                }, transportService, true, listener);
             }
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;

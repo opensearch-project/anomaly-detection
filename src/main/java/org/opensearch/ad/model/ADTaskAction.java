@@ -38,5 +38,5 @@ public enum ADTaskAction {
     // Push back entity to pending entities queue and run next entity.
     PUSH_BACK_ENTITY,
     // Clean stale entities in running entity queue, for example the work node crashed and fail to remove entity
-    CLEAN_RUNNING_ENTITY
+    CLEAN_STALE_RUNNING_ENTITIES
 }
