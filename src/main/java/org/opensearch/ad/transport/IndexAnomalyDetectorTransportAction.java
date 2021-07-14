@@ -33,6 +33,7 @@ import static org.opensearch.ad.util.ParseUtils.getUserContext;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -99,7 +100,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         String detectorId = request.getDetectorID();
         RestRequest.Method method = request.getMethod();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, detectorId, method, listener, () -> adExecute(request, user, context, listener));
+            resolveUserAndExecute(user, detectorId, method, listener, (detector) -> adExecute(request, user, detector, context, listener));
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
@@ -111,39 +112,35 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         String detectorId,
         RestRequest.Method method,
         ActionListener<IndexAnomalyDetectorResponse> listener,
-        AnomalyDetectorFunction function
+        Consumer<AnomalyDetector> function
     ) {
-        if (requestedUser == null) {
-            // Security is disabled or user is superadmin
-            function.execute();
-        } else if (!filterByEnabled) {
-            // security is enabled and filterby is disabled.
-            function.execute();
-        } else {
-            // security is enabled and filterby is enabled.
-            try {
-                // Check if user has backend roles
-                // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
-                if (!checkFilterByBackendRoles(requestedUser, listener)) {
-                    return;
-                }
-                if (method == RestRequest.Method.PUT) {
-                    // Update detector request, check if user has permissions to update the detector
-                    // Get detector and verify backend roles
-                    getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
-                } else {
-                    // Create Detector
-                    function.execute();
-                }
-            } catch (Exception e) {
-                listener.onFailure(e);
+        try {
+            // Check if user has backend roles
+            // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
+            if (filterByEnabled && !checkFilterByBackendRoles(requestedUser, listener)) {
+                return;
             }
+            if (method == RestRequest.Method.PUT) {
+                // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
+                // check if request user have access to the detector or not. But we still need to get current detector for
+                // this case, so we can keep current detector's user data.
+                boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
+                // Update detector request, check if user has permissions to update the detector
+                // Get detector and verify backend roles
+                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry, filterByBackendRole);
+            } else {
+                // Create Detector. No need to get current detector.
+                function.accept(null);
+            }
+        } catch (Exception e) {
+            listener.onFailure(e);
         }
     }
 
     protected void adExecute(
         IndexAnomalyDetectorRequest request,
         User user,
+        AnomalyDetector currentDetector,
         ThreadContext.StoredContext storedContext,
         ActionListener<IndexAnomalyDetectorResponse> listener
     ) {
@@ -162,6 +159,9 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         storedContext.restore();
         checkIndicesAndExecute(detector.getIndices(), () -> {
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                // Don't replace detector's user when update detector
+                // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
+                User detectorUser = currentDetector == null ? user : currentDetector.getUser();
                 IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                     clusterService,
                     client,
@@ -179,7 +179,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                     maxAnomalyFeatures,
                     method,
                     xContentRegistry,
-                    user,
+                    detectorUser,
                     adTaskManager
                 );
                 try {

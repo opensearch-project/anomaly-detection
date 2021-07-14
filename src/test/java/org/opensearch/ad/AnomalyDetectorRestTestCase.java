@@ -201,6 +201,19 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return (AnomalyDetector) getAnomalyDetector(detectorId, false, client)[0];
     }
 
+    public Response updateAnomalyDetector(String detectorId, AnomalyDetector newDetector, RestClient client) throws IOException {
+        BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
+        return TestHelpers
+            .makeRequest(
+                client,
+                "PUT",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId,
+                null,
+                toJsonString(newDetector),
+                ImmutableList.of(header)
+            );
+    }
+
     public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header, RestClient client) throws IOException {
         return (AnomalyDetector) getAnomalyDetector(detectorId, header, false, false, client)[0];
     }
