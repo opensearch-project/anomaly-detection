@@ -48,6 +48,7 @@ import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.ad.util.ExceptionUtil.getErrorMessage;
 import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
@@ -1500,6 +1501,8 @@ public class ADTaskManager {
         getAndExecuteOnLatestDetectorLevelTask(detectorId, taskTypes, (adTask) -> {
             if (adTask.isPresent()) {
                 updateADTask(adTask.get().getTaskId(), updatedFields);
+            } else {
+                listener.onFailure(new ResourceNotFoundException(detectorId, "can't find latest task"));
             }
         }, null, false, listener);
     }
@@ -1536,6 +1539,41 @@ public class ADTaskManager {
                 listener.onFailure(new OpenSearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK));
             }
         }, null, false, listener);
+    }
+
+    /**
+     * Update latest realtime task's init progress, estimated minutes left for initialization, state and error field.
+     *
+     * @param detectorId detector id
+     * @param totalUpdates total updates
+     * @param intervalMinutes interval minutes
+     * @param failure failure
+     */
+    public void updateLatestRealtimeTask(String detectorId, long totalUpdates, long intervalMinutes, Exception failure) {
+        float initProgress;
+        String state = ADTaskState.INIT.name();
+        if (totalUpdates <= NUM_MIN_SAMPLES) {
+            initProgress = (float) totalUpdates / NUM_MIN_SAMPLES;
+        } else {
+            state = ADTaskState.RUNNING.name();
+            initProgress = 1.0f;
+        }
+        String error = failure != null ? getErrorMessage(failure) : "";
+        updateLatestADTask(
+            detectorId,
+            ADTaskType.REALTIME_TASK_TYPES,
+            ImmutableMap
+                .of(
+                    ADTask.INIT_PROGRESS_FIELD,
+                    initProgress,
+                    ADTask.ESTIMATED_MINUTES_LEFT_FIELD,
+                    Math.max(0, NUM_MIN_SAMPLES - totalUpdates) * intervalMinutes,
+                    ADTask.STATE_FIELD,
+                    state,
+                    ADTask.ERROR_FIELD,
+                    error
+                )
+        );
     }
 
     /**
