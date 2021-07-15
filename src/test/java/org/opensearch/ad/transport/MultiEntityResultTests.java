@@ -573,9 +573,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         return new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
     }
 
-    private <T extends TransportResponse> CountDownLatch setUpTransportInterceptor(
-        Function<TransportResponseHandler<T>, TransportResponseHandler<T>> interceptor
-    ) throws IOException {
+    private CountDownLatch setUpSearchResponse() throws IOException {
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(serviceField, hostField));
         // set up a non-empty response
         CompositeAggregation composite = mock(CompositeAggregation.class);
@@ -629,6 +627,12 @@ public class MultiEntityResultTests extends AbstractADTest {
             return null;
         }).when(client).search(any(), any());
 
+        return inProgress;
+    }
+
+    private <T extends TransportResponse> void setUpTransportInterceptor(
+        Function<TransportResponseHandler<T>, TransportResponseHandler<T>> interceptor
+    ) {
         entityResultInterceptor = new TransportInterceptor() {
             @Override
             public AsyncSender interceptSender(AsyncSender sender) {
@@ -681,12 +685,11 @@ public class MultiEntityResultTests extends AbstractADTest {
             threadPool,
             xContentRegistry()
         );
-
-        return inProgress;
     }
 
     public void testNonEmptyFeatures() throws InterruptedException, IOException {
-        CountDownLatch inProgress = setUpTransportInterceptor(this::entityResultHandler);
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
@@ -742,7 +745,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             xContentRegistry()
         );
 
-        CountDownLatch inProgress = setUpTransportInterceptor(this::entityResultHandler);
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
@@ -777,7 +781,8 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testNotAck() throws InterruptedException, IOException {
-        CountDownLatch inProgress = setUpTransportInterceptor(this::unackEntityResultHandler);
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::unackEntityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
@@ -795,7 +800,8 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testMultipleNode() throws InterruptedException, IOException {
-        CountDownLatch inProgress = setUpTransportInterceptor(this::entityResultHandler);
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
 
         Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
         Entity entity2 = Entity.createEntityByReordering(detectorId, attrs2);
@@ -826,7 +832,8 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testCacheSelectionError() throws IOException, InterruptedException {
-        CountDownLatch inProgress = setUpTransportInterceptor(this::entityResultHandler);
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
         setUpEntityResult(1);
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
@@ -874,7 +881,8 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testCacheSelection() throws IOException, InterruptedException {
-        CountDownLatch inProgress = setUpTransportInterceptor(this::entityResultHandler);
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         List<Entity> hotEntities = new ArrayList<>();
@@ -930,5 +938,178 @@ public class MultiEntityResultTests extends AbstractADTest {
                 return arg.size() == 1 && arg.get(0).getEntity().equals(entity2);
             }
         }));
+    }
+
+    public void testNullFeatures() throws InterruptedException {
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        CompositeAggregation emptyComposite = mock(CompositeAggregation.class);
+        when(emptyComposite.getName()).thenReturn(null);
+        when(emptyComposite.afterKey()).thenReturn(null);
+        // empty bucket
+        when(emptyComposite.getBuckets())
+            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return new ArrayList<CompositeAggregation.Bucket>(); });
+        Aggregations emptyAggs = new Aggregations(Collections.singletonList(emptyComposite));
+        SearchResponseSections emptySections = new SearchResponseSections(SearchHits.empty(), emptyAggs, null, false, null, null, 1);
+        SearchResponse nullResponse = new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(nullResponse);
+            inProgressLatch.countDown();
+            return null;
+        }).when(client).search(any(), any());
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgressLatch.await(10000L, TimeUnit.MILLISECONDS));
+
+        PlainActionFuture<AnomalyResultResponse> listener2 = new PlainActionFuture<>();
+        action.doExecute(null, request, listener2);
+
+        AnomalyResultResponse response2 = listener2.actionGet(10000L);
+        assertEquals(Double.NaN, response2.getAnomalyGrade(), 0.01);
+    }
+
+    // empty page but non-null after key will make the CompositeRetriever.PageIterator retry
+    public void testRetry() throws IOException, InterruptedException {
+        detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(serviceField, hostField));
+
+        // set up empty page but non-null after key
+        CompositeAggregation emptyNonNullComposite = mock(CompositeAggregation.class);
+        when(emptyNonNullComposite.getName()).thenReturn(CompositeRetriever.AGG_NAME_COMP);
+        when(emptyNonNullComposite.afterKey()).thenReturn(attrs3);
+
+        List<CompositeAggregation.Bucket> emptyNonNullCompositeBuckets = new ArrayList<>();
+        when(emptyNonNullComposite.getBuckets())
+            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return emptyNonNullCompositeBuckets; });
+
+        Aggregations emptyNonNullAggs = new Aggregations(Collections.singletonList(emptyNonNullComposite));
+
+        SearchResponseSections emptyNonNullSections = new SearchResponseSections(
+            SearchHits.empty(),
+            emptyNonNullAggs,
+            null,
+            false,
+            null,
+            null,
+            1
+        );
+        SearchResponse emptyNonNullResponse = new SearchResponse(
+            emptyNonNullSections,
+            null,
+            1,
+            1,
+            0,
+            0,
+            ShardSearchFailure.EMPTY_ARRAY,
+            Clusters.EMPTY
+        );
+
+        // set up a non-empty response
+        CompositeAggregation composite = mock(CompositeAggregation.class);
+        when(composite.getName()).thenReturn(CompositeRetriever.AGG_NAME_COMP);
+        when(composite.afterKey()).thenReturn(attrs1);
+
+        String featureID = detector.getFeatureAttributes().get(0).getId();
+        List<CompositeAggregation.Bucket> compositeBuckets = new ArrayList<>();
+        CompositeAggregation.Bucket bucket = mock(CompositeAggregation.Bucket.class);
+        when(bucket.getKey()).thenReturn(attrs1);
+        List<Aggregation> aggList = new ArrayList<>();
+        aggList.add(new InternalMin(featureID, randomDouble(), DocValueFormat.RAW, new HashMap<>()));
+        Aggregations aggregations = new Aggregations(aggList);
+        when(bucket.getAggregations()).thenReturn(aggregations);
+        compositeBuckets.add(bucket);
+
+        when(composite.getBuckets()).thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return compositeBuckets; });
+        Aggregations aggs = new Aggregations(Collections.singletonList(composite));
+
+        SearchResponseSections sections = new SearchResponseSections(SearchHits.empty(), aggs, null, false, null, null, 1);
+        SearchResponse nonEmptyResponse = new SearchResponse(sections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
+
+        // set up an empty response
+        SearchResponse emptyResponse = createEmptyResponse();
+
+        CountDownLatch inProgress = new CountDownLatch(3);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            LOG.info("hello:" + inProgress.getCount());
+            if (inProgress.getCount() == 3) {
+                inProgress.countDown();
+                listener.onResponse(emptyNonNullResponse);
+            } else if (inProgress.getCount() == 2) {
+                inProgress.countDown();
+                listener.onResponse(nonEmptyResponse);
+            } else {
+                inProgress.countDown();
+                listener.onResponse(emptyResponse);
+            }
+            return null;
+        }).when(client).search(any(), any());
+
+        setUpTransportInterceptor(this::entityResultHandler);
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        setUpEntityResult(1);
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        // since we have 3 results in the first page
+        verify(resultWriteQueue, times(1)).put(any());
+    }
+
+    public void testPageToString() {
+        CompositeRetriever retriever = new CompositeRetriever(
+            0,
+            10,
+            detector,
+            xContentRegistry(),
+            client,
+            100,
+            clock,
+            settings,
+            10000,
+            1000
+        );
+        Map<Entity, double[]> results = new HashMap<>();
+        Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
+        double[] val = new double[1];
+        val[0] = 3.0;
+        results.put(entity1, val);
+        CompositeRetriever.Page page = retriever.new Page(results);
+        String repr = page.toString();
+        assertTrue("actual:" + repr, repr.contains(app0));
+        assertTrue("actual:" + repr, repr.contains(server1));
+    }
+
+    public void testEmptyPageToString() {
+        CompositeRetriever retriever = new CompositeRetriever(
+            0,
+            10,
+            detector,
+            xContentRegistry(),
+            client,
+            100,
+            clock,
+            settings,
+            10000,
+            1000
+        );
+
+        CompositeRetriever.Page page = retriever.new Page(null);
+        String repr = page.toString();
+        // we have at least class name
+        assertTrue("actual:" + repr, repr.contains("Page"));
     }
 }
