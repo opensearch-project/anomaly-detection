@@ -1,6 +1,6 @@
 [![AD Test](https://github.com/opensearch-project/anomaly-detection/workflows/Build%20and%20Test%20Anomaly%20detection/badge.svg)](https://github.com/opensearch-project/anomaly-detection/actions?query=workflow%3A%22Build+and+Test+Anomaly+detection%22+branch%3A%22main%22)
 [![codecov](https://codecov.io/gh/opensearch-project/anomaly-detection/branch/main/graph/badge.svg?flag=plugin)](https://codecov.io/gh/opensearch-project/anomaly-detection)
-[![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://docs-beta.opensearch.org/monitoring-plugins/ad/index/)
+[![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://opensearch.org/docs/monitoring-plugins/ad/index/)
 [![Forum](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/Use-this-category-for-all-questions-around-machine-learning-plugins)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
 
@@ -30,7 +30,7 @@ You can use this plugin with the same version of the [OpenSearch Alerting Plugin
   
 ## Documentation
 
-Please see [our documentation](https://docs-beta.opensearch.org/monitoring-plugins/ad/index/).
+Please see [our documentation](https://opensearch.org/docs/monitoring-plugins/ad/index/).
 
 
 ## Contributing

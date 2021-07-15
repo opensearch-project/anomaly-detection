@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
 import org.apache.logging.log4j.LogManager;
@@ -60,7 +61,6 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -71,6 +71,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -473,36 +474,45 @@ public final class ParseUtils {
         String detectorId,
         boolean filterByEnabled,
         ActionListener listener,
-        AnomalyDetectorFunction function,
+        Consumer<AnomalyDetector> function,
         Client client,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry
     ) {
-        if (requestedUser == null) {
-            // Security is disabled or user is superadmin
-            function.execute();
-        } else if (!filterByEnabled) {
-            // security is enabled and filterby is disabled.
-            function.execute();
-        } else {
-            // security is enabled and filterby is enabled.
-            // Get detector and check if the user has permissions to access the detector
-            try {
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry);
-            } catch (Exception e) {
-                listener.onFailure(e);
+        try {
+            if (requestedUser == null) {
+                // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
+                // check if request user have access to the detector or not.
+                function.accept(null);
+            } else {
+                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry, filterByEnabled);
             }
+        } catch (Exception e) {
+            listener.onFailure(e);
         }
     }
 
+    /**
+     * If filterByEnabled is true, get detector and check if the user has permissions to access the detector,
+     * then execute function; otherwise, get detector and execute function
+     * @param requestUser user from request
+     * @param detectorId detector id
+     * @param listener action listener
+     * @param function consumer function
+     * @param client client
+     * @param clusterService cluster service
+     * @param xContentRegistry XContent registry
+     * @param filterByBackendRole filter by backend role or not
+     */
     public static void getDetector(
         User requestUser,
         String detectorId,
         ActionListener listener,
-        AnomalyDetectorFunction function,
+        Consumer<AnomalyDetector> function,
         Client client,
         ClusterService clusterService,
-        NamedXContentRegistry xContentRegistry
+        NamedXContentRegistry xContentRegistry,
+        boolean filterByBackendRole
     ) {
         if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
@@ -511,7 +521,15 @@ public final class ParseUtils {
                     request,
                     ActionListener
                         .wrap(
-                            response -> onGetAdResponse(response, requestUser, detectorId, listener, function, xContentRegistry),
+                            response -> onGetAdResponse(
+                                response,
+                                requestUser,
+                                detectorId,
+                                listener,
+                                function,
+                                xContentRegistry,
+                                filterByBackendRole
+                            ),
                             exception -> {
                                 logger.error("Failed to get anomaly detector: " + detectorId, exception);
                                 listener.onFailure(exception);
@@ -519,10 +537,7 @@ public final class ParseUtils {
                         )
                 );
         } else {
-            listener
-                .onFailure(
-                    new ResourceNotFoundException("Failed to find anomaly detector index: " + AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-                );
+            listener.onFailure(new IndexNotFoundException(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
         }
     }
 
@@ -531,8 +546,9 @@ public final class ParseUtils {
         User requestUser,
         String detectorId,
         ActionListener<GetAnomalyDetectorResponse> listener,
-        AnomalyDetectorFunction function,
-        NamedXContentRegistry xContentRegistry
+        Consumer<AnomalyDetector> function,
+        NamedXContentRegistry xContentRegistry,
+        boolean filterByBackendRole
     ) {
         if (response.isExists()) {
             try (
@@ -542,8 +558,8 @@ public final class ParseUtils {
                 AnomalyDetector detector = AnomalyDetector.parse(parser);
                 User resourceUser = detector.getUser();
 
-                if (checkUserPermissions(requestUser, resourceUser, detectorId)) {
-                    function.execute();
+                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, detectorId)) {
+                    function.accept(detector);
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
                     listener.onFailure(new OpenSearchException("User does not have permissions to access detector: " + detectorId));
@@ -552,7 +568,7 @@ public final class ParseUtils {
                 listener.onFailure(new OpenSearchException("Unable to get user information from detector " + detectorId));
             }
         } else {
-            listener.onFailure(new ResourceNotFoundException("Could not find detector " + detectorId));
+            listener.onFailure(new ResourceNotFoundException("AnomalyDetector is not found with id: " + detectorId));
         }
     }
 

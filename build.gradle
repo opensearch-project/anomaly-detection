@@ -449,7 +449,7 @@ afterEvaluate {
         url 'https://opensearch.org/downloads.html'
         summary '''
          Anomaly Detection plugin for OpenSearch.
-         Reference documentation can be found at https://docs-beta.opensearch.org/docs/ad/.
+         Reference documentation can be found at https://opensearch.org/docs/monitoring-plugins/ad/index/.
     '''.stripIndent().replace('\n', ' ').trim()
     }
 

@@ -35,14 +35,16 @@ import org.apache.http.HttpHost;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.rest.RestStatus;
+
+import com.google.common.collect.ImmutableList;
 
 public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     String aliceUser = "alice";
@@ -55,6 +57,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient dogClient;
     String elkUser = "elk";
     RestClient elkClient;
+    String fishUser = "fish";
+    RestClient fishClient;
 
     @Before
     public void setupSecureTests() throws IOException {
@@ -86,9 +90,14 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             .setSocketTimeout(60000)
             .build();
 
+        createUser(fishUser, fishUser, new ArrayList<>(Arrays.asList("odfe", "aes")));
+        fishClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), fishUser, fishUser)
+            .setSocketTimeout(60000)
+            .build();
+
         createRoleMapping("anomaly_read_access", new ArrayList<>(Arrays.asList(bobUser)));
-        createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser)));
-        createRoleMapping("index_all_access", new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser)));
+        createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser)));
+        createRoleMapping("index_all_access", new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser)));
     }
 
     @After
@@ -98,11 +107,13 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         catClient.close();
         dogClient.close();
         elkClient.close();
+        fishClient.close();
         deleteUser(aliceUser);
         deleteUser(bobUser);
         deleteUser(catUser);
         deleteUser(dogUser);
         deleteUser(elkUser);
+        deleteUser(fishUser);
     }
 
     public void testCreateAnomalyDetectorWithWriteAccess() throws IOException {
@@ -151,6 +162,55 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert
             .assertTrue(
                 exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
+            );
+    }
+
+    public void testUpdateApiFilterByEnabled() throws IOException {
+        // User Alice has AD full access, should be able to create a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        Assert
+            .assertArrayEquals(
+                "Wrong user roles",
+                new String[] { "odfe" },
+                aliceDetector.getUser().getBackendRoles().toArray(new String[0])
+            );
+        AnomalyDetector newDetector = new AnomalyDetector(
+            aliceDetector.getDetectorId(),
+            aliceDetector.getVersion(),
+            aliceDetector.getName(),
+            randomAlphaOfLength(10),
+            aliceDetector.getTimeField(),
+            aliceDetector.getIndices(),
+            aliceDetector.getFeatureAttributes(),
+            aliceDetector.getFilterQuery(),
+            aliceDetector.getDetectionInterval(),
+            aliceDetector.getWindowDelay(),
+            aliceDetector.getShingleSize(),
+            aliceDetector.getUiMetadata(),
+            aliceDetector.getSchemaVersion(),
+            Instant.now(),
+            aliceDetector.getCategoryField(),
+            new User(
+                randomAlphaOfLength(5),
+                ImmutableList.of("odfe", randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5))
+            ),
+            aliceDetector.getDetectorType(),
+            aliceDetector.getDetectionDateRange()
+        );
+        enableFilterBy();
+        // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
+        // Fish should be able to update detectors created by Alice. But the detector's backend role should
+        // not be replaced as Fish's backend roles.
+        Response response = updateAnomalyDetector(aliceDetector.getDetectorId(), newDetector, fishClient);
+        Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
+        AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
+        Assert
+            .assertArrayEquals(
+                "Wrong user roles",
+                new String[] { "odfe" },
+                anomalyDetector.getUser().getBackendRoles().toArray(new String[0])
             );
     }
 
@@ -266,8 +326,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    // TODO: enable this test case when we have latest docker image
-    @Ignore
     public void testPreviewAnomalyDetectorWithNoReadPermissionOfIndex() throws IOException {
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
