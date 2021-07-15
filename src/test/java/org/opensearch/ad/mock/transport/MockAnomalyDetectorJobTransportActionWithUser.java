@@ -105,7 +105,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
                 detectorId,
                 filterByEnabled,
                 listener,
-                () -> executeDetector(listener, detectorId, seqNo, primaryTerm, rawPath, requestTimeout, user),
+                (anomalyDetector) -> executeDetector(listener, detectorId, seqNo, primaryTerm, rawPath, requestTimeout, user),
                 client,
                 clusterService,
                 xContentRegistry

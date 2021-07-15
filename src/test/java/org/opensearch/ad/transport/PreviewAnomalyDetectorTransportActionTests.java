@@ -47,9 +47,13 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.OpenSearchException;
+import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
@@ -65,7 +69,12 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -106,6 +115,23 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
                 )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        ClusterName clusterName = new ClusterName("test");
+        Settings indexSettings = Settings
+            .builder()
+            .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+            .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
+            .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
+            .build();
+        final Settings.Builder existingSettings = Settings.builder().put(indexSettings).put(IndexMetadata.SETTING_INDEX_UUID, "test2UUID");
+        IndexMetadata indexMetaData = IndexMetadata.builder(AnomalyDetector.ANOMALY_DETECTORS_INDEX).settings(existingSettings).build();
+        final ImmutableOpenMap<String, IndexMetadata> indices = ImmutableOpenMap
+            .<String, IndexMetadata>builder()
+            .fPut(AnomalyDetector.ANOMALY_DETECTORS_INDEX, indexMetaData)
+            .build();
+        ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().indices(indices).build()).build();
+        when(clusterService.state()).thenReturn(clusterState);
+
         featureManager = mock(FeatureManager.class);
         modelManager = mock(ModelManager.class);
         runner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
@@ -260,6 +286,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testPreviewTransportActionNoContext() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -286,7 +313,22 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             Instant.now(),
             Instant.now()
         );
-        ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
+
+        GetResponse getDetectorResponse = TestHelpers
+            .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+
+            assertTrue(args[0] instanceof GetRequest);
+            assertTrue(args[1] instanceof ActionListener);
+
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
+            listener.onResponse(getDetectorResponse);
+            return null;
+        }).when(client).get(any(GetRequest.class), any());
+
+        ActionListener<PreviewAnomalyDetectorResponse> responseActionListener = new ActionListener<PreviewAnomalyDetectorResponse>() {
             @Override
             public void onResponse(PreviewAnomalyDetectorResponse response) {
                 Assert.assertTrue(false);
@@ -294,11 +336,11 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertTrue(e.getClass() == NullPointerException.class);
+                Assert.assertTrue(e.getClass() == OpenSearchException.class);
                 inProgressLatch.countDown();
             }
         };
-        previewAction.doExecute(task, request, previewResponse);
+        previewAction.doExecute(task, request, responseActionListener);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
