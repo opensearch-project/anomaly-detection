@@ -145,7 +145,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                 detectorID,
                 filterByEnabled,
                 listener,
-                () -> getExecute(request, listener),
+                (anomalyDetector) -> getExecute(request, listener),
                 client,
                 clusterService,
                 xContentRegistry

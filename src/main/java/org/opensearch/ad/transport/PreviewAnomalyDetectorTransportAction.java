@@ -104,7 +104,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 detectorId,
                 filterByEnabled,
                 listener,
-                () -> previewExecute(request, context, listener),
+                (anomalyDetector) -> previewExecute(request, context, listener),
                 client,
                 clusterService,
                 xContentRegistry

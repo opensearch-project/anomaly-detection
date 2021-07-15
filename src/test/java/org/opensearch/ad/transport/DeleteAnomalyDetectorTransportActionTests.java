@@ -77,7 +77,6 @@ public class DeleteAnomalyDetectorTransportActionTests extends HistoricalDetecto
         String detectorId = createDetector(detector);
         DeleteAnomalyDetectorRequest request = new DeleteAnomalyDetectorRequest(detectorId);
         DeleteResponse deleteResponse = client().execute(DeleteAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
-        System.out.println(deleteResponse);
         assertEquals("deleted", deleteResponse.getResult().getLowercase());
     }
 }
