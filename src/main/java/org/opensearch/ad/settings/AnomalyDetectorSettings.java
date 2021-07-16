@@ -370,6 +370,17 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    public static final Setting<Integer> MAX_CACHED_DELETED_TASKS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_cached_deleted_tasks",
+            1000,
+            1,
+            10_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic,
+            Setting.Property.Deprecated
+        );
+
     public static int THRESHOLD_MODEL_TRAINING_SIZE = 1000;
 
     // Maximum number of old AD tasks we can keep.

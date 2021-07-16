@@ -30,6 +30,7 @@ import static org.opensearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DE
 import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
@@ -39,8 +40,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -65,6 +68,7 @@ public class ADTaskCacheManager {
     private final Logger logger = LogManager.getLogger(ADTaskCacheManager.class);
     private final Map<String, ADBatchTaskCache> taskCaches;
     private volatile Integer maxAdBatchTaskPerNode;
+    private volatile Integer maxCachedDeletedTask;
     private final MemoryTracker memoryTracker;
     private final int numberSize = 8;
     private final int taskRetryLimit = 3;
@@ -80,6 +84,8 @@ public class ADTaskCacheManager {
 
     // Use this field to cache all HC tasks. Key is detector id
     private Map<String, ADHCBatchTaskCache> hcTaskCaches;
+    // cache deleted detector level tasks
+    private Queue<String> deletedDetectorTasks;
 
     // This field is to cache all realtime tasks. Key is detector id
     private Map<String, ADRealtimeTaskCache> realtimeTaskCaches;
@@ -94,11 +100,14 @@ public class ADTaskCacheManager {
     public ADTaskCacheManager(Settings settings, ClusterService clusterService, MemoryTracker memoryTracker) {
         this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
+        this.maxCachedDeletedTask = MAX_CACHED_DELETED_TASKS.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CACHED_DELETED_TASKS, it -> maxCachedDeletedTask = it);
         taskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
         this.detectors = Sets.newConcurrentHashSet();
         this.hcTaskCaches = new ConcurrentHashMap<>();
         this.realtimeTaskCaches = new ConcurrentHashMap<>();
+        this.deletedDetectorTasks = new ConcurrentLinkedQueue<>();
     }
 
     /**
@@ -813,6 +822,16 @@ public class ADTaskCacheManager {
     }
 
     /**
+     * Add deleted task's id to deleted detector tasks queue.
+     * @param taskId task id
+     */
+    public void addDeletedDetectorTask(String taskId) {
+        if (deletedDetectorTasks.size() < maxCachedDeletedTask) {
+            deletedDetectorTasks.add(taskId);
+        }
+    }
+
+    /**
      * Remove detector's realtime task from cache.
      * @param detectorId detector id
      */
@@ -821,4 +840,21 @@ public class ADTaskCacheManager {
             realtimeTaskCaches.remove(detectorId);
         }
     }
+
+    /**
+     * Check if deleted task queue has items.
+     * @return true if has deleted detector task in cache
+     */
+    public boolean hasDeletedDetectorTask() {
+        return !deletedDetectorTasks.isEmpty();
+    }
+
+    /**
+     * Poll one deleted detector task.
+     * @return task id
+     */
+    public String pollDeletedDetectorTask() {
+        return this.deletedDetectorTasks.poll();
+    }
+
 }

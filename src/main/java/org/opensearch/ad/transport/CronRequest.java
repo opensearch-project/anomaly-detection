@@ -38,15 +38,18 @@ import org.opensearch.common.io.stream.StreamInput;
  */
 public class CronRequest extends BaseNodesRequest<CronRequest> {
 
-    public CronRequest() {
-        super((String[]) null);
-    }
+    private String requestId;
 
     public CronRequest(StreamInput in) throws IOException {
         super(in);
     }
 
-    public CronRequest(DiscoveryNode... nodes) {
+    public CronRequest(String requestId, DiscoveryNode... nodes) {
         super(nodes);
+        this.requestId = requestId;
+    }
+
+    public String getRequestId() {
+        return this.requestId;
     }
 }
