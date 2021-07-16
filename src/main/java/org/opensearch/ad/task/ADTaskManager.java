@@ -1547,7 +1547,7 @@ public class ADTaskManager {
     /**
      * Update latest realtime task's state, init progress, estimated left minutes and error field.
      * @param detectorId detector id
-     * @param newState new task state
+     * @param newState new task state which will override state calculated with rcf total updates
      * @param rcfTotalUpdates total updates of RCF model
      * @param detectorIntervalInMinutes detector interval in minutes
      * @param error error message
@@ -1561,15 +1561,17 @@ public class ADTaskManager {
     ) {
         Float initProgress = null;
         String state = null;
+        // calculate init progress and task state with RCF total updates
         if (detectorIntervalInMinutes != null && rcfTotalUpdates != null) {
             state = ADTaskState.INIT.name();
-            if (rcfTotalUpdates <= NUM_MIN_SAMPLES) {
+            if (rcfTotalUpdates < NUM_MIN_SAMPLES) {
                 initProgress = (float) rcfTotalUpdates / NUM_MIN_SAMPLES;
             } else {
                 state = ADTaskState.RUNNING.name();
                 initProgress = 1.0f;
             }
         }
+        // Check if new state is not null and override state calculated with rcf total updates
         if (newState != null) {
             state = newState;
         }
