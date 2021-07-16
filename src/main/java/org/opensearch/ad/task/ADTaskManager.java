@@ -32,8 +32,10 @@ import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_A
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.ERROR_FIELD;
+import static org.opensearch.ad.model.ADTask.ESTIMATED_MINUTES_LEFT_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
+import static org.opensearch.ad.model.ADTask.INIT_PROGRESS_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.LAST_UPDATE_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
@@ -1491,12 +1493,13 @@ public class ADTaskManager {
      * @param taskTypes task types
      * @param updatedFields updated fields, key: filed name, value: new value
      * @param listener action listener
+     * @param <T> action listener response type
      */
-    public void updateLatestADTask(
+    public <T> void updateLatestADTask(
         String detectorId,
         List<ADTaskType> taskTypes,
         Map<String, Object> updatedFields,
-        ActionListener listener
+        ActionListener<T> listener
     ) {
         getAndExecuteOnLatestDetectorLevelTask(detectorId, taskTypes, (adTask) -> {
             if (adTask.isPresent()) {
@@ -1542,38 +1545,54 @@ public class ADTaskManager {
     }
 
     /**
-     * Update latest realtime task's init progress, estimated minutes left for initialization, state and error field.
-     *
+     * Update latest realtime task's state, init progress, estimated left minutes and error field.
      * @param detectorId detector id
-     * @param totalUpdates total updates
-     * @param intervalMinutes interval minutes
-     * @param failure failure
+     * @param newState new task state
+     * @param rcfTotalUpdates total updates of RCF model
+     * @param detectorIntervalInMinutes detector interval in minutes
+     * @param error error message
      */
-    public void updateLatestRealtimeTask(String detectorId, long totalUpdates, long intervalMinutes, Exception failure) {
-        float initProgress;
-        String state = ADTaskState.INIT.name();
-        if (totalUpdates <= NUM_MIN_SAMPLES) {
-            initProgress = (float) totalUpdates / NUM_MIN_SAMPLES;
-        } else {
-            state = ADTaskState.RUNNING.name();
-            initProgress = 1.0f;
+    public void updateLatestRealtimeTask(
+        String detectorId,
+        String newState,
+        Long rcfTotalUpdates,
+        Long detectorIntervalInMinutes,
+        String error
+    ) {
+        Float initProgress = null;
+        String state = null;
+        if (detectorIntervalInMinutes != null && rcfTotalUpdates != null) {
+            state = ADTaskState.INIT.name();
+            if (rcfTotalUpdates <= NUM_MIN_SAMPLES) {
+                initProgress = (float) rcfTotalUpdates / NUM_MIN_SAMPLES;
+            } else {
+                state = ADTaskState.RUNNING.name();
+                initProgress = 1.0f;
+            }
         }
-        String error = failure != null ? getErrorMessage(failure) : "";
-        updateLatestADTask(
-            detectorId,
-            ADTaskType.REALTIME_TASK_TYPES,
-            ImmutableMap
-                .of(
-                    ADTask.INIT_PROGRESS_FIELD,
-                    initProgress,
-                    ADTask.ESTIMATED_MINUTES_LEFT_FIELD,
-                    Math.max(0, NUM_MIN_SAMPLES - totalUpdates) * intervalMinutes,
-                    ADTask.STATE_FIELD,
-                    state,
-                    ADTask.ERROR_FIELD,
-                    error
-                )
-        );
+        if (newState != null) {
+            state = newState;
+        }
+
+        error = Optional.ofNullable(error).orElse("");
+        if (!adTaskCacheManager.realtimeTaskChanged(detectorId, state, initProgress, error)) {
+            return;
+        }
+        if (ADTaskState.STOPPED.name().equals(state)) {
+            adTaskCacheManager.removeRealtimeTaskCache(detectorId);
+        }
+        Map<String, Object> updatedFields = new HashMap<>();
+        if (initProgress != null) {
+            updatedFields.put(INIT_PROGRESS_FIELD, initProgress);
+            updatedFields.put(ESTIMATED_MINUTES_LEFT_FIELD, Math.max(0, NUM_MIN_SAMPLES - rcfTotalUpdates) * detectorIntervalInMinutes);
+        }
+        if (state != null) {
+            updatedFields.put(STATE_FIELD, state);
+        }
+        if (error != null) {
+            updatedFields.put(ERROR_FIELD, error);
+        }
+        updateLatestADTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, updatedFields);
     }
 
     /**

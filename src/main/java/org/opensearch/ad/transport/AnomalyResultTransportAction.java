@@ -83,7 +83,6 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
-import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
@@ -141,7 +140,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ThreadPool threadPool;
     private final Client client;
     private final SearchFeatureDao searchFeatureDao;
-    private final ADTaskManager adTaskManager;
 
     // cache HC detector id
     private final Set<String> hcDetectors;
@@ -162,8 +160,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
         ThreadPool threadPool,
-        SearchFeatureDao searchFeatureDao,
-        ADTaskManager adTaskManager
+        SearchFeatureDao searchFeatureDao
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
@@ -185,7 +182,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.threadPool = threadPool;
         this.searchFeatureDao = searchFeatureDao;
         this.hcDetectors = new HashSet<>();
-        this.adTaskManager = adTaskManager;
     }
 
     /**
@@ -306,8 +302,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             long dataStartTime = request.getStart() - delayMillis;
             long dataEndTime = request.getEnd() - delayMillis;
 
-            List<String> categoryField = anomalyDetector.getCategoryField();
-            if (categoryField != null) {
+            // HC logic starts here
+            if (anomalyDetector.isMultientityDetector()) {
                 Optional<AnomalyDetectionException> previousException = stateManager.fetchColdStartException(adID);
 
                 if (previousException.isPresent()) {
@@ -334,7 +330,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     Double.NaN,
                                     Double.NaN,
                                     new ArrayList<FeatureData>(),
-                                    "No data in current detection window"
+                                    "No data in current detection window",
+                                    null,
+                                    null
                                 )
                             );
                     } else {
@@ -403,6 +401,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
+            // HC logic ends and single entity logic starts here
             String thresholdModelID = modelPartitioner.getThresholdModelId(adID);
             Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
             if (!asThresholdNode.isPresent()) {
@@ -421,13 +420,22 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     anomalyDetector,
                     dataStartTime,
                     dataEndTime,
-                    onFeatureResponse(adID, anomalyDetector, listener, thresholdModelID, thresholdNode, dataStartTime, dataEndTime)
+                    onFeatureResponseForSingleEntityDetector(
+                        adID,
+                        anomalyDetector,
+                        listener,
+                        thresholdModelID,
+                        thresholdNode,
+                        dataStartTime,
+                        dataEndTime
+                    )
                 );
         }, exception -> handleExecuteException(exception, listener, adID));
 
     }
 
-    private ActionListener<SinglePointFeatures> onFeatureResponse(
+    // For single entity detector
+    private ActionListener<SinglePointFeatures> onFeatureResponseForSingleEntityDetector(
         String adID,
         AnomalyDetector detector,
         ActionListener<AnomalyResultResponse> listener,
@@ -461,7 +469,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 Double.NaN,
                                 Double.NaN,
                                 new ArrayList<FeatureData>(),
-                                "No data in current detection window"
+                                "No data in current detection window",
+                                null,
+                                null
                             )
                         );
                 } else {
@@ -473,7 +483,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 Double.NaN,
                                 Double.NaN,
                                 featureInResponse,
-                                "No full shingle in current detection window"
+                                "No full shingle in current detection window",
+                                null,
+                                null
                             )
                         );
                 }
@@ -754,12 +766,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                     return;
                 }
-                try {
-                    long totalUpdates = rcfResults.get(0).getTotalUpdates();
-                    adTaskManager.updateLatestRealtimeTask(detector.getDetectorId(), totalUpdates, intervalMinutes, null);
-                } catch (Exception e) {
-                    LOG.warn("Failed to update init progress of detector " + detector.getDetectorId(), e);
-                }
 
                 CombinedRcfResult combinedResult = getCombinedResult(rcfResults, numFeatures);
                 double combinedScore = combinedResult.getScore();
@@ -767,6 +773,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();
 
                 String thresholdNodeId = thresholdNode.getId();
+                long rcfTotalUpdates = rcfResults.get(0).getTotalUpdates();
                 LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
                 ThresholdActionListener thresholdListener = new ThresholdActionListener(
                     anomalyResultResponse,
@@ -775,7 +782,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     detector,
                     combinedResult,
                     listener,
-                    adID
+                    adID,
+                    rcfTotalUpdates,
+                    detector.getDetectorIntervalInMinutes()
                 );
                 transportService
                     .sendRequest(
@@ -800,6 +809,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AnomalyDetector detector;
         private CombinedRcfResult combinedResult;
         private String adID;
+        private long rcfTotalUpdates;
+        private long detectorIntervalInMinutes;
 
         ThresholdActionListener(
             AtomicReference<AnomalyResultResponse> anomalyResultResponse,
@@ -808,7 +819,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             AnomalyDetector detector,
             CombinedRcfResult combinedResult,
             ActionListener<AnomalyResultResponse> listener,
-            String adID
+            String adID,
+            long rcfTotalUpdates,
+            long detectorIntervalInMinutes
         ) {
             this.anomalyResultResponse = anomalyResultResponse;
             this.features = features;
@@ -818,13 +831,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.failure = new AtomicReference<AnomalyDetectionException>();
             this.listener = listener;
             this.adID = adID;
+            this.rcfTotalUpdates = rcfTotalUpdates;
+            this.detectorIntervalInMinutes = detectorIntervalInMinutes;
         }
 
         @Override
         public void onResponse(ThresholdResultResponse response) {
             try {
                 anomalyResultResponse
-                    .set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), Double.NaN, features));
+                    .set(
+                        new AnomalyResultResponse(
+                            response.getAnomalyGrade(),
+                            response.getConfidence(),
+                            Double.NaN,
+                            features,
+                            rcfTotalUpdates,
+                            detectorIntervalInMinutes
+                        )
+                    );
                 stateManager.resetBackpressureCounter(thresholdNodeID);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
@@ -859,7 +883,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         response.getAnomalyGrade(),
                         confidence,
                         combinedResult.getScore(),
-                        response.getFeatures()
+                        response.getFeatures(),
+                        rcfTotalUpdates,
+                        detectorIntervalInMinutes
                     );
                     listener.onResponse(response);
                 } else if (failure.get() != null) {
@@ -1171,13 +1197,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } else if (entityResultResponses.isEmpty()) {
                 listener.onFailure(new InternalFailure(adID, NO_ACK_ERR));
             } else {
-                listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>()));
+                long maxTotalUpdates = 0;
+                while (!entityResultResponses.isEmpty()) {
+                    maxTotalUpdates = Math.max(maxTotalUpdates, entityResultResponses.poll().getTotalUpdates());
+                }
+                listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>(), maxTotalUpdates, intervalMinutes));
             }
-            long maxTotalUpdates = 0;
-            while (!entityResultResponses.isEmpty()) {
-                maxTotalUpdates = Math.max(maxTotalUpdates, entityResultResponses.poll().getTotalUpdates());
-            }
-            adTaskManager.updateLatestRealtimeTask(adID, maxTotalUpdates, intervalMinutes, failure.get());
         }
     }
 }

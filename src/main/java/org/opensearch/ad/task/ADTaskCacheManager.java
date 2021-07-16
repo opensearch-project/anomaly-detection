@@ -81,6 +81,9 @@ public class ADTaskCacheManager {
     // Use this field to cache all HC tasks. Key is detector id
     private Map<String, ADHCBatchTaskCache> hcTaskCaches;
 
+    // This field is to cache all realtime tasks. Key is detector id
+    private Map<String, ADRealtimeTaskCache> realtimeTaskCaches;
+
     /**
      * Constructor to create AD task cache manager.
      *
@@ -95,6 +98,7 @@ public class ADTaskCacheManager {
         this.memoryTracker = memoryTracker;
         this.detectors = Sets.newConcurrentHashSet();
         this.hcTaskCaches = new ConcurrentHashMap<>();
+        this.realtimeTaskCaches = new ConcurrentHashMap<>();
     }
 
     /**
@@ -765,6 +769,56 @@ public class ADTaskCacheManager {
     public void clearPendingEntities(String detectorId) {
         if (hcTaskCaches.containsKey(detectorId)) {
             hcTaskCaches.get(detectorId).clearPendingEntities();
+        }
+    }
+
+    /**
+     * Check if realtime task field value changed or not by comparing with cache.
+     * 1. If new field value is null, will consider this field as not changed.
+     * 2. If any field value changed, will consider the realtime task changed.
+     * 3. If realtime task cache not found, will consider the realtime task changed
+     *    and put new realtime task into cache.
+     * @param detectorId detector id
+     * @param newState new task state
+     * @param newInitProgress new init progress
+     * @param newError new error
+     * @return true if realtime task changed comparing with realtime task cache.
+     */
+    public boolean realtimeTaskChanged(String detectorId, String newState, Float newInitProgress, String newError) {
+        if (realtimeTaskCaches.containsKey(detectorId)) {
+            ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
+            boolean stateChanged = false;
+            if (newState != null && !newState.equals(realtimeTaskCache.getState())) {
+                stateChanged = true;
+                realtimeTaskCache.setState(newState);
+            }
+            boolean initProgressChanged = false;
+            if (newInitProgress != null && !newInitProgress.equals(realtimeTaskCache.getInitProgress())) {
+                initProgressChanged = true;
+                realtimeTaskCache.setInitProgress(newInitProgress);
+            }
+            boolean errorChanged = false;
+            if (newError != null && !newError.equals(realtimeTaskCache.getError())) {
+                errorChanged = true;
+                realtimeTaskCache.setError(newError);
+            }
+            if (stateChanged || initProgressChanged || errorChanged) {
+                return true;
+            }
+            return false;
+        } else {
+            realtimeTaskCaches.put(detectorId, new ADRealtimeTaskCache(newState, newInitProgress, newError));
+            return true;
+        }
+    }
+
+    /**
+     * Remove detector's realtime task from cache.
+     * @param detectorId detector id
+     */
+    public void removeRealtimeTaskCache(String detectorId) {
+        if (realtimeTaskCaches.containsKey(detectorId)) {
+            realtimeTaskCaches.remove(detectorId);
         }
     }
 }

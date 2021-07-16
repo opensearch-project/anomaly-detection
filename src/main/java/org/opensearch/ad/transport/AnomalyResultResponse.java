@@ -48,23 +48,44 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
     public static final String ERROR_JSON_KEY = "error";
     public static final String FEATURES_JSON_KEY = "features";
     public static final String FEATURE_VALUE_JSON_KEY = "value";
+    public static final String RCF_TOTAL_UPDATES_KEY = "rcfTotalUpdates";
+    public static final String DETECTOR_INTERVAL_IN_MINUTES_KEY = "detectorIntervalInMinutes";
 
     private double anomalyGrade;
     private double confidence;
     private double anomalyScore;
     private String error;
     private List<FeatureData> features;
+    private Long rcfTotalUpdates;
+    private Long detectorIntervalInMinutes;
 
-    public AnomalyResultResponse(double anomalyGrade, double confidence, double anomalyScore, List<FeatureData> features) {
-        this(anomalyGrade, confidence, anomalyScore, features, null);
+    public AnomalyResultResponse(
+        double anomalyGrade,
+        double confidence,
+        double anomalyScore,
+        List<FeatureData> features,
+        Long rcfTotalUpdates,
+        Long detectorIntervalInMinutes
+    ) {
+        this(anomalyGrade, confidence, anomalyScore, features, null, rcfTotalUpdates, detectorIntervalInMinutes);
     }
 
-    public AnomalyResultResponse(double anomalyGrade, double confidence, double anomalyScore, List<FeatureData> features, String error) {
+    public AnomalyResultResponse(
+        double anomalyGrade,
+        double confidence,
+        double anomalyScore,
+        List<FeatureData> features,
+        String error,
+        Long rcfTotalUpdates,
+        Long detectorIntervalInMinutes
+    ) {
         this.anomalyGrade = anomalyGrade;
         this.confidence = confidence;
         this.anomalyScore = anomalyScore;
         this.features = features;
         this.error = error;
+        this.rcfTotalUpdates = rcfTotalUpdates;
+        this.detectorIntervalInMinutes = detectorIntervalInMinutes;
     }
 
     public AnomalyResultResponse(StreamInput in) throws IOException {
@@ -78,6 +99,8 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             features.add(new FeatureData(in));
         }
         error = in.readOptionalString();
+        rcfTotalUpdates = in.readOptionalLong();
+        detectorIntervalInMinutes = in.readOptionalLong();
     }
 
     public double getAnomalyGrade() {
@@ -100,6 +123,14 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         return error;
     }
 
+    public Long getRcfTotalUpdates() {
+        return rcfTotalUpdates;
+    }
+
+    public Long getDetectorIntervalInMinutes() {
+        return detectorIntervalInMinutes;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeDouble(anomalyGrade);
@@ -109,12 +140,9 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         for (FeatureData feature : features) {
             feature.writeTo(out);
         }
-        if (error != null) {
-            out.writeBoolean(true);
-            out.writeString(error);
-        } else {
-            out.writeBoolean(false);
-        }
+        out.writeOptionalString(error);
+        out.writeOptionalLong(rcfTotalUpdates);
+        out.writeOptionalLong(detectorIntervalInMinutes);
     }
 
     @Override
@@ -129,6 +157,8 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             feature.toXContent(builder, params);
         }
         builder.endArray();
+        builder.field(RCF_TOTAL_UPDATES_KEY, rcfTotalUpdates);
+        builder.field(DETECTOR_INTERVAL_IN_MINUTES_KEY, detectorIntervalInMinutes);
         builder.endObject();
         return builder;
     }

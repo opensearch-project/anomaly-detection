@@ -258,7 +258,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
         jobRunner.setClient(client);
-        jobRunner.setClientUtil(clientUtil);
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setDetectionStateHandler(detectorStateHandler);
