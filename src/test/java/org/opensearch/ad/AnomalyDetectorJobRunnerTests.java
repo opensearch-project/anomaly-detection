@@ -65,10 +65,8 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.transport.handler.DetectionStateHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.ThrowingConsumerWrapper;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -77,7 +75,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.index.Index;
 import org.opensearch.index.get.GetResult;
@@ -126,8 +123,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Mock
     private AnomalyDetectionIndices indexUtil;
 
-    private DetectionStateHandler detectorStateHandler;
-
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyDetectorJobRunnerTests.class.getSimpleName());
@@ -151,7 +146,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         Mockito.doReturn(threadContext).when(mockedThreadPool).getThreadContext();
         runner.setThreadPool(mockedThreadPool);
         runner.setClient(client);
-        runner.setClientUtil(clientUtil);
         runner.setAnomalyResultHandler(anomalyResultHandler);
 
         Settings settings = Settings
@@ -168,19 +162,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
         NodeStateManager stateManager = mock(NodeStateManager.class);
-        detectorStateHandler = new DetectionStateHandler(
-            client,
-            settings,
-            threadPool,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
-            anomalyDetectionIndices::doesDetectorStateIndexExist,
-            this.clientUtil,
-            indexUtils,
-            clusterService,
-            NamedXContentRegistry.EMPTY,
-            stateManager
-        );
-        runner.setDetectionStateHandler(detectorStateHandler);
 
         runner.setIndexUtil(indexUtil);
 

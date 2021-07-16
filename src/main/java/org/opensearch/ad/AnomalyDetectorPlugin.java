@@ -149,7 +149,6 @@ import org.opensearch.ad.transport.ThresholdResultTransportAction;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
-import org.opensearch.ad.transport.handler.DetectionStateHandler;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -220,7 +219,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
-    private DetectionStateHandler detectorStateHandler;
     private ADTaskCacheManager adTaskCacheManager;
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
@@ -260,7 +258,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setClient(client);
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
-        jobRunner.setDetectionStateHandler(detectorStateHandler);
         jobRunner.setSettings(settings);
         jobRunner.setIndexUtil(anomalyDetectionIndices);
         jobRunner.setAdTaskManager(adTaskManager);
@@ -508,18 +505,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         adStats = new ADStats(indexUtils, modelManager, stats);
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
-        this.detectorStateHandler = new DetectionStateHandler(
-            client,
-            settings,
-            threadPool,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
-            anomalyDetectionIndices::doesDetectorStateIndexExist,
-            this.clientUtil,
-            this.indexUtils,
-            clusterService,
-            xContentRegistry,
-            stateManager
-        );
 
         MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
             client,
@@ -591,7 +576,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 adStats,
                 new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
                 nodeFilter,
-                detectorStateHandler,
                 multiEntityResultHandler,
                 checkpoint,
                 modelPartitioner,

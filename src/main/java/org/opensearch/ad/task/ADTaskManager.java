@@ -1359,7 +1359,7 @@ public class ADTaskManager {
     public void updateADTask(String taskId, Map<String, Object> updatedFields) {
         updateADTask(taskId, updatedFields, ActionListener.wrap(response -> {
             if (response.status() == RestStatus.OK) {
-                logger.debug("Updated AD task successfully: {}", response.status());
+                logger.debug("Updated AD task successfully: {}, task id: {}", response.status(), taskId);
             } else {
                 logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
             }
