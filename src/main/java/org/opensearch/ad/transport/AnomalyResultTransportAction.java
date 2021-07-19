@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -56,7 +57,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.ThreadedActionListener;
-import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
@@ -302,8 +302,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             long dataStartTime = request.getStart() - delayMillis;
             long dataEndTime = request.getEnd() - delayMillis;
 
-            List<String> categoryField = anomalyDetector.getCategoryField();
-            if (categoryField != null) {
+            // HC logic starts here
+            if (anomalyDetector.isMultientityDetector()) {
                 Optional<AnomalyDetectionException> previousException = stateManager.fetchColdStartException(adID);
 
                 if (previousException.isPresent()) {
@@ -330,7 +330,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     Double.NaN,
                                     Double.NaN,
                                     new ArrayList<FeatureData>(),
-                                    "No data in current detection window"
+                                    "No data in current detection window",
+                                    null,
+                                    null
                                 )
                             );
                     } else {
@@ -350,6 +352,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         AtomicInteger responseCount = new AtomicInteger();
 
                         final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
+                        final ConcurrentLinkedQueue entityResultResponses = new ConcurrentLinkedQueue();
                         node2Entities.stream().forEach(nodeEntity -> {
                             DiscoveryNode node = nodeEntity.getKey();
                             transportService
@@ -359,8 +362,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     new EntityResultRequest(adID, nodeEntity.getValue(), dataStartTime, dataEndTime),
                                     this.option,
                                     new ActionListenerResponseHandler<>(
-                                        new EntityResultListener(node.getId(), adID, responseCount, nodeCount, failure, listener),
-                                        AcknowledgedResponse::new,
+                                        new EntityResultListener(
+                                            node.getId(),
+                                            adID,
+                                            responseCount,
+                                            nodeCount,
+                                            failure,
+                                            entityResultResponses,
+                                            anomalyDetector.getDetectorIntervalInMinutes(),
+                                            listener
+                                        ),
+                                        EntityResultResponse::new,
                                         ThreadPool.Names.SAME
                                     )
                                 );
@@ -389,6 +401,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
+            // HC logic ends and single entity logic starts here
             String thresholdModelID = modelPartitioner.getThresholdModelId(adID);
             Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
             if (!asThresholdNode.isPresent()) {
@@ -407,13 +420,22 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     anomalyDetector,
                     dataStartTime,
                     dataEndTime,
-                    onFeatureResponse(adID, anomalyDetector, listener, thresholdModelID, thresholdNode, dataStartTime, dataEndTime)
+                    onFeatureResponseForSingleEntityDetector(
+                        adID,
+                        anomalyDetector,
+                        listener,
+                        thresholdModelID,
+                        thresholdNode,
+                        dataStartTime,
+                        dataEndTime
+                    )
                 );
         }, exception -> handleExecuteException(exception, listener, adID));
 
     }
 
-    private ActionListener<SinglePointFeatures> onFeatureResponse(
+    // For single entity detector
+    private ActionListener<SinglePointFeatures> onFeatureResponseForSingleEntityDetector(
         String adID,
         AnomalyDetector detector,
         ActionListener<AnomalyResultResponse> listener,
@@ -447,7 +469,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 Double.NaN,
                                 Double.NaN,
                                 new ArrayList<FeatureData>(),
-                                "No data in current detection window"
+                                "No data in current detection window",
+                                null,
+                                null
                             )
                         );
                 } else {
@@ -459,7 +483,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 Double.NaN,
                                 Double.NaN,
                                 featureInResponse,
-                                "No full shingle in current detection window"
+                                "No full shingle in current detection window",
+                                null,
+                                null
                             )
                         );
                 }
@@ -505,7 +531,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     rcfPartitionNum,
                     responseCount,
                     adID,
-                    detector.getEnabledFeatureIds().size()
+                    detector.getEnabledFeatureIds().size(),
+                    detector.getDetectorIntervalInMinutes()
                 );
 
                 transportService
@@ -662,6 +689,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private final AtomicInteger responseCount;
         private final String adID;
         private int numEnabledFeatures;
+        private long intervalMinutes;
 
         RCFActionListener(
             List<RCFResultResponse> rcfResults,
@@ -676,7 +704,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             int nodeCount,
             AtomicInteger responseCount,
             String adID,
-            int numEnabledFeatures
+            int numEnabledFeatures,
+            long intervalMinutes
         ) {
             this.rcfResults = rcfResults;
             this.modelID = modelID;
@@ -691,6 +720,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.responseCount = responseCount;
             this.adID = adID;
             this.numEnabledFeatures = numEnabledFeatures;
+            this.intervalMinutes = intervalMinutes;
         }
 
         @Override
@@ -743,6 +773,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();
 
                 String thresholdNodeId = thresholdNode.getId();
+                long rcfTotalUpdates = rcfResults.get(0).getTotalUpdates();
                 LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
                 ThresholdActionListener thresholdListener = new ThresholdActionListener(
                     anomalyResultResponse,
@@ -751,7 +782,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     detector,
                     combinedResult,
                     listener,
-                    adID
+                    adID,
+                    rcfTotalUpdates,
+                    detector.getDetectorIntervalInMinutes()
                 );
                 transportService
                     .sendRequest(
@@ -776,6 +809,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private AnomalyDetector detector;
         private CombinedRcfResult combinedResult;
         private String adID;
+        private long rcfTotalUpdates;
+        private long detectorIntervalInMinutes;
 
         ThresholdActionListener(
             AtomicReference<AnomalyResultResponse> anomalyResultResponse,
@@ -784,7 +819,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             AnomalyDetector detector,
             CombinedRcfResult combinedResult,
             ActionListener<AnomalyResultResponse> listener,
-            String adID
+            String adID,
+            long rcfTotalUpdates,
+            long detectorIntervalInMinutes
         ) {
             this.anomalyResultResponse = anomalyResultResponse;
             this.features = features;
@@ -794,13 +831,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.failure = new AtomicReference<AnomalyDetectionException>();
             this.listener = listener;
             this.adID = adID;
+            this.rcfTotalUpdates = rcfTotalUpdates;
+            this.detectorIntervalInMinutes = detectorIntervalInMinutes;
         }
 
         @Override
         public void onResponse(ThresholdResultResponse response) {
             try {
                 anomalyResultResponse
-                    .set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), Double.NaN, features));
+                    .set(
+                        new AnomalyResultResponse(
+                            response.getAnomalyGrade(),
+                            response.getConfidence(),
+                            Double.NaN,
+                            features,
+                            rcfTotalUpdates,
+                            detectorIntervalInMinutes
+                        )
+                    );
                 stateManager.resetBackpressureCounter(thresholdNodeID);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
@@ -835,7 +883,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         response.getAnomalyGrade(),
                         confidence,
                         combinedResult.getScore(),
-                        response.getFeatures()
+                        response.getFeatures(),
+                        rcfTotalUpdates,
+                        detectorIntervalInMinutes
                     );
                     listener.onResponse(response);
                 } else if (failure.get() != null) {
@@ -1078,14 +1128,15 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         return previousException;
     }
 
-    class EntityResultListener implements ActionListener<AcknowledgedResponse> {
+    class EntityResultListener implements ActionListener<EntityResultResponse> {
         private String nodeId;
         private final String adID;
         private AtomicInteger responseCount;
         private int nodeCount;
         private ActionListener<AnomalyResultResponse> listener;
-        private List<AcknowledgedResponse> ackResponses;
+        private ConcurrentLinkedQueue<EntityResultResponse> entityResultResponses;
         private AtomicReference<AnomalyDetectionException> failure;
+        private long intervalMinutes;
 
         EntityResultListener(
             String nodeId,
@@ -1093,6 +1144,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             AtomicInteger responseCount,
             int nodeCount,
             AtomicReference<AnomalyDetectionException> failure,
+            ConcurrentLinkedQueue<EntityResultResponse> entityResultResponses,
+            long intervalMinutes,
             ActionListener<AnomalyResultResponse> listener
         ) {
             this.nodeId = nodeId;
@@ -1101,19 +1154,15 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.nodeCount = nodeCount;
             this.failure = failure;
             this.listener = listener;
-            this.ackResponses = new ArrayList<>();
+            this.entityResultResponses = entityResultResponses;
+            this.intervalMinutes = intervalMinutes;
         }
 
         @Override
-        public void onResponse(AcknowledgedResponse response) {
+        public void onResponse(EntityResultResponse response) {
             try {
                 stateManager.resetBackpressureCounter(nodeId);
-                if (response.isAcknowledged() == false) {
-                    LOG.error("Cannot send entities' features to {} for {}", nodeId, adID);
-                    stateManager.addPressure(nodeId);
-                } else {
-                    ackResponses.add(response);
-                }
+                entityResultResponses.add(response);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
@@ -1145,10 +1194,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private void handleEntityResponses() {
             if (failure.get() != null) {
                 listener.onFailure(failure.get());
-            } else if (ackResponses.isEmpty()) {
+            } else if (entityResultResponses.isEmpty()) {
                 listener.onFailure(new InternalFailure(adID, NO_ACK_ERR));
             } else {
-                listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>()));
+                long maxTotalUpdates = 0;
+                while (!entityResultResponses.isEmpty()) {
+                    maxTotalUpdates = Math.max(maxTotalUpdates, entityResultResponses.poll().getTotalUpdates());
+                }
+                listener.onResponse(new AnomalyResultResponse(0, 0, 0, new ArrayList<FeatureData>(), maxTotalUpdates, intervalMinutes));
             }
         }
     }

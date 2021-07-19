@@ -32,8 +32,10 @@ import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_A
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.ERROR_FIELD;
+import static org.opensearch.ad.model.ADTask.ESTIMATED_MINUTES_LEFT_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
+import static org.opensearch.ad.model.ADTask.INIT_PROGRESS_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.LAST_UPDATE_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
@@ -48,6 +50,7 @@ import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.ad.util.ExceptionUtil.getErrorMessage;
 import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
@@ -1356,7 +1359,7 @@ public class ADTaskManager {
     public void updateADTask(String taskId, Map<String, Object> updatedFields) {
         updateADTask(taskId, updatedFields, ActionListener.wrap(response -> {
             if (response.status() == RestStatus.OK) {
-                logger.debug("Updated AD task successfully: {}", response.status());
+                logger.debug("Updated AD task successfully: {}, task id: {}", response.status(), taskId);
             } else {
                 logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
             }
@@ -1490,16 +1493,19 @@ public class ADTaskManager {
      * @param taskTypes task types
      * @param updatedFields updated fields, key: filed name, value: new value
      * @param listener action listener
+     * @param <T> action listener response type
      */
-    public void updateLatestADTask(
+    public <T> void updateLatestADTask(
         String detectorId,
         List<ADTaskType> taskTypes,
         Map<String, Object> updatedFields,
-        ActionListener listener
+        ActionListener<T> listener
     ) {
         getAndExecuteOnLatestDetectorLevelTask(detectorId, taskTypes, (adTask) -> {
             if (adTask.isPresent()) {
                 updateADTask(adTask.get().getTaskId(), updatedFields);
+            } else {
+                listener.onFailure(new ResourceNotFoundException(detectorId, "can't find latest task"));
             }
         }, null, false, listener);
     }
@@ -1536,6 +1542,59 @@ public class ADTaskManager {
                 listener.onFailure(new OpenSearchStatusException("Anomaly detector job is already stopped: " + detectorId, RestStatus.OK));
             }
         }, null, false, listener);
+    }
+
+    /**
+     * Update latest realtime task's state, init progress, estimated left minutes and error field.
+     * @param detectorId detector id
+     * @param newState new task state which will override state calculated with rcf total updates
+     * @param rcfTotalUpdates total updates of RCF model
+     * @param detectorIntervalInMinutes detector interval in minutes
+     * @param error error message
+     */
+    public void updateLatestRealtimeTask(
+        String detectorId,
+        String newState,
+        Long rcfTotalUpdates,
+        Long detectorIntervalInMinutes,
+        String error
+    ) {
+        Float initProgress = null;
+        String state = null;
+        // calculate init progress and task state with RCF total updates
+        if (detectorIntervalInMinutes != null && rcfTotalUpdates != null) {
+            state = ADTaskState.INIT.name();
+            if (rcfTotalUpdates < NUM_MIN_SAMPLES) {
+                initProgress = (float) rcfTotalUpdates / NUM_MIN_SAMPLES;
+            } else {
+                state = ADTaskState.RUNNING.name();
+                initProgress = 1.0f;
+            }
+        }
+        // Check if new state is not null and override state calculated with rcf total updates
+        if (newState != null) {
+            state = newState;
+        }
+
+        error = Optional.ofNullable(error).orElse("");
+        if (!adTaskCacheManager.realtimeTaskChanged(detectorId, state, initProgress, error)) {
+            return;
+        }
+        if (ADTaskState.STOPPED.name().equals(state)) {
+            adTaskCacheManager.removeRealtimeTaskCache(detectorId);
+        }
+        Map<String, Object> updatedFields = new HashMap<>();
+        if (initProgress != null) {
+            updatedFields.put(INIT_PROGRESS_FIELD, initProgress);
+            updatedFields.put(ESTIMATED_MINUTES_LEFT_FIELD, Math.max(0, NUM_MIN_SAMPLES - rcfTotalUpdates) * detectorIntervalInMinutes);
+        }
+        if (state != null) {
+            updatedFields.put(STATE_FIELD, state);
+        }
+        if (error != null) {
+            updatedFields.put(ERROR_FIELD, error);
+        }
+        updateLatestADTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, updatedFields);
     }
 
     /**

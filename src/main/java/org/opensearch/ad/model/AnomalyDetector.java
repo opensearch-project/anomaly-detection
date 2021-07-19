@@ -624,6 +624,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return getDetectorIntervalInMilliseconds() / 1000;
     }
 
+    public long getDetectorIntervalInMinutes() {
+        return getDetectorIntervalInMilliseconds() / 1000 / 60;
+    }
+
     public Duration getDetectionIntervalDuration() {
         return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration();
     }

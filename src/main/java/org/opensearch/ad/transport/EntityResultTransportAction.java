@@ -41,7 +41,6 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
@@ -66,7 +65,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-public class EntityResultTransportAction extends HandledTransportAction<EntityResultRequest, AcknowledgedResponse> {
+public class EntityResultTransportAction extends HandledTransportAction<EntityResultRequest, EntityResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(EntityResultTransportAction.class);
     private ModelManager manager;
@@ -133,7 +132,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     }
 
     @Override
-    protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
+    protected void doExecute(Task task, EntityResultRequest request, ActionListener<EntityResultResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
             listener
                 .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
@@ -151,7 +150,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     }
 
     private ActionListener<Optional<AnomalyDetector>> onGetDetector(
-        ActionListener<AcknowledgedResponse> listener,
+        ActionListener<EntityResultResponse> listener,
         String detectorId,
         EntityResultRequest request
     ) {
@@ -173,6 +172,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 .isAfter(clock.instant());
 
             Instant executionStartTime = Instant.now();
+            long totalUpdates = 0;
             for (Entry<String, double[]> entity : request.getEntities().entrySet()) {
                 String entityName = entity.getKey();
                 // For ES, the limit of the document ID is 512 bytes.
@@ -213,6 +213,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                             )
                         );
                 }
+                long updates = cache.get().getTotalUpdates(detectorId, modelId);
+                totalUpdates = Math.max(totalUpdates, updates);
             }
             if (currentBulkRequest.numberOfActions() > 0) {
                 this.anomalyResultHandler.flush(currentBulkRequest, detectorId);
@@ -220,7 +222,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
             // bulk all accumulated checkpoint requests
             this.checkpointDao.flush();
 
-            listener.onResponse(new AcknowledgedResponse(true));
+            listener.onResponse(new EntityResultResponse(totalUpdates));
         }, exception -> {
             LOG
                 .error(

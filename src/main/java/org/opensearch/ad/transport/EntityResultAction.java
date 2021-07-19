@@ -27,16 +27,15 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.constant.CommonValue;
 
-public class EntityResultAction extends ActionType<AcknowledgedResponse> {
+public class EntityResultAction extends ActionType<EntityResultResponse> {
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "entity/result";
     public static final EntityResultAction INSTANCE = new EntityResultAction();
 
     private EntityResultAction() {
-        super(NAME, AcknowledgedResponse::new);
+        super(NAME, EntityResultResponse::new);
     }
 
 }
