@@ -101,8 +101,8 @@ public class SearchFeatureDao extends AbstractRetriever {
     private final NamedXContentRegistry xContent;
     private final Interpolator interpolator;
     private final ClientUtil clientUtil;
-    private int maxEntitiesForPreview;
-    private int pageSize;
+    private volatile int maxEntitiesForPreview;
+    private volatile int pageSize;
     private final int minimumDocCountForPreview;
 
     /**
@@ -185,7 +185,7 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener listener to return back the entities
      */
     public void getHighestCountEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
-        if (detector.getCategoryField() == null || detector.getCategoryField().isEmpty()) {
+        if (!detector.isMultientityDetector()) {
             listener.onResponse(null);
             return;
         }
