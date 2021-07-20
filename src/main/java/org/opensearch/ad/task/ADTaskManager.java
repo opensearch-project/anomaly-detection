@@ -50,6 +50,7 @@ import static org.opensearch.ad.model.ADTaskType.ALL_HISTORICAL_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.REALTIME_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.model.AnomalyResult.TASK_ID_FIELD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS;
@@ -61,6 +62,7 @@ import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -73,6 +75,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -112,6 +115,7 @@ import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
@@ -1609,6 +1613,14 @@ public class ADTaskManager {
     }
 
     /**
+     * Set latest realtime task as STOPPED.
+     * @param detectorId detector id
+     */
+    public void stopLatestRealtimeTask(String detectorId) {
+        updateLatestRealtimeTask(detectorId, ADTaskState.STOPPED.name(), null, null, null);
+    }
+
+    /**
      * Update latest realtime task's state, init progress, estimated left minutes and error field.
      * @param detectorId detector id
      * @param newState new task state which will override state calculated with rcf total updates
@@ -1641,7 +1653,7 @@ public class ADTaskManager {
         }
 
         error = Optional.ofNullable(error).orElse("");
-        if (!adTaskCacheManager.realtimeTaskChanged(detectorId, state, initProgress, error)) {
+        if (!adTaskCacheManager.checkIfRealtimeTaskChangedAndUpdateCache(detectorId, state, initProgress, error)) {
             return;
         }
         if (ADTaskState.STOPPED.name().equals(state)) {
@@ -2092,4 +2104,97 @@ public class ADTaskManager {
             }, transportService);
         }, TimeValue.timeValueSeconds(DEFAULT_MAINTAIN_INTERVAL_IN_SECONDS), AD_BATCH_TASK_THREAD_POOL_NAME);
     }
+
+    /**
+     * Maintain running realtie tasks:
+     * 1. check if realtime time job enabled or not, if job not enabled or not found, reset latest
+     *    realtime task as STOPPED and remove realtime task cache.
+     * 2. If AD job index doesn't exist, reset all running realtime tasks for all detectors as STOPPED
+     *    and clear all realtime tasks cache.
+     */
+    public void maintainRunningRealtimeTasks() {
+        threadPool.schedule(() -> {
+            String[] detectorsInRealtimeTaskCache = adTaskCacheManager.getDetectorIdsInRealtimeTaskCache();
+            // Default maintain interval is 5 seconds, so 100 detectors will take 500 seconds at least.
+            int maxDetectorsToMaintain = Math.min(100, detectorsInRealtimeTaskCache.length);
+            if (maxDetectorsToMaintain == 0) {
+                logger.debug("No running realtime tasks to maintain");
+                return;
+            }
+            ConcurrentLinkedQueue<String> detectorIdQueue = new ConcurrentLinkedQueue<>();
+            for (int i = 0; i < maxDetectorsToMaintain; i++) {
+                detectorIdQueue.add(detectorsInRealtimeTaskCache[i]);
+            }
+            maintainRunningRealtimeTask(detectorIdQueue);
+        }, TimeValue.timeValueSeconds(ThreadLocalRandom.current().nextLong(2, 60)), AD_BATCH_TASK_THREAD_POOL_NAME);
+    }
+
+    private void maintainRunningRealtimeTask(ConcurrentLinkedQueue<String> detectorIdQueue) {
+        String detectorId = detectorIdQueue.poll();
+        if (detectorId == null) {
+            return;
+        }
+        String logPrefix = "[maintainRunningRealtimeTask]";
+        threadPool.schedule(() -> {
+            GetRequest getJobRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+            client.get(getJobRequest, ActionListener.wrap(r -> {
+                if (r.isExists()) {
+                    try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                        AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                        if (!job.isEnabled()) {
+                            logger
+                                .debug(
+                                    "{} Maintain running realtime task: AD job is disabled, reset realtime task as stopped for detector {}",
+                                    logPrefix,
+                                    detectorId
+                                );
+                            stopLatestRealtimeTask(detectorId);
+                        } else {
+                            logger.debug("{} AD job is running for detector {}", logPrefix, detectorId);
+                        }
+                    } catch (IOException e) {
+                        logger.error(logPrefix + " Failed to parse AD job " + detectorId, e);
+                    }
+                } else {
+                    logger.debug("{} AD job is not found, reset realtime task as stopped for detector {}", logPrefix, detectorId);
+                    stopLatestRealtimeTask(detectorId);
+                }
+                maintainRunningRealtimeTask(detectorIdQueue);
+            }, e -> {
+                if (e instanceof IndexNotFoundException) {
+                    logger.debug(logPrefix + " AD job index deleted");
+                    adTaskCacheManager.clearRealtimeTaskCache();
+                    resetAllRealtimeTasksAsStopped();
+                } else {
+                    // Stop poll next detector in case any exception happen to avoid adding more load to cluster
+                    logger.error(logPrefix + " Failed to get detector job for detector " + detectorId, e);
+                }
+            }));
+        }, TimeValue.timeValueSeconds(DEFAULT_MAINTAIN_INTERVAL_IN_SECONDS), AD_BATCH_TASK_THREAD_POOL_NAME);
+    }
+
+    private void resetAllRealtimeTasksAsStopped() {
+        UpdateByQueryRequest updateByQueryRequest = new UpdateByQueryRequest();
+        updateByQueryRequest.indices(CommonName.DETECTION_STATE_INDEX);
+        BoolQueryBuilder query = new BoolQueryBuilder();
+        query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(REALTIME_TASK_TYPES)));
+        query.filter(new TermsQueryBuilder(STATE_FIELD, NOT_ENDED_STATES));
+        updateByQueryRequest.setQuery(query);
+        updateByQueryRequest.setRefresh(true);
+        String script = String.format(Locale.ROOT, "ctx._source.%s='%s';", STATE_FIELD, ADTaskState.STOPPED.name());
+        updateByQueryRequest.setScript(new Script(script));
+
+        client
+            .execute(
+                UpdateByQueryAction.INSTANCE,
+                updateByQueryRequest,
+                ActionListener
+                    .wrap(
+                        r -> { logger.info("Set all running realtime tasks as stopped"); },
+                        e -> logger.error("Exception happened when set all realtime tasks as stopped ", e)
+                    )
+            );
+    }
+
 }

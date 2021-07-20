@@ -787,13 +787,15 @@ public class ADTaskCacheManager {
      * 2. If any field value changed, will consider the realtime task changed.
      * 3. If realtime task cache not found, will consider the realtime task changed
      *    and put new realtime task into cache.
+     *
+     * If realtime task changed, put new field value into cache.
      * @param detectorId detector id
      * @param newState new task state
      * @param newInitProgress new init progress
      * @param newError new error
      * @return true if realtime task changed comparing with realtime task cache.
      */
-    public boolean realtimeTaskChanged(String detectorId, String newState, Float newInitProgress, String newError) {
+    public boolean checkIfRealtimeTaskChangedAndUpdateCache(String detectorId, String newState, Float newInitProgress, String newError) {
         if (realtimeTaskCaches.containsKey(detectorId)) {
             ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
             boolean stateChanged = false;
@@ -822,6 +824,14 @@ public class ADTaskCacheManager {
     }
 
     /**
+     * Get detector IDs from realtime task cache.
+     * @return array of detector id
+     */
+    public String[] getDetectorIdsInRealtimeTaskCache() {
+        return realtimeTaskCaches.keySet().toArray(new String[0]);
+    }
+
+    /**
      * Add deleted task's id to deleted detector tasks queue.
      * @param taskId task id
      */
@@ -839,6 +849,13 @@ public class ADTaskCacheManager {
         if (realtimeTaskCaches.containsKey(detectorId)) {
             realtimeTaskCaches.remove(detectorId);
         }
+    }
+
+    /**
+     * Clear realtime task cache.
+     */
+    public void clearRealtimeTaskCache() {
+        realtimeTaskCaches.clear();
     }
 
     /**

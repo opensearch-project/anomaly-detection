@@ -125,6 +125,9 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         // maintain running historical tasks: reset task state as stopped if not running and clean stale running entities
         adTaskManager.maintainRunningHistoricalTasks(transportService, request.getRequestId(), 100);
 
+        // maintain running realtime tasks: clean stale running realtime task cache
+        adTaskManager.maintainRunningRealtimeTasks();
+
         return new CronNodeResponse(clusterService.localNode());
     }
 }
