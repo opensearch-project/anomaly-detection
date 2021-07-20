@@ -70,6 +70,7 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
 import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
@@ -112,6 +113,8 @@ import org.opensearch.ad.transport.CronAction;
 import org.opensearch.ad.transport.CronTransportAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
+import org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction;
 import org.opensearch.ad.transport.DeleteModelAction;
 import org.opensearch.ad.transport.DeleteModelTransportAction;
 import org.opensearch.ad.transport.EntityProfileAction;
@@ -273,6 +276,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(settings, clusterService);
         RestSearchAnomalyDetectorInfoAction searchAnomalyDetectorInfoAction = new RestSearchAnomalyDetectorInfoAction();
         RestPreviewAnomalyDetectorAction previewAnomalyDetectorAction = new RestPreviewAnomalyDetectorAction();
+        RestDeleteAnomalyResultsAction deleteAnomalyResultsAction = new RestDeleteAnomalyResultsAction();
 
         return ImmutableList
             .of(
@@ -286,7 +290,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 anomalyDetectorJobAction,
                 statsAnomalyDetectorAction,
                 searchAnomalyDetectorInfoAction,
-                previewAnomalyDetectorAction
+                previewAnomalyDetectorAction,
+                deleteAnomalyResultsAction
             );
     }
 
@@ -723,7 +728,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
                 new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
                 new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
-                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class)
+                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
+                new ActionHandler<>(DeleteAnomalyResultsAction.INSTANCE, DeleteAnomalyResultsTransportAction.class)
             );
     }
 
