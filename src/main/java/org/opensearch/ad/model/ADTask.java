@@ -210,6 +210,14 @@ public class ADTask implements ToXContentObject, Writeable {
         return ADTaskType.HISTORICAL_HC_ENTITY.name().equals(taskType);
     }
 
+    /**
+     * Get detector level task id. If a task has no parent task, the task is detector level task.
+     * @return detector level task id
+     */
+    public String getDetectorLevelTaskId() {
+        return getParentTaskId() != null ? getParentTaskId() : getTaskId();
+    }
+
     public static class Builder {
         private String taskId = null;
         private String taskType = null;

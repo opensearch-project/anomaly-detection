@@ -1247,7 +1247,6 @@ public class ADTaskManager {
             .sort(EXECUTION_START_TIME_FIELD, SortOrder.DESC)
             // Search query "from" starts from 0.
             .from(maxOldAdTaskDocsPerDetector)
-            .trackTotalHits(true)
             .size(MAX_OLD_AD_TASK_DOCS);
         searchRequest.source(sourceBuilder).indices(CommonName.DETECTION_STATE_INDEX);
         String detectorId = adTask.getDetectorId();
@@ -2050,12 +2049,18 @@ public class ADTaskManager {
 
     /**
      * Maintain running historical tasks.
+     * Search current running latest tasks, then maintain tasks one by one.
+     * Get task profile to check if task is really running on worker node.
+     * 1. If not running, reset task state as STOPPED.
+     * 2. If task is running and task for HC detector, check if there is any stale running entities and
+     *    clean up.
      *
      * @param transportService transport service
      * @param requestId request id
      * @param size return how many tasks
      */
     public void maintainRunningHistoricalTasks(TransportService transportService, String requestId, int size) {
+        // request id could be null, `+ ""` is for backward compatibility consideration
         Optional<DiscoveryNode> owningNode = hashRing.getOwningNode(requestId + "");
         if (!owningNode.isPresent() || !clusterService.localNode().getId().equals(owningNode.get().getId())) {
             return;
@@ -2077,7 +2082,7 @@ public class ADTaskManager {
             if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
                 return;
             }
-            ConcurrentLinkedQueue<ADTask> taskQueue = new ConcurrentLinkedQueue();
+            ConcurrentLinkedQueue<ADTask> taskQueue = new ConcurrentLinkedQueue<>();
             Iterator<SearchHit> iterator = r.getHits().iterator();
             while (iterator.hasNext()) {
                 SearchHit searchHit = iterator.next();
@@ -2106,7 +2111,7 @@ public class ADTaskManager {
     }
 
     /**
-     * Maintain running realtie tasks:
+     * Maintain running realtime tasks:
      * 1. check if realtime time job enabled or not, if job not enabled or not found, reset latest
      *    realtime task as STOPPED and remove realtime task cache.
      * 2. If AD job index doesn't exist, reset all running realtime tasks for all detectors as STOPPED
