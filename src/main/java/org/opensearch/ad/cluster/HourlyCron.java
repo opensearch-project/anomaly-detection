@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.cluster;
 
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
@@ -55,7 +56,10 @@ public class HourlyCron implements Runnable {
 
         // we also add the cancel query function here based on query text from the negative cache.
 
-        CronRequest modelDeleteRequest = new CronRequest(dataNodes);
+        // Length of detector id is 20. Here we create a random string as request id to get hash with
+        // HashRing, then we can control some maintaining task to just run on one data node. Read
+        // ADTaskManager#maintainRunningHistoricalTasks for more details.
+        CronRequest modelDeleteRequest = new CronRequest(RandomStringUtils.random(20), dataNodes);
         client.execute(CronAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
             if (response.hasFailures()) {
                 for (FailedNodeException failedNodeException : response.failures()) {
