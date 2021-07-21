@@ -334,8 +334,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.NodeStateManager',
         'org.opensearch.ad.util.BulkUtil',
         'org.opensearch.ad.util.ExceptionUtil',
-        'org.opensearch.ad.feature.SearchFeatureDao',
-        'org.opensearch.ad.feature.SearchFeatureDao.TopEntitiesListener',
         'org.opensearch.ad.ml.EntityModel',
 ]
 

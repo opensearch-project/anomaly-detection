@@ -381,7 +381,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 );
                         });
                     } catch (Exception e) {
-                        LOG.error("Unexpetected exception", e);
+                        LOG.error("Unexpected exception", e);
                         handleException(e);
                     }
                 });

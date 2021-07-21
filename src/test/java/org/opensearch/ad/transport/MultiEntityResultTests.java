@@ -89,9 +89,7 @@ import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.ml.ThresholdingResult;
@@ -108,7 +106,6 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -151,7 +148,6 @@ public class MultiEntityResultTests extends AbstractADTest {
     private NodeStateManager stateManager;
     private static Settings settings;
     private TransportService transportService;
-    private SearchFeatureDao searchFeatureDao;
     private Client client;
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
@@ -164,12 +160,10 @@ public class MultiEntityResultTests extends AbstractADTest {
     private ThreadPool mockThreadPool;
     private String detectorId;
     private Instant now;
-    private String modelId;
     private CacheProvider provider;
     private AnomalyDetectionIndices indexUtil;
     private ResultWriteWorker resultWriteQueue;
     private CheckpointReadWorker checkpointReadQueue;
-    private EntityColdStarter coldStarer;
     private ColdEntityWorker coldEntityQueue;
     private String app0 = "app_0";
     private String server1 = "server_1";
@@ -200,7 +194,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         when(clock.instant()).thenReturn(now);
 
         detectorId = "123";
-        modelId = "abc";
         String categoryField = "a";
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Collections.singletonList(categoryField));
 
@@ -257,7 +250,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
-        IndexUtils indexUtils = new IndexUtils(client, mock(ClientUtil.class), clusterService, indexNameResolver);
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
             {
                 put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
@@ -267,8 +259,6 @@ public class MultiEntityResultTests extends AbstractADTest {
             }
         };
         adStats = new ADStats(statsMap);
-
-        searchFeatureDao = mock(SearchFeatureDao.class);
 
         action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -299,7 +289,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         resultWriteQueue = mock(ResultWriteWorker.class);
         checkpointReadQueue = mock(CheckpointReadWorker.class);
 
-        coldStarer = mock(EntityColdStarter.class);
         coldEntityQueue = mock(ColdEntityWorker.class);
 
         attrs1 = new HashMap<>();
@@ -1038,7 +1027,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = new CountDownLatch(3);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            LOG.info("hello:" + inProgress.getCount());
             if (inProgress.getCount() == 3) {
                 inProgress.countDown();
                 listener.onResponse(emptyNonNullResponse);

@@ -29,7 +29,7 @@ import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation.Sing
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
-public class AbstractRetriever {
+public abstract class AbstractRetriever {
     protected double parseAggregation(Aggregation aggregation) {
         Double result = null;
         if (aggregation instanceof SingleValue) {

@@ -30,9 +30,11 @@ import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 import static org.opensearch.ad.constant.CommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.PREVIEW_TIMEOUT_IN_MILLIS;
 import static org.opensearch.ad.util.ParseUtils.batchFeatureQuery;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
@@ -104,6 +106,35 @@ public class SearchFeatureDao extends AbstractRetriever {
     private volatile int maxEntitiesForPreview;
     private volatile int pageSize;
     private final int minimumDocCountForPreview;
+    private long previewTimeoutInMilliseconds;
+    private Clock clock;
+
+    // used for testing as we can mock clock
+    public SearchFeatureDao(
+        Client client,
+        NamedXContentRegistry xContent,
+        Interpolator interpolator,
+        ClientUtil clientUtil,
+        Settings settings,
+        ClusterService clusterService,
+        int minimumDocCount,
+        Clock clock,
+        int maxEntitiesForPreview,
+        int pageSize,
+        long previewTimeoutInMilliseconds
+    ) {
+        this.client = client;
+        this.xContent = xContent;
+        this.interpolator = interpolator;
+        this.clientUtil = clientUtil;
+        this.maxEntitiesForPreview = maxEntitiesForPreview;
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
+        this.pageSize = pageSize;
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
+        this.minimumDocCountForPreview = minimumDocCount;
+        this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
+        this.clock = clock;
+    }
 
     /**
      * Constructor injection.
@@ -126,15 +157,19 @@ public class SearchFeatureDao extends AbstractRetriever {
         ClusterService clusterService,
         int minimumDocCount
     ) {
-        this.client = client;
-        this.xContent = xContent;
-        this.interpolator = interpolator;
-        this.clientUtil = clientUtil;
-        this.maxEntitiesForPreview = MAX_ENTITIES_FOR_PREVIEW.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> maxEntitiesForPreview = it);
-        this.pageSize = PAGE_SIZE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
-        this.minimumDocCountForPreview = minimumDocCount;
+        this(
+            client,
+            xContent,
+            interpolator,
+            clientUtil,
+            settings,
+            clusterService,
+            minimumDocCount,
+            Clock.systemUTC(),
+            MAX_ENTITIES_FOR_PREVIEW.get(settings),
+            PAGE_SIZE.get(settings),
+            PREVIEW_TIMEOUT_IN_MILLIS
+        );
     }
 
     /**
@@ -294,16 +329,13 @@ public class SearchFeatureDao extends AbstractRetriever {
              *   }
              *
              */
-            bucketAggs = AggregationBuilders
-                .composite(
-                    AGG_NAME_TOP,
-                    detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
-                )
-                .size(pageSize);
-            bucketAggs
+            bucketAggs = AggregationBuilders.composite(
+                AGG_NAME_TOP,
+                detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+            )
+                .size(pageSize)
                 .subAggregation(
-                    PipelineAggregatorBuilders
-                        .bucketSort("bucketSort", Arrays.asList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
+                    PipelineAggregatorBuilders.bucketSort("bucketSort", Arrays.asList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
                         .size(maxEntitiesForPreview)
                 );
         }
@@ -314,7 +346,11 @@ public class SearchFeatureDao extends AbstractRetriever {
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client.search(searchRequest, new TopEntitiesListener(listener, detector, searchSourceBuilder));
+        client
+            .search(
+                searchRequest,
+                new TopEntitiesListener(listener, detector, searchSourceBuilder, clock.millis() + previewTimeoutInMilliseconds)
+            );
     }
 
     class TopEntitiesListener implements ActionListener<SearchResponse> {
@@ -322,12 +358,19 @@ public class SearchFeatureDao extends AbstractRetriever {
         private AnomalyDetector detector;
         private List<Entity> topEntities;
         private SearchSourceBuilder searchSourceBuilder;
+        private long expirationEpochMs;
 
-        TopEntitiesListener(ActionListener<List<Entity>> listener, AnomalyDetector detector, SearchSourceBuilder searchSourceBuilder) {
+        TopEntitiesListener(
+            ActionListener<List<Entity>> listener,
+            AnomalyDetector detector,
+            SearchSourceBuilder searchSourceBuilder,
+            long expirationEpochMs
+        ) {
             this.listener = listener;
             this.detector = detector;
             this.topEntities = new ArrayList<>();
             this.searchSourceBuilder = searchSourceBuilder;
+            this.expirationEpochMs = expirationEpochMs;
         }
 
         @Override
@@ -335,7 +378,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             try {
                 Aggregations aggs = response.getAggregations();
                 if (aggs == null) {
-                    listener.onResponse(Collections.emptyList());
+                    listener.onResponse(topEntities);
                     return;
                 }
 
@@ -372,7 +415,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                         topEntities.add(pageResults.get(i));
                     }
                     Map<String, Object> afterKey = compositeAgg.afterKey();
-                    if (topEntities.size() >= maxEntitiesForPreview || afterKey == null) {
+                    if (topEntities.size() >= maxEntitiesForPreview || afterKey == null || expirationEpochMs < clock.millis()) {
                         listener.onResponse(topEntities);
                     } else {
                         updateSourceAfterKey(afterKey, searchSourceBuilder);
@@ -390,6 +433,7 @@ public class SearchFeatureDao extends AbstractRetriever {
 
         @Override
         public void onFailure(Exception e) {
+            logger.error("Fail to pageinate", e);
             listener.onFailure(e);
         }
     }
