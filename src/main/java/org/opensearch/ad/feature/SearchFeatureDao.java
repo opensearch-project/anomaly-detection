@@ -329,13 +329,15 @@ public class SearchFeatureDao extends AbstractRetriever {
              *   }
              *
              */
-            bucketAggs = AggregationBuilders.composite(
-                AGG_NAME_TOP,
-                detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
-            )
+            bucketAggs = AggregationBuilders
+                .composite(
+                    AGG_NAME_TOP,
+                    detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+                )
                 .size(pageSize)
                 .subAggregation(
-                    PipelineAggregatorBuilders.bucketSort("bucketSort", Arrays.asList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
+                    PipelineAggregatorBuilders
+                        .bucketSort("bucketSort", Arrays.asList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
                         .size(maxEntitiesForPreview)
                 );
         }
