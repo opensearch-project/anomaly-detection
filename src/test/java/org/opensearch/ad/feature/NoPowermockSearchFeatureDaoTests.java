@@ -78,7 +78,7 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * SearchFeatureDaoTests uses Powermock and has strange log4j related errors.
- * Create a new class for new tests related to NoPowermockSearchFeatureDaoTests.
+ * Create a new class for new tests related to SearchFeatureDao.
  *
  */
 public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
