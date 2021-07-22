@@ -435,7 +435,7 @@ public class SearchFeatureDao extends AbstractRetriever {
 
         @Override
         public void onFailure(Exception e) {
-            logger.error("Fail to pageinate", e);
+            logger.error("Fail to paginate", e);
             listener.onFailure(e);
         }
     }
