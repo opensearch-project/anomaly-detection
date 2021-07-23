@@ -380,6 +380,10 @@ public class SearchFeatureDao extends AbstractRetriever {
             try {
                 Aggregations aggs = response.getAggregations();
                 if (aggs == null) {
+                    // This would indicate some bug or some opensearch core changes that we are not aware of (we don't keep up-to-date with
+                    // the large amounts of changes there). For example, they may change to if there are results return it; otherwise return
+                    // null instead of an empty Aggregations as they currently do.
+                    logger.warn("Unexpected null aggregation.");
                     listener.onResponse(topEntities);
                     return;
                 }
@@ -417,8 +421,15 @@ public class SearchFeatureDao extends AbstractRetriever {
                         topEntities.add(pageResults.get(i));
                     }
                     Map<String, Object> afterKey = compositeAgg.afterKey();
-                    if (topEntities.size() >= maxEntitiesForPreview || afterKey == null || expirationEpochMs < clock.millis()) {
+                    if (topEntities.size() >= maxEntitiesForPreview || afterKey == null) {
                         listener.onResponse(topEntities);
+                    } else if (expirationEpochMs < clock.millis()) {
+                        if (topEntities.isEmpty()) {
+                            listener.onFailure(new IllegalStateException("timeout to get preview results.  Please retry later."));
+                        } else {
+                            logger.info("timeout to get preview results. Send whatever we have.");
+                            listener.onResponse(topEntities);
+                        }
                     } else {
                         updateSourceAfterKey(afterKey, searchSourceBuilder);
                         client
