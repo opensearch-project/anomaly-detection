@@ -235,7 +235,24 @@ public class AbstractADTest extends OpenSearchTestCase {
      * @param setting the supported setting set.
      */
     public void setupTestNodes(TransportInterceptor transportInterceptor, final Settings nodeSettings, Setting<?>... setting) {
-        nodesCount = randomIntBetween(2, 10);
+        setupTestNodes(transportInterceptor, randomIntBetween(2, 10), nodeSettings, setting);
+    }
+
+    /**
+    *
+    * @param transportInterceptor Interceptor to for transport requests. Used
+    *  to mock transport layer.
+    * @param numberOfNodes number of nodes in the cluster
+    * @param nodeSettings node override of setting
+    * @param setting the supported setting set.
+    */
+    public void setupTestNodes(
+        TransportInterceptor transportInterceptor,
+        int numberOfNodes,
+        final Settings nodeSettings,
+        Setting<?>... setting
+    ) {
+        nodesCount = numberOfNodes;
         testNodes = new FakeNode[nodesCount];
         Set<Setting<?>> settingSet = new HashSet<>(Arrays.asList(setting));
         for (int i = 0; i < testNodes.length; i++) {

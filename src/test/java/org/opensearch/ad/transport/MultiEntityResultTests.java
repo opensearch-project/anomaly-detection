@@ -29,6 +29,8 @@ package org.opensearch.ad.transport;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -42,6 +44,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,6 +63,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
@@ -85,9 +89,7 @@ import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.ml.ThresholdingResult;
@@ -96,6 +98,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.EntityFeatureRequest;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
@@ -103,7 +106,6 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -146,7 +148,6 @@ public class MultiEntityResultTests extends AbstractADTest {
     private NodeStateManager stateManager;
     private static Settings settings;
     private TransportService transportService;
-    private SearchFeatureDao searchFeatureDao;
     private Client client;
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
@@ -159,13 +160,19 @@ public class MultiEntityResultTests extends AbstractADTest {
     private ThreadPool mockThreadPool;
     private String detectorId;
     private Instant now;
-    private String modelId;
     private CacheProvider provider;
     private AnomalyDetectionIndices indexUtil;
     private ResultWriteWorker resultWriteQueue;
     private CheckpointReadWorker checkpointReadQueue;
-    private EntityColdStarter coldStarer;
     private ColdEntityWorker coldEntityQueue;
+    private String app0 = "app_0";
+    private String server1 = "server_1";
+    private String server2 = "server_2";
+    private String server3 = "server_3";
+    private String serviceField = "service";
+    private String hostField = "host";
+    private Map<String, Object> attrs1, attrs2, attrs3;
+    private EntityCache entityCache;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -187,7 +194,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         when(clock.instant()).thenReturn(now);
 
         detectorId = "123";
-        modelId = "abc";
         String categoryField = "a";
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Collections.singletonList(categoryField));
 
@@ -244,7 +250,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
-        IndexUtils indexUtils = new IndexUtils(client, mock(ClientUtil.class), clusterService, indexNameResolver);
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
             {
                 put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
@@ -254,8 +259,6 @@ public class MultiEntityResultTests extends AbstractADTest {
             }
         };
         adStats = new ADStats(statsMap);
-
-        searchFeatureDao = mock(SearchFeatureDao.class);
 
         action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -276,7 +279,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         );
 
         provider = mock(CacheProvider.class);
-        EntityCache entityCache = mock(EntityCache.class);
+        entityCache = mock(EntityCache.class);
         when(provider.get()).thenReturn(entityCache);
         when(entityCache.get(any(), any()))
             .thenReturn(MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build()));
@@ -286,8 +289,19 @@ public class MultiEntityResultTests extends AbstractADTest {
         resultWriteQueue = mock(ResultWriteWorker.class);
         checkpointReadQueue = mock(CheckpointReadWorker.class);
 
-        coldStarer = mock(EntityColdStarter.class);
         coldEntityQueue = mock(ColdEntityWorker.class);
+
+        attrs1 = new HashMap<>();
+        attrs1.put(serviceField, app0);
+        attrs1.put(hostField, server1);
+
+        attrs2 = new HashMap<>();
+        attrs2.put(serviceField, app0);
+        attrs2.put(hostField, server2);
+
+        attrs3 = new HashMap<>();
+        attrs3.put(serviceField, app0);
+        attrs3.put(hostField, server3);
     }
 
     @Override
@@ -366,12 +380,12 @@ public class MultiEntityResultTests extends AbstractADTest {
         };
     }
 
-    private void setUpEntityResult() {
+    private void setUpEntityResult(int nodeIndex) {
         // register entity result action
         new EntityResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             // since we send requests to testNodes[1]
-            testNodes[1].transportService,
+            testNodes[nodeIndex].transportService,
             normalModelManager,
             adCircuitBreakerService,
             provider,
@@ -548,21 +562,17 @@ public class MultiEntityResultTests extends AbstractADTest {
         return new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
     }
 
-    private <T extends TransportResponse> CountDownLatch setUpTransportInterceptor(
-        Function<TransportResponseHandler<T>, TransportResponseHandler<T>> interceptor
-    ) {
+    private CountDownLatch setUpSearchResponse() throws IOException {
+        detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(serviceField, hostField));
         // set up a non-empty response
         CompositeAggregation composite = mock(CompositeAggregation.class);
         when(composite.getName()).thenReturn(CompositeRetriever.AGG_NAME_COMP);
-        Map<String, Object> afterKey = new HashMap<>();
-        afterKey.put("service", "app_0");
-        afterKey.put("host", "server_3");
-        when(composite.afterKey()).thenReturn(afterKey);
+        when(composite.afterKey()).thenReturn(attrs3);
 
         String featureID = detector.getFeatureAttributes().get(0).getId();
         List<CompositeAggregation.Bucket> compositeBuckets = new ArrayList<>();
         CompositeAggregation.Bucket bucket = mock(CompositeAggregation.Bucket.class);
-        when(bucket.getKey()).thenReturn(Collections.singletonMap("app_0", "server_1"));
+        when(bucket.getKey()).thenReturn(attrs1);
         List<Aggregation> aggList = new ArrayList<>();
         aggList.add(new InternalMin(featureID, randomDouble(), DocValueFormat.RAW, new HashMap<>()));
         Aggregations aggregations = new Aggregations(aggList);
@@ -570,7 +580,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         compositeBuckets.add(bucket);
 
         bucket = mock(CompositeAggregation.Bucket.class);
-        when(bucket.getKey()).thenReturn(Collections.singletonMap("app_0", "server_2"));
+        when(bucket.getKey()).thenReturn(attrs2);
         aggList = new ArrayList<>();
         aggList.add(new InternalMin(featureID, randomDouble(), DocValueFormat.RAW, new HashMap<>()));
         aggregations = new Aggregations(aggList);
@@ -578,7 +588,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         compositeBuckets.add(bucket);
 
         bucket = mock(CompositeAggregation.Bucket.class);
-        when(bucket.getKey()).thenReturn(Collections.singletonMap("app_0", "server_3"));
+        when(bucket.getKey()).thenReturn(attrs3);
         aggList = new ArrayList<>();
         aggList.add(new InternalMin(featureID, randomDouble(), DocValueFormat.RAW, new HashMap<>()));
         aggregations = new Aggregations(aggList);
@@ -606,6 +616,12 @@ public class MultiEntityResultTests extends AbstractADTest {
             return null;
         }).when(client).search(any(), any());
 
+        return inProgress;
+    }
+
+    private <T extends TransportResponse> void setUpTransportInterceptor(
+        Function<TransportResponseHandler<T>, TransportResponseHandler<T>> interceptor
+    ) {
         entityResultInterceptor = new TransportInterceptor() {
             @Override
             public AsyncSender interceptSender(AsyncSender sender) {
@@ -636,10 +652,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             }
         };
 
-        setupTestNodes(entityResultInterceptor, settings, MAX_ENTITIES_PER_QUERY, PAGE_SIZE);
-
-        // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        setupTestNodes(entityResultInterceptor, 5, settings, MAX_ENTITIES_PER_QUERY, PAGE_SIZE);
 
         TransportService realTransportService = testNodes[0].transportService;
         ClusterService realClusterService = testNodes[0].clusterService;
@@ -661,13 +674,14 @@ public class MultiEntityResultTests extends AbstractADTest {
             threadPool,
             xContentRegistry()
         );
-
-        return inProgress;
     }
 
-    public void testNonEmptyFeatures() throws InterruptedException {
-        CountDownLatch inProgress = setUpTransportInterceptor(this::entityResultHandler);
-        setUpEntityResult();
+    public void testNonEmptyFeatures() throws InterruptedException, IOException {
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
+        // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        setUpEntityResult(1);
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 
@@ -683,7 +697,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void testCircuitBreakerOpen() throws InterruptedException {
+    public void testCircuitBreakerOpen() throws InterruptedException, IOException {
         ClientUtil clientUtil = mock(ClientUtil.class);
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
@@ -720,7 +734,10 @@ public class MultiEntityResultTests extends AbstractADTest {
             xContentRegistry()
         );
 
-        CountDownLatch inProgress = setUpTransportInterceptor(this::entityResultHandler);
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
+        // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         ADCircuitBreakerService openBreaker = mock(ADCircuitBreakerService.class);
         when(openBreaker.isOpen()).thenReturn(true);
@@ -752,15 +769,335 @@ public class MultiEntityResultTests extends AbstractADTest {
         assertException(listener, LimitExceededException.class, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG);
     }
 
-    // public void testNotAck() {
-    // setUpTransportInterceptor(this::unackEntityResultHandler);
-    // setUpEntityResult();
-    //
-    // PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
-    //
-    // action.doExecute(null, request, listener);
-    //
-    // assertException(listener, InternalFailure.class, AnomalyResultTransportAction.NO_ACK_ERR);
-    // verify(stateManager, times(1)).addPressure(anyString());
-    // }
+    public void testNotAck() throws InterruptedException, IOException {
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::unackEntityResultHandler);
+        // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        setUpEntityResult(1);
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        verify(stateManager, times(1)).addPressure(anyString());
+    }
+
+    public void testMultipleNode() throws InterruptedException, IOException {
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
+
+        Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
+        Entity entity2 = Entity.createEntityByReordering(detectorId, attrs2);
+        Entity entity3 = Entity.createEntityByReordering(detectorId, attrs3);
+
+        // we use ordered attributes values as the key to hashring
+        when(hashRing.getOwningNode(eq(entity1.toString()))).thenReturn(Optional.of(testNodes[2].discoveryNode()));
+
+        when(hashRing.getOwningNode(eq(entity2.toString()))).thenReturn(Optional.of(testNodes[3].discoveryNode()));
+
+        when(hashRing.getOwningNode(eq(entity3.toString()))).thenReturn(Optional.of(testNodes[4].discoveryNode()));
+
+        for (int i = 2; i <= 4; i++) {
+            setUpEntityResult(i);
+        }
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        // since we have 3 results in the first page
+        verify(resultWriteQueue, times(3)).put(any());
+    }
+
+    public void testCacheSelectionError() throws IOException, InterruptedException {
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
+        setUpEntityResult(1);
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+
+        List<Entity> hotEntities = new ArrayList<>();
+        Map<String, Object> attrs4 = new HashMap<>();
+        attrs4.put(serviceField, app0);
+        attrs4.put(hostField, "server_4");
+        Entity entity4 = Entity.createEntityByReordering(detectorId, attrs4);
+        hotEntities.add(entity4);
+
+        List<Entity> coldEntities = new ArrayList<>();
+        Map<String, Object> attrs5 = new HashMap<>();
+        attrs5.put(serviceField, app0);
+        attrs5.put(hostField, "server_5");
+        Entity entity5 = Entity.createEntityByReordering(detectorId, attrs5);
+        coldEntities.add(entity5);
+
+        when(entityCache.selectUpdateCandidate(any(), any(), any())).thenReturn(Pair.of(hotEntities, coldEntities));
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+        // size 0 because cacheMissEntities has no record of these entities
+        verify(checkpointReadQueue).putAll(argThat(new ArgumentMatcher<List<EntityFeatureRequest>>() {
+
+            @Override
+            public boolean matches(List<EntityFeatureRequest> argument) {
+                List<EntityFeatureRequest> arg = (argument);
+                LOG.info("size: " + arg.size());
+                return arg.size() == 0;
+            }
+        }));
+
+        verify(coldEntityQueue).putAll(argThat(new ArgumentMatcher<List<EntityFeatureRequest>>() {
+
+            @Override
+            public boolean matches(List<EntityFeatureRequest> argument) {
+                List<EntityFeatureRequest> arg = (argument);
+                LOG.info("size: " + arg.size());
+                return arg.size() == 0;
+            }
+        }));
+    }
+
+    public void testCacheSelection() throws IOException, InterruptedException {
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+
+        List<Entity> hotEntities = new ArrayList<>();
+        Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
+        hotEntities.add(entity1);
+
+        List<Entity> coldEntities = new ArrayList<>();
+        Entity entity2 = Entity.createEntityByReordering(detectorId, attrs2);
+        coldEntities.add(entity2);
+
+        provider = mock(CacheProvider.class);
+        entityCache = mock(EntityCache.class);
+        when(provider.get()).thenReturn(entityCache);
+        when(entityCache.selectUpdateCandidate(any(), any(), any())).thenReturn(Pair.of(hotEntities, coldEntities));
+        when(entityCache.get(any(), any())).thenReturn(null);
+
+        new EntityResultTransportAction(
+            new ActionFilters(Collections.emptySet()),
+            // since we send requests to testNodes[1]
+            testNodes[1].transportService,
+            normalModelManager,
+            adCircuitBreakerService,
+            provider,
+            stateManager,
+            indexUtil,
+            resultWriteQueue,
+            checkpointReadQueue,
+            coldEntityQueue,
+            threadPool
+        );
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+        verify(checkpointReadQueue).putAll(argThat(new ArgumentMatcher<List<EntityFeatureRequest>>() {
+
+            @Override
+            public boolean matches(List<EntityFeatureRequest> argument) {
+                List<EntityFeatureRequest> arg = (argument);
+                LOG.info("size: " + arg.size() + " ; element: " + arg.get(0));
+                return arg.size() == 1 && arg.get(0).getEntity().equals(entity1);
+            }
+        }));
+
+        verify(coldEntityQueue).putAll(argThat(new ArgumentMatcher<List<EntityFeatureRequest>>() {
+
+            @Override
+            public boolean matches(List<EntityFeatureRequest> argument) {
+                List<EntityFeatureRequest> arg = (argument);
+                LOG.info("size: " + arg.size() + " ; element: " + arg.get(0));
+                return arg.size() == 1 && arg.get(0).getEntity().equals(entity2);
+            }
+        }));
+    }
+
+    public void testNullFeatures() throws InterruptedException {
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        CompositeAggregation emptyComposite = mock(CompositeAggregation.class);
+        when(emptyComposite.getName()).thenReturn(null);
+        when(emptyComposite.afterKey()).thenReturn(null);
+        // empty bucket
+        when(emptyComposite.getBuckets())
+            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return new ArrayList<CompositeAggregation.Bucket>(); });
+        Aggregations emptyAggs = new Aggregations(Collections.singletonList(emptyComposite));
+        SearchResponseSections emptySections = new SearchResponseSections(SearchHits.empty(), emptyAggs, null, false, null, null, 1);
+        SearchResponse nullResponse = new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(nullResponse);
+            inProgressLatch.countDown();
+            return null;
+        }).when(client).search(any(), any());
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgressLatch.await(10000L, TimeUnit.MILLISECONDS));
+
+        PlainActionFuture<AnomalyResultResponse> listener2 = new PlainActionFuture<>();
+        action.doExecute(null, request, listener2);
+
+        AnomalyResultResponse response2 = listener2.actionGet(10000L);
+        assertEquals(Double.NaN, response2.getAnomalyGrade(), 0.01);
+    }
+
+    // empty page but non-null after key will make the CompositeRetriever.PageIterator retry
+    public void testRetry() throws IOException, InterruptedException {
+        detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(serviceField, hostField));
+
+        // set up empty page but non-null after key
+        CompositeAggregation emptyNonNullComposite = mock(CompositeAggregation.class);
+        when(emptyNonNullComposite.getName()).thenReturn(CompositeRetriever.AGG_NAME_COMP);
+        when(emptyNonNullComposite.afterKey()).thenReturn(attrs3);
+
+        List<CompositeAggregation.Bucket> emptyNonNullCompositeBuckets = new ArrayList<>();
+        when(emptyNonNullComposite.getBuckets())
+            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return emptyNonNullCompositeBuckets; });
+
+        Aggregations emptyNonNullAggs = new Aggregations(Collections.singletonList(emptyNonNullComposite));
+
+        SearchResponseSections emptyNonNullSections = new SearchResponseSections(
+            SearchHits.empty(),
+            emptyNonNullAggs,
+            null,
+            false,
+            null,
+            null,
+            1
+        );
+        SearchResponse emptyNonNullResponse = new SearchResponse(
+            emptyNonNullSections,
+            null,
+            1,
+            1,
+            0,
+            0,
+            ShardSearchFailure.EMPTY_ARRAY,
+            Clusters.EMPTY
+        );
+
+        // set up a non-empty response
+        CompositeAggregation composite = mock(CompositeAggregation.class);
+        when(composite.getName()).thenReturn(CompositeRetriever.AGG_NAME_COMP);
+        when(composite.afterKey()).thenReturn(attrs1);
+
+        String featureID = detector.getFeatureAttributes().get(0).getId();
+        List<CompositeAggregation.Bucket> compositeBuckets = new ArrayList<>();
+        CompositeAggregation.Bucket bucket = mock(CompositeAggregation.Bucket.class);
+        when(bucket.getKey()).thenReturn(attrs1);
+        List<Aggregation> aggList = new ArrayList<>();
+        aggList.add(new InternalMin(featureID, randomDouble(), DocValueFormat.RAW, new HashMap<>()));
+        Aggregations aggregations = new Aggregations(aggList);
+        when(bucket.getAggregations()).thenReturn(aggregations);
+        compositeBuckets.add(bucket);
+
+        when(composite.getBuckets()).thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return compositeBuckets; });
+        Aggregations aggs = new Aggregations(Collections.singletonList(composite));
+
+        SearchResponseSections sections = new SearchResponseSections(SearchHits.empty(), aggs, null, false, null, null, 1);
+        SearchResponse nonEmptyResponse = new SearchResponse(sections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
+
+        // set up an empty response
+        SearchResponse emptyResponse = createEmptyResponse();
+
+        CountDownLatch inProgress = new CountDownLatch(3);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            if (inProgress.getCount() == 3) {
+                inProgress.countDown();
+                listener.onResponse(emptyNonNullResponse);
+            } else if (inProgress.getCount() == 2) {
+                inProgress.countDown();
+                listener.onResponse(nonEmptyResponse);
+            } else {
+                inProgress.countDown();
+                listener.onResponse(emptyResponse);
+            }
+            return null;
+        }).when(client).search(any(), any());
+
+        setUpTransportInterceptor(this::entityResultHandler);
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        setUpEntityResult(1);
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        // since we have 3 results in the first page
+        verify(resultWriteQueue, times(1)).put(any());
+    }
+
+    public void testPageToString() {
+        CompositeRetriever retriever = new CompositeRetriever(
+            0,
+            10,
+            detector,
+            xContentRegistry(),
+            client,
+            100,
+            clock,
+            settings,
+            10000,
+            1000
+        );
+        Map<Entity, double[]> results = new HashMap<>();
+        Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
+        double[] val = new double[1];
+        val[0] = 3.0;
+        results.put(entity1, val);
+        CompositeRetriever.Page page = retriever.new Page(results);
+        String repr = page.toString();
+        assertTrue("actual:" + repr, repr.contains(app0));
+        assertTrue("actual:" + repr, repr.contains(server1));
+    }
+
+    public void testEmptyPageToString() {
+        CompositeRetriever retriever = new CompositeRetriever(
+            0,
+            10,
+            detector,
+            xContentRegistry(),
+            client,
+            100,
+            clock,
+            settings,
+            10000,
+            1000
+        );
+
+        CompositeRetriever.Page page = retriever.new Page(null);
+        String repr = page.toString();
+        // we have at least class name
+        assertTrue("actual:" + repr, repr.contains("Page"));
+    }
 }

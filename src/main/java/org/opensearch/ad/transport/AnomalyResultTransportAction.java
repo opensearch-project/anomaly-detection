@@ -323,68 +323,78 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 // wrap expensive operation inside ad threadpool
                 threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
-                    Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
-                        .getResults()
-                        .entrySet()
-                        .stream()
-                        .collect(
-                            Collectors
-                                .groupingBy(
-                                    // from entity name to its node
-                                    e -> hashRing.getOwningNode(e.getKey().toString()).get(),
-                                    Collectors.toMap(Entry::getKey, Entry::getValue)
-                                )
-                        )
-                        .entrySet();
+                    try {
+                        Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
+                            .getResults()
+                            .entrySet()
+                            .stream()
+                            .collect(
+                                Collectors
+                                    .groupingBy(
+                                        // from entity name to its node
+                                        e -> hashRing.getOwningNode(e.getKey().toString()).get(),
+                                        Collectors.toMap(Entry::getKey, Entry::getValue)
+                                    )
+                            )
+                            .entrySet();
 
-                    Iterator<Entry<DiscoveryNode, Map<Entity, double[]>>> iterator = node2Entities.iterator();
+                        Iterator<Entry<DiscoveryNode, Map<Entity, double[]>>> iterator = node2Entities.iterator();
 
-                    while (iterator.hasNext()) {
-                        Entry<DiscoveryNode, Map<Entity, double[]>> entry = iterator.next();
-                        DiscoveryNode modelNode = entry.getKey();
-                        if (modelNode == null) {
-                            iterator.remove();
-                            continue;
+                        while (iterator.hasNext()) {
+                            Entry<DiscoveryNode, Map<Entity, double[]>> entry = iterator.next();
+                            DiscoveryNode modelNode = entry.getKey();
+                            if (modelNode == null) {
+                                iterator.remove();
+                                continue;
+                            }
+                            String modelNodeId = modelNode.getId();
+                            if (stateManager.isMuted(modelNodeId)) {
+                                LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", modelNodeId));
+                                iterator.remove();
+                            }
                         }
-                        String modelNodeId = modelNode.getId();
-                        if (stateManager.isMuted(modelNodeId)) {
-                            LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", modelNodeId));
-                            iterator.remove();
-                        }
+
+                        final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
+                        int nodeCount = node2Entities.size();
+                        AtomicInteger responseCount = new AtomicInteger();
+                        node2Entities.stream().forEach(nodeEntity -> {
+                            DiscoveryNode node = nodeEntity.getKey();
+                            transportService
+                                .sendRequest(
+                                    node,
+                                    EntityResultAction.NAME,
+                                    new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
+                                    option,
+                                    new ActionListenerResponseHandler<>(
+                                        new EntityResultListener(
+                                            node.getId(),
+                                            detectorId,
+                                            failure,
+                                            nodeCount,
+                                            pageIterator,
+                                            this,
+                                            responseCount
+                                        ),
+                                        AcknowledgedResponse::new,
+                                        ThreadPool.Names.SAME
+                                    )
+                                );
+                        });
+                    } catch (Exception e) {
+                        LOG.error("Unexpected exception", e);
+                        handleException(e);
                     }
-
-                    final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
-                    int nodeCount = node2Entities.size();
-                    AtomicInteger responseCount = new AtomicInteger();
-                    node2Entities.stream().forEach(nodeEntity -> {
-                        DiscoveryNode node = nodeEntity.getKey();
-                        transportService
-                            .sendRequest(
-                                node,
-                                EntityResultAction.NAME,
-                                new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
-                                option,
-                                new ActionListenerResponseHandler<>(
-                                    new EntityResultListener(
-                                        node.getId(),
-                                        detectorId,
-                                        failure,
-                                        nodeCount,
-                                        pageIterator,
-                                        this,
-                                        responseCount
-                                    ),
-                                    AcknowledgedResponse::new,
-                                    ThreadPool.Names.SAME
-                                )
-                            );
-                    });
                 });
             }
         }
 
         @Override
         public void onFailure(Exception e) {
+            LOG.error("Unexpetected exception", e);
+            handleException(e);
+        }
+
+        private void handleException(Exception e) {
             Exception convertedException = convertedQueryFailureException(e, detectorId);
             if (false == (convertedException instanceof AnomalyDetectionException)) {
                 Throwable cause = ExceptionsHelper.unwrapCause(convertedException);
@@ -1211,6 +1221,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 }
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
+                handleException(ex);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
                     pageIterator.next(pageListener);
@@ -1224,18 +1235,23 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 // e.g., we have connection issues with all of the nodes while restarting clusters
                 LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, adID), e);
 
-                handlePredictionFailure(e, adID, nodeId, failure);
-
-                if (failure.get() != null) {
-                    stateManager.setException(adID, failure.get());
-                }
+                handleException(e);
 
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
+                handleException(ex);
             } finally {
                 if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
                     pageIterator.next(pageListener);
                 }
+            }
+        }
+
+        private void handleException(Exception e) {
+            handlePredictionFailure(e, adID, nodeId, failure);
+
+            if (failure.get() != null) {
+                stateManager.setException(adID, failure.get());
             }
         }
     }
