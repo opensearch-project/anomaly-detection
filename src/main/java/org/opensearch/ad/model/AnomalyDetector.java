@@ -45,6 +45,7 @@ import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParseField;
@@ -211,8 +212,13 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         if (detectionInterval == null) {
             throw new IllegalArgumentException("Detection interval should be set");
         }
-        if (shingleSize != null && shingleSize < 1) {
-            throw new IllegalArgumentException("Shingle size must be a positive integer");
+        if (shingleSize != null && (shingleSize < 1 || shingleSize > AnomalyDetectorSettings.MAX_SHINGLE_SIZE)) {
+            throw new IllegalArgumentException(
+                "Shingle size must be a positive integer no larger than "
+                    + AnomalyDetectorSettings.MAX_SHINGLE_SIZE
+                    + ". Got "
+                    + shingleSize
+            );
         }
         int maxCategoryFields = NumericSetting.maxCategoricalFields();
         if (categoryFields != null && categoryFields.size() > maxCategoryFields) {
