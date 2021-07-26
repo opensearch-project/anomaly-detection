@@ -195,7 +195,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(Settings.EMPTY)
         );
         // MAX_ENTITIES_FOR_PREVIEW does not use legacy setting
-        assertEquals(Integer.valueOf(10), AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(Settings.EMPTY));
+        assertEquals(Integer.valueOf(5), AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(Settings.EMPTY));
         // INDEX_PRESSURE_SOFT_LIMIT does not use legacy setting
         assertEquals(Float.valueOf(0.6f), AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.get(Settings.EMPTY));
         assertEquals(
@@ -303,8 +303,8 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY.get(settings), Integer.valueOf(83));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY.get(settings), Integer.valueOf(1000));
 
-        settings = Settings.builder().put("plugins.anomaly_detection.max_entities_for_preview", 82).build();
-        assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(82));
+        settings = Settings.builder().put("plugins.anomaly_detection.max_entities_for_preview", 22).build();
+        assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(22));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(30));
 
         settings = Settings.builder().put("plugins.anomaly_detection.index_pressure_soft_limit", 81f).build();
@@ -384,7 +384,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(true));
         assertEquals(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings), Double.valueOf(0.6D));
         // MAX_ENTITIES_FOR_PREVIEW uses default instead of legacy fallback
-        assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(10));
+        assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(5));
         // INDEX_PRESSURE_SOFT_LIMIT uses default instead of legacy fallback
         assertEquals(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.get(settings), Float.valueOf(0.6F));
         assertEquals(AnomalyDetectorSettings.MAX_PRIMARY_SHARDS.get(settings), Integer.valueOf(21));

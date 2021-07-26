@@ -28,6 +28,7 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -35,6 +36,7 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -46,6 +48,10 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.common.exception.ClientException;
+import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -72,6 +78,8 @@ public class PreviewAnomalyDetectorTransportAction extends
     private final NamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
     private volatile Boolean filterByEnabled;
+    private final ADCircuitBreakerService adCircuitBreakerService;
+    private Semaphore lock;
 
     @Inject
     public PreviewAnomalyDetectorTransportAction(
@@ -81,7 +89,8 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionFilters actionFilters,
         Client client,
         AnomalyDetectorRunner anomalyDetectorRunner,
-        NamedXContentRegistry xContentRegistry
+        NamedXContentRegistry xContentRegistry,
+        ADCircuitBreakerService adCircuitBreakerService
     ) {
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
@@ -92,6 +101,9 @@ public class PreviewAnomalyDetectorTransportAction extends
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        this.adCircuitBreakerService = adCircuitBreakerService;
+        this.lock = new Semaphore(MAX_CONCURRENT_PREVIEW.get(settings), true);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CONCURRENT_PREVIEW, it -> { lock = new Semaphore(it); });
     }
 
     @Override
@@ -120,21 +132,44 @@ public class PreviewAnomalyDetectorTransportAction extends
         ThreadContext.StoredContext context,
         ActionListener<PreviewAnomalyDetectorResponse> listener
     ) {
+        if (adCircuitBreakerService.isOpen()) {
+            listener
+                .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+            return;
+        }
         try {
-            AnomalyDetector detector = request.getDetector();
-            String detectorId = request.getDetectorId();
-            Instant startTime = request.getStartTime();
-            Instant endTime = request.getEndTime();
-            if (detector != null) {
-                String error = validateDetector(detector);
-                if (StringUtils.isNotBlank(error)) {
-                    listener.onFailure(new OpenSearchException(error, RestStatus.BAD_REQUEST));
-                    return;
+            if (!lock.tryAcquire()) {
+                listener.onFailure(new ClientException(request.getDetectorId(), CommonErrorMessages.REQUEST_THROTTLED_MSG));
+                return;
+            }
+
+            try {
+                AnomalyDetector detector = request.getDetector();
+                String detectorId = request.getDetectorId();
+                Instant startTime = request.getStartTime();
+                Instant endTime = request.getEndTime();
+                ActionListener<PreviewAnomalyDetectorResponse> releaseListener = ActionListener.runAfter(listener, () -> lock.release());
+                if (detector != null) {
+                    String error = validateDetector(detector);
+                    if (StringUtils.isNotBlank(error)) {
+                        listener.onFailure(new OpenSearchException(error, RestStatus.BAD_REQUEST));
+                        lock.release();
+                        return;
+                    }
+                    anomalyDetectorRunner
+                        .executeDetector(
+                            detector,
+                            startTime,
+                            endTime,
+                            context,
+                            getPreviewDetectorActionListener(releaseListener, detector)
+                        );
+                } else {
+                    previewAnomalyDetector(releaseListener, detectorId, startTime, endTime, context);
                 }
-                anomalyDetectorRunner
-                    .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
-            } else {
-                previewAnomalyDetector(listener, detectorId, startTime, endTime, context);
+            } catch (Exception e) {
+                logger.error("Fail to preview", e);
+                lock.release();
             }
         } catch (Exception e) {
             logger.error(e);

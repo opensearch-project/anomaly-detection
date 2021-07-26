@@ -44,6 +44,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
@@ -64,8 +65,6 @@ import java.util.function.BiConsumer;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.junit.Test;
@@ -142,7 +141,7 @@ import com.google.gson.Gson;
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
 @PrepareForTest({ ParseUtils.class, Gson.class })
 public class SearchFeatureDaoTests {
-    private final Logger LOG = LogManager.getLogger(SearchFeatureDaoTests.class);
+    // private final Logger LOG = LogManager.getLogger(SearchFeatureDaoTests.class);
 
     private SearchFeatureDao searchFeatureDao;
 
@@ -185,6 +184,9 @@ public class SearchFeatureDaoTests {
     @Mock
     private ClusterService clusterService;
 
+    @Mock
+    private Clock clock;
+
     private SearchRequest searchRequest;
     private SearchSourceBuilder searchSourceBuilder;
     private MultiSearchRequest multiSearchRequest;
@@ -192,13 +194,15 @@ public class SearchFeatureDaoTests {
     private IntervalTimeConfiguration detectionInterval;
     private String detectorId;
     private Gson gson;
+    private Interpolator interpolator;
+    private Settings settings;
 
     @Before
     public void setup() throws Exception {
         MockitoAnnotations.initMocks(this);
         PowerMockito.mockStatic(ParseUtils.class);
 
-        Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
+        interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
 
         ExecutorService executorService = mock(ExecutorService.class);
         when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
@@ -208,14 +212,27 @@ public class SearchFeatureDaoTests {
             return null;
         }).when(executorService).execute(any(Runnable.class));
 
-        Settings settings = Settings.EMPTY;
+        settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW)))
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE))
+                )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        searchFeatureDao = spy(new SearchFeatureDao(client, xContent, interpolator, clientUtil, settings, clusterService, gson));
+        searchFeatureDao = spy(
+            new SearchFeatureDao(
+                client,
+                xContent,
+                interpolator,
+                clientUtil,
+                settings,
+                clusterService,
+                AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
+            )
+        );
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         detectorId = "123";
@@ -229,10 +246,8 @@ public class SearchFeatureDaoTests {
 
         searchSourceBuilder = SearchSourceBuilder
             .fromXContent(XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, "{}"));
-        // searchRequestParams = new HashMap<>();
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
         aggsMap = new HashMap<>();
-        // aggsList = new ArrayList<>();
 
         when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX_TIME);
         List<Aggregation> list = new ArrayList<>();

@@ -60,4 +60,6 @@ public class CommonErrorMessages {
     public static String getTooManyCategoricalFieldErr(int limit) {
         return String.format(Locale.ROOT, TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT, limit);
     }
+
+    public static final String REQUEST_THROTTLED_MSG = "Request throttled. Please try again later.";
 }
