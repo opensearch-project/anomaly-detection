@@ -40,6 +40,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.ADTask;
@@ -47,11 +49,13 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.config.Precision;
 
 /**
  * AD batch task cache which will hold RCF, threshold model, shingle and training data.
  */
 public class ADBatchTaskCache {
+    private static final Logger LOG = LogManager.getLogger(ADBatchTaskCache.class);
     private final String detectorId;
     private final String taskId;
     private RandomCutForest rcfModel;
@@ -70,14 +74,20 @@ public class ADBatchTaskCache {
         this.taskId = adTask.getTaskId();
 
         AnomalyDetector detector = adTask.getDetector();
+        int dimensions = detector.getShingleSize() * detector.getEnabledFeatureIds().size();
         rcfModel = RandomCutForest
             .builder()
-            .dimensions(detector.getShingleSize() * detector.getEnabledFeatureIds().size())
+            .dimensions(dimensions)
             .numberOfTrees(NUM_TREES)
-            .lambda(TIME_DECAY)
+            .timeDecay(TIME_DECAY)
             .sampleSize(NUM_SAMPLES_PER_TREE)
             .outputAfter(NUM_MIN_SAMPLES)
             .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(dimensions)
             .build();
 
         this.thresholdModel = new HybridThresholdingModel(
