@@ -120,7 +120,7 @@ public class DeleteModelTransportAction extends
                 ActionListener
                     .wrap(
                         r -> LOG.info("Deleted model for [{}] with response [{}] ", adID, r),
-                        e -> LOG.error("fail to delete model for " + adID, e)
+                        e -> LOG.error("Fail to delete model for " + adID, e)
                     )
             );
 
