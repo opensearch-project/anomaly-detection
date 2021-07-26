@@ -590,7 +590,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 DiscoveryNode node = rcfNode.get();
                 String rcfNodeId = node.getId();
                 if (stateManager.isMuted(rcfNodeId, adID)) {
-                    LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for %s", rcfNodeId, rcfModelID));
+                    LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for model %s", rcfNodeId, rcfModelID));
                     continue;
                 }
                 modelIdToNodeId.put(rcfModelID, Pair.of(rcfNodeId, node));
