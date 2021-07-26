@@ -350,7 +350,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             }
                             String modelNodeId = modelNode.getId();
                             if (stateManager.isMuted(modelNodeId, detectorId)) {
-                                LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for %s", modelNodeId, detectorId));
+                                LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for detector %s", modelNodeId, detectorId));
                                 iterator.remove();
                             }
 
