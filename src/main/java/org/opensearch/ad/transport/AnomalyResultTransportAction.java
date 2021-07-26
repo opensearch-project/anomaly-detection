@@ -743,8 +743,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             || (causeException instanceof IndexNotFoundException
                 && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
-            // this might be caused by old node using RCF 1.0 cannot recognize new checkpoint produced by
-            // the coordinating node using compact RCF. Add pressure to mute the node after consecutive failures.
+            // During a rolling upgrade or blue/green deployment, ResourceNotFoundException might be caused by old node using RCF 1.0
+            // cannot recognize new checkpoint produced by the coordinating node using compact RCF. Add pressure to mute the node
+            // after consecutive failures.
             stateManager.addPressure(nodeId, adID);
         } else if (ExceptionUtil.isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
             failure.set(new LimitExceededException(adID, causeException.getMessage(), false));
