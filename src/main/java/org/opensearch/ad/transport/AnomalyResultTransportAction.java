@@ -327,15 +327,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
                     try {
 
-                        Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures.getResults()
+                        Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
+                            .getResults()
                             .entrySet()
                             .stream()
                             .collect(
-                                Collectors.groupingBy(
-                                    // from entity name to its node
-                                    e -> hashRing.getOwningNode(e.getKey().toString()).get(),
-                                    Collectors.toMap(Entry::getKey, Entry::getValue)
-                                )
+                                Collectors
+                                    .groupingBy(
+                                        // from entity name to its node
+                                        e -> hashRing.getOwningNode(e.getKey().toString()).get(),
+                                        Collectors.toMap(Entry::getKey, Entry::getValue)
+                                    )
                             )
                             .entrySet();
 
@@ -350,7 +352,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             }
                             String modelNodeId = modelNode.getId();
                             if (stateManager.isMuted(modelNodeId, detectorId)) {
-                                LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for detector %s", modelNodeId, detectorId));
+                                LOG
+                                    .info(
+                                        String
+                                            .format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for detector %s", modelNodeId, detectorId)
+                                    );
                                 iterator.remove();
                             }
 
@@ -359,25 +365,26 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             AtomicInteger responseCount = new AtomicInteger();
                             node2Entities.stream().forEach(nodeEntity -> {
                                 DiscoveryNode node = nodeEntity.getKey();
-                                transportService.sendRequest(
-                                    node,
-                                    EntityResultAction.NAME,
-                                    new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
-                                    option,
-                                    new ActionListenerResponseHandler<>(
-                                        new EntityResultListener(
-                                            node.getId(),
-                                            detectorId,
-                                            failure,
-                                            nodeCount,
-                                            pageIterator,
-                                            this,
-                                            responseCount
-                                        ),
-                                        AcknowledgedResponse::new,
-                                        ThreadPool.Names.SAME
-                                    )
-                                );
+                                transportService
+                                    .sendRequest(
+                                        node,
+                                        EntityResultAction.NAME,
+                                        new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
+                                        option,
+                                        new ActionListenerResponseHandler<>(
+                                            new EntityResultListener(
+                                                node.getId(),
+                                                detectorId,
+                                                failure,
+                                                nodeCount,
+                                                pageIterator,
+                                                this,
+                                                responseCount
+                                            ),
+                                            AcknowledgedResponse::new,
+                                            ThreadPool.Names.SAME
+                                        )
+                                    );
                             });
                         }
                     } catch (Exception e) {
@@ -1078,7 +1085,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 .onFailure(
                     new InternalFailure(
                         adID,
-                        String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for %s", thresholdNodeId, thresholdModelID)
+                        String
+                            .format(
+                                Locale.ROOT,
+                                NODE_UNRESPONSIVE_ERR_MSG + " %s for threshold model %s",
+                                thresholdNodeId,
+                                thresholdModelID
+                            )
                     )
                 );
             return false;
