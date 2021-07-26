@@ -58,7 +58,6 @@ import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.ScriptMaker;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -343,7 +342,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clientUtil,
             settings,
             clusterService,
-            gson
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
         );
 
         JvmService jvmService = new JvmService(environment.settings());
@@ -723,8 +722,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 checkpointReadQueue,
                 checkpointWriteQueue,
                 coldEntityQueue,
-                entityColdStarter,
-                new ScriptMaker()
+                entityColdStarter
             );
     }
 
@@ -840,6 +838,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                 AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
                 AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW,
                 AnomalyDetectorSettings.PAGE_SIZE
             );
         return unmodifiableList(
