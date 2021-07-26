@@ -29,6 +29,7 @@ package org.opensearch.ad.transport;
 import static org.opensearch.action.ValidateActions.addValidationError;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -39,6 +40,7 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -47,8 +49,8 @@ import org.opensearch.common.xcontent.XContentBuilder;
 
 public class EntityResultRequest extends ActionRequest implements ToXContentObject {
     private static final Logger LOG = LogManager.getLogger(EntityResultRequest.class);
-
     private String detectorId;
+    // changed from Map<String, double[]> to Map<Entity, double[]>
     private Map<Entity, double[]> entities;
     private long start;
     private long end;
@@ -56,7 +58,25 @@ public class EntityResultRequest extends ActionRequest implements ToXContentObje
     public EntityResultRequest(StreamInput in) throws IOException {
         super(in);
         this.detectorId = in.readString();
-        this.entities = in.readMap(Entity::new, StreamInput::readDoubleArray);
+
+        // guarded with version check. Just in case we receive requests from older node where we use String
+        // to represent an entity
+        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+            this.entities = in.readMap(Entity::new, StreamInput::readDoubleArray);
+        } else {
+            // receive a request from a version before OpenSearch 1.1
+            // the old request uses Map<String, double[]> instead of Map<Entity, double[]> to represent entities
+            // since it only supports one categorical field.
+            Map<String, double[]> oldFormatEntities = in.readMap(StreamInput::readString, StreamInput::readDoubleArray);
+            entities = new HashMap<>();
+            for (Map.Entry<String, double[]> entry : oldFormatEntities.entrySet()) {
+                // we don't know the category field name as we don't have access to detector config object
+                // so we put empty string as the category field name for now. Will handle the case
+                // in EntityResultTransportAciton.
+                entities.put(Entity.createSingleAttributeEntity(detectorId, CommonName.EMPTY_FIELD, entry.getKey()), entry.getValue());
+            }
+        }
+
         this.start = in.readLong();
         this.end = in.readLong();
     }
@@ -89,7 +109,26 @@ public class EntityResultRequest extends ActionRequest implements ToXContentObje
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(this.detectorId);
-        out.writeMap(entities, (s, e) -> e.writeTo(s), StreamOutput::writeDoubleArray);
+        // guarded with version check. Just in case we send requests to older node where we use String
+        // to represent an entity
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            out.writeMap(entities, (s, e) -> e.writeTo(s), StreamOutput::writeDoubleArray);
+        } else {
+            Map<String, double[]> oldFormatEntities = new HashMap<>();
+            for (Map.Entry<Entity, double[]> entry : entities.entrySet()) {
+                Map<String, String> attributes = entry.getKey().getAttributes();
+                if (attributes.size() != 1) {
+                    // cannot send a multi-category field entity to old node since it will
+                    // cause EOF exception and stop the detector. Cannot log the entity
+                    // either as there can be a huge number of entities. Since the issue
+                    // is temporary and will be gone after upgrade completes, ignore them.
+                    continue;
+                }
+                oldFormatEntities.put(entry.getKey().getAttributes().entrySet().iterator().next().getValue(), entry.getValue());
+            }
+            out.writeMap(oldFormatEntities, StreamOutput::writeString, StreamOutput::writeDoubleArray);
+        }
+
         out.writeLong(this.start);
         out.writeLong(this.end);
     }

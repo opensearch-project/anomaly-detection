@@ -50,6 +50,7 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.EntityModel;
@@ -188,6 +189,25 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
             Map<Entity, double[]> cacheMissEntities = new HashMap<>();
             for (Entry<Entity, double[]> entityEntry : request.getEntities().entrySet()) {
                 Entity categoricalValues = entityEntry.getKey();
+
+                Map<String, String> attrValues = categoricalValues.getAttributes();
+                if (attrValues.containsKey(CommonName.EMPTY_FIELD)
+                    && detector.getCategoryField() != null
+                    && detector.getCategoryField().size() == 1) {
+                    // handle a request from a version before OpenSearch 1.1. Read EntityResultRequest(StreamInput in) for details.
+                    categoricalValues = Entity
+                        .createSingleAttributeEntity(
+                            detectorId,
+                            detector.getCategoryField().get(0),
+                            attrValues.get(CommonName.EMPTY_FIELD)
+                        );
+                }
+
+                attrValues = categoricalValues.getAttributes();
+                if (attrValues != null && attrValues.containsKey(CommonName.EMPTY_FIELD)) {
+                    // above remediation is not useful, skip the entity
+                    continue;
+                }
 
                 Optional<String> modelIdOptional = categoricalValues.getModelId(detectorId);
                 if (false == modelIdOptional.isPresent()) {

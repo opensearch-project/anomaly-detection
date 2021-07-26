@@ -38,6 +38,7 @@ import org.opensearch.action.support.nodes.BaseNodesResponse;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -57,6 +58,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
     static final String MODELS = CommonName.MODELS;
     static final String TOTAL_UPDATES = CommonName.TOTAL_UPDATES;
 
+    // changed from ModelProfile to ModelProfileOnNode since Opensearch 1.1
     private ModelProfileOnNode[] modelProfile;
     private int shingleSize;
     private String coordinatingNode;
@@ -75,8 +77,15 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         int size = in.readVInt();
         modelProfile = new ModelProfileOnNode[size];
         for (int i = 0; i < size; i++) {
-            modelProfile[i] = new ModelProfileOnNode(in);
+            if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+                modelProfile[i] = new ModelProfileOnNode(in);
+            } else {
+                // we don't have model information from old node
+                ModelProfile profile = new ModelProfile(in);
+                modelProfile[i] = new ModelProfileOnNode(CommonName.EMPTY_FIELD, profile);
+            }
         }
+
         shingleSize = in.readInt();
         coordinatingNode = in.readString();
         totalSizeInBytes = in.readVLong();
@@ -137,9 +146,18 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeVInt(modelProfile.length);
-        for (ModelProfileOnNode profile : modelProfile) {
-            profile.writeTo(out);
+
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            for (ModelProfileOnNode profile : modelProfile) {
+                profile.writeTo(out);
+            }
+        } else {
+            for (ModelProfileOnNode profile : modelProfile) {
+                ModelProfile oldFormatModelProfile = profile.getModelProfile();
+                oldFormatModelProfile.writeTo(out);
+            }
         }
+
         out.writeInt(shingleSize);
         out.writeString(coordinatingNode);
         out.writeVLong(totalSizeInBytes);

@@ -52,6 +52,10 @@ public class ModelProfileOnNode implements Writeable, ToXContent {
         return nodeId;
     }
 
+    public ModelProfile getModelProfile() {
+        return modelProfile;
+    }
+
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();

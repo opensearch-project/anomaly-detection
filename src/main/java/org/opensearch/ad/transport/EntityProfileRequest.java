@@ -32,12 +32,15 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -45,16 +48,28 @@ import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 
 public class EntityProfileRequest extends ActionRequest implements ToXContentObject {
+    private static final Logger LOG = LogManager.getLogger(EntityProfileRequest.class);
     public static final String ENTITY = "entity";
     public static final String PROFILES = "profiles";
     private String adID;
+    // changed from String to Entity since 1.1
     private Entity entityValue;
     private Set<EntityProfileName> profilesToCollect;
 
     public EntityProfileRequest(StreamInput in) throws IOException {
         super(in);
         adID = in.readString();
-        entityValue = new Entity(in);
+        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+            entityValue = new Entity(in);
+        } else {
+            // entity profile involving an old node won't work. Read
+            // EntityProfileTransportAction.doExecute for details. Read
+            // a string to not cause EOF exception.
+            // Cannot assign null to entityValue as old node has no logic to
+            // deal with a null entity.
+            String oldFormatEntityString = in.readString();
+            entityValue = Entity.createSingleAttributeEntity(adID, CommonName.EMPTY_FIELD, oldFormatEntityString);
+        }
         int size = in.readVInt();
         profilesToCollect = new HashSet<EntityProfileName>();
         if (size != 0) {
@@ -87,7 +102,14 @@ public class EntityProfileRequest extends ActionRequest implements ToXContentObj
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(adID);
-        entityValue.writeTo(out);
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            entityValue.writeTo(out);
+        } else {
+            // entity profile involving an old node won't work. Read
+            // EntityProfileTransportAction.doExecute for details. Write
+            // a string to not cause EOF exception.
+            out.writeString(entityValue.toString());
+        }
         out.writeVInt(profilesToCollect.size());
         for (EntityProfileName profile : profilesToCollect) {
             out.writeEnum(profile);

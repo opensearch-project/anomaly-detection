@@ -134,4 +134,9 @@ public class CommonName {
     public static final String END_JSON_KEY = "end";
     public static final String VALUE_JSON_KEY = "value";
     public static final String ENTITIES_JSON_KEY = "entities";
+
+    // ======================================
+    // Used for backward-compatibility in messaging
+    // ======================================
+    public static final String EMPTY_FIELD = "";
 }
