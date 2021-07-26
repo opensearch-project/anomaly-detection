@@ -32,6 +32,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -120,7 +122,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String NO_MODEL_ERR_MSG = "No RCF models are available either because RCF"
         + " models are not ready or all nodes are unresponsive or the system might have bugs.";
     static final String WAIT_FOR_THRESHOLD_ERR_MSG = "Exception in waiting for threshold result";
-    static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute model";
+    static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute node";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
     static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = OpenSearchException.getExceptionName(new LimitExceededException("", ""));
@@ -324,17 +326,16 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 // wrap expensive operation inside ad threadpool
                 threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
                     try {
-                        Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
-                            .getResults()
+
+                        Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures.getResults()
                             .entrySet()
                             .stream()
                             .collect(
-                                Collectors
-                                    .groupingBy(
-                                        // from entity name to its node
-                                        e -> hashRing.getOwningNode(e.getKey().toString()).get(),
-                                        Collectors.toMap(Entry::getKey, Entry::getValue)
-                                    )
+                                Collectors.groupingBy(
+                                    // from entity name to its node
+                                    e -> hashRing.getOwningNode(e.getKey().toString()).get(),
+                                    Collectors.toMap(Entry::getKey, Entry::getValue)
+                                )
                             )
                             .entrySet();
 
@@ -348,19 +349,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 continue;
                             }
                             String modelNodeId = modelNode.getId();
-                            if (stateManager.isMuted(modelNodeId)) {
-                                LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", modelNodeId));
+                            if (stateManager.isMuted(modelNodeId, detectorId)) {
+                                LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for %s", modelNodeId, detectorId));
                                 iterator.remove();
                             }
-                        }
 
-                        final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
-                        int nodeCount = node2Entities.size();
-                        AtomicInteger responseCount = new AtomicInteger();
-                        node2Entities.stream().forEach(nodeEntity -> {
-                            DiscoveryNode node = nodeEntity.getKey();
-                            transportService
-                                .sendRequest(
+                            final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
+                            int nodeCount = node2Entities.size();
+                            AtomicInteger responseCount = new AtomicInteger();
+                            node2Entities.stream().forEach(nodeEntity -> {
+                                DiscoveryNode node = nodeEntity.getKey();
+                                transportService.sendRequest(
                                     node,
                                     EntityResultAction.NAME,
                                     new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
@@ -379,7 +378,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                         ThreadPool.Names.SAME
                                     )
                                 );
-                        });
+                            });
+                        }
                     } catch (Exception e) {
                         LOG.error("Unexpected exception", e);
                         handleException(e);
@@ -577,6 +577,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             final AtomicInteger responseCount = new AtomicInteger();
 
+            Map<String, Pair<String, DiscoveryNode>> modelIdToNodeId = new HashMap<>();
+
             for (int i = 0; i < rcfPartitionNum; i++) {
                 String rcfModelID = modelPartitioner.getRcfModelId(adID, i);
 
@@ -584,17 +586,29 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 if (!rcfNode.isPresent()) {
                     continue;
                 }
-                String rcfNodeId = rcfNode.get().getId();
-                if (stateManager.isMuted(rcfNodeId)) {
-                    LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", rcfNodeId));
+
+                DiscoveryNode node = rcfNode.get();
+                String rcfNodeId = node.getId();
+                if (stateManager.isMuted(rcfNodeId, adID)) {
+                    LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for %s", rcfNodeId, rcfModelID));
                     continue;
                 }
+                modelIdToNodeId.put(rcfModelID, Pair.of(rcfNodeId, node));
+            }
 
-                LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelID);
+            int responsesToCollect = modelIdToNodeId.size();
+            for (Map.Entry<String, Pair<String, DiscoveryNode>> entry : modelIdToNodeId.entrySet()) {
+
+                String rcfModelId = entry.getKey();
+                Pair<String, DiscoveryNode> rcfNodePair = entry.getValue();
+                String rcfNodeId = rcfNodePair.getLeft();
+                DiscoveryNode rcfNode = rcfNodePair.getRight();
+
+                LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelId);
 
                 RCFActionListener rcfListener = new RCFActionListener(
                     rcfResults,
-                    rcfModelID.toString(),
+                    rcfModelId.toString(),
                     failure,
                     rcfNodeId,
                     detector,
@@ -602,7 +616,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     thresholdModelID,
                     thresholdNode,
                     featureInResponse,
-                    rcfPartitionNum,
+                    responsesToCollect,
                     responseCount,
                     adID,
                     detector.getEnabledFeatureIds().size()
@@ -610,9 +624,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 transportService
                     .sendRequest(
-                        rcfNode.get(),
+                        rcfNode,
                         RCFResultAction.NAME,
-                        new RCFResultRequest(adID, rcfModelID, featureOptional.getProcessedFeatures().get()),
+                        new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
                         option,
                         new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
                     );
@@ -709,7 +723,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         return previousException.orElse(new InternalFailure(adID, NO_MODEL_ERR_MSG));
     }
 
-    private void findException(Throwable cause, String adID, AtomicReference<AnomalyDetectionException> failure) {
+    private void findException(Throwable cause, String adID, AtomicReference<AnomalyDetectionException> failure, String nodeId) {
         if (cause instanceof Error) {
             // we cannot do anything with Error.
             LOG.error(new ParameterizedMessage("Error during prediction for {}: ", adID), cause);
@@ -722,6 +736,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             || (causeException instanceof IndexNotFoundException
                 && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
+            // this might be caused by old node using RCF 1.0 cannot recognize new checkpoint produced by
+            // the coordinating node using compact RCF. Add pressure to mute the node after consecutive failures.
+            stateManager.addPressure(nodeId, adID);
         } else if (ExceptionUtil.isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
             failure.set(new LimitExceededException(adID, causeException.getMessage(), false));
         } else if (causeException instanceof OpenSearchTimeoutException) {
@@ -812,7 +829,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         @Override
         public void onResponse(RCFResultResponse response) {
             try {
-                stateManager.resetBackpressureCounter(rcfNodeID);
+                stateManager.resetBackpressureCounter(rcfNodeID, adID);
                 if (response != null) {
                     rcfResults.add(response);
                 } else {
@@ -917,7 +934,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             try {
                 anomalyResultResponse
                     .set(new AnomalyResultResponse(response.getAnomalyGrade(), response.getConfidence(), Double.NaN, features));
-                stateManager.resetBackpressureCounter(thresholdNodeID);
+                stateManager.resetBackpressureCounter(thresholdNodeID, adID);
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
             } finally {
@@ -972,9 +989,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
         Throwable cause = ExceptionsHelper.unwrapCause(e);
         if (hasConnectionIssue(cause)) {
-            handleConnectionException(nodeID);
+            handleConnectionException(nodeID, adID);
         } else {
-            findException(cause, adID, failure);
+            findException(cause, adID, failure, nodeID);
         }
     }
 
@@ -996,13 +1013,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             || e instanceof ActionNotFoundTransportException;
     }
 
-    private void handleConnectionException(String node) {
+    private void handleConnectionException(String node, String detectorId) {
         final DiscoveryNodes nodes = clusterService.state().nodes();
         if (!nodes.nodeExists(node) && hashRing.build()) {
             return;
         }
         // rebuilding is not done or node is unresponsive
-        stateManager.addPressure(node);
+        stateManager.addPressure(node, detectorId);
     }
 
     /**
@@ -1056,8 +1073,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             return false;
         }
 
-        if (stateManager.isMuted(thresholdNodeId)) {
-            listener.onFailure(new InternalFailure(adID, String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s", thresholdModelID)));
+        if (stateManager.isMuted(thresholdNodeId, adID)) {
+            listener
+                .onFailure(
+                    new InternalFailure(
+                        adID,
+                        String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for %s", thresholdNodeId, thresholdModelID)
+                    )
+                );
             return false;
         }
 
@@ -1157,7 +1180,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         if (previousException.isPresent()) {
             Exception exception = previousException.get();
-            LOG.error("Previous exception of {}: {}", detectorId, exception);
+            LOG.error(new ParameterizedMessage("Previous exception of {}:", detectorId), exception);
             if (exception instanceof EndRunException && ((EndRunException) exception).isEndNow()) {
                 return previousException;
             }
@@ -1215,9 +1238,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             try {
                 if (response.isAcknowledged() == false) {
                     LOG.error("Cannot send entities' features to {} for {}", nodeId, adID);
-                    stateManager.addPressure(nodeId);
+                    stateManager.addPressure(nodeId, adID);
                 } else {
-                    stateManager.resetBackpressureCounter(nodeId);
+                    stateManager.resetBackpressureCounter(nodeId, adID);
                 }
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);

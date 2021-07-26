@@ -26,15 +26,11 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
-
 import java.time.Clock;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 
 /**
@@ -45,17 +41,17 @@ public class BackPressureRouting {
     private static final Logger LOG = LogManager.getLogger(BackPressureRouting.class);
     private final String nodeId;
     private final Clock clock;
-    private final int maxRetryForUnresponsiveNode;
-    private final TimeValue mutePeriod;
+    private int maxRetryForUnresponsiveNode;
+    private TimeValue mutePeriod;
     private AtomicInteger backpressureCounter;
     private long lastMuteTime;
 
-    public BackPressureRouting(String nodeId, Clock clock, Settings settings) {
+    public BackPressureRouting(String nodeId, Clock clock, int maxRetryForUnresponsiveNode, TimeValue mutePeriod) {
         this.nodeId = nodeId;
         this.clock = clock;
         this.backpressureCounter = new AtomicInteger(0);
-        this.maxRetryForUnresponsiveNode = MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings);
-        this.mutePeriod = BACKOFF_MINUTES.get(settings);
+        this.maxRetryForUnresponsiveNode = maxRetryForUnresponsiveNode;
+        this.mutePeriod = mutePeriod;
         this.lastMuteTime = 0;
     }
 
@@ -87,5 +83,21 @@ public class BackPressureRouting {
 
     private void mute() {
         lastMuteTime = clock.millis();
+    }
+
+    public int getMaxRetryForUnresponsiveNode() {
+        return maxRetryForUnresponsiveNode;
+    }
+
+    public void setMaxRetryForUnresponsiveNode(int maxRetryForUnresponsiveNode) {
+        this.maxRetryForUnresponsiveNode = maxRetryForUnresponsiveNode;
+    }
+
+    public TimeValue getMutePeriod() {
+        return mutePeriod;
+    }
+
+    public void setMutePeriod(TimeValue mutePeriod) {
+        this.mutePeriod = mutePeriod;
     }
 }
