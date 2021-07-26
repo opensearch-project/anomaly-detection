@@ -453,7 +453,8 @@ public class PriorityCache implements EntityCache {
                 buffer = new CacheBuffer(
                     dedicatedCacheSize,
                     intervalSecs,
-                    memoryTracker.estimateModelSize(detector, numberOfTrees),
+                    memoryTracker
+                        .estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO),
                     memoryTracker,
                     clock,
                     modelTtl,
@@ -475,7 +476,8 @@ public class PriorityCache implements EntityCache {
     }
 
     private long getReservedDetectorMemory(AnomalyDetector detector) {
-        return dedicatedCacheSize * memoryTracker.estimateModelSize(detector, numberOfTrees);
+        return dedicatedCacheSize * memoryTracker
+            .estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO);
     }
 
     /**

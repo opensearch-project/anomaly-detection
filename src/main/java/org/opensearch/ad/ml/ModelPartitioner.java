@@ -36,9 +36,11 @@ import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.config.Precision;
 
 /**
  * This class breaks the circular dependency between NodeStateManager and ModelManager
@@ -95,6 +97,11 @@ public class ModelPartitioner {
                 .numberOfTrees(rcfNumTrees)
                 .outputAfter(rcfNumSamplesInTree)
                 .parallelExecutionEnabled(false)
+                .compact(true)
+                .precision(Precision.FLOAT_32)
+                .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+                // same with dimension for opportunistic memory saving
+                .shingleSize(rcfNumFeatures)
                 .build(),
             detectorId
         );
@@ -114,7 +121,7 @@ public class ModelPartitioner {
      * @throws LimitExceededException when there is no sufficient resource available
      */
     public Entry<Integer, Integer> getPartitionedForestSizes(RandomCutForest forest, String detectorId) {
-        long totalSize = memoryTracker.estimateModelSize(forest);
+        long totalSize = memoryTracker.estimateTotalModelSize(forest);
 
         // desired partitioning
         long partitionSize = (Math.min(memoryTracker.getDesiredModelSize(), totalSize));
