@@ -40,6 +40,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.pool2.BasePooledObjectFactory;
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.SpecialPermission;
@@ -197,11 +201,17 @@ import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
-import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.state.RandomCutForestMapper;
+import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import io.protostuff.LinkedBuffer;
+import io.protostuff.Schema;
+import io.protostuff.runtime.RuntimeSchema;
 
 /**
  * Entry point of AD plugin.
@@ -232,6 +242,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ADTaskCacheManager adTaskCacheManager;
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
+    private GenericObjectPool<LinkedBuffer> deserializeRCFBufferPool;
 
     static {
         SpecialPermission.check();
@@ -346,7 +357,11 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         JvmService jvmService = new JvmService(environment.settings());
-        RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
+        RandomCutForestMapper mapper = new RandomCutForestMapper();
+        mapper.setSaveExecutorContextEnabled(true);
+        Schema<RandomCutForestState> schema = AccessController
+            .doPrivileged((PrivilegedAction<Schema<RandomCutForestState>>) () -> RuntimeSchema.getSchema(RandomCutForestState.class));
+        V1JsonToV2StateConverter converter = new V1JsonToV2StateConverter();
 
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
 
@@ -375,7 +390,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clientUtil,
             getClock(),
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner
+            modelPartitioner,
+            clusterService
         );
 
         FeatureManager featureManager = new FeatureManager(
@@ -397,15 +413,41 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         long heapSizeBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
 
+        deserializeRCFBufferPool = AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
+            @Override
+            public GenericObjectPool<LinkedBuffer> run() {
+                return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
+                    @Override
+                    public LinkedBuffer create() throws Exception {
+                        return LinkedBuffer.allocate(AnomalyDetectorSettings.DESERIALIZATION_BUFFER_BYTES);
+                    }
+
+                    @Override
+                    public PooledObject<LinkedBuffer> wrap(LinkedBuffer obj) {
+                        return new DefaultPooledObject<>(obj);
+                    }
+                });
+            }
+        });
+        deserializeRCFBufferPool.setMaxTotal(AnomalyDetectorSettings.MAX_TOTAL_RCF_DESERIALIZATION_BUFFERS);
+        deserializeRCFBufferPool.setMaxIdle(AnomalyDetectorSettings.MAX_TOTAL_RCF_DESERIALIZATION_BUFFERS);
+        deserializeRCFBufferPool.setMinIdle(0);
+        deserializeRCFBufferPool.setBlockWhenExhausted(false);
+        deserializeRCFBufferPool.setTimeBetweenEvictionRuns(AnomalyDetectorSettings.HOURLY_MAINTENANCE);
+
         CheckpointDao checkpoint = new CheckpointDao(
             client,
             clientUtil,
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,
-            rcfSerde,
+            mapper,
+            schema,
+            converter,
             HybridThresholdingModel.class,
             anomalyDetectionIndices,
-            AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES
+            AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES,
+            deserializeRCFBufferPool,
+            AnomalyDetectorSettings.DESERIALIZATION_BUFFER_BYTES
         );
 
         Random random = new Random(42);
@@ -495,9 +537,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         ModelManager modelManager = new ModelManager(
-            rcfSerde,
             checkpoint,
-            gson,
             getClock(),
             AnomalyDetectorSettings.NUM_TREES,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
@@ -509,7 +549,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
             AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
             AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
-            HybridThresholdingModel.class,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
@@ -919,5 +958,18 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             return AnomalyDetectorJob.parse(parser);
         };
+    }
+
+    @Override
+    public void close() {
+        if (deserializeRCFBufferPool != null) {
+            try {
+                deserializeRCFBufferPool.clear();
+                deserializeRCFBufferPool.close();
+                deserializeRCFBufferPool = null;
+            } catch (Exception e) {
+                LOG.error("Failed to shut down object Pool", e);
+            }
+        }
     }
 }
