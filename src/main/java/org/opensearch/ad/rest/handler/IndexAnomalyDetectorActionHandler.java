@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.rest.handler;
 
+import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -250,7 +251,7 @@ public class IndexAnomalyDetectorActionHandler {
             if (existingDetector.isRealTimeDetector()) {
                 validateDetector(existingDetector);
             } else {
-                adTaskManager.getLatestADTask(detectorId, (adTask) -> {
+                adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
                     if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
                         // can't update detector if there is AD task running
                         listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
@@ -258,7 +259,7 @@ public class IndexAnomalyDetectorActionHandler {
                         // TODO: change to validateDetector method when we support HC historical detector
                         searchAdInputIndices(detectorId);
                     }
-                }, transportService, listener);
+                }, transportService, true, listener);
             }
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;
@@ -501,8 +502,7 @@ public class IndexAnomalyDetectorActionHandler {
             Instant.now(),
             anomalyDetector.getCategoryField(),
             user,
-            anomalyDetector.getDetectorType(),
-            anomalyDetector.getDetectionDateRange()
+            anomalyDetector.getDetectorType()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

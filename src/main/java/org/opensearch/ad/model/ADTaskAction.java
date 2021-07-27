@@ -27,6 +27,16 @@
 package org.opensearch.ad.model;
 
 public enum ADTaskAction {
+    // Start historical analysis for detector
     START,
-    STOP
+    // Historical analysis finished
+    FINISHED,
+    // Cancel historical analysis (single entity detector doesn't need this action, only HC detector use this)
+    CANCEL,
+    // Run next entity for HC detector historical analysis.
+    NEXT_ENTITY,
+    // Push back entity to pending entities queue and run next entity.
+    PUSH_BACK_ENTITY,
+    // Clean stale entities in running entity queue, for example the work node crashed and fail to remove entity
+    CLEAN_STALE_RUNNING_ENTITIES
 }

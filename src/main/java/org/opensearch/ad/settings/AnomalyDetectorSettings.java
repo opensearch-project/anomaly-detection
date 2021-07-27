@@ -410,8 +410,20 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    public static final Setting<Integer> MAX_CACHED_DELETED_TASKS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_cached_deleted_tasks",
+            1000,
+            1,
+            10_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
     public static int THRESHOLD_MODEL_TRAINING_SIZE = 1000;
 
+    // Maximum number of old AD tasks we can keep.
+    public static int MAX_OLD_AD_TASK_DOCS = 1000;
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
         .intSetting(
             "plugins.anomaly_detection.max_old_ad_task_docs_per_detector",
@@ -420,7 +432,7 @@ public final class AnomalyDetectorSettings {
             // that will be 2GB.
             LegacyOpenDistroAnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
             1, // keep at least 1 old AD task per detector
-            1000,
+            MAX_OLD_AD_TASK_DOCS,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -682,4 +694,26 @@ public final class AnomalyDetectorSettings {
     // 1.0 means we use all of the detection interval to process requests.
     // to ensure we don't block next interval, it is better to set it less than 1.0.
     public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.8f;
+
+    // Maximum number of entities we support for historical analysis.
+    public static final int MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS = 10_000;
+    public static final Setting<Integer> MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_top_entities_for_historical_analysis",
+            50,
+            1,
+            MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Integer> MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_running_entities_per_detector_for_historical_analysis",
+            1,
+            1,
+            1000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 }

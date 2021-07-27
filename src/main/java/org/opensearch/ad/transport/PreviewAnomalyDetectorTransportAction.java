@@ -134,7 +134,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 anomalyDetectorRunner
                     .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
             } else {
-                previewAnomalyDetector(listener, detectorId, startTime, endTime, context);
+                previewAnomalyDetector(listener, detectorId, detector, startTime, endTime, context);
             }
         } catch (Exception e) {
             logger.error(e);
@@ -175,15 +175,17 @@ public class PreviewAnomalyDetectorTransportAction extends
     private void previewAnomalyDetector(
         ActionListener<PreviewAnomalyDetectorResponse> listener,
         String detectorId,
+        AnomalyDetector detector,
         Instant startTime,
         Instant endTime,
         ThreadContext.StoredContext context
-    ) {
+    ) throws IOException {
         if (!StringUtils.isBlank(detectorId)) {
             GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, context));
         } else {
-            listener.onFailure(new OpenSearchException("Wrong input, no detector id", RestStatus.BAD_REQUEST));
+            anomalyDetectorRunner
+                .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
         }
     }
 

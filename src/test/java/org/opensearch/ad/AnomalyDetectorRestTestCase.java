@@ -43,6 +43,7 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -127,7 +128,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                     Instant.now(),
                     null,
                     OpenSearchRestTestCase.randomLongBetween(1, 1000),
-                    null,
                     true
                 );
         }
@@ -165,14 +165,20 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
             detector.getUser(),
-            detector.getDetectorType(),
-            detector.getDetectionDateRange()
+            detector.getDetectorType()
         );
     }
 
-    protected Response startAnomalyDetector(String detectorId, RestClient client) throws IOException {
+    protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, RestClient client) throws IOException {
         return TestHelpers
-            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start", ImmutableMap.of(), "", null);
+            .makeRequest(
+                client,
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start",
+                ImmutableMap.of(),
+                dateRange == null ? null : toHttpEntity(dateRange),
+                null
+            );
     }
 
     protected Response stopAnomalyDetector(String detectorId, RestClient client) throws IOException {
@@ -289,8 +295,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                detector.getDetectorType(),
-                detector.getDetectionDateRange()
+                detector.getDetectorType()
             ),
             detectorJob,
             adTask };

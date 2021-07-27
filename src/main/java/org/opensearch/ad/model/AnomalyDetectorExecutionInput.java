@@ -33,6 +33,7 @@ import java.time.Instant;
 
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
@@ -71,10 +72,15 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
         return xContentBuilder.endObject();
     }
 
-    public static AnomalyDetectorExecutionInput parse(XContentParser parser, String detectorId) throws IOException {
+    public static AnomalyDetectorExecutionInput parse(XContentParser parser) throws IOException {
+        return parse(parser, null);
+    }
+
+    public static AnomalyDetectorExecutionInput parse(XContentParser parser, String adId) throws IOException {
         Instant periodStart = null;
         Instant periodEnd = null;
         AnomalyDetector detector = null;
+        String detectorId = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -82,6 +88,9 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
             parser.nextToken();
 
             switch (fieldName) {
+                case DETECTOR_ID_FIELD:
+                    detectorId = parser.text();
+                    break;
                 case PERIOD_START_FIELD:
                     periodStart = ParseUtils.toInstant(parser);
                     break;
@@ -97,6 +106,9 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
                 default:
                     break;
             }
+        }
+        if (!Strings.isNullOrEmpty(adId)) {
+            detectorId = adId;
         }
         return new AnomalyDetectorExecutionInput(detectorId, periodStart, periodEnd, detector);
     }
