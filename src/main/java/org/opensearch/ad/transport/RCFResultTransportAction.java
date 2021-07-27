@@ -80,7 +80,8 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                         result.getScore(),
                                         result.getConfidence(),
                                         result.getForestSize(),
-                                        result.getAttribution()
+                                        result.getAttribution(),
+                                        result.getTotalUpdates()
                                     )
                                 ),
                             exception -> {

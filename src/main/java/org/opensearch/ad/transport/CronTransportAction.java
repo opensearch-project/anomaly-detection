@@ -40,6 +40,7 @@ import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
@@ -53,6 +54,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
     private EntityColdStarter entityColdStarter;
+    private ADTaskManager adTaskManager;
 
     @Inject
     public CronTransportAction(
@@ -64,7 +66,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         ModelManager modelManager,
         FeatureManager featureManager,
         CacheProvider cacheProvider,
-        EntityColdStarter entityColdStarter
+        EntityColdStarter entityColdStarter,
+        ADTaskManager adTaskManager
     ) {
         super(
             CronAction.NAME,
@@ -82,6 +85,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
         this.entityColdStarter = entityColdStarter;
+        this.adTaskManager = adTaskManager;
     }
 
     @Override
@@ -91,7 +95,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
 
     @Override
     protected CronNodeRequest newNodeRequest(CronRequest request) {
-        return new CronNodeRequest();
+        return new CronNodeRequest(request.getRequestId());
     }
 
     @Override
@@ -124,6 +128,14 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         transportStateManager.maintenance();
 
         entityColdStarter.maintenance();
+        // clean child tasks and AD results of deleted detector level task
+        adTaskManager.cleanChildTasksAndADResultsOfDeletedTask();
+
+        // maintain running historical tasks: reset task state as stopped if not running and clean stale running entities
+        adTaskManager.maintainRunningHistoricalTasks(transportService, request.getRequestId(), 100);
+
+        // maintain running realtime tasks: clean stale running realtime task cache
+        adTaskManager.maintainRunningRealtimeTasks();
 
         return new CronNodeResponse(clusterService.localNode());
     }

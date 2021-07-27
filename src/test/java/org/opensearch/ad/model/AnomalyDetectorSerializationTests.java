@@ -90,20 +90,4 @@ public class AnomalyDetectorSerializationTests extends OpenSearchSingleNodeTestC
         assertTrue(parsedDetector.equals(detector));
     }
 
-    public void testHistoricalDetector() throws IOException {
-        AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetector(
-                ImmutableList.of(TestHelpers.randomFeature()),
-                ImmutableMap.of(randomAlphaOfLength(5), randomAlphaOfLength(5)),
-                Instant.now(),
-                AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
-                TestHelpers.randomDetectionDateRange()
-            );
-        BytesStreamOutput output = new BytesStreamOutput();
-        detector.writeTo(output);
-        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        AnomalyDetector parsedDetector = new AnomalyDetector(input);
-        assertTrue(parsedDetector.equals(detector));
-    }
-
 }

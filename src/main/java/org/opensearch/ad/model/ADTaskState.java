@@ -26,6 +26,10 @@
 
 package org.opensearch.ad.model;
 
+import java.util.List;
+
+import com.google.common.collect.ImmutableList;
+
 /**
  * AD task states.
  * <ul>
@@ -66,5 +70,8 @@ public enum ADTaskState {
     RUNNING,
     FAILED,
     STOPPED,
-    FINISHED
+    FINISHED;
+
+    public static List<String> NOT_ENDED_STATES = ImmutableList
+        .of(ADTaskState.CREATED.name(), ADTaskState.INIT.name(), ADTaskState.RUNNING.name());
 }

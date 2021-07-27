@@ -66,7 +66,12 @@ public class ADTask implements ToXContentObject, Writeable {
     public static final String COORDINATING_NODE_FIELD = "coordinating_node";
     public static final String WORKER_NODE_FIELD = "worker_node";
     public static final String DETECTOR_FIELD = "detector";
+    public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
+    public static final String ENTITY_FIELD = "entity";
+    public static final String PARENT_TASK_ID_FIELD = "parent_task_id";
+    public static final String ESTIMATED_MINUTES_LEFT_FIELD = "estimated_minutes_left";
     public static final String USER_FIELD = "user";
+    public static final String HISTORICAL_TASK_PREFIX = "HISTORICAL";
 
     private String taskId = null;
     private Instant lastUpdateTime = null;
@@ -87,6 +92,10 @@ public class ADTask implements ToXContentObject, Writeable {
 
     private String coordinatingNode = null;
     private String workerNode = null;
+    private DetectionDateRange detectionDateRange = null;
+    private Entity entity = null;
+    private String parentTaskId = null;
+    private Integer estimatedMinutesLeft = null;
     private User user = null;
 
     private ADTask() {}
@@ -114,6 +123,18 @@ public class ADTask implements ToXContentObject, Writeable {
         this.stoppedBy = input.readOptionalString();
         this.coordinatingNode = input.readOptionalString();
         this.workerNode = input.readOptionalString();
+        if (input.readBoolean()) {
+            this.detectionDateRange = new DetectionDateRange(input);
+        } else {
+            this.detectionDateRange = null;
+        }
+        if (input.readBoolean()) {
+            this.entity = new Entity(input);
+        } else {
+            this.entity = null;
+        }
+        this.parentTaskId = input.readOptionalString();
+        this.estimatedMinutesLeft = input.readOptionalInt();
         if (input.readBoolean()) {
             this.user = new User(input);
         } else {
@@ -146,6 +167,20 @@ public class ADTask implements ToXContentObject, Writeable {
         out.writeOptionalString(stoppedBy);
         out.writeOptionalString(coordinatingNode);
         out.writeOptionalString(workerNode);
+        if (detectionDateRange != null) {
+            out.writeBoolean(true);
+            detectionDateRange.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
+        if (entity != null) {
+            out.writeBoolean(true);
+            entity.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
+        out.writeOptionalString(parentTaskId);
+        out.writeOptionalInt(estimatedMinutesLeft);
         if (user != null) {
             out.writeBoolean(true); // user exists
             user.writeTo(out);
@@ -156,6 +191,22 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    public boolean isHistoricalTask() {
+        return taskType.startsWith(HISTORICAL_TASK_PREFIX);
+    }
+
+    public boolean isEntityTask() {
+        return ADTaskType.HISTORICAL_HC_ENTITY.name().equals(taskType);
+    }
+
+    /**
+     * Get detector level task id. If a task has no parent task, the task is detector level task.
+     * @return detector level task id
+     */
+    public String getDetectorLevelTaskId() {
+        return getParentTaskId() != null ? getParentTaskId() : getTaskId();
     }
 
     public static class Builder {
@@ -177,6 +228,10 @@ public class ADTask implements ToXContentObject, Writeable {
         private String stoppedBy = null;
         private String coordinatingNode = null;
         private String workerNode = null;
+        private DetectionDateRange detectionDateRange = null;
+        private Entity entity = null;
+        private String parentTaskId;
+        private Integer estimatedMinutesLeft;
         private User user = null;
 
         public Builder() {}
@@ -271,6 +326,26 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
+        public Builder detectionDateRange(DetectionDateRange detectionDateRange) {
+            this.detectionDateRange = detectionDateRange;
+            return this;
+        }
+
+        public Builder entity(Entity entity) {
+            this.entity = entity;
+            return this;
+        }
+
+        public Builder parentTaskId(String parentTaskId) {
+            this.parentTaskId = parentTaskId;
+            return this;
+        }
+
+        public Builder estimatedMinutesLeft(Integer estimatedMinutesLeft) {
+            this.estimatedMinutesLeft = estimatedMinutesLeft;
+            return this;
+        }
+
         public Builder user(User user) {
             this.user = user;
             return this;
@@ -296,6 +371,10 @@ public class ADTask implements ToXContentObject, Writeable {
             adTask.stoppedBy = this.stoppedBy;
             adTask.coordinatingNode = this.coordinatingNode;
             adTask.workerNode = this.workerNode;
+            adTask.detectionDateRange = this.detectionDateRange;
+            adTask.entity = this.entity;
+            adTask.parentTaskId = this.parentTaskId;
+            adTask.estimatedMinutesLeft = this.estimatedMinutesLeft;
             adTask.user = this.user;
 
             return adTask;
@@ -360,6 +439,18 @@ public class ADTask implements ToXContentObject, Writeable {
         if (detector != null) {
             xContentBuilder.field(DETECTOR_FIELD, detector);
         }
+        if (detectionDateRange != null) {
+            xContentBuilder.field(DETECTION_DATE_RANGE_FIELD, detectionDateRange);
+        }
+        if (entity != null) {
+            xContentBuilder.field(ENTITY_FIELD, entity);
+        }
+        if (parentTaskId != null) {
+            xContentBuilder.field(PARENT_TASK_ID_FIELD, parentTaskId);
+        }
+        if (estimatedMinutesLeft != null) {
+            xContentBuilder.field(ESTIMATED_MINUTES_LEFT_FIELD, estimatedMinutesLeft);
+        }
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
         }
@@ -389,6 +480,10 @@ public class ADTask implements ToXContentObject, Writeable {
         String parsedTaskId = taskId;
         String coordinatingNode = null;
         String workerNode = null;
+        DetectionDateRange detectionDateRange = null;
+        Entity entity = null;
+        String parentTaskId = null;
+        Integer estimatedMinutesLeft = null;
         User user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -451,6 +546,18 @@ public class ADTask implements ToXContentObject, Writeable {
                 case WORKER_NODE_FIELD:
                     workerNode = parser.text();
                     break;
+                case DETECTION_DATE_RANGE_FIELD:
+                    detectionDateRange = DetectionDateRange.parse(parser);
+                    break;
+                case ENTITY_FIELD:
+                    entity = Entity.parse(parser);
+                    break;
+                case PARENT_TASK_ID_FIELD:
+                    parentTaskId = parser.text();
+                    break;
+                case ESTIMATED_MINUTES_LEFT_FIELD:
+                    estimatedMinutesLeft = parser.intValue();
+                    break;
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
@@ -478,8 +585,7 @@ public class ADTask implements ToXContentObject, Writeable {
                 detector.getLastUpdateTime(),
                 detector.getCategoryField(),
                 detector.getUser(),
-                detector.getDetectorType(),
-                detector.getDetectionDateRange()
+                detector.getDetectorType()
             );
         return new Builder()
             .taskId(parsedTaskId)
@@ -500,6 +606,10 @@ public class ADTask implements ToXContentObject, Writeable {
             .coordinatingNode(coordinatingNode)
             .workerNode(workerNode)
             .detector(anomalyDetector)
+            .detectionDateRange(detectionDateRange)
+            .entity(entity)
+            .parentTaskId(parentTaskId)
+            .estimatedMinutesLeft(estimatedMinutesLeft)
             .user(user)
             .build();
     }
@@ -530,6 +640,10 @@ public class ADTask implements ToXContentObject, Writeable {
             && Objects.equal(getCoordinatingNode(), that.getCoordinatingNode())
             && Objects.equal(getWorkerNode(), that.getWorkerNode())
             && Objects.equal(getDetector(), that.getDetector())
+            && Objects.equal(getDetectionDateRange(), that.getDetectionDateRange())
+            && Objects.equal(getEntity(), that.getEntity())
+            && Objects.equal(getParentTaskId(), that.getParentTaskId())
+            && Objects.equal(getEstimatedMinutesLeft(), that.getEstimatedMinutesLeft())
             && Objects.equal(getUser(), that.getUser());
     }
 
@@ -556,6 +670,10 @@ public class ADTask implements ToXContentObject, Writeable {
                 coordinatingNode,
                 workerNode,
                 detector,
+                detectionDateRange,
+                entity,
+                parentTaskId,
+                estimatedMinutesLeft,
                 user
             );
     }
@@ -582,6 +700,10 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public String getError() {
         return error;
+    }
+
+    public void setError(String error) {
+        this.error = error;
     }
 
     public String getState() {
@@ -638,6 +760,22 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public String getWorkerNode() {
         return workerNode;
+    }
+
+    public DetectionDateRange getDetectionDateRange() {
+        return detectionDateRange;
+    }
+
+    public Entity getEntity() {
+        return entity;
+    }
+
+    public String getParentTaskId() {
+        return parentTaskId;
+    }
+
+    public Integer getEstimatedMinutesLeft() {
+        return estimatedMinutesLeft;
     }
 
     public User getUser() {
