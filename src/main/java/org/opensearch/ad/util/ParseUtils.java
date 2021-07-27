@@ -480,7 +480,7 @@ public final class ParseUtils {
         NamedXContentRegistry xContentRegistry
     ) {
         try {
-            if (requestedUser == null) {
+            if (requestedUser == null || detectorId == null) {
                 // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
                 // check if request user have access to the detector or not.
                 function.accept(null);

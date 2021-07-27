@@ -32,11 +32,11 @@ import java.io.IOException;
 
 import org.junit.Test;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.HistoricalDetectorIntegTestCase;
+import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
 
-public class SearchAnomalyResultActionTests extends HistoricalDetectorIntegTestCase {
+public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestCase {
 
     @Test
     public void testSearchResultAction() throws IOException {

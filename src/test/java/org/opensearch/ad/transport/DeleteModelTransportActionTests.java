@@ -50,6 +50,7 @@ import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -89,6 +90,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         CacheProvider cacheProvider = mock(CacheProvider.class);
         EntityCache entityCache = mock(EntityCache.class);
         when(cacheProvider.get()).thenReturn(entityCache);
+        ADTaskCacheManager adTaskCacheManager = mock(ADTaskCacheManager.class);
 
         action = new DeleteModelTransportAction(
             threadPool,
@@ -98,7 +100,8 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
             nodeStateManager,
             modelManager,
             featureManager,
-            cacheProvider
+            cacheProvider,
+            adTaskCacheManager
         );
     }
 

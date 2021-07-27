@@ -590,7 +590,7 @@ public class AnomalyResultTests extends AbstractADTest {
             @Override
             @SuppressWarnings("unchecked")
             public void handleResponse(T response) {
-                handler.handleResponse((T) new RCFResultResponse(1, 1, 100, new double[0]));
+                handler.handleResponse((T) new RCFResultResponse(1, 1, 100, new double[0], randomInt()));
             }
 
             @Override

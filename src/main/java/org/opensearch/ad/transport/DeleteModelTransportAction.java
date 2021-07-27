@@ -38,6 +38,7 @@ import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
@@ -51,6 +52,7 @@ public class DeleteModelTransportAction extends
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cache;
+    private ADTaskCacheManager adTaskCacheManager;
 
     @Inject
     public DeleteModelTransportAction(
@@ -61,7 +63,8 @@ public class DeleteModelTransportAction extends
         NodeStateManager tarnsportStatemanager,
         ModelManager modelManager,
         FeatureManager featureManager,
-        CacheProvider cache
+        CacheProvider cache,
+        ADTaskCacheManager adTaskCacheManager
     ) {
         super(
             DeleteModelAction.NAME,
@@ -78,6 +81,7 @@ public class DeleteModelTransportAction extends
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cache = cache;
+        this.adTaskCacheManager = adTaskCacheManager;
     }
 
     @Override
@@ -122,6 +126,9 @@ public class DeleteModelTransportAction extends
         transportStateManager.clear(adID);
 
         cache.get().clear(adID);
+
+        // delete realtime task cache
+        adTaskCacheManager.removeRealtimeTaskCache(adID);
 
         LOG.info("Finished deleting {}", adID);
         return new DeleteModelNodeResponse(clusterService.localNode());

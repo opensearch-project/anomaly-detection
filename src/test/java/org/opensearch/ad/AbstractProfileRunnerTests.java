@@ -28,17 +28,23 @@ package org.opensearch.ad;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.task.ADTaskManager;
@@ -152,6 +158,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
         );
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     @Before
     public void setUp() throws Exception {
@@ -159,14 +166,22 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
         client = mock(Client.class);
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         clusterService = mock(ClusterService.class);
+        adTaskManager = mock(ADTaskManager.class);
         when(clusterService.state()).thenReturn(ClusterState.builder(new ClusterName("test cluster")).build());
 
         requiredSamples = 128;
         neededSamples = 5;
 
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            Consumer<Optional<ADTask>> function = (Consumer<Optional<ADTask>>) args[2];
+            function.accept(Optional.of(TestHelpers.randomAdTask()));
+            return null;
+        }).when(adTaskManager).getAndExecuteOnLatestDetectorLevelTask(any(), any(), any(), any(), anyBoolean(), any());
         runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
 
         detectorIntervalMin = 3;
         detectorGetReponse = mock(GetResponse.class);
+
     }
 }

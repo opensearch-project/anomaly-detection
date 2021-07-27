@@ -33,10 +33,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 import org.junit.Before;
-import org.opensearch.ad.HistoricalDetectorIntegTestCase;
+import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.common.settings.Settings;
 
-public class ADTaskProfileTransportActionTests extends HistoricalDetectorIntegTestCase {
+public class ADTaskProfileTransportActionTests extends HistoricalAnalysisIntegTestCase {
 
     private Instant startTime;
 
@@ -59,7 +59,4 @@ public class ADTaskProfileTransportActionTests extends HistoricalDetectorIntegTe
             .build();
     }
 
-    public void testProfile() {
-
-    }
 }

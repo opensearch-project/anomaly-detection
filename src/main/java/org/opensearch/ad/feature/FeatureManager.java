@@ -703,7 +703,7 @@ public class FeatureManager implements CleanState {
         }
     }
 
-    public SinglePointFeatures getShingledFeatureForHistoricalDetector(
+    public SinglePointFeatures getShingledFeatureForHistoricalAnalysis(
         AnomalyDetector detector,
         Deque<Entry<Long, Optional<double[]>>> shingle,
         Optional<double[]> dataPoint,

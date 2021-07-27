@@ -50,7 +50,8 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     private long seqNo;
     private AnomalyDetector detector;
     private AnomalyDetectorJob adJob;
-    private ADTask adTask;
+    private ADTask realtimeAdTask;
+    private ADTask historicalAdTask;
     private RestStatus restStatus;
     private DetectorProfile detectorProfile;
     private EntityProfile entityProfile;
@@ -84,10 +85,15 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
                 adJob = null;
             }
             returnTask = in.readBoolean();
-            if (returnTask) {
-                adTask = new ADTask(in);
+            if (in.readBoolean()) {
+                realtimeAdTask = new ADTask(in);
             } else {
-                adTask = null;
+                realtimeAdTask = null;
+            }
+            if (in.readBoolean()) {
+                historicalAdTask = new ADTask(in);
+            } else {
+                historicalAdTask = null;
             }
         }
     }
@@ -100,7 +106,8 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         AnomalyDetector detector,
         AnomalyDetectorJob adJob,
         boolean returnJob,
-        ADTask adTask,
+        ADTask realtimeAdTask,
+        ADTask historicalAdTask,
         boolean returnTask,
         RestStatus restStatus,
         DetectorProfile detectorProfile,
@@ -122,9 +129,11 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         }
         this.returnTask = returnTask;
         if (this.returnTask) {
-            this.adTask = adTask;
+            this.realtimeAdTask = realtimeAdTask;
+            this.historicalAdTask = historicalAdTask;
         } else {
-            this.adTask = null;
+            this.realtimeAdTask = null;
+            this.historicalAdTask = null;
         }
         this.detectorProfile = detectorProfile;
         this.entityProfile = entityProfile;
@@ -156,9 +165,16 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             } else {
                 out.writeBoolean(false); // returnJob is false
             }
-            if (returnTask) {
+            out.writeBoolean(returnTask);
+            if (realtimeAdTask != null) {
                 out.writeBoolean(true);
-                adTask.writeTo(out);
+                realtimeAdTask.writeTo(out);
+            } else {
+                out.writeBoolean(false);
+            }
+            if (historicalAdTask != null) {
+                out.writeBoolean(true);
+                historicalAdTask.writeTo(out);
             } else {
                 out.writeBoolean(false);
             }
@@ -184,7 +200,8 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
                 builder.field(RestHandlerUtils.ANOMALY_DETECTOR_JOB, adJob);
             }
             if (returnTask) {
-                builder.field(RestHandlerUtils.ANOMALY_DETECTION_TASK, adTask);
+                builder.field(RestHandlerUtils.REALTIME_TASK, realtimeAdTask);
+                builder.field(RestHandlerUtils.HISTORICAL_ANALYSIS_TASK, historicalAdTask);
             }
             builder.endObject();
         }

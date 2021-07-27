@@ -302,7 +302,8 @@ public class ModelManager implements DetectorModelSize {
         int forestSize = rcf.getNumberOfTrees();
         double[] attribution = getAnomalyAttribution(rcf, point);
         rcf.update(point);
-        listener.onResponse(new RcfResult(score, confidence, forestSize, attribution));
+        long totalUpdates = rcf.getTotalUpdates();
+        listener.onResponse(new RcfResult(score, confidence, forestSize, attribution, rcf.getTotalUpdates()));
     }
 
     private double[] getAnomalyAttribution(RandomCutForest rcf, double[] point) {

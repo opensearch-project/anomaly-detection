@@ -502,7 +502,7 @@ public class ModelManagerTests {
         ActionListener<RcfResult> listener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, listener);
 
-        RcfResult expected = new RcfResult(score, 0, numTrees, new double[] { 0.5, 0.5 });
+        RcfResult expected = new RcfResult(score, 0, numTrees, new double[] { 0.5, 0.5 }, 10);
         verify(listener).onResponse(eq(expected));
 
         when(forest.getTotalUpdates()).thenReturn(numSamples + 1L);

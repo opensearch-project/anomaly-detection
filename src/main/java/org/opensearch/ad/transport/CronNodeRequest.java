@@ -36,10 +36,19 @@ import org.opensearch.common.io.stream.StreamInput;
  */
 public class CronNodeRequest extends BaseNodeRequest {
 
+    private String requestId;
+
     public CronNodeRequest() {}
+
+    public CronNodeRequest(String requestId) {
+        this.requestId = requestId;
+    }
 
     public CronNodeRequest(StreamInput in) throws IOException {
         super(in);
     }
 
+    public String getRequestId() {
+        return this.requestId;
+    }
 }

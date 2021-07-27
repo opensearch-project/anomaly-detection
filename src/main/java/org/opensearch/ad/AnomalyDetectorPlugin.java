@@ -76,6 +76,7 @@ import org.opensearch.ad.ratelimit.EntityColdStartWorker;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
 import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
@@ -119,6 +120,8 @@ import org.opensearch.ad.transport.CronAction;
 import org.opensearch.ad.transport.CronTransportAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
+import org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction;
 import org.opensearch.ad.transport.DeleteModelAction;
 import org.opensearch.ad.transport.DeleteModelTransportAction;
 import org.opensearch.ad.transport.EntityProfileAction;
@@ -156,7 +159,6 @@ import org.opensearch.ad.transport.ThresholdResultTransportAction;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
-import org.opensearch.ad.transport.handler.DetectionStateHandler;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -228,7 +230,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
-    private DetectionStateHandler detectorStateHandler;
     private ADTaskCacheManager adTaskCacheManager;
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
@@ -266,12 +267,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
         jobRunner.setClient(client);
-        jobRunner.setClientUtil(clientUtil);
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
-        jobRunner.setDetectionStateHandler(detectorStateHandler);
         jobRunner.setSettings(settings);
         jobRunner.setIndexUtil(anomalyDetectionIndices);
+        jobRunner.setNodeFilter(nodeFilter);
+        jobRunner.setAdTaskManager(adTaskManager);
 
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
@@ -284,6 +285,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         RestAnomalyDetectorJobAction anomalyDetectorJobAction = new RestAnomalyDetectorJobAction(settings, clusterService);
         RestSearchAnomalyDetectorInfoAction searchAnomalyDetectorInfoAction = new RestSearchAnomalyDetectorInfoAction();
         RestPreviewAnomalyDetectorAction previewAnomalyDetectorAction = new RestPreviewAnomalyDetectorAction();
+        RestDeleteAnomalyResultsAction deleteAnomalyResultsAction = new RestDeleteAnomalyResultsAction();
 
         return ImmutableList
             .of(
@@ -297,7 +299,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 anomalyDetectorJobAction,
                 statsAnomalyDetectorAction,
                 searchAnomalyDetectorInfoAction,
-                previewAnomalyDetectorAction
+                previewAnomalyDetectorAction,
+                deleteAnomalyResultsAction
             );
     }
 
@@ -627,7 +630,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.DETECTION_STATE_INDEX))
             )
             .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
-            .put(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.MULTI_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
             .put(StatNames.AD_EXECUTING_BATCH_TASK_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .put(StatNames.AD_CANCELED_BATCH_TASK_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .put(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
@@ -635,19 +639,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .build();
 
         adStats = new ADStats(stats);
-
-        this.detectorStateHandler = new DetectionStateHandler(
-            client,
-            settings,
-            threadPool,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
-            anomalyDetectionIndices::doesDetectorStateIndexExist,
-            this.clientUtil,
-            this.indexUtils,
-            clusterService,
-            xContentRegistry,
-            stateManager
-        );
 
         adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
         adTaskManager = new ADTaskManager(
@@ -658,7 +649,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             anomalyDetectionIndices,
             nodeFilter,
             hashRing,
-            adTaskCacheManager
+            adTaskCacheManager,
+            threadPool
         );
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,
@@ -677,7 +669,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clusterService,
             client,
             nodeFilter,
-            indexNameExpressionResolver,
             adCircuitBreakerService,
             featureManager,
             adTaskManager,
@@ -709,7 +700,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 adStats,
                 new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
                 nodeFilter,
-                detectorStateHandler,
                 multiEntityResultHandler,
                 checkpoint,
                 modelPartitioner,
@@ -722,7 +712,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 checkpointReadQueue,
                 checkpointWriteQueue,
                 coldEntityQueue,
-                entityColdStarter
+                entityColdStarter,
+                adTaskCacheManager
             );
     }
 
@@ -819,6 +810,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
                 AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
                 AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
+                AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS,
+                AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS,
+                AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS,
                 // rate limiting
                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_CONCURRENCY,
                 AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
@@ -894,7 +888,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
                 new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
                 new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
-                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class)
+                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
+                new ActionHandler<>(DeleteAnomalyResultsAction.INSTANCE, DeleteAnomalyResultsTransportAction.class)
             );
     }
 

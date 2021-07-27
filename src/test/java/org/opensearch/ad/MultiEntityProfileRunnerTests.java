@@ -29,6 +29,7 @@ package org.opensearch.ad;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
@@ -42,9 +43,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.junit.Before;
 import org.opensearch.Version;
@@ -55,6 +58,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
@@ -119,6 +123,13 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         job = TestHelpers.randomAnomalyDetectorJob(true);
         adTaskManager = mock(ADTaskManager.class);
         transportService = mock(TransportService.class);
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            Consumer<Optional<ADTask>> function = (Consumer<Optional<ADTask>>) args[2];
+
+            function.accept(Optional.of(TestHelpers.randomAdTask()));
+            return null;
+        }).when(adTaskManager).getAndExecuteOnLatestDetectorLevelTask(any(), any(), any(), any(), anyBoolean(), any());
         runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
 
         doAnswer(invocation -> {

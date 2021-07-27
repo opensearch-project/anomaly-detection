@@ -34,7 +34,7 @@ import java.time.temporal.ChronoUnit;
 
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.HistoricalDetectorIntegTestCase;
+import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
@@ -45,14 +45,14 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 import com.google.common.collect.ImmutableList;
 
-public class SearchAnomalyDetectorActionTests extends HistoricalDetectorIntegTestCase {
+public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTestCase {
 
     private String indexName = "test-data";
     private Instant startTime = Instant.now().minus(2, ChronoUnit.DAYS);
 
     public void testSearchDetectorAction() throws IOException {
         ingestTestData(indexName, startTime, 1, "test", 3000);
-        String detectorType = AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name();
+        String detectorType = AnomalyDetectorType.SINGLE_ENTITY.name();
         AnomalyDetector detector = TestHelpers
             .randomAnomalyDetector(
                 ImmutableList.of(indexName),
@@ -61,7 +61,6 @@ public class SearchAnomalyDetectorActionTests extends HistoricalDetectorIntegTes
                 Instant.now(),
                 detectorType,
                 1,
-                null,
                 false
             );
         createDetectorIndex();
