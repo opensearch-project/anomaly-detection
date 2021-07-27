@@ -46,6 +46,7 @@ import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -86,6 +87,7 @@ public class CronTransportActionTests extends AbstractADTest {
         EntityCache entityCache = mock(EntityCache.class);
         EntityColdStarter entityColdStarter = mock(EntityColdStarter.class);
         when(cacheProvider.get()).thenReturn(entityCache);
+        ADTaskManager adTaskManager = mock(ADTaskManager.class);
 
         action = new CronTransportAction(
             threadPool,
@@ -96,7 +98,8 @@ public class CronTransportActionTests extends AbstractADTest {
             modelManager,
             featureManager,
             cacheProvider,
-            entityColdStarter
+            entityColdStarter,
+            adTaskManager
         );
     }
 

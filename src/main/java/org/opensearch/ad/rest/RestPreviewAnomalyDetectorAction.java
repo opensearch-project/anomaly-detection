@@ -43,6 +43,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorRequest;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
@@ -100,28 +101,32 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         AnomalyDetectorExecutionInput input = AnomalyDetectorExecutionInput.parse(parser, detectorId);
-        if (detectorId != null) {
-            input.setDetectorId(detectorId);
-        }
         return input;
     }
 
     private String validateAdExecutionInput(AnomalyDetectorExecutionInput input) {
-        if (StringUtils.isBlank(input.getDetectorId())) {
-            return "Must set anomaly detector id";
-        }
         if (input.getPeriodStart() == null || input.getPeriodEnd() == null) {
             return "Must set both period start and end date with epoch of milliseconds";
         }
         if (!input.getPeriodStart().isBefore(input.getPeriodEnd())) {
             return "Period start date should be before end date";
         }
+        if (Strings.isEmpty(input.getDetectorId()) && input.getDetector() == null) {
+            return "Must set detector id or detector";
+        }
         return null;
     }
 
     @Override
     public List<RestHandler.Route> routes() {
-        return ImmutableList.of();
+        return ImmutableList
+            .of(
+                // preview detector
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, PREVIEW)
+                )
+            );
     }
 
     @Override

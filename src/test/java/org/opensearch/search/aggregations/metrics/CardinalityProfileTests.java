@@ -234,28 +234,6 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
-    public void testFailGetState() throws IOException, InterruptedException {
-        setUpMultiEntityClientGet(DetectorStatus.EXIST, JobStatus.ENABLED, ErrorResultStatus.NULL_POINTER_EXCEPTION);
-        setUpMultiEntityClientSearch(ADResultStatus.NO_RESULT, CardinalityStatus.NORMAL);
-        setUpProfileAction();
-
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
-
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
-            assertTrue("Should not reach here ", false);
-            inProgressLatch.countDown();
-        }, exception -> {
-            assertTrue(exception instanceof RuntimeException);
-            // this means we don't exit with failImmediately. failImmediately can make we return early when there are other concurrent
-            // requests
-            assertTrue(exception.getMessage(), exception.getMessage().contains("Exceptions:"));
-            inProgressLatch.countDown();
-
-        }), initProgressErrorProfile);
-
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-    }
-
     public void testNoResultsNoError() throws IOException, InterruptedException {
         setUpMultiEntityClientGet(DetectorStatus.EXIST, JobStatus.ENABLED, ErrorResultStatus.NO_ERROR);
         setUpMultiEntityClientSearch(ADResultStatus.NO_RESULT, CardinalityStatus.NORMAL);

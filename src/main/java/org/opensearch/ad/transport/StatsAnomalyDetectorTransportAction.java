@@ -138,7 +138,8 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
     ) {
         ADStatsResponse adStatsResponse = new ADStatsResponse();
         if ((adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())
-            || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName()))
+            || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName())
+            || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.MULTI_ENTITY_DETECTOR_COUNT.getName()))
             && clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
 
             TermsAggregationBuilder termsAgg = AggregationBuilders.terms(DETECTOR_TYPE_AGG).field(AnomalyDetector.DETECTOR_TYPE_FIELD);
@@ -150,19 +151,24 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
                 StringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
                 List<StringTerms.Bucket> buckets = aggregation.getBuckets();
                 long totalDetectors = r.getHits().getTotalHits().value;
-                long totalHistoricalSingleEntityDetectors = 0;
+                long totalSingleEntityDetectors = 0;
+                long totalMultiEntityDetectors = 0;
                 for (StringTerms.Bucket b : buckets) {
-                    if (AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
-                        totalHistoricalSingleEntityDetectors += b.getDocCount();
+                    if (AnomalyDetectorType.SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
+                        totalSingleEntityDetectors += b.getDocCount();
+                    }
+                    if (AnomalyDetectorType.MULTI_ENTITY.name().equals(b.getKeyAsString())) {
+                        totalMultiEntityDetectors += b.getDocCount();
                     }
                 }
                 if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
                     adStats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(totalDetectors);
                 }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName())) {
-                    adStats
-                        .getStat(StatNames.HISTORICAL_SINGLE_ENTITY_DETECTOR_COUNT.getName())
-                        .setValue(totalHistoricalSingleEntityDetectors);
+                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName())) {
+                    adStats.getStat(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName()).setValue(totalSingleEntityDetectors);
+                }
+                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.MULTI_ENTITY_DETECTOR_COUNT.getName())) {
+                    adStats.getStat(StatNames.MULTI_ENTITY_DETECTOR_COUNT.getName()).setValue(totalMultiEntityDetectors);
                 }
                 adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
                 listener.onResponse(adStatsResponse);

@@ -54,9 +54,9 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public abstract class HistoricalDetectorRestTestCase extends AnomalyDetectorRestTestCase {
+public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRestTestCase {
 
-    protected String historicalDetectorTestIndex = "test_historical_detector_data";
+    protected String historicalAnalysisTestIndex = "test_historical_analysis_data";
     protected int detectionIntervalInMinutes = 1;
 
     @Before
@@ -65,7 +65,7 @@ public abstract class HistoricalDetectorRestTestCase extends AnomalyDetectorRest
         super.setUp();
         updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1);
         // ingest test data
-        ingestTestDataForHistoricalDetector(historicalDetectorTestIndex, detectionIntervalInMinutes);
+        ingestTestDataForHistoricalAnalysis(historicalAnalysisTestIndex, detectionIntervalInMinutes);
     }
 
     public ToXContentObject[] getHistoricalAnomalyDetector(String detectorId, boolean returnTask, RestClient client) throws IOException {
@@ -152,7 +152,7 @@ public abstract class HistoricalDetectorRestTestCase extends AnomalyDetectorRest
         return adTaskProfile;
     }
 
-    protected void ingestTestDataForHistoricalDetector(String indexName, int detectionIntervalInMinutes) throws IOException {
+    protected void ingestTestDataForHistoricalAnalysis(String indexName, int detectionIntervalInMinutes) throws IOException {
         ingestSimpleMockLog(indexName, 10, 3000, detectionIntervalInMinutes, (i) -> {
             if (i % 500 == 0) {
                 return randomDoubleBetween(100, 1000, true);
@@ -162,26 +162,20 @@ public abstract class HistoricalDetectorRestTestCase extends AnomalyDetectorRest
         }, (i) -> 1);
     }
 
-    protected AnomalyDetector createHistoricalDetector() throws IOException {
+    protected AnomalyDetector createAnomalyDetector() throws IOException {
         AggregationBuilder aggregationBuilder = TestHelpers
             .parseAggregation("{\"test\":{\"max\":{\"field\":\"" + MockSimpleLog.VALUE_FIELD + "\"}}}");
         Feature feature = new Feature(randomAlphaOfLength(5), randomAlphaOfLength(10), true, aggregationBuilder);
-        Instant endTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-        Instant startTime = endTime.minus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
         AnomalyDetector detector = TestHelpers
-            .randomDetector(
-                dateRange,
-                ImmutableList.of(feature),
-                historicalDetectorTestIndex,
-                detectionIntervalInMinutes,
-                MockSimpleLog.TIME_FIELD
-            );
+            .randomDetector(ImmutableList.of(feature), historicalAnalysisTestIndex, detectionIntervalInMinutes, MockSimpleLog.TIME_FIELD);
         return createAnomalyDetector(detector, true, client());
     }
 
-    protected String startHistoricalDetector(String detectorId) throws IOException {
-        Response startDetectorResponse = startAnomalyDetector(detectorId, client());
+    protected String startHistoricalAnalysis(String detectorId) throws IOException {
+        Instant endTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant startTime = endTime.minus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
+        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+        Response startDetectorResponse = startAnomalyDetector(detectorId, dateRange, client());
         Map<String, Object> startDetectorResponseMap = responseAsMap(startDetectorResponse);
         String taskId = (String) startDetectorResponseMap.get("_id");
         assertNotNull(taskId);
@@ -206,7 +200,7 @@ public abstract class HistoricalDetectorRestTestCase extends AnomalyDetectorRest
     protected ADTaskProfile waitUntilTaskFinished(String detectorId) throws InterruptedException {
         int i = 0;
         ADTaskProfile adTaskProfile = null;
-        while ((adTaskProfile == null || TestHelpers.historicalDetectorRunningStats.contains(adTaskProfile.getAdTask().getState()))
+        while ((adTaskProfile == null || TestHelpers.historicalAnalysisRunningStats.contains(adTaskProfile.getAdTask().getState()))
             && i < 30) {
             try {
                 adTaskProfile = getADTaskProfile(detectorId);

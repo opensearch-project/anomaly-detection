@@ -85,6 +85,7 @@ public class CommonName {
     // Historical detectors
     // ======================================
     public static final String AD_TASK = "ad_task";
+    public static final String HISTORICAL_ANALYSIS = "historical_analysis";
     public static final String AD_TASK_REMOTE = "ad_task_remote";
     public static final String CANCEL_TASK = "cancel_task";
 
