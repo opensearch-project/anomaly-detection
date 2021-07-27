@@ -32,6 +32,7 @@ import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
 import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
 import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.List;
@@ -39,6 +40,7 @@ import java.util.Locale;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
@@ -46,6 +48,7 @@ import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
@@ -80,12 +83,31 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         String detectorId = request.param(DETECTOR_ID);
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
+        boolean historical = request.paramAsBoolean("historical", false);
         String rawPath = request.rawPath();
+        DetectionDateRange detectionDateRange = parseDetectionDateRange(request);
 
-        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(detectorId, seqNo, primaryTerm, rawPath);
+        AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(
+            detectorId,
+            detectionDateRange,
+            historical,
+            seqNo,
+            primaryTerm,
+            rawPath
+        );
 
         return channel -> client
             .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));
+    }
+
+    private DetectionDateRange parseDetectionDateRange(RestRequest request) throws IOException {
+        if (!request.hasContent()) {
+            return null;
+        }
+        XContentParser parser = request.contentParser();
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+        DetectionDateRange dateRange = DetectionDateRange.parse(parser);
+        return dateRange;
     }
 
     @Override

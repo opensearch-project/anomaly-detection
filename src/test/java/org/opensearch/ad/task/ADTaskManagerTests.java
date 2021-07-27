@@ -64,6 +64,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -80,6 +81,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private HashRing hashRing;
     private TransportService transportService;
     private ADTaskManager adTaskManager;
+    private ThreadPool threadPool;
 
     private Instant startTime;
     private Instant endTime;
@@ -109,6 +111,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         adTaskCacheManager = mock(ADTaskCacheManager.class);
         hashRing = mock(HashRing.class);
         transportService = mock(TransportService.class);
+        threadPool = mock(ThreadPool.class);
         adTaskManager = new ADTaskManager(
             settings,
             clusterService,
@@ -117,7 +120,8 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             anomalyDetectionIndices,
             nodeFilter,
             hashRing,
-            adTaskCacheManager
+            adTaskCacheManager,
+            threadPool
         );
 
         listener = spy(new ActionListener<AnomalyDetectorJobResponse>() {
@@ -135,15 +139,10 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             listener.onResponse(new CreateIndexResponse(false, false, ANOMALY_RESULT_INDEX_ALIAS));
             return null;
         }).when(anomalyDetectionIndices).initDetectionStateIndex(any());
-        AnomalyDetector detector = randomDetector(
-            new DetectionDateRange(startTime, endTime),
-            ImmutableList.of(randomFeature(true)),
-            randomAlphaOfLength(5),
-            1,
-            randomAlphaOfLength(5)
-        );
+        AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
 
-        adTaskManager.startHistoricalDetector(detector, randomUser(), transportService, listener);
+        adTaskManager
+            .startHistoricalAnalysisTask(detector, new DetectionDateRange(startTime, endTime), randomUser(), transportService, listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals(
             "Create index .opendistro-anomaly-detection-state with mappings not acknowledged",
@@ -157,15 +156,10 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             listener.onFailure(new ResourceAlreadyExistsException("index created"));
             return null;
         }).when(anomalyDetectionIndices).initDetectionStateIndex(any());
-        AnomalyDetector detector = randomDetector(
-            new DetectionDateRange(startTime, endTime),
-            ImmutableList.of(randomFeature(true)),
-            randomAlphaOfLength(5),
-            1,
-            randomAlphaOfLength(5)
-        );
+        AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
 
-        adTaskManager.startHistoricalDetector(detector, randomUser(), transportService, listener);
+        adTaskManager
+            .startHistoricalAnalysisTask(detector, new DetectionDateRange(startTime, endTime), randomUser(), transportService, listener);
         verify(listener, never()).onFailure(any());
     }
 
@@ -176,15 +170,10 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             listener.onFailure(new RuntimeException(error));
             return null;
         }).when(anomalyDetectionIndices).initDetectionStateIndex(any());
-        AnomalyDetector detector = randomDetector(
-            new DetectionDateRange(startTime, endTime),
-            ImmutableList.of(randomFeature(true)),
-            randomAlphaOfLength(5),
-            1,
-            randomAlphaOfLength(5)
-        );
+        AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
 
-        adTaskManager.startHistoricalDetector(detector, randomUser(), transportService, listener);
+        adTaskManager
+            .startHistoricalAnalysisTask(detector, new DetectionDateRange(startTime, endTime), randomUser(), transportService, listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals(error, exceptionCaptor.getValue().getMessage());
     }

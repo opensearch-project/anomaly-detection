@@ -98,7 +98,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String CATEGORY_FIELD = "category_field";
     public static final String USER_FIELD = "user";
     public static final String DETECTOR_TYPE_FIELD = "detector_type";
-    public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
 
     private final String detectorId;
     private final Long version;
@@ -117,7 +116,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final List<String> categoryFields;
     private User user;
     private String detectorType;
-    private DetectionDateRange detectionDateRange;
 
     /**
      * Constructor function.
@@ -174,7 +172,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             lastUpdateTime,
             categoryFields,
             user,
-            null,
             null
         );
     }
@@ -196,8 +193,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Instant lastUpdateTime,
         List<String> categoryFields,
         User user,
-        String detectorType,
-        DetectionDateRange detectionDateRange
+        String detectorType
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -238,12 +234,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.categoryFields = categoryFields;
         this.user = user;
         this.detectorType = detectorType;
-        this.detectionDateRange = detectionDateRange;
-
-        // TODO: remove this check when we support HC historical detector
-        if (!isRealTimeDetector(detectionDateRange) && categoryFields != null && categoryFields.size() > 0) {
-            throw new IllegalArgumentException("Don't support high cardinality historical detector now");
-        }
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
@@ -265,11 +255,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             this.user = new User(input);
         } else {
             user = null;
-        }
-        if (input.readBoolean()) {
-            detectionDateRange = new DetectionDateRange(input);
-        } else {
-            detectionDateRange = null;
         }
         detectorType = input.readOptionalString();
         if (input.readBoolean()) {
@@ -304,12 +289,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             user.writeTo(output);
         } else {
             output.writeBoolean(false); // user does not exist
-        }
-        if (detectionDateRange != null) {
-            output.writeBoolean(true); // detectionDateRange exists
-            detectionDateRange.writeTo(output);
-        } else {
-            output.writeBoolean(false); // detectionDateRange does not exist
         }
         output.writeOptionalString(detectorType);
         if (uiMetadata != null) {
@@ -349,9 +328,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (detectorType != null) {
             xContentBuilder.field(DETECTOR_TYPE_FIELD, detectorType);
-        }
-        if (detectionDateRange != null) {
-            xContentBuilder.field(DETECTION_DATE_RANGE_FIELD, detectionDateRange);
         }
         return xContentBuilder.endObject();
     }
@@ -419,7 +395,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
         User user = null;
-        DetectionDateRange detectionDateRange = null;
 
         List<String> categoryField = null;
 
@@ -484,23 +459,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
-                case DETECTION_DATE_RANGE_FIELD:
-                    detectionDateRange = DetectionDateRange.parse(parser);
-                    break;
                 default:
                     parser.skipChildren();
                     break;
             }
-        }
-        String detectorType;
-        if (AnomalyDetector.isRealTimeDetector(detectionDateRange)) {
-            detectorType = AnomalyDetector.isMultientityDetector(categoryField)
-                ? AnomalyDetectorType.REALTIME_MULTI_ENTITY.name()
-                : AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name();
-        } else {
-            detectorType = AnomalyDetector.isMultientityDetector(categoryField)
-                ? AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name()
-                : AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name();
         }
         return new AnomalyDetector(
             detectorId,
@@ -518,9 +480,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             schemaVersion,
             lastUpdateTime,
             categoryField,
-            user,
-            detectorType,
-            detectionDateRange
+            user
         );
     }
 
@@ -542,8 +502,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             && Objects.equal(getWindowDelay(), detector.getWindowDelay())
             && Objects.equal(getShingleSize(), detector.getShingleSize())
             && Objects.equal(getCategoryField(), detector.getCategoryField())
-            && Objects.equal(getUser(), detector.getUser())
-            && Objects.equal(getDetectionDateRange(), detector.getDetectionDateRange());
+            && Objects.equal(getUser(), detector.getUser());
     }
 
     @Generated
@@ -564,8 +523,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 schemaVersion,
                 lastUpdateTime,
                 user,
-                detectorType,
-                detectionDateRange
+                detectorType
             );
     }
 
@@ -623,7 +581,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     }
 
     public Integer getShingleSize() {
-        return shingleSize;
+        return isMultientityDetector() ? DEFAULT_MULTI_ENTITY_SHINGLE : shingleSize;
     }
 
     /**
@@ -667,6 +625,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return getDetectorIntervalInMilliseconds() / 1000;
     }
 
+    public long getDetectorIntervalInMinutes() {
+        return getDetectorIntervalInMilliseconds() / 1000 / 60;
+    }
+
     public Duration getDetectionIntervalDuration() {
         return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration();
     }
@@ -683,10 +645,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return detectorType;
     }
 
-    public DetectionDateRange getDetectionDateRange() {
-        return detectionDateRange;
-    }
-
     public boolean isMultientityDetector() {
         return AnomalyDetector.isMultientityDetector(getCategoryField());
     }
@@ -695,11 +653,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return categoryFields != null && categoryFields.size() > 0;
     }
 
+    // TODO: remove this
     public boolean isRealTimeDetector() {
-        return AnomalyDetector.isRealTimeDetector(getDetectionDateRange());
-    }
-
-    private static boolean isRealTimeDetector(DetectionDateRange detectionDateRange) {
-        return detectionDateRange == null || detectionDateRange.getEndTime() == null;
+        return false;
     }
 }

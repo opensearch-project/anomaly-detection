@@ -35,7 +35,9 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
@@ -45,26 +47,31 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
 import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.AnomalyResultTransportAction;
+import org.opensearch.ad.transport.ProfileAction;
+import org.opensearch.ad.transport.ProfileRequest;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.transport.handler.DetectionStateHandler;
-import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -93,12 +100,12 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private Settings settings;
     private int maxRetryForEndRunException;
     private Client client;
-    private ClientUtil clientUtil;
     private ThreadPool threadPool;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
-    private DetectionStateHandler detectionStateHandler;
     private AnomalyDetectionIndices indexUtil;
+    private DiscoveryNodeFilterer nodeFilter;
+    private ADTaskManager adTaskManager;
 
     public static AnomalyDetectorJobRunner getJobRunnerInstance() {
         if (INSTANCE != null) {
@@ -122,10 +129,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.client = client;
     }
 
-    public void setClientUtil(ClientUtil clientUtil) {
-        this.clientUtil = clientUtil;
-    }
-
     public void setThreadPool(ThreadPool threadPool) {
         this.threadPool = threadPool;
     }
@@ -139,12 +142,16 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.maxRetryForEndRunException = AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings);
     }
 
-    public void setDetectionStateHandler(DetectionStateHandler detectionStateHandler) {
-        this.detectionStateHandler = detectionStateHandler;
+    public void setAdTaskManager(ADTaskManager adTaskManager) {
+        this.adTaskManager = adTaskManager;
     }
 
     public void setIndexUtil(AnomalyDetectionIndices indexUtil) {
         this.indexUtil = indexUtil;
+    }
+
+    public void setNodeFilter(DiscoveryNodeFilterer nodeFilter) {
+        this.nodeFilter = nodeFilter;
     }
 
     @Override
@@ -389,72 +396,75 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     ) {
         String detectorId = jobParameter.getName();
         detectorEndRunExceptionCount.remove(detectorId);
-        stopAdJob(detectorId);
         String errorPrefix = exception.isEndNow()
             ? "Stopped detector: "
             : "Stopped detector as job failed consecutively for more than " + this.maxRetryForEndRunException + " times: ";
-        indexAnomalyResultException(
-            jobParameter,
-            lockService,
-            lock,
-            detectionStartTime,
-            executionStartTime,
-            errorPrefix + exception.getMessage(),
-            true
+        String error = errorPrefix + exception.getMessage();
+        stopAdJob(
+            detectorId,
+            () -> indexAnomalyResultException(
+                jobParameter,
+                lockService,
+                lock,
+                detectionStartTime,
+                executionStartTime,
+                error,
+                true,
+                ADTaskState.STOPPED.name()
+            )
         );
     }
 
-    private void stopAdJob(String detectorId) {
-        try {
-            GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+    private void stopAdJob(String detectorId, AnomalyDetectorFunction function) {
+        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        ActionListener<GetResponse> listener = ActionListener.wrap(response -> {
+            if (response.isExists()) {
+                try (
+                    XContentParser parser = XContentType.JSON
+                        .xContent()
+                        .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString())
+                ) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    if (job.isEnabled()) {
+                        AnomalyDetectorJob newJob = new AnomalyDetectorJob(
+                            job.getName(),
+                            job.getSchedule(),
+                            job.getWindowDelay(),
+                            false,
+                            job.getEnabledTime(),
+                            Instant.now(),
+                            Instant.now(),
+                            job.getLockDurationSeconds(),
+                            job.getUser()
+                        );
+                        IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+                            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+                            .source(newJob.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), XCONTENT_WITH_TYPE))
+                            .id(detectorId);
 
-            clientUtil.<GetRequest, GetResponse>asyncRequest(getRequest, client::get, ActionListener.wrap(response -> {
-                if (response.isExists()) {
-                    try (
-                        XContentParser parser = XContentType.JSON
-                            .xContent()
-                            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString())
-                    ) {
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                        AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
-                        if (job.isEnabled()) {
-                            AnomalyDetectorJob newJob = new AnomalyDetectorJob(
-                                job.getName(),
-                                job.getSchedule(),
-                                job.getWindowDelay(),
-                                false,
-                                job.getEnabledTime(),
-                                Instant.now(),
-                                Instant.now(),
-                                job.getLockDurationSeconds(),
-                                job.getUser()
-                            );
-                            IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
-                                .source(newJob.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), XCONTENT_WITH_TYPE))
-                                .id(detectorId);
-                            clientUtil
-                                .<IndexRequest, IndexResponse>asyncRequest(
-                                    indexRequest,
-                                    client::index,
-                                    ActionListener.wrap(indexResponse -> {
-                                        if (indexResponse != null
-                                            && (indexResponse.getResult() == CREATED || indexResponse.getResult() == UPDATED)) {
-                                            log.info("AD Job was disabled by JobRunner for " + detectorId);
-                                        } else {
-                                            log.warn("Failed to disable AD job for " + detectorId);
-                                        }
-                                    }, exception -> log.error("JobRunner failed to update AD job as disabled for " + detectorId, exception))
-                                );
-                        }
-                    } catch (IOException e) {
-                        log.error("JobRunner failed to stop detector job " + detectorId, e);
+                        client.index(indexRequest, ActionListener.wrap(indexResponse -> {
+                            if (indexResponse != null && (indexResponse.getResult() == CREATED || indexResponse.getResult() == UPDATED)) {
+                                log.info("AD Job was disabled by JobRunner for " + detectorId);
+                                // function.execute();
+                            } else {
+                                log.warn("Failed to disable AD job for " + detectorId);
+                            }
+                        }, exception -> { log.error("JobRunner failed to update AD job as disabled for " + detectorId, exception); }));
+                    } else {
+                        log.info("AD Job was disabled for " + detectorId);
+                        // function.execute();
                     }
+                } catch (IOException e) {
+                    log.error("JobRunner failed to stop detector job " + detectorId, e);
                 }
-            }, exception -> log.error("JobRunner failed to get detector job " + detectorId, exception)));
-        } catch (Exception e) {
-            log.error("JobRunner failed to stop AD job " + detectorId, e);
-        }
+            } else {
+                log.info("AD Job was not found for " + detectorId);
+                // function.execute();
+            }
+        }, exception -> log.error("JobRunner failed to get detector job " + detectorId, exception));
+
+        client.get(getRequest, ActionListener.runAfter(listener, () -> function.execute()));
     }
 
     private void indexAnomalyResult(
@@ -468,14 +478,13 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String detectorId = jobParameter.getName();
         detectorEndRunExceptionCount.remove(detectorId);
         try {
-            // reset error if different from previously recorded one
-            detectionStateHandler.saveError(response.getError(), detectorId);
             // skipping writing to the result index if not necessary
             // For a single-entity detector, the result is not useful if error is null
             // and rcf score (thus anomaly grade/confidence) is null.
             // For a HCAD detector, we don't need to save on the detector level.
             // We return 0 or Double.NaN rcf score if there is no error.
             if ((response.getAnomalyScore() <= 0 || Double.isNaN(response.getAnomalyScore())) && response.getError() == null) {
+                updateRealtimeTask(response, detectorId);
                 return;
             }
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
@@ -501,10 +510,43 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
+            updateRealtimeTask(response, detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
             releaseLock(jobParameter, lockService, lock);
+        }
+    }
+
+    private void updateRealtimeTask(AnomalyResultResponse response, String detectorId) {
+        if (response.isHCDetector() != null
+            && response.isHCDetector()
+            && !adTaskManager.skipUpdateHCRealtimeTask(detectorId, response.getError())) {
+            DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
+            Set<DetectorProfileName> profiles = new HashSet<>();
+            profiles.add(DetectorProfileName.INIT_PROGRESS);
+            ProfileRequest profileRequest = new ProfileRequest(detectorId, profiles, true, dataNodes);
+            client.execute(ProfileAction.INSTANCE, profileRequest, ActionListener.wrap(r -> {
+                log.debug("Update latest realtime task for HC detector {}, total updates: {}", detectorId, r.getTotalUpdates());
+                adTaskManager
+                    .updateLatestRealtimeTask(
+                        detectorId,
+                        null,
+                        r.getTotalUpdates(),
+                        response.getDetectorIntervalInMinutes(),
+                        response.getError()
+                    );
+            }, e -> { log.error("Failed to get init progress profile for " + detectorId, e); }));
+        } else {
+            log.debug("Update latest realtime task for SINGLE detector {}, total updates: {}", detectorId, response.getRcfTotalUpdates());
+            adTaskManager
+                .updateLatestRealtimeTask(
+                    detectorId,
+                    null,
+                    response.getRcfTotalUpdates(),
+                    response.getDetectorIntervalInMinutes(),
+                    response.getError()
+                );
         }
     }
 
@@ -536,6 +578,28 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String errorMessage,
         boolean releaseLock
     ) {
+        indexAnomalyResultException(
+            jobParameter,
+            lockService,
+            lock,
+            detectionStartTime,
+            executionStartTime,
+            errorMessage,
+            releaseLock,
+            null
+        );
+    }
+
+    private void indexAnomalyResultException(
+        ScheduledJobParameter jobParameter,
+        LockService lockService,
+        LockModel lock,
+        Instant detectionStartTime,
+        Instant executionStartTime,
+        String errorMessage,
+        boolean releaseLock,
+        String taskState
+    ) {
         String detectorId = jobParameter.getName();
         try {
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
@@ -558,7 +622,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            detectionStateHandler.saveError(errorMessage, detectorId);
+            adTaskManager.updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {

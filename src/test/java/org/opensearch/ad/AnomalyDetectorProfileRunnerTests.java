@@ -29,6 +29,7 @@ package org.opensearch.ad;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
@@ -43,9 +44,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
@@ -56,6 +59,7 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -88,6 +92,8 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         EXCEPTION,
         INITTING
     }
+
+    private Instant jobEnabledTime = Instant.now().minus(1, ChronoUnit.DAYS);
 
     /**
      * Convenience methods for single-stream detector profile tests set up
@@ -137,14 +143,14 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                         listener.onFailure(new IndexNotFoundException(ANOMALY_DETECTOR_JOB_INDEX));
                         break;
                     case DISABLED:
-                        job = TestHelpers.randomAnomalyDetectorJob(false);
+                        job = TestHelpers.randomAnomalyDetectorJob(false, jobEnabledTime, null);
                         listener
                             .onResponse(
                                 TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
                             );
                         break;
                     case ENABLED:
-                        job = TestHelpers.randomAnomalyDetectorJob(true);
+                        job = TestHelpers.randomAnomalyDetectorJob(true, jobEnabledTime, null);
                         listener
                             .onResponse(
                                 TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
@@ -161,18 +167,9 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                 }
                 DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
 
-                switch (errorResultStatus) {
-                    case NO_ERROR:
-                        break;
-                    case SHINGLE_ERROR:
-                        result.error(noFullShingleError);
-                        break;
-                    case STOPPED_ERROR:
-                        result.error(stoppedError);
-                        break;
-                    default:
-                        assertTrue("should not reach here", false);
-                        break;
+                String error = getError(errorResultStatus);
+                if (error != null) {
+                    result.error(error);
                 }
                 listener
                     .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
@@ -183,6 +180,21 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         }).when(client).get(any(), any());
 
         setUpClientExecuteRCFPollingAction(rcfPollingStatus);
+    }
+
+    private String getError(ErrorResultStatus errorResultStatus) {
+        switch (errorResultStatus) {
+            case NO_ERROR:
+                break;
+            case SHINGLE_ERROR:
+                return noFullShingleError;
+            case STOPPED_ERROR:
+                return stoppedError;
+            default:
+                assertTrue("should not reach here", false);
+                break;
+        }
+        return null;
     }
 
     public void testDetectorNotExist() throws IOException, InterruptedException {
@@ -266,6 +278,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         testInitOrRunningStateTemplate(RCFPollingStatus.INIT_DONE, DetectorState.RUNNING);
     }
 
+    @SuppressWarnings("unchecked")
     public void testErrorStateTemplate(
         RCFPollingStatus initStatus,
         ErrorResultStatus status,
@@ -275,6 +288,16 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         Set<DetectorProfileName> profilesToCollect
     ) throws IOException,
         InterruptedException {
+        ADTask adTask = TestHelpers.randomAdTask();
+
+        adTask.setError(getError(status));
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            Consumer<Optional<ADTask>> function = (Consumer<Optional<ADTask>>) args[2];
+            function.accept(Optional.of(adTask));
+            return null;
+        }).when(adTaskManager).getAndExecuteOnLatestDetectorLevelTask(any(), any(), any(), any(), anyBoolean(), any());
+
         setUpClientExecuteRCFPollingAction(initStatus);
         setUpClientGet(DetectorStatus.EXIST, jobStatus, initStatus, status);
         DetectorProfile.Builder builder = new DetectorProfile.Builder();
