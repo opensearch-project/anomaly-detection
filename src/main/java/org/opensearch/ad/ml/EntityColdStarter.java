@@ -341,7 +341,11 @@ public class EntityColdStarter implements MaintenanceState {
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             // same with dimension for opportunistic memory saving
-            .shingleSize(rcfNumFeatures)
+            // Usually, we use it as shingleSize(dimension). When a new point comes in, we will
+            // look at the point store if there is any overlapping. Say the previously-stored
+            // vector is x1, x2, x3, x4, now we add x3, x4, x5, x6. RCF will recognize
+            // overlapping x3, x4, and only store x5, x6.
+            .shingleSize(shingleSize)
             .build();
         List<double[]> allScores = new ArrayList<>();
         int totalLength = 0;
