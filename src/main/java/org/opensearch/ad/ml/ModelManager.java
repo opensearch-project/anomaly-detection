@@ -288,7 +288,8 @@ public class ModelManager implements DetectorModelSize {
         int forestSize = rcf.getNumberOfTrees();
         double[] attribution = getAnomalyAttribution(rcf, point);
         rcf.update(point);
-        listener.onResponse(new RcfResult(score, confidence, forestSize, attribution));
+        long totalUpdates = rcf.getTotalUpdates();
+        listener.onResponse(new RcfResult(score, confidence, forestSize, attribution, rcf.getTotalUpdates()));
     }
 
     private double[] getAnomalyAttribution(RandomCutForest rcf, double[] point) {
@@ -431,6 +432,10 @@ public class ModelManager implements DetectorModelSize {
     /**
      * Stops hosting the model and creates a checkpoint.
      *
+     * Used when adding a OpenSearch node.  We have to stop all models because
+     * requests for those model ids would be sent to other nodes. If we don't stop
+     * them, there would be memory leak.
+     *
      * @param detectorId ID of the detector
      * @param modelId ID of the model to stop hosting
      * @param listener onResponse is called with null when the operation is completed
@@ -461,6 +466,8 @@ public class ModelManager implements DetectorModelSize {
                         (ThresholdingModel) model,
                         ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure)
                     );
+            } else {
+                listener.onFailure(new IllegalArgumentException("Unexpected model type"));
             }
         } else {
             listener.onResponse(null);
@@ -535,7 +542,7 @@ public class ModelManager implements DetectorModelSize {
                             .precision(Precision.FLOAT_32)
                             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
                             // same with dimension for opportunistic memory saving
-                            .shingleSize(rcfNumFeatures)
+                            .shingleSize(anomalyDetector.getShingleSize())
                             .build(),
                         anomalyDetector.getDetectorId()
                     );
@@ -573,7 +580,7 @@ public class ModelManager implements DetectorModelSize {
                 .precision(Precision.FLOAT_32)
                 .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
                 // same with dimension for opportunistic memory saving
-                .shingleSize(rcfNumFeatures)
+                .shingleSize(detector.getShingleSize())
                 .build();
             for (int j = 0; j < dataPoints.length; j++) {
                 scores[j] += rcf.getAnomalyScore(dataPoints[j]);
@@ -662,7 +669,7 @@ public class ModelManager implements DetectorModelSize {
                 } else if (model instanceof ThresholdingModel) {
                     checkpointDao.putThresholdCheckpoint(modelId, (ThresholdingModel) model, checkpointListener);
                 } else {
-                    maintenanceForIterator(models, iter, listener);
+                    checkpointListener.onFailure(new IllegalArgumentException("Unexpected model type"));
                 }
             } else {
                 maintenanceForIterator(models, iter, listener);
@@ -676,10 +683,11 @@ public class ModelManager implements DetectorModelSize {
      * Returns computed anomaly results for preview data points.
      *
      * @param dataPoints features of preview data points
+     * @param shingleSize model shingle size
      * @return thresholding results of preview data points
      * @throws IllegalArgumentException when preview data points are not valid
      */
-    public List<ThresholdingResult> getPreviewResults(double[][] dataPoints) {
+    public List<ThresholdingResult> getPreviewResults(double[][] dataPoints, int shingleSize) {
         if (dataPoints.length < minPreviewSize) {
             throw new IllegalArgumentException("Insufficient data for preview results. Minimum required: " + minPreviewSize);
         }
@@ -700,7 +708,7 @@ public class ModelManager implements DetectorModelSize {
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
             // same with dimension for opportunistic memory saving
-            .shingleSize(rcfNumFeatures)
+            .shingleSize(shingleSize)
             .build();
         double[] rcfScores = Arrays.stream(dataPoints).mapToDouble(point -> {
             double score = forest.getAnomalyScore(point);

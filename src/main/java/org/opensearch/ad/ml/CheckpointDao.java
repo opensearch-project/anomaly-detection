@@ -140,8 +140,8 @@ public class CheckpointDao {
     private final int maxCheckpointBytes;
 
     private final TypeAdapter<JsonObject> strictGsonObjectAdapter;
-    private final GenericObjectPool<LinkedBuffer> deserializeRCFBufferPool;
-    private final int deserializeRCFBufferSize;
+    private final GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
+    private final int serializeRCFBufferSize;
 
     /**
      * Constructor with dependencies and configuration.
@@ -156,8 +156,8 @@ public class CheckpointDao {
      * @param thresholdingModelClass thresholding model's class
      * @param indexUtil Index utility methods
      * @param maxCheckpointBytes max checkpoint size in bytes
-     * @param deserializeRCFBufferPool object pool for deserializing rcf models
-     * @param deserializeRCFBufferSize the size of the buffer for RCF deserialization
+     * @param serializeRCFBufferPool object pool for serializing rcf models
+     * @param serializeRCFBufferSize the size of the buffer for RCF serialization
      */
     public CheckpointDao(
         Client client,
@@ -170,8 +170,8 @@ public class CheckpointDao {
         Class<? extends ThresholdingModel> thresholdingModelClass,
         AnomalyDetectionIndices indexUtil,
         int maxCheckpointBytes,
-        GenericObjectPool<LinkedBuffer> deserializeRCFBufferPool,
-        int deserializeRCFBufferSize
+        GenericObjectPool<LinkedBuffer> serializeRCFBufferPool,
+        int serializeRCFBufferSize
     ) {
         this.client = client;
         this.clientUtil = clientUtil;
@@ -183,10 +183,9 @@ public class CheckpointDao {
         this.thresholdingModelClass = thresholdingModelClass;
         this.indexUtil = indexUtil;
         this.maxCheckpointBytes = maxCheckpointBytes;
-        this.converter = converter;
         this.strictGsonObjectAdapter = new Gson().getAdapter(JsonObject.class);
-        this.deserializeRCFBufferPool = deserializeRCFBufferPool;
-        this.deserializeRCFBufferSize = deserializeRCFBufferSize;
+        this.serializeRCFBufferPool = serializeRCFBufferPool;
+        this.serializeRCFBufferSize = serializeRCFBufferSize;
     }
 
     private void saveModelCheckpointSync(Map<String, Object> source, String modelId) {
@@ -211,9 +210,13 @@ public class CheckpointDao {
     public void putRCFCheckpoint(String modelId, RandomCutForest forest, ActionListener<Void> listener) {
         Map<String, Object> source = new HashMap<>();
         String modelCheckpoint = rcfModelToCheckpoint(forest);
-        source.put(FIELD_MODELV2, modelCheckpoint);
-        source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
-        putModelCheckpoint(modelId, source, listener);
+        if (modelCheckpoint != null) {
+            source.put(FIELD_MODELV2, modelCheckpoint);
+            source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+            putModelCheckpoint(modelId, source, listener);
+        } else {
+            listener.onFailure(new RuntimeException("Fail to create checkpoint to save"));
+        }
     }
 
     /**
@@ -335,35 +338,38 @@ public class CheckpointDao {
     private String rcfModelToCheckpoint(RandomCutForest model) {
         LinkedBuffer borrowedBuffer = null;
         try {
-            borrowedBuffer = deserializeRCFBufferPool.borrowObject();
+            borrowedBuffer = serializeRCFBufferPool.borrowObject();
             try {
                 return rcfModelToCheckpoint(model, borrowedBuffer);
             } catch (Exception e) {
                 if (borrowedBuffer != null) {
-                    deserializeRCFBufferPool.invalidateObject(borrowedBuffer);
+                    serializeRCFBufferPool.invalidateObject(borrowedBuffer);
                     borrowedBuffer = null;
                 }
+                // return null when we successfully borrow an object but fail to
+                // create a serialized model
+                return null;
             } finally {
                 if (borrowedBuffer != null) {
-                    deserializeRCFBufferPool.returnObject(borrowedBuffer);
+                    serializeRCFBufferPool.returnObject(borrowedBuffer);
                 }
             }
         } catch (Exception e) {
             logger.error("Failed to borrow an buffer from object pool", e);
+            // allocate a new LinkedBuffer and create a serialized model
             return rcfModelToCheckpoint(model, null);
         }
-        return null;
     }
 
     String rcfModelToCheckpoint(RandomCutForest model, LinkedBuffer buffer) {
-        final LinkedBuffer deserializationBuffer = buffer == null ? LinkedBuffer.allocate(deserializeRCFBufferSize) : buffer;
+        final LinkedBuffer serializationBuffer = buffer == null ? LinkedBuffer.allocate(serializeRCFBufferSize) : buffer;
         try {
             RandomCutForestState state = mapper.toState(model);
             byte[] bytes = AccessController
-                .doPrivileged((PrivilegedAction<byte[]>) () -> ProtostuffIOUtil.toByteArray(state, schema, deserializationBuffer));
+                .doPrivileged((PrivilegedAction<byte[]>) () -> ProtostuffIOUtil.toByteArray(state, schema, serializationBuffer));
             return Base64.getEncoder().encodeToString(bytes);
         } finally {
-            deserializationBuffer.clear();
+            serializationBuffer.clear();
         }
     }
 
@@ -403,7 +409,10 @@ public class CheckpointDao {
             if (response.isTimedOut() || !response.getBulkFailures().isEmpty() || !response.getSearchFailures().isEmpty()) {
                 logFailure(response, detectorID);
             }
-            // if 0 docs get deleted, it means we cannot find matching docs
+            // can return 0 docs get deleted because:
+            // 1) we cannot find matching docs
+            // 2) bad stats from OpenSearch. In this case, docs are deleted, but
+            // OpenSearch says deleted is 0.
             logger.info("{} " + DOC_GOT_DELETED_LOG_MSG, response.getDeleted());
         }, exception -> {
             if (exception instanceof IndexNotFoundException) {
@@ -465,7 +474,7 @@ public class CheckpointDao {
                 RandomCutForest rcf = null;
                 if (json.has(ENTITY_RCF)) {
                     String serializedRCF = json.getAsJsonPrimitive(ENTITY_RCF).getAsString();
-                    rcf = restoreRCFModel(serializedRCF);
+                    rcf = deserializeRCFModel(serializedRCF);
                 }
                 ThresholdingModel threshold = null;
                 if (json.has(ENTITY_THRESHOLD)) {
@@ -492,7 +501,7 @@ public class CheckpointDao {
         }
     }
 
-    private RandomCutForest restoreRCFModel(String rcfCheckpoint) {
+    private RandomCutForest deserializeRCFModel(String rcfCheckpoint) {
         if (Strings.isEmpty(rcfCheckpoint)) {
             return null;
         }
@@ -500,11 +509,7 @@ public class CheckpointDao {
         String checkpoint = rcfCheckpoint.trim();
         RandomCutForest forest = null;
         try {
-            if (checkpoint.charAt(0) == '{' && checkpoint.charAt(checkpoint.length() - 1) == '}' && isJson(checkpoint)) {
-                // Pre-checking that the first character is '{' and the last is '}'. If it's not the case,
-                // it is the new serialization format
-                // To make sure, a more expensive way that parses the JSON and check exception is done after
-                // the pre-checks.
+            if (isVersionEqualsOne(checkpoint)) {
                 RandomCutForestState state = converter.convert(checkpoint, Precision.FLOAT_32);
                 forest = mapper.toModel(state);
             } else {
@@ -523,16 +528,29 @@ public class CheckpointDao {
     }
 
     /**
+     * Whether the input checkpoint has version 1.0
+     *
+     * @param checkpoint the checkpoint to check
+     * @return whether the input checkpoint has version 1.0, where we serialize
+     *  rcf model to Json, and when needed deserializing a forest from JSON.
+     */
+    private boolean isVersionEqualsOne(String checkpoint) {
+        // Pre-checking that the first character is '{' and the last is '}'. If it's not the case,
+        // it is the new serialization format
+        // To make sure, a more expensive way that parses the JSON and check exception is done after
+        // the pre-checks.
+        return checkpoint.charAt(0) == '{' && checkpoint.charAt(checkpoint.length() - 1) == '}' && isJson(checkpoint);
+    }
+
+    /**
      * @param testString test string
      * @return if the given string is json or not
      */
     private boolean isJson(String testString) {
-        try {
-            try (JsonReader reader = new JsonReader(new StringReader(testString))) {
-                strictGsonObjectAdapter.read(reader);
-                reader.hasNext(); // throws on multiple top level values
-                return true;
-            }
+        try (JsonReader reader = new JsonReader(new StringReader(testString))) {
+            strictGsonObjectAdapter.read(reader);
+            reader.hasNext(); // throws on multiple top level values
+            return true;
         } catch (IOException e) {
             return false;
         }
@@ -543,7 +561,7 @@ public class CheckpointDao {
      * @param modelId Model Id
      * @param listener Listener to return a pair of entity model and its last checkpoint time
      */
-    public void restoreModelCheckpoint(String modelId, ActionListener<Optional<Entry<EntityModel, Instant>>> listener) {
+    public void deserializeModelCheckpoint(String modelId, ActionListener<Optional<Entry<EntityModel, Instant>>> listener) {
         clientUtil
             .<GetRequest, GetResponse>asyncRequest(
                 new GetRequest(indexName, modelId),
@@ -585,7 +603,7 @@ public class CheckpointDao {
                     rcfCheckpoint
                         .map(
                             checkpoint -> AccessController
-                                .doPrivileged((PrivilegedAction<RandomCutForest>) () -> restoreRCFModel((String) checkpoint))
+                                .doPrivileged((PrivilegedAction<RandomCutForest>) () -> deserializeRCFModel((String) checkpoint))
                         )
                 );
         }, listener::onFailure));

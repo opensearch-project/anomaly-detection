@@ -6,6 +6,7 @@ grant {
   // required for GenericObjectPool in CheckpointDao
   permission javax.management.MBeanServerPermission "createMBeanServer";
   permission javax.management.MBeanPermission "org.apache.commons.pool2.impl.GenericObjectPool#-[org.apache.commons.pool2:name=pool,type=GenericObjectPool]", "registerMBean";
+  permission javax.management.MBeanPermission "org.apache.commons.pool2.impl.GenericObjectPool#-[org.apache.commons.pool2:name=pool,type=GenericObjectPool]", "unregisterMBean";
   permission javax.management.MBeanTrustPermission "register";
   permission java.lang.RuntimePermission "getClassLoader";
   permission java.lang.RuntimePermission "setContextClassLoader";
