@@ -202,7 +202,7 @@ public final class AnomalyDetectorSettings {
     // RCF
     public static final int NUM_SAMPLES_PER_TREE = 256;
 
-    public static final int NUM_TREES = 100;
+    public static final int NUM_TREES = 30;
 
     public static final int TRAINING_SAMPLE_INTERVAL = 64;
 
@@ -261,7 +261,7 @@ public final class AnomalyDetectorSettings {
 
     public static final int MAX_IMPUTATION_NEIGHBOR_DISTANCE = 2;
 
-    //shingling
+    // shingling
     public static final double MAX_SHINGLE_PROPORTION_MISSING = 0.25;
 
     // AD JOB
@@ -381,6 +381,9 @@ public final class AnomalyDetectorSettings {
     // number of bulk checkpoints per second
     public static double CHECKPOINT_BULK_PER_SECOND = 0.02;
 
+    // ======================================
+    // Historical analysis
+    // ======================================
     // Maximum number of batch tasks running on one node.
     // TODO: performance test and tune the setting.
     public static final Setting<Integer> MAX_BATCH_TASK_PER_NODE = Setting
@@ -393,8 +396,21 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static int THRESHOLD_MODEL_TRAINING_SIZE = 1000;
+    // Maximum number of deleted tasks can keep in cache.
+    public static final Setting<Integer> MAX_CACHED_DELETED_TASKS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_cached_deleted_tasks",
+            1000,
+            1,
+            10_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
+    public static int THRESHOLD_MODEL_TRAINING_SIZE = 128;
+
+    // Maximum number of old AD tasks we can keep.
+    public static int MAX_OLD_AD_TASK_DOCS = 1000;
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
         .intSetting(
             "plugins.anomaly_detection.max_old_ad_task_docs_per_detector",
@@ -403,7 +419,7 @@ public final class AnomalyDetectorSettings {
             // that will be 2GB.
             LegacyOpenDistroAnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
             1, // keep at least 1 old AD task per detector
-            1000,
+            MAX_OLD_AD_TASK_DOCS,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -424,6 +440,28 @@ public final class AnomalyDetectorSettings {
             LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
             1,
             600,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    // Maximum number of entities we support for historical analysis.
+    public static final int MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS = 10_000;
+    public static final Setting<Integer> MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_top_entities_for_historical_analysis",
+            1000,
+            1,
+            MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Integer> MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_running_entities_per_detector_for_historical_analysis",
+            1,
+            1,
+            1000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -659,16 +697,17 @@ public final class AnomalyDetectorSettings {
     // 256 samples is of 3.2MB.
     // In compact rcf, the same RCF is of 163KB.
     // Since we allow at most 5 features, and the default shingle size is 8 and default
-    // tree number size is 100, we can have at most 25.6 MB. It is possible that cx increases
-    // the max features or shingle size, but we don't want to risk OOM for the flexibility.
+    // tree number size is 100, we can have at most 25.6 MB in RCF 1.0.
+    // It is possible that cx increases the max features or shingle size, but we don't want
+    // to risk OOM for the flexibility.
     public static final int MAX_CHECKPOINT_BYTES = 30_000_000;
 
     // Sets the cap on the number of buffer that can be allocated by the rcf deserialization
     // buffer pool. Each buffer is of 512 bytes. Memory occupied by 20 buffers is 10.24 KB.
-    public static final int MAX_TOTAL_RCF_DESERIALIZATION_BUFFERS = 20;
+    public static final int MAX_TOTAL_RCF_SERIALIZATION_BUFFERS = 20;
 
     // the size of the buffer used for rcf deserialization
-    public static final int DESERIALIZATION_BUFFER_BYTES = 512;
+    public static final int SERIALIZATION_BUFFER_BYTES = 512;
 
     // ======================================
     // pagination setting
