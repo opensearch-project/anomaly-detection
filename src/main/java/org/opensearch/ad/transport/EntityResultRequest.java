@@ -119,10 +119,12 @@ public class EntityResultRequest extends ActionRequest implements ToXContentObje
                 Map<String, String> attributes = entry.getKey().getAttributes();
                 if (attributes.size() != 1) {
                     // cannot send a multi-category field entity to old node since it will
-                    // cause EOF exception and stop the detector. Cannot log the entity
-                    // either as there can be a huge number of entities. Since the issue
-                    // is temporary and will be gone after upgrade completes, ignore them.
-                    continue;
+                    // cause EOF exception and stop the detector. The issue
+                    // is temporary and will be gone after upgrade completes.
+                    // Since one EntityResultRequest is sent to one node, we can safely
+                    // ignore the rest of the requests.
+                    LOG.info("Skip sending multi-category entities to an incompatible node. Attributes: ", attributes);
+                    break;
                 }
                 oldFormatEntities.put(entry.getKey().getAttributes().entrySet().iterator().next().getValue(), entry.getValue());
             }

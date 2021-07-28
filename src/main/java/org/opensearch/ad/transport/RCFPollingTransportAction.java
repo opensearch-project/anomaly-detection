@@ -158,7 +158,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
             }
 
         } else {
-            LOG.error("Fail to poll rcf for model {} due to an unexpetected bug.", rcfModelID);
+            LOG.error("Fail to poll rcf for model {} due to an unexpected bug.", rcfModelID);
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
         }
     }

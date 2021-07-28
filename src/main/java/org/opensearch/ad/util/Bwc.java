@@ -19,14 +19,12 @@ import org.opensearch.Version;
  */
 public class Bwc {
     /**
-     * We are gonna start supporting multi-category field since version 1.1.0.
-     * Since Opendistro and Elasticsearch will use a version after 1.0.0, we
-     * have to check Lucene version as well. Elasticsearch 7.10 uses Lucene 8.7.0
+     * We are gonna start supporting multi-category fields since version 1.1.0.
      *
      * @param version test version
      * @return whether the version support multiple category fields
      */
     public static boolean supportMultiCategoryFields(Version version) {
-        return version.after(Version.V_1_0_0) && version.luceneVersion.onOrAfter(org.apache.lucene.util.Version.LUCENE_8_8_2);
+        return version.after(Version.V_1_0_0);
     }
 }
