@@ -89,6 +89,13 @@ public class BackPressureRouting {
         return maxRetryForUnresponsiveNode;
     }
 
+    /**
+     * Setter for maxRetryForUnresponsiveNode
+     *
+     * It is up to the client to make the method thread safe.
+     *
+     * @param maxRetryForUnresponsiveNode the max retries before muting a node.
+     */
     public void setMaxRetryForUnresponsiveNode(int maxRetryForUnresponsiveNode) {
         this.maxRetryForUnresponsiveNode = maxRetryForUnresponsiveNode;
     }
