@@ -324,9 +324,14 @@ public class CheckpointDao {
                 return null;
             }
             JsonObject json = new JsonObject();
-            json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
+            if (model.getSamples() != null && !(model.getSamples().isEmpty())) {
+                json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
+            }
             if (model.getRcf() != null) {
-                json.addProperty(ENTITY_RCF, rcfModelToCheckpoint(model.getRcf()));
+                String serializedRCF = rcfModelToCheckpoint(model.getRcf());
+                if (!Strings.isEmpty(serializedRCF)) {
+                    json.addProperty(ENTITY_RCF, serializedRCF);
+                }
             }
             if (model.getThreshold() != null) {
                 json.addProperty(ENTITY_THRESHOLD, gson.toJson(model.getThreshold()));
