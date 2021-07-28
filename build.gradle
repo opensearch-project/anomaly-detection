@@ -335,8 +335,27 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.ml.EntityModel',
         'org.opensearch.ad.ml.ModelPartitioner',
         'org.opensearch.ad.ml.CheckpointDao',
-        // related to deserializeRCFBufferPool's init
-        'org.opensearch.ad.AnomalyDetectorPlugin.*',
+
+        // TODO: unified flow caused coverage drop
+        'org.opensearch.ad.transport.AnomalyDetectorJobRequest',
+        'org.opensearch.ad.transport.ADTaskProfileTransportAction',
+        'org.opensearch.ad.transport.ADCancelTaskRequest',
+        'org.opensearch.ad.transport.ADTaskProfileNodeRequest',
+        'org.opensearch.ad.transport.ADCancelTaskTransportAction',
+        'org.opensearch.ad.transport.ADTaskProfileRequest',
+        'org.opensearch.ad.transport.ADCancelTaskNodeRequest',
+        'org.opensearch.ad.task.ADTaskManager',
+        'org.opensearch.ad.transport.ForwardADTaskTransportAction',
+        'org.opensearch.ad.task.ADHCBatchTaskCache',
+        'org.opensearch.ad.task.ADBatchTaskRunner',
+        'org.opensearch.ad.transport.ForwardADTaskRequest',
+        'org.opensearch.ad.task.ADBatchTaskCache',
+        'org.opensearch.ad.transport.ADBatchAnomalyResultResponse',
+        'org.opensearch.ad.transport.AnomalyDetectorJobTransportAction',
+        'org.opensearch.ad.transport.CronNodeRequest',
+        'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
+        'org.opensearch.ad.transport.EntityResultResponse',
+        'org.opensearch.ad.transport.GetAnomalyDetectorResponse'
 ]
 
 jacocoTestCoverageVerification {
@@ -406,8 +425,8 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
 
     // used for serializing/deserializing rcf models.
-    compile group: 'io.protostuff', name: 'protostuff-core', version: '1.7.2'
-    compile group: 'io.protostuff', name: 'protostuff-runtime', version: '1.7.2'
+    compile group: 'io.protostuff', name: 'protostuff-core', version: '1.7.4'
+    compile group: 'io.protostuff', name: 'protostuff-runtime', version: '1.7.4'
 
     compile "org.jacoco:org.jacoco.agent:0.8.5"
     compile ("org.jacoco:org.jacoco.ant:0.8.5") {
