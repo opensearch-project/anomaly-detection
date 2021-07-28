@@ -29,8 +29,10 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.support.nodes.BaseNodesRequest;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 
 /**
  * Request should be sent from the handler logic of transport delete detector API
@@ -42,6 +44,9 @@ public class CronRequest extends BaseNodesRequest<CronRequest> {
 
     public CronRequest(StreamInput in) throws IOException {
         super(in);
+        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+            requestId = in.readString();
+        }
     }
 
     public CronRequest(DiscoveryNode... nodes) {
@@ -55,5 +60,13 @@ public class CronRequest extends BaseNodesRequest<CronRequest> {
 
     public String getRequestId() {
         return this.requestId;
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            out.writeString(requestId);
+        }
     }
 }
