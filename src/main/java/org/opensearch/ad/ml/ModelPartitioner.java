@@ -101,7 +101,7 @@ public class ModelPartitioner {
                 .precision(Precision.FLOAT_32)
                 .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
                 // same with dimension for opportunistic memory saving
-                .shingleSize(rcfNumFeatures)
+                .shingleSize(detector.getShingleSize())
                 .build(),
             detectorId
         );
