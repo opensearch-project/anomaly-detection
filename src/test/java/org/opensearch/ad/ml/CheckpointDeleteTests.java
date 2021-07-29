@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.Collections;
 
+import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.junit.After;
 import org.junit.Before;
 import org.opensearch.OpenSearchException;
@@ -49,8 +50,13 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.ScrollableHitSource;
 
-import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.state.RandomCutForestMapper;
+import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.gson.Gson;
+
+import io.protostuff.LinkedBuffer;
+import io.protostuff.Schema;
 
 /**
  * CheckpointDaoTests cannot extends basic ES test case and I cannot check logs
@@ -70,11 +76,12 @@ public class CheckpointDeleteTests extends AbstractADTest {
     private Client client;
     private ClientUtil clientUtil;
     private Gson gson;
-    private RandomCutForestSerDe rcfSerde;
     private AnomalyDetectionIndices indexUtil;
     private String detectorId;
     private int maxCheckpointBytes;
+    private GenericObjectPool<LinkedBuffer> objectPool;
 
+    @SuppressWarnings("unchecked")
     @Override
     @Before
     public void setUp() throws Exception {
@@ -84,20 +91,29 @@ public class CheckpointDeleteTests extends AbstractADTest {
         client = mock(Client.class);
         clientUtil = mock(ClientUtil.class);
         gson = null;
-        rcfSerde = mock(RandomCutForestSerDe.class);
         indexUtil = mock(AnomalyDetectionIndices.class);
         detectorId = "123";
         maxCheckpointBytes = 1_000_000;
 
+        RandomCutForestMapper mapper = mock(RandomCutForestMapper.class);
+        Schema<RandomCutForestState> schema = mock(Schema.class);
+        V1JsonToV2StateConverter converter = mock(V1JsonToV2StateConverter.class);
+
+        objectPool = mock(GenericObjectPool.class);
+        int deserializeRCFBufferSize = 512;
         checkpointDao = new CheckpointDao(
             client,
             clientUtil,
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,
-            rcfSerde,
+            mapper,
+            schema,
+            converter,
             HybridThresholdingModel.class,
             indexUtil,
-            maxCheckpointBytes
+            maxCheckpointBytes,
+            objectPool,
+            deserializeRCFBufferSize
         );
     }
 

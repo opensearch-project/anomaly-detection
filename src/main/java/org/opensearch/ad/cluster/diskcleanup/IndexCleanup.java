@@ -127,8 +127,12 @@ public class IndexCleanup {
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             clientUtil.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
-                // if 0 docs get deleted, it means our query cannot find any matching doc
-                LOG.info("{} docs are deleted for index:{}", response.getDeleted(), indexName);
+                long deleted = response.getDeleted();
+                if (deleted > 0) {
+                    // if 0 docs get deleted, it means our query cannot find any matching doc
+                    // or the index does not exist at all
+                    LOG.info("{} docs are deleted for index:{}", deleted, indexName);
+                }
                 listener.onResponse(response.getDeleted());
             }, listener::onFailure));
         }

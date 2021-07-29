@@ -49,6 +49,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.config.Precision;
 
 /**
  * AD batch task cache which will mainly hold these for one task:
@@ -83,14 +84,25 @@ public class ADBatchTaskCache {
         int numberOfTrees = isHC ? MULTI_ENTITY_NUM_TREES : NUM_TREES;
         int shingleSize = detector.getShingleSize();
         this.shingle = new ArrayDeque<>(shingleSize);
+        int dimensions = detector.getShingleSize() * detector.getEnabledFeatureIds().size();
+
         rcfModel = RandomCutForest
             .builder()
-            .dimensions(shingleSize * detector.getEnabledFeatureIds().size())
+            .dimensions(dimensions)
             .numberOfTrees(numberOfTrees)
-            .lambda(TIME_DECAY)
+            .timeDecay(TIME_DECAY)
             .sampleSize(NUM_SAMPLES_PER_TREE)
             .outputAfter(NUM_MIN_SAMPLES)
             .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            // same with dimension for opportunistic memory saving
+            // Usually, we use it as shingleSize(dimension). When a new point comes in, we will
+            // look at the point store if there is any overlapping. Say the previously-stored
+            // vector is x1, x2, x3, x4, now we add x3, x4, x5, x6. RCF will recognize
+            // overlapping x3, x4, and only store x5, x6.
+            .shingleSize(shingleSize)
             .build();
 
         this.thresholdModel = new HybridThresholdingModel(

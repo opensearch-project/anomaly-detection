@@ -272,16 +272,5 @@ public class ProfileTests extends OpenSearchTestCase {
             }
 
         }
-
-        // Test Serialization
-        BytesStreamOutput output = new BytesStreamOutput();
-
-        profileResponse.writeTo(output);
-        StreamInput streamInput = output.bytes().streamInput();
-        ProfileResponse readResponse = new ProfileResponse(streamInput);
-
-        builder = jsonBuilder();
-        String readJson = Strings.toString(readResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject());
-        assertEquals("Serialization fails", readJson, json);
     }
 }

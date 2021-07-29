@@ -36,7 +36,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 
 import java.io.IOException;
@@ -65,6 +67,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
+import org.opensearch.BwcTests;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
@@ -205,9 +208,6 @@ public class MultiEntityResultTests extends AbstractADTest {
             return null;
         }).when(stateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
 
-        // AnomalyDetector detector = TestHelpers
-        // .randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), true, true);
-
         settings = Settings.builder().put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
 
         // make sure end time is larger enough than Clock.systemUTC().millis() to get PageIterator.hasNext() to pass
@@ -233,6 +233,8 @@ public class MultiEntityResultTests extends AbstractADTest {
         Set<Setting<?>> anomalyResultSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         anomalyResultSetting.add(MAX_ENTITIES_PER_QUERY);
         anomalyResultSetting.add(PAGE_SIZE);
+        anomalyResultSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
+        anomalyResultSetting.add(BACKOFF_MINUTES);
         ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, anomalyResultSetting);
 
         DiscoveryNode discoveryNode = new DiscoveryNode(
@@ -334,6 +336,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         return new TransportResponseHandler<T>() {
             @Override
             public T read(StreamInput in) throws IOException {
+                in.setVersion(BwcTests.V_1_1_0);
                 return handler.read(in);
             }
 
@@ -359,6 +362,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         return new TransportResponseHandler<T>() {
             @Override
             public T read(StreamInput in) throws IOException {
+                in.setVersion(BwcTests.V_1_1_0);
                 return handler.read(in);
             }
 
@@ -420,7 +424,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner
+            modelPartitioner,
+            clusterService
         );
 
         action = new AnomalyResultTransportAction(
@@ -652,7 +657,9 @@ public class MultiEntityResultTests extends AbstractADTest {
             }
         };
 
-        setupTestNodes(entityResultInterceptor, 5, settings, MAX_ENTITIES_PER_QUERY, PAGE_SIZE);
+        // we start support multi-category fields since 1.1
+        // Set version to 1.1 will force the outbound/inbound message to use 1.1 version
+        setupTestNodes(entityResultInterceptor, 5, settings, BwcTests.V_1_1_0, MAX_ENTITIES_PER_QUERY, PAGE_SIZE);
 
         TransportService realTransportService = testNodes[0].transportService;
         ClusterService realClusterService = testNodes[0].clusterService;
@@ -713,7 +720,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner
+            modelPartitioner,
+            clusterService
         );
 
         action = new AnomalyResultTransportAction(
@@ -785,7 +793,7 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
 
-        verify(stateManager, times(1)).addPressure(anyString());
+        verify(stateManager, times(1)).addPressure(anyString(), anyString());
     }
 
     public void testMultipleNode() throws InterruptedException, IOException {

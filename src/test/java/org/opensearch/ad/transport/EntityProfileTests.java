@@ -26,7 +26,6 @@
 
 package org.opensearch.ad.transport;
 
-import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
@@ -61,7 +60,6 @@ import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
@@ -373,22 +371,6 @@ public class EntityProfileTests extends AbstractADTest {
         String json = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         assertEquals(lastActiveTimestamp, JsonDeserializer.getLongValue(json, EntityProfileResponse.LAST_ACTIVE_TS));
         assertEquals(modelSize, JsonDeserializer.getChildNode(json, CommonName.MODEL, CommonName.MODEL_SIZE_IN_BYTES).getAsLong());
-    }
-
-    public void testSerialzationResponse() throws IOException {
-        EntityProfileResponse.Builder builder = new EntityProfileResponse.Builder();
-        builder.setLastActiveMs(lastActiveTimestamp).build();
-        ModelProfileOnNode model = new ModelProfileOnNode(nodeId, new ModelProfile(modelId, entity, modelSize));
-        builder.setModelProfile(model);
-        EntityProfileResponse response = builder.build();
-
-        BytesStreamOutput output = new BytesStreamOutput();
-        response.writeTo(output);
-
-        StreamInput streamInput = output.bytes().streamInput();
-        EntityProfileResponse readResponse = EntityProfileAction.INSTANCE.getResponseReader().read(streamInput);
-        assertThat(response.getModelProfile(), equalTo(readResponse.getModelProfile()));
-        assertThat(response.getLastActiveMs(), equalTo(readResponse.getLastActiveMs()));
     }
 
     public void testResponseHashCodeEquals() {

@@ -29,7 +29,9 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.support.nodes.BaseNodeRequest;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 
 /**
  *  Delete model represents the request to an individual node
@@ -46,9 +48,20 @@ public class CronNodeRequest extends BaseNodeRequest {
 
     public CronNodeRequest(StreamInput in) throws IOException {
         super(in);
+        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+            requestId = in.readString();
+        }
     }
 
     public String getRequestId() {
         return this.requestId;
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            out.writeString(requestId);
+        }
     }
 }

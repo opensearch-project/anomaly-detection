@@ -68,6 +68,8 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.opensearch.OpenSearchTimeoutException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequestValidationException;
@@ -153,7 +155,7 @@ public class AnomalyResultTests extends AbstractADTest {
     private AnomalyDetector detector;
     private HashRing hashRing;
     private IndexNameExpressionResolver indexNameResolver;
-    private String rcfModelID;
+    private String rcfModelIDPrefix;
     private String thresholdModelID;
     private String adID;
     private String featureId;
@@ -189,7 +191,7 @@ public class AnomalyResultTests extends AbstractADTest {
         // return 2 RCF partitions
         partitionNum = 2;
         when(stateManager.getPartitionNumber(any(String.class), any(AnomalyDetector.class))).thenReturn(partitionNum);
-        when(stateManager.isMuted(any(String.class))).thenReturn(false);
+        when(stateManager.isMuted(any(String.class), any(String.class))).thenReturn(false);
         when(stateManager.markColdStartRunning(anyString())).thenReturn(() -> {});
 
         detector = mock(AnomalyDetector.class);
@@ -237,8 +239,16 @@ public class AnomalyResultTests extends AbstractADTest {
         }).when(normalModelManager).getThresholdingResult(any(String.class), any(String.class), anyDouble(), any(ActionListener.class));
 
         normalModelPartitioner = mock(ModelPartitioner.class);
-        rcfModelID = "123-rcf-1";
-        when(normalModelPartitioner.getRcfModelId(any(String.class), anyInt())).thenReturn(rcfModelID);
+        rcfModelIDPrefix = "123-rcf-";
+        when(normalModelPartitioner.getRcfModelId(any(String.class), anyInt())).thenAnswer(new Answer<String>() {
+
+            @Override
+            public String answer(InvocationOnMock invocation) throws Throwable {
+                Integer partition = (Integer) invocation.getArgument(1);
+                return rcfModelIDPrefix + partition.toString();
+            }
+
+        });
         thresholdModelID = "123-threshold";
         when(normalModelPartitioner.getThresholdModelId(any(String.class))).thenReturn(thresholdModelID);
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
@@ -788,11 +798,11 @@ public class AnomalyResultTests extends AbstractADTest {
 
         if (!temporary) {
             verify(hashRing, times(numberOfBuildCall)).build();
-            verify(stateManager, never()).addPressure(any(String.class));
+            verify(stateManager, never()).addPressure(any(String.class), any(String.class));
         } else {
             verify(hashRing, never()).build();
             // expect 2 times since we have 2 RCF model partitions
-            verify(stateManager, times(numberOfBuildCall)).addPressure(any(String.class));
+            verify(stateManager, times(numberOfBuildCall)).addPressure(any(String.class), any(String.class));
         }
     }
 
@@ -824,7 +834,7 @@ public class AnomalyResultTests extends AbstractADTest {
     @SuppressWarnings("unchecked")
     public void testMute() {
         NodeStateManager muteStateManager = mock(NodeStateManager.class);
-        when(muteStateManager.isMuted(any(String.class))).thenReturn(true);
+        when(muteStateManager.isMuted(any(String.class), any(String.class))).thenReturn(true);
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(detector));

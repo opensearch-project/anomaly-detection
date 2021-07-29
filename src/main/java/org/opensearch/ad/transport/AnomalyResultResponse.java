@@ -34,6 +34,7 @@ import java.util.List;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.FeatureData;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.io.stream.InputStreamStreamInput;
 import org.opensearch.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
@@ -118,9 +119,15 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             features.add(new FeatureData(in));
         }
         error = in.readOptionalString();
-        rcfTotalUpdates = in.readOptionalLong();
-        detectorIntervalInMinutes = in.readOptionalLong();
-        isHCDetector = in.readOptionalBoolean();
+        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+            rcfTotalUpdates = in.readOptionalLong();
+            detectorIntervalInMinutes = in.readOptionalLong();
+            isHCDetector = in.readOptionalBoolean();
+        } else {
+            rcfTotalUpdates = 0L;
+            detectorIntervalInMinutes = 0L;
+            isHCDetector = false;
+        }
     }
 
     public double getAnomalyGrade() {
@@ -165,9 +172,11 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             feature.writeTo(out);
         }
         out.writeOptionalString(error);
-        out.writeOptionalLong(rcfTotalUpdates);
-        out.writeOptionalLong(detectorIntervalInMinutes);
-        out.writeOptionalBoolean(isHCDetector);
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            out.writeOptionalLong(rcfTotalUpdates);
+            out.writeOptionalLong(detectorIntervalInMinutes);
+            out.writeOptionalBoolean(isHCDetector);
+        }
     }
 
     @Override

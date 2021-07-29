@@ -110,7 +110,7 @@ public class MemoryTracker {
      * @return true if there is enough memory; otherwise throw LimitExceededException.
      */
     public synchronized boolean isHostingAllowed(String detectorId, RandomCutForest rcf) {
-        long requiredBytes = estimateModelSize(rcf);
+        long requiredBytes = estimateTotalModelSize(rcf);
         if (canAllocateReserved(requiredBytes)) {
             return true;
         } else {
@@ -181,8 +181,19 @@ public class MemoryTracker {
      * @param forest RCF forest object
      * @return estimated model size in bytes
      */
-    public long estimateModelSize(RandomCutForest forest) {
-        return estimateModelSize(forest.getDimensions(), forest.getNumberOfTrees(), forest.getSampleSize());
+    public long estimateTotalModelSize(RandomCutForest forest) {
+        return estimateRCFModelSize(forest.getDimensions(), forest.getNumberOfTrees(), forest.getBoundingBoxCacheFraction())
+            + thresholdModelBytes;
+    }
+
+    /**
+     * Gets the estimated size of a RCF model.
+     *
+     * @param forest RCF forest object
+     * @return estimated model size in bytes
+     */
+    public long estimateRCFModelSize(RandomCutForest forest) {
+        return estimateRCFModelSize(forest.getDimensions(), forest.getNumberOfTrees(), forest.getBoundingBoxCacheFraction());
     }
 
     /**
@@ -191,40 +202,69 @@ public class MemoryTracker {
      *
      * @param detector detector config object
      * @param numberOfTrees the number of trees in a RCF forest
+     * @param boundingBoxCacheFraction Bounding box cache ratio in RCF
      * @return estimated model size in bytes
      */
-    public long estimateModelSize(AnomalyDetector detector, int numberOfTrees) {
-        return estimateModelSize(detector.getEnabledFeatureIds().size() * detector.getShingleSize(), numberOfTrees, sampleSize);
+    public long estimateTotalModelSize(AnomalyDetector detector, int numberOfTrees, double boundingBoxCacheFraction) {
+        return estimateRCFModelSize(
+            detector.getEnabledFeatureIds().size() * detector.getShingleSize(),
+            numberOfTrees,
+            boundingBoxCacheFraction
+        ) + thresholdModelBytes;
     }
 
     /**
      * Gets the estimated size of an entity's model.
+     *
      * RCF size:
-     * (Num_trees * num_samples * ( (16*dimensions + 84) + (24*dimensions + 48))）
-     *
-     * (16*dimensions + 84) is for non-leaf node.  16 are for two doubles for min and max.
-     * 84 is the meta-data size we observe from jmap data.
-     * (24*dimensions + 48)) is for leaf node.  We find a leaf node has 3 vectors: leaf pointers,
-     *  min, and max arrays from jmap data.  That’s why we use 24 ( 3 doubles).  48 is the
-     *  meta-data size we observe from jmap data.
-     *
-     * Sampler size:
-     * Number_of_trees * num_samples * ( 12 (object) + 8 (subsequence) + 8 (weight) + 8 (point reference))
-     *
-     * The range of mem usage of RCF model in our test(1feature, 1 shingle) is from ~400K to ~800K.
-     * Using shingle size 1 and 1 feature (total dimension = 1), one rcf’s size is of 532 K,
-     * which lies in our range of 400~800 k.
+     * Assume the sample size is 256. A compact RCF forest consists of:
+     * - Random number generator: 56 bytes
+     * - PointStoreCoordinator: 24 bytes
+     * - SequentialForestUpdateExecutor: 24 bytes
+     * - SequentialForestTraversalExecutor: 16 bytes
+     * - PointStoreFloat
+     *   + IndexManager
+     *     - int array for free indexes: 256 * numberOfTrees * 4, where 4 is the size of an integer
+     *   - two int array for locationList and refCount: 256 * numberOfTrees * 4 bytes * 2
+     *   - a float array for data store: 256 * trees * dimension * 4 bytes
+     * - ComponentList: an array of size numberOfTrees
+     *   + SamplerPlusTree
+     *    - CompactSampler: 2248
+     *    + CompactRandomCutTreeFloat
+     *      - other fields: 152
+     *      - SmallNodeStore (small node store since our sample size is 256, less than the max of short): 6120
+     *      + BoxCacheFloat
+     *        - other: 104
+     *        - BoundingBoxFloat: (1040 + 255* (dimension * 4 * 2 + 64)) * adjusted bounding box cache usage,
+     *           where if full we have 255 inner node and each box has 80 bytes.
+     *           Plus metadata, we can have in total 21544 bytes.
+     *           {@code adjusted bounding box cache usage = (bounding box cache fraction >= 0.3? 1: bounding box cache fraction)}
+     *           {@code >= 0.3} we will still initialize bounding box cache array of the max size,
+     *           but exclude them using the cache ratio.  It is not guaranteed we will only
+     *           use cache ratio in the array.  For example, with cache ratio 0.5, we used 150
+     *           out of 255 elements.  So can have two float array whose size is the number of
+     *           dimensions; other constants are the metadata size.
+     * In total, RCF size is
+     *  56 + # trees * (2248 + 152 + 6120 + 104 + (1040 + 255* (dimension * 4 * 2 + 64)) * adjusted bounding box cache ratio) +
+     *  (256 * # trees  * 2 + 256 * # trees * dimension) * 4 bytes  * 0.5 + 1064 + 24 + 24 + 16
+     *  = 56 + # trees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * adjusted bounding box cache ratio) + 256 * # trees *
+     *   (2 + dimension) * 4 * 0.5 + 1128
      *
      * @param dimension The number of feature dimensions in RCF
      * @param numberOfTrees The number of trees in RCF
-     * @param numSamples The number of samples in RCF
-     * @return estimated model size in bytes
+     * @param boundingBoxCacheFraction Bounding box cache ratio in RCF
+     * @return estimated RCF model size
      */
-    public long estimateModelSize(int dimension, int numberOfTrees, int numSamples) {
-        long totalSamples = (long) numberOfTrees * (long) numSamples;
-        long rcfSize = totalSamples * (40 * dimension + 132);
-        long samplerSize = totalSamples * 36;
-        return rcfSize + samplerSize + thresholdModelBytes;
+    public long estimateRCFModelSize(int dimension, int numberOfTrees, double boundingBoxCacheFraction) {
+        float averagePointStoreUsage = dimension == 1 ? 1 : 0.5f;
+        float actualBoundingBoxUsage = boundingBoxCacheFraction >= 0.3 ? 1 : (float) boundingBoxCacheFraction;
+        long compactRcfSize = (long) (56 + numberOfTrees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * actualBoundingBoxUsage) + 256
+            * numberOfTrees * (2 + dimension) * 4 * averagePointStoreUsage + 1128);
+        return compactRcfSize;
+    }
+
+    public long estimateTotalModelSize(int dimension, int numberOfTrees, double boundingBoxCacheFraction) {
+        return estimateRCFModelSize(dimension, numberOfTrees, boundingBoxCacheFraction) + thresholdModelBytes;
     }
 
     /**
