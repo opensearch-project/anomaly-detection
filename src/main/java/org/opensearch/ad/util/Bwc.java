@@ -18,6 +18,8 @@ import org.opensearch.Version;
  *
  */
 public class Bwc {
+    public static boolean DISABLE_BWC = true;
+
     /**
      * We are gonna start supporting multi-category fields since version 1.1.0.
      *
@@ -25,6 +27,7 @@ public class Bwc {
      * @return whether the version support multiple category fields
      */
     public static boolean supportMultiCategoryFields(Version version) {
-        return version.after(Version.V_1_0_0);
+        // TODO: remove DISABLE_BWC before release
+        return DISABLE_BWC || version.after(Version.V_1_0_0);
     }
 }

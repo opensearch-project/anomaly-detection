@@ -472,10 +472,16 @@ public class CheckpointDao {
                     return Optional.empty();
                 }
                 JsonObject json = parser.parse(model).getAsJsonObject();
-                // verified, don't need privileged call to get permission
-                ArrayDeque<double[]> samples = new ArrayDeque<>(
-                    Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
-                );
+                ArrayDeque<double[]> samples = null;
+                if (json.has(ENTITY_SAMPLE)) {
+                    // verified, don't need privileged call to get permission
+                    samples = new ArrayDeque<>(
+                        Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
+                    );
+                } else {
+                    // avoid possible null pointer exception
+                    samples = new ArrayDeque<>();
+                }
                 RandomCutForest rcf = null;
                 if (json.has(ENTITY_RCF)) {
                     String serializedRCF = json.getAsJsonPrimitive(ENTITY_RCF).getAsString();

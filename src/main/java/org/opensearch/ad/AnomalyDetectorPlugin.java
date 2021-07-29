@@ -378,7 +378,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             modelMaxSizePercent,
             AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
             clusterService,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
             adCircuitBreakerService
         );
 

@@ -131,27 +131,13 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     private void setUpBigHeap() {
         ByteSizeValue value = new ByteSizeValue(largeHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(
-            jvmService,
-            modelMaxSizePercentage,
-            modelDesiredSizePercentage,
-            clusterService,
-            rcfSampleSize,
-            circuitBreaker
-        );
+        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, circuitBreaker);
     }
 
     private void setUpSmallHeap() {
         ByteSizeValue value = new ByteSizeValue(smallHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(
-            jvmService,
-            modelMaxSizePercentage,
-            modelDesiredSizePercentage,
-            clusterService,
-            rcfSampleSize,
-            circuitBreaker
-        );
+        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, circuitBreaker);
     }
 
     public void testEstimateModelSize() {
