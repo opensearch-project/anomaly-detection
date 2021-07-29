@@ -87,9 +87,10 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
                 listener.onResponse(new StopDetectorResponse(false));
             }));
         } catch (Exception e) {
-            LOG.error("Fail to stop detector " + adID, e);
+            String errorMessage = "Fail to stop detector " + adID;
+            LOG.error(errorMessage, e);
             Throwable cause = ExceptionsHelper.unwrapCause(e);
-            listener.onFailure(new InternalFailure(adID, cause));
+            listener.onFailure(new InternalFailure(adID, errorMessage, cause));
         }
     }
 }

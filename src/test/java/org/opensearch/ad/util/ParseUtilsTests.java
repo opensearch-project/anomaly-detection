@@ -223,7 +223,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
                 + "\"to\":20,\"include_lower\":true,\"include_upper\":true,\"boost\":1.0}}}],\"should\":[{\"term\":{\"tag\":"
                 + "{\"value\":\"wow\",\"boost\":1.0}}},{\"term\":{\"tag\":{\"value\":\"elasticsearch\",\"boost\":1.0}}}],"
                 + "\"adjust_pure_negative\":true,\"minimum_should_match\":\"1\",\"boost\":1.0}}],\"adjust_pure_negative"
-                + "\":true,\"boost\":1.0}},\"aggregations\":{\"feature_aggs\":{\"composite\":{\"size\":1000,\"sources\":"
+                + "\":true,\"boost\":1.0}},\"aggregations\":{\"feature_aggs\":{\"composite\":{\"size\":10000,\"sources\":"
                 + "[{\"date_histogram\":{\"date_histogram\":{\"field\":\""
                 + detector.getTimeField()
                 + "\",\"missing_bucket\":false,\"order\":\"asc\","

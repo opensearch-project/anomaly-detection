@@ -31,6 +31,7 @@ import static org.opensearch.ad.constant.CommonName.EPOCH_MILLIS_FORMAT;
 import static org.opensearch.ad.constant.CommonName.FEATURE_AGGS;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PIECE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
@@ -48,13 +49,12 @@ import java.util.regex.Matcher;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
-import org.opensearch.OpenSearchException;
-import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
@@ -458,7 +458,7 @@ public final class ParseUtils {
         } else if (query instanceof BoolQueryBuilder) {
             ((BoolQueryBuilder) query).filter(boolQueryBuilder);
         } else {
-            throw new OpenSearchException("Search API does not support queries other than BoolQuery");
+            throw new AnomalyDetectionException("Search API does not support queries other than BoolQuery");
         }
         return searchSourceBuilder;
     }
@@ -562,13 +562,13 @@ public final class ParseUtils {
                     function.accept(detector);
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
-                    listener.onFailure(new OpenSearchException("User does not have permissions to access detector: " + detectorId));
+                    listener.onFailure(new AnomalyDetectionException("User does not have permissions to access detector: " + detectorId));
                 }
             } catch (Exception e) {
-                listener.onFailure(new OpenSearchException("Unable to get user information from detector " + detectorId));
+                listener.onFailure(new AnomalyDetectionException("Unable to get user information from detector " + detectorId));
             }
         } else {
-            listener.onFailure(new ResourceNotFoundException("AnomalyDetector is not found with id: " + detectorId));
+            listener.onFailure(new ResourceNotFoundException(detectorId, "AnomalyDetector is not found with id: " + detectorId));
         }
     }
 
@@ -601,7 +601,7 @@ public final class ParseUtils {
         if (requestedUser.getBackendRoles().isEmpty()) {
             listener
                 .onFailure(
-                    new OpenSearchException(
+                    new AnomalyDetectionException(
                         "Filter by backend roles is enabled and User " + requestedUser.getName() + " does not have backend roles configured"
                     )
                 );
@@ -660,7 +660,8 @@ public final class ParseUtils {
                     .fixedInterval(DateHistogramInterval.seconds((int) intervalSeconds))
             );
 
-        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources).size(1000);
+        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources)
+            .size(MAX_BATCH_TASK_PIECE_SIZE);
 
         if (detector.getEnabledFeatureIds().size() == 0) {
             throw new AnomalyDetectionException("No enabled feature configured").countedInStats(false);

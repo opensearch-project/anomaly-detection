@@ -14,6 +14,7 @@ package org.opensearch.ad.transport;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,7 +54,8 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     }
 
     @Override
-    protected void doExecute(Task task, DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> listener) {
+    protected void doExecute(Task task, DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> actionListener) {
+        ActionListener<BulkByScrollResponse> listener = wrapRestActionListener(actionListener, "Failed to delete anomaly result");
         delete(request, listener);
     }
 

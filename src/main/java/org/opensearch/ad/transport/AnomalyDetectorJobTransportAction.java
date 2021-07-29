@@ -30,6 +30,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -88,7 +89,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     }
 
     @Override
-    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> listener) {
+    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> actionListener) {
         String detectorId = request.getDetectorID();
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         boolean historical = request.isHistorical();
@@ -96,6 +97,8 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         long primaryTerm = request.getPrimaryTerm();
         String rawPath = request.getRawPath();
         TimeValue requestTimeout = REQUEST_TIMEOUT.get(settings);
+        String action = rawPath.endsWith(RestHandlerUtils.START_JOB) ? "start" : "stop";
+        ActionListener<AnomalyDetectorJobResponse> listener = wrapRestActionListener(actionListener, "Failed to " + action + " detector");
 
         // By the time request reaches here, the user permissions are validated by Security plugin.
         User user = getUserContext(client);

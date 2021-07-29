@@ -31,6 +31,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -41,7 +42,7 @@ import java.util.concurrent.Semaphore;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.OpenSearchException;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -49,6 +50,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ClientException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -107,9 +109,14 @@ public class PreviewAnomalyDetectorTransportAction extends
     }
 
     @Override
-    protected void doExecute(Task task, PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
+    protected void doExecute(
+        Task task,
+        PreviewAnomalyDetectorRequest request,
+        ActionListener<PreviewAnomalyDetectorResponse> actionListener
+    ) {
         String detectorId = request.getDetectorId();
         User user = getUserContext(client);
+        ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, "Failed to preview detector");
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,
@@ -152,7 +159,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 if (detector != null) {
                     String error = validateDetector(detector);
                     if (StringUtils.isNotBlank(error)) {
-                        listener.onFailure(new OpenSearchException(error, RestStatus.BAD_REQUEST));
+                        listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
                         lock.release();
                         return;
                     }
@@ -199,7 +206,7 @@ public class PreviewAnomalyDetectorTransportAction extends
             logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
             listener
                 .onFailure(
-                    new OpenSearchException(
+                    new OpenSearchStatusException(
                         "Unexpected error running anomaly detector " + detector.getDetectorId() + ". " + exception.getMessage(),
                         RestStatus.INTERNAL_SERVER_ERROR
                     )
@@ -236,7 +243,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 if (!response.isExists()) {
                     listener
                         .onFailure(
-                            new OpenSearchException("Can't find anomaly detector with id:" + response.getId(), RestStatus.NOT_FOUND)
+                            new OpenSearchStatusException("Can't find anomaly detector with id:" + response.getId(), RestStatus.NOT_FOUND)
                         );
                     return;
                 }
@@ -253,6 +260,6 @@ public class PreviewAnomalyDetectorTransportAction extends
                     listener.onFailure(e);
                 }
             }
-        }, exception -> { listener.onFailure(new OpenSearchException("Could not execute get query to find detector")); });
+        }, exception -> { listener.onFailure(new AnomalyDetectionException("Could not execute get query to find detector")); });
     }
 }

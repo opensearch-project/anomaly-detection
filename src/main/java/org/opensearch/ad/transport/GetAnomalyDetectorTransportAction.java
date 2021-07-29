@@ -33,6 +33,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKE
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.util.Arrays;
@@ -140,9 +141,10 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     }
 
     @Override
-    protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
+    protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> actionListener) {
         String detectorID = request.getDetectorID();
         User user = getUserContext(client);
+        ActionListener<GetAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, "Failed to get detector");
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,

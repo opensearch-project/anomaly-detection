@@ -424,12 +424,13 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    public static final int MAX_BATCH_TASK_PIECE_SIZE = 10_000;
     public static final Setting<Integer> BATCH_TASK_PIECE_SIZE = Setting
         .intSetting(
             "plugins.anomaly_detection.batch_task_piece_size",
             LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
             1,
-            10_000,
+            MAX_BATCH_TASK_PIECE_SIZE,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );

@@ -57,6 +57,7 @@ import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.OpenSearchException;
 import org.opensearch.ad.MemoryTracker;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
@@ -418,7 +419,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
             new Thread(new FailedCleanRunnable(scheduledThreadCountDown)).start();
 
             cacheProvider.maintenance();
-        } catch (OpenSearchException e) {
+        } catch (AnomalyDetectionException e) {
             scheduledThreadCountDown.countDown();
         }
 

@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.opensearch.OpenSearchException;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
@@ -62,7 +62,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.Features;
@@ -351,7 +350,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertTrue(e.getClass() == OpenSearchException.class);
+                Assert.assertEquals(OpenSearchStatusException.class, e.getClass());
                 inProgressLatch.countDown();
             }
         };
@@ -437,7 +436,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertTrue("actual class: " + e.getClass(), e instanceof LimitExceededException);
+                Assert.assertTrue("actual class: " + e.getClass(), e instanceof OpenSearchStatusException);
                 Assert.assertTrue(e.getMessage().contains(CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
                 inProgressLatch.countDown();
             }
