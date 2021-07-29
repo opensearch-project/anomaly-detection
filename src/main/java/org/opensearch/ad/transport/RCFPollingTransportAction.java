@@ -120,9 +120,12 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
                             e -> listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_RCF_UPDATE_MSG, e))
                         )
                 );
-        } else {
-            // redirect
-            LOG.debug("Sending RCF polling request to {} for model {}", rcfNodeId, rcfModelID);
+        } else if (request.remoteAddress() == null) {
+            // redirect if request comes from local host.
+            // If a request comes from remote machine, it is already redirected.
+            // One redirection should be enough.
+            // We don't want a potential infinite loop due to any bug and thus give up.
+            LOG.info("Sending RCF polling request to {} for model {}", rcfNodeId, rcfModelID);
 
             try {
                 transportService
@@ -154,6 +157,9 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
                 listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_RCF_UPDATE_MSG, e));
             }
 
+        } else {
+            LOG.error("Fail to poll rcf for model {} due to an unexpected bug.", rcfModelID);
+            listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
         }
     }
 }

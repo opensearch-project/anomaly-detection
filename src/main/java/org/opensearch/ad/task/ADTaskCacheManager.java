@@ -31,7 +31,6 @@ import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING
 import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
@@ -57,6 +56,7 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
@@ -333,8 +333,11 @@ public class ADTaskCacheManager {
      */
     private long calculateADTaskCacheSize(ADTask adTask) {
         AnomalyDetector detector = adTask.getDetector();
-        return memoryTracker.estimateModelSize(detector, NUM_TREES) + trainingDataMemorySize(THRESHOLD_MODEL_TRAINING_SIZE)
-            + shingleMemorySize(detector.getShingleSize(), detector.getEnabledFeatureIds().size());
+        return memoryTracker.estimateTotalModelSize(detector, NUM_TREES, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            + trainingDataMemorySize(THRESHOLD_MODEL_TRAINING_SIZE) + shingleMemorySize(
+                detector.getShingleSize(),
+                detector.getEnabledFeatureIds().size()
+            );
     }
 
     /**
@@ -347,7 +350,7 @@ public class ADTaskCacheManager {
         ADBatchTaskCache batchTaskCache = getBatchTaskCache(taskId);
         int dimensions = batchTaskCache.getRcfModel().getDimensions();
         int numberOfTrees = batchTaskCache.getRcfModel().getNumberOfTrees();
-        return memoryTracker.estimateModelSize(dimensions, numberOfTrees, NUM_SAMPLES_PER_TREE);
+        return memoryTracker.estimateTotalModelSize(dimensions, numberOfTrees, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO);
     }
 
     /**

@@ -82,7 +82,8 @@ public class ADStatsTests extends OpenSearchTestCase {
     public void setup() {
         MockitoAnnotations.initMocks(this);
 
-        rcf = RandomCutForest.builder().dimensions(1).sampleSize(1).numberOfTrees(1).build();
+        // sampleSize * numberOfTrees has to be larger than 1. Otherwise, RCF reports errors.
+        rcf = RandomCutForest.builder().dimensions(1).sampleSize(2).numberOfTrees(1).build();
         thresholdingModel = new HybridThresholdingModel(1e-8, 1e-5, 200, 10_000, 2, 5_000_000);
 
         List<ModelState<?>> modelsInformation = new ArrayList<>(

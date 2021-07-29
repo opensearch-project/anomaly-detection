@@ -73,7 +73,7 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
         MockitoAnnotations.initMocks(this);
 
         clock = Clock.systemUTC();
-        rcf = RandomCutForest.builder().dimensions(1).sampleSize(1).numberOfTrees(1).build();
+        rcf = RandomCutForest.builder().dimensions(1).sampleSize(2).numberOfTrees(1).build();
         thresholdingModel = new HybridThresholdingModel(1e-8, 1e-5, 200, 10_000, 2, 5_000_000);
 
         expectedResults = new ArrayList<>(

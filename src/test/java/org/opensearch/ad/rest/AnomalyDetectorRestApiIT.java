@@ -106,7 +106,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
-            randomIntBetween(1, 2000),
+            randomIntBetween(1, 1024),
             TestHelpers.randomUiMetadata(),
             randomInt(),
             null,

@@ -74,8 +74,7 @@ public class MasterEventListener implements LocalNodeMasterListener {
     @Override
     public void onMaster() {
         if (hourlyCron == null) {
-            hourlyCron = threadPool
-                .scheduleWithFixedDelay(new HourlyCron(client, nodeFilter), TimeValue.timeValueMinutes(10), executorName());
+            hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(client, nodeFilter), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
                 @Override
                 public void beforeStop() {

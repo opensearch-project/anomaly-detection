@@ -26,6 +26,8 @@
 
 package test.org.opensearch.ad.util;
 
+import static java.lang.Math.PI;
+
 import java.time.Clock;
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -104,7 +106,7 @@ public class MLUtil {
             .dimensions(1)
             .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
             .numberOfTrees(AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES)
-            .lambda(AnomalyDetectorSettings.TIME_DECAY)
+            .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
             .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
             .parallelExecutionEnabled(false)
             .build();
@@ -131,5 +133,54 @@ public class MLUtil {
 
     public static EntityModel createNonEmptyModel(String detectorId) {
         return createNonEmptyModel(detectorId, random.nextInt(minSampleSize));
+    }
+
+    /**
+     * Generate shingled data
+     * @param size the number of data points
+     * @param dimensions the dimensions of a point
+     * @param seed random seed
+     * @return the shingled data
+     */
+    public static double[][] generateShingledData(int size, int dimensions, long seed) {
+        double[][] answer = new double[size][];
+        int entryIndex = 0;
+        boolean filledShingleAtleastOnce = false;
+        double[] history = new double[dimensions];
+        int count = 0;
+        double[] data = getDataD(size + dimensions - 1, 100, 5, seed);
+        for (int j = 0; j < size + dimensions - 1; ++j) {
+            history[entryIndex] = data[j];
+            entryIndex = (entryIndex + 1) % dimensions;
+            if (entryIndex == 0) {
+                filledShingleAtleastOnce = true;
+            }
+            if (filledShingleAtleastOnce) {
+                answer[count++] = getShinglePoint(history, entryIndex, dimensions);
+            }
+        }
+        return answer;
+    }
+
+    private static double[] getShinglePoint(double[] recentPointsSeen, int indexOfOldestPoint, int shingleLength) {
+        double[] shingledPoint = new double[shingleLength];
+        int i = 0;
+        for (int j = 0; j < shingleLength; ++j) {
+            double point = recentPointsSeen[(j + indexOfOldestPoint) % shingleLength];
+            shingledPoint[i++] = point;
+
+        }
+        return shingledPoint;
+    }
+
+    static double[] getDataD(int num, double amplitude, double noise, long seed) {
+
+        double[] data = new double[num];
+        Random noiseprg = new Random(seed);
+        for (int i = 0; i < num; i++) {
+            data[i] = amplitude * Math.cos(2 * PI * (i + 50) / 1000) + noise * noiseprg.nextDouble();
+        }
+
+        return data;
     }
 }

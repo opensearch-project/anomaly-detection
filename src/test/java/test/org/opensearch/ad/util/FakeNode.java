@@ -43,6 +43,7 @@ import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.lucene.util.SetOnce;
+import org.opensearch.BwcTests;
 import org.opensearch.Version;
 import org.opensearch.action.admin.cluster.node.tasks.cancel.TransportCancelTasksAction;
 import org.opensearch.action.admin.cluster.node.tasks.list.TransportListTasksAction;
@@ -77,7 +78,8 @@ public class FakeNode implements Releasable {
         ThreadPool threadPool,
         final Settings nodeSettings,
         final Set<Setting<?>> settingsSet,
-        TransportInterceptor transportInterceptor
+        TransportInterceptor transportInterceptor,
+        Version version
     ) {
         final Function<BoundTransportAddress, DiscoveryNode> boundTransportAddressDiscoveryNodeFunction = address -> {
             discoveryNode.set(new DiscoveryNode(name, address.publishAddress(), emptyMap(), emptySet(), Version.CURRENT));
@@ -87,7 +89,7 @@ public class FakeNode implements Releasable {
             Settings.EMPTY,
             new MockNioTransport(
                 Settings.EMPTY,
-                Version.CURRENT,
+                BwcTests.V_1_1_0,
                 threadPool,
                 new NetworkService(Collections.emptyList()),
                 PageCacheRecycler.NON_RECYCLING_INSTANCE,
@@ -128,7 +130,7 @@ public class FakeNode implements Releasable {
     }
 
     public FakeNode(String name, ThreadPool threadPool, Set<Setting<?>> settings) {
-        this(name, threadPool, Settings.EMPTY, settings, TransportService.NOOP_TRANSPORT_INTERCEPTOR);
+        this(name, threadPool, Settings.EMPTY, settings, TransportService.NOOP_TRANSPORT_INTERCEPTOR, Version.CURRENT);
     }
 
     public final ClusterService clusterService;

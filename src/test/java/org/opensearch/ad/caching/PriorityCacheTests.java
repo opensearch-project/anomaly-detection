@@ -28,6 +28,7 @@ package org.opensearch.ad.caching;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyDouble;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -129,7 +130,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
 
         cacheProvider = new CacheProvider(cache).get();
 
-        when(memoryTracker.estimateModelSize(any(AnomalyDetector.class), anyInt())).thenReturn(memoryPerEntity);
+        when(memoryTracker.estimateTotalModelSize(any(AnomalyDetector.class), anyInt(), anyDouble())).thenReturn(memoryPerEntity);
         when(memoryTracker.canAllocateReserved(anyLong())).thenReturn(true);
 
         detector2 = mock(AnomalyDetector.class);

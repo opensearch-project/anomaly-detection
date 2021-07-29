@@ -29,6 +29,7 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.ActionResponse;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
@@ -64,7 +65,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         confidence = in.readDouble();
         forestSize = in.readVInt();
         attribution = in.readDoubleArray();
-        totalUpdates = in.readLong();
+        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+            totalUpdates = in.readLong();
+        }
     }
 
     public double getRCFScore() {
@@ -98,7 +101,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         out.writeDouble(confidence);
         out.writeVInt(forestSize);
         out.writeDoubleArray(attribution);
-        out.writeLong(totalUpdates);
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            out.writeLong(totalUpdates);
+        }
     }
 
     @Override
