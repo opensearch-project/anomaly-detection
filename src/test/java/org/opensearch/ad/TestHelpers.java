@@ -95,6 +95,7 @@ import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.model.TimeConfiguration;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.Request;
@@ -299,7 +300,9 @@ public class TestHelpers {
             randomQuery(),
             new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
             randomIntervalTimeConfiguration(),
-            randomIntBetween(1, 2000),
+            // our test's heap allowance is very small (20 MB heap usage would cause OOM)
+            // reduce size to not cause issue.
+            randomIntBetween(1, 20),
             uiMetadata,
             randomInt(),
             lastUpdateTime,
@@ -353,7 +356,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
-            randomIntBetween(1, 2000),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
             null,
             randomInt(),
             Instant.now(),
@@ -374,7 +377,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
-            randomIntBetween(1, 2000),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
             null,
             randomInt(),
             Instant.now(),
@@ -395,7 +398,7 @@ public class TestHelpers {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
-            randomIntBetween(1, 2000),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
@@ -421,7 +424,7 @@ public class TestHelpers {
             randomQuery(),
             interval,
             randomIntervalTimeConfiguration(),
-            randomIntBetween(1, 2000),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
@@ -444,7 +447,7 @@ public class TestHelpers {
             randomQuery(),
             interval,
             randomIntervalTimeConfiguration(),
-            randomIntBetween(1, 2000),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
             null,
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),

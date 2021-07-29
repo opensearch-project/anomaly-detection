@@ -41,7 +41,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -54,6 +53,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -78,29 +78,25 @@ import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.rcf.CombinedRcfResult;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
-import com.amazon.randomcutforest.serialize.RandomCutForestSerDe;
-import com.google.gson.Gson;
+import com.google.common.collect.Sets;
 
-@PowerMockIgnore("javax.management.*")
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
-@PrepareForTest({ Gson.class, ClusterSettings.class })
 @SuppressWarnings("unchecked")
 public class ModelManagerTests {
 
@@ -114,9 +110,6 @@ public class ModelManagerTests {
 
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     private JvmService jvmService;
-
-    @Mock
-    private RandomCutForestSerDe rcfSerde;
 
     @Mock
     private CheckpointDao checkpointDao;
@@ -133,8 +126,6 @@ public class ModelManagerTests {
     @Mock
     private EntityCache cache;
 
-    private Gson gson;
-
     private double modelDesiredSizePercentage;
     private double modelMaxSizePercentage;
     private int numTrees;
@@ -148,7 +139,6 @@ public class ModelManagerTests {
     private int thresholdNumLogNormalQuantiles;
     private int thresholdDownsamples;
     private long thresholdMaxSamples;
-    private Class<? extends ThresholdingModel> thresholdingModelClass;
     private int minPreviewSize;
     private Duration modelTtl;
     private Duration checkpointInterval;
@@ -162,21 +152,14 @@ public class ModelManagerTests {
     private ThreadPool threadPool;
 
     private String detectorId;
-    private String modelId;
     private String rcfModelId;
     private String thresholdModelId;
-    private String checkpoint;
     private int shingleSize;
     private Settings settings;
     private ClusterService clusterService;
-    private String successModelId;
-    private String failModelId;
-    private String successCheckpoint;
-    private String failCheckpoint;
     private double[] attribution;
     private double[] point;
     private DiVector attributionVec;
-    private String entityName;
 
     @Mock
     private ActionListener<RcfResult> rcfResultListener;
@@ -206,7 +189,6 @@ public class ModelManagerTests {
         thresholdNumLogNormalQuantiles = 10000;
         thresholdDownsamples = 1_000_000;
         thresholdMaxSamples = 2_000_000;
-        thresholdingModelClass = HybridThresholdingModel.class;
         minPreviewSize = 500;
         modelTtl = Duration.ofHours(1);
         checkpointInterval = Duration.ofHours(1);
@@ -226,10 +208,14 @@ public class ModelManagerTests {
 
         when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
 
-        gson = PowerMockito.mock(Gson.class);
-
         settings = Settings.builder().put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
-        ClusterSettings clusterSettings = PowerMockito.mock(ClusterSettings.class);
+        final Set<Setting<?>> settingsSet = Stream
+            .concat(
+                ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(),
+                Sets.newHashSet(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE).stream()
+            )
+            .collect(Collectors.toSet());
+        ClusterSettings clusterSettings = new ClusterSettings(settings, settingsSet);
         clusterService = new ClusterService(settings, clusterSettings, null);
         MemoryTracker memoryTracker = new MemoryTracker(
             jvmService,
@@ -255,9 +241,7 @@ public class ModelManagerTests {
 
         modelManager = spy(
             new ModelManager(
-                rcfSerde,
                 checkpointDao,
-                gson,
                 clock,
                 numTrees,
                 numSamples,
@@ -269,7 +253,6 @@ public class ModelManagerTests {
                 thresholdNumLogNormalQuantiles,
                 thresholdDownsamples,
                 thresholdMaxSamples,
-                thresholdingModelClass,
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
@@ -281,32 +264,8 @@ public class ModelManagerTests {
         );
 
         detectorId = "detectorId";
-        modelId = "modelId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
-        checkpoint = "testcheckpoint";
-        successModelId = "testSuccessModelId";
-        failModelId = "testFailModelId";
-        successCheckpoint = "testSuccessCheckpoint";
-        failCheckpoint = "testFailCheckpoint";
-
-        doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(checkpoint));
-            return null;
-        }).when(checkpointDao).getModelCheckpoint(any(String.class), any(ActionListener.class));
-        doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(successCheckpoint));
-            return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(successModelId), any(ActionListener.class));
-        doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(failCheckpoint));
-            return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(failModelId), any(ActionListener.class));
-
-        entityName = "1.0.2.3";
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -424,7 +383,7 @@ public class ModelManagerTests {
             )
         );
 
-        when(memoryTracker.estimateModelSize(rcf)).thenReturn(totalModelSize);
+        when(memoryTracker.estimateTotalModelSize(rcf)).thenReturn(totalModelSize);
 
         modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
 
@@ -460,7 +419,7 @@ public class ModelManagerTests {
                 adCircuitBreakerService
             )
         );
-        when(memoryTracker.estimateModelSize(rcf)).thenReturn(totalModelSize);
+        when(memoryTracker.estimateTotalModelSize(rcf)).thenReturn(totalModelSize);
         modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
 
         when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
@@ -476,25 +435,23 @@ public class ModelManagerTests {
 
     @Parameters(method = "estimateModelSizeData")
     public void estimateModelSize_returnExpected(RandomCutForest rcf, long expectedSize) {
-        assertEquals(expectedSize, memoryTracker.estimateModelSize(rcf));
+        assertEquals(expectedSize, memoryTracker.estimateTotalModelSize(rcf));
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void getRcfResult_returnExpectedToListener() {
         double[] point = new double[0];
         RandomCutForest forest = mock(RandomCutForest.class);
         double score = 11.;
 
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(checkpoint));
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
         when(forest.getAnomalyScore(point)).thenReturn(score);
         when(forest.getNumberOfTrees()).thenReturn(numTrees);
-        when(forest.getLambda()).thenReturn(rcfTimeDecay);
+        when(forest.getTimeDecay()).thenReturn(rcfTimeDecay);
         when(forest.getSampleSize()).thenReturn(numSamples);
         when(forest.getTotalUpdates()).thenReturn((long) numSamples);
         when(forest.getAnomalyAttribution(point)).thenReturn(attributionVec);
@@ -515,13 +472,12 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void getRcfResult_throwToListener_whenNoCheckpoint() {
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
 
         ActionListener<RcfResult> listener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], listener);
@@ -530,14 +486,12 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void getRcfResult_throwToListener_whenHeapLimitExceed() {
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(checkpoint));
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(rcf));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(rcf);
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
         MemoryTracker memoryTracker = new MemoryTracker(
@@ -554,9 +508,7 @@ public class ModelManagerTests {
         // use new memoryTracker
         modelManager = spy(
             new ModelManager(
-                rcfSerde,
                 checkpointDao,
-                gson,
                 clock,
                 numTrees,
                 numSamples,
@@ -568,7 +520,6 @@ public class ModelManagerTests {
                 thresholdNumLogNormalQuantiles,
                 thresholdDownsamples,
                 thresholdMaxSamples,
-                thresholdingModelClass,
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
@@ -585,18 +536,16 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void getThresholdingResult_returnExpectedToListener() {
         double score = 1.;
         double grade = 0.;
         double confidence = 0.5;
 
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(checkpoint));
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(hybridThresholdingModel));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
-        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
+        }).when(checkpointDao).getThresholdModel(eq(thresholdModelId), any(ActionListener.class));
         when(hybridThresholdingModel.grade(score)).thenReturn(grade);
         when(hybridThresholdingModel.confidence()).thenReturn(confidence);
 
@@ -612,13 +561,12 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void getThresholdingResult_throwToListener_withNoCheckpoint() {
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
+        }).when(checkpointDao).getThresholdModel(eq(thresholdModelId), any(ActionListener.class));
 
         ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
         modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, listener);
@@ -631,11 +579,10 @@ public class ModelManagerTests {
         double score = 0.0;
 
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(checkpoint));
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(hybridThresholdingModel));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(thresholdModelId), any(ActionListener.class));
-        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
+        }).when(checkpointDao).getThresholdModel(eq(thresholdModelId), any(ActionListener.class));
 
         ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
         modelManager.getThresholdingResult(detectorId, thresholdModelId, score, listener);
@@ -645,15 +592,14 @@ public class ModelManagerTests {
 
     @Test
     public void getAllModelIds_returnAllIds_forRcfAndThreshold() {
-
-        when(checkpointDao.getModelCheckpoint(rcfModelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(mock(RandomCutForest.class));
-        modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
-        when(checkpointDao.getModelCheckpoint(thresholdModelId)).thenReturn(Optional.of(checkpoint));
-        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
+        doAnswer(invocation -> {
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(hybridThresholdingModel));
+            return null;
+        }).when(checkpointDao).getThresholdModel(eq(thresholdModelId), any(ActionListener.class));
         modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, thresholdResultListener);
 
-        assertEquals(Stream.of(rcfModelId, thresholdModelId).collect(Collectors.toSet()), modelManager.getAllModelIds());
+        assertEquals(Stream.of(thresholdModelId).collect(Collectors.toSet()), modelManager.getAllModelIds());
     }
 
     @Test
@@ -662,48 +608,22 @@ public class ModelManagerTests {
     }
 
     @Test
-    public void stopModel_saveRcfCheckpoint() {
-
-        RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(rcfModelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
-        when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
-        modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
-        when(clock.instant()).thenReturn(Instant.EPOCH);
-
-        modelManager.stopModel(detectorId, rcfModelId);
-
-        verify(checkpointDao).putModelCheckpoint(rcfModelId, checkpoint);
-    }
-
-    @Test
-    public void stopModel_saveThresholdCheckpoint() {
-
-        when(checkpointDao.getModelCheckpoint(thresholdModelId)).thenReturn(Optional.of(checkpoint));
-        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
-        PowerMockito.doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
-        modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, thresholdResultListener);
-        when(clock.instant()).thenReturn(Instant.EPOCH);
-
-        modelManager.stopModel(detectorId, thresholdModelId);
-
-        verify(checkpointDao).putModelCheckpoint(thresholdModelId, checkpoint);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
     public void stopModel_returnExpectedToListener_whenRcfStop() {
         RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(rcfModelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
-        when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
+            return null;
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         when(clock.instant()).thenReturn(Instant.EPOCH);
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(rcfModelId), eq(checkpoint), any(ActionListener.class));
+        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.stopModel(detectorId, rcfModelId, listener);
@@ -712,18 +632,19 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void stopModel_returnExpectedToListener_whenThresholdStop() {
-        when(checkpointDao.getModelCheckpoint(thresholdModelId)).thenReturn(Optional.of(checkpoint));
-        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
-        PowerMockito.doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
+        doAnswer(invocation -> {
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(hybridThresholdingModel));
+            return null;
+        }).when(checkpointDao).getThresholdModel(eq(thresholdModelId), any(ActionListener.class));
         modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, thresholdResultListener);
         when(clock.instant()).thenReturn(Instant.EPOCH);
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(thresholdModelId), eq(checkpoint), any(ActionListener.class));
+        }).when(checkpointDao).putThresholdCheckpoint(eq(thresholdModelId), eq(hybridThresholdingModel), any(ActionListener.class));
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.stopModel(detectorId, thresholdModelId, listener);
@@ -732,19 +653,20 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void stopModel_throwToListener_whenCheckpointFail() {
         RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(rcfModelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
-        when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
+        doAnswer(invocation -> {
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
+            return null;
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         when(clock.instant()).thenReturn(Instant.EPOCH);
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(rcfModelId), eq(checkpoint), any(ActionListener.class));
+        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.stopModel(detectorId, rcfModelId, listener);
@@ -753,39 +675,19 @@ public class ModelManagerTests {
     }
 
     @Test
-    public void clear_deleteRcfCheckpoint() {
-
-        RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(rcfModelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
-        modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
-
-        modelManager.clear(detectorId);
-
-        verify(checkpointDao).deleteModelCheckpoint(rcfModelId);
-    }
-
-    @Test
-    public void clear_deleteThresholdCheckpoint() {
-
-        when(checkpointDao.getModelCheckpoint(thresholdModelId)).thenReturn(Optional.of(checkpoint));
-        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
-        PowerMockito.doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
-        modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, thresholdResultListener);
-
-        modelManager.clear(detectorId);
-
-        verify(checkpointDao).deleteModelCheckpoint(thresholdModelId);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
     public void clear_callListener_whenRcfDeleted() {
         String otherModelId = detectorId + rcfModelId;
         RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(rcfModelId)).thenReturn(Optional.of(checkpoint));
-        when(checkpointDao.getModelCheckpoint(otherModelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
+        doAnswer(invocation -> {
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
+            return null;
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        doAnswer(invocation -> {
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
+            return null;
+        }).when(checkpointDao).getRCFModel(eq(otherModelId), any(ActionListener.class));
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         modelManager.getRcfResult(otherModelId, otherModelId, new double[0], rcfResultListener);
         doAnswer(invocation -> {
@@ -801,11 +703,13 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void clear_callListener_whenThresholdDeleted() {
-        when(checkpointDao.getModelCheckpoint(thresholdModelId)).thenReturn(Optional.of(checkpoint));
-        PowerMockito.doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
-        PowerMockito.doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
+        doAnswer(invocation -> {
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(hybridThresholdingModel));
+            return null;
+        }).when(checkpointDao).getThresholdModel(eq(thresholdModelId), any(ActionListener.class));
+
         modelManager.getThresholdingResult(detectorId, thresholdModelId, 0, thresholdResultListener);
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(1);
@@ -820,11 +724,13 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void clear_throwToListener_whenDeleteFail() {
         RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(rcfModelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
+        doAnswer(invocation -> {
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
+            return null;
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(1);
@@ -839,28 +745,6 @@ public class ModelManagerTests {
     }
 
     @Test
-    public void trainModel_putTrainedModels() {
-        double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
-        doReturn(new SimpleEntry<>(1, 10)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
-        doReturn(asList("feature1")).when(anomalyDetector).getEnabledFeatureIds();
-        modelManager.trainModel(anomalyDetector, trainData);
-
-        verify(checkpointDao).putModelCheckpoint(eq(modelPartitioner.getRcfModelId(anomalyDetector.getDetectorId(), 0)), anyObject());
-        verify(checkpointDao).putModelCheckpoint(eq(modelPartitioner.getThresholdModelId(anomalyDetector.getDetectorId())), anyObject());
-    }
-
-    private Object[] trainModelIllegalArgumentData() {
-        return new Object[] { new Object[] { new double[][] {} }, new Object[] { new double[][] { {} } } };
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    @Parameters(method = "trainModelIllegalArgumentData")
-    public void trainModel_throwIllegalArgument_forInvalidInput(double[][] trainData) {
-        modelManager.trainModel(anomalyDetector, trainData);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
     public void trainModel_returnExpectedToListener_putCheckpoints() {
         double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
         doReturn(new SimpleEntry<>(2, 10)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
@@ -868,17 +752,26 @@ public class ModelManagerTests {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putModelCheckpoint(any(), any(), any(ActionListener.class));
+        }).when(checkpointDao).putThresholdCheckpoint(any(), any(), any(ActionListener.class));
+        doAnswer(invocation -> {
+            ActionListener<Void> listener = invocation.getArgument(2);
+            listener.onResponse(null);
+            return null;
+        }).when(checkpointDao).putRCFCheckpoint(any(), any(), any(ActionListener.class));
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.trainModel(anomalyDetector, trainData, listener);
 
         verify(listener).onResponse(eq(null));
-        verify(checkpointDao, times(3)).putModelCheckpoint(any(), any(), any());
+        verify(checkpointDao, times(1)).putThresholdCheckpoint(any(), any(), any());
+        verify(checkpointDao, times(2)).putRCFCheckpoint(any(), any(), any());
+    }
+
+    private Object[] trainModelIllegalArgumentData() {
+        return new Object[] { new Object[] { new double[][] {} }, new Object[] { new double[][] { {} } } };
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     @Parameters(method = "trainModelIllegalArgumentData")
     public void trainModel_throwIllegalArgumentToListener_forInvalidTrainData(double[][] trainData) {
         ActionListener<Void> listener = mock(ActionListener.class);
@@ -888,7 +781,6 @@ public class ModelManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void trainModel_throwLimitExceededToListener_whenLimitExceed() {
         doThrow(new LimitExceededException(null, null)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
 
@@ -917,165 +809,33 @@ public class ModelManagerTests {
     }
 
     @Test
-    public void maintenance_doNothing_givenNoModel() {
-        modelManager.maintenance();
-
-        verifyZeroInteractions(checkpointDao);
-    }
-
-    @Test
-    public void maintenance_saveRcfCheckpoint_skippingFailure() {
-        double[] point = new double[0];
-        RandomCutForest forest = mock(RandomCutForest.class);
-        RandomCutForest failForest = mock(RandomCutForest.class);
-
-        when(checkpointDao.getModelCheckpoint(successModelId)).thenReturn(Optional.of(successCheckpoint));
-        when(checkpointDao.getModelCheckpoint(failModelId)).thenReturn(Optional.of(failCheckpoint));
-        when(rcfSerde.fromJson(successCheckpoint)).thenReturn(forest);
-        when(rcfSerde.fromJson(failCheckpoint)).thenReturn(failForest);
-        when(rcfSerde.toJson(forest)).thenReturn(successCheckpoint);
-        when(rcfSerde.toJson(failForest)).thenThrow(new RuntimeException());
-        when(clock.instant()).thenReturn(Instant.EPOCH);
-        modelManager.getRcfResult(detectorId, successModelId, point, rcfResultListener);
-        modelManager.getRcfResult(detectorId, failModelId, point, rcfResultListener);
-
-        modelManager.maintenance();
-
-        verify(checkpointDao).putModelCheckpoint(successModelId, successCheckpoint);
-    }
-
-    @Test
-    public void maintenance_saveThresholdCheckpoint_skippingFailure() {
-        double score = 1.;
-        HybridThresholdingModel failThresholdModel = mock(HybridThresholdingModel.class);
-        when(checkpointDao.getModelCheckpoint(successModelId)).thenReturn(Optional.of(successCheckpoint));
-        when(checkpointDao.getModelCheckpoint(failModelId)).thenReturn(Optional.of(failCheckpoint));
-        doReturn(hybridThresholdingModel).when(gson).fromJson(successCheckpoint, thresholdingModelClass);
-        doReturn(failThresholdModel).when(gson).fromJson(failCheckpoint, thresholdingModelClass);
-        doReturn(successCheckpoint).when(gson).toJson(hybridThresholdingModel);
-        doThrow(new RuntimeException()).when(gson).toJson(failThresholdModel);
-        when(clock.instant()).thenReturn(Instant.EPOCH);
-        modelManager.getThresholdingResult(detectorId, successModelId, score, thresholdResultListener);
-        modelManager.getThresholdingResult(detectorId, failModelId, score, thresholdResultListener);
-
-        modelManager.maintenance();
-
-        verify(checkpointDao).putModelCheckpoint(successModelId, successCheckpoint);
-    }
-
-    @Test
-    public void maintenance_stopInactiveRcfModel() {
-        String modelId = "testModelId";
-        double[] point = new double[0];
-        RandomCutForest forest = mock(RandomCutForest.class);
-        when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.of(checkpoint));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
-        when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
-        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH, Instant.EPOCH.plus(modelTtl).plus(Duration.ofSeconds(1)));
-        modelManager.getRcfResult(detectorId, modelId, point, rcfResultListener);
-
-        modelManager.maintenance();
-
-        modelManager.getRcfResult(detectorId, modelId, point, rcfResultListener);
-        verify(checkpointDao, times(2)).getModelCheckpoint(eq(modelId), any(ActionListener.class));
-    }
-
-    @Test
-    public void maintenance_keepActiveRcfModel() {
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(rcf);
-        when(rcfSerde.toJson(rcf)).thenReturn(checkpoint);
-        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH, Instant.EPOCH);
-        modelManager.getRcfResult(detectorId, modelId, point, rcfResultListener);
-
-        modelManager.maintenance();
-
-        modelManager.getRcfResult(detectorId, modelId, point, rcfResultListener);
-        verify(checkpointDao, times(1)).getModelCheckpoint(eq(modelId), any(ActionListener.class));
-    }
-
-    @Test
-    public void maintenance_stopInactiveThresholdModel() {
-        String modelId = "testModelId";
-        double score = 1.;
-        when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.of(checkpoint));
-        doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
-        doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
-        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH, Instant.EPOCH.plus(modelTtl).plus(Duration.ofSeconds(1)));
-        modelManager.getThresholdingResult(detectorId, modelId, score, thresholdResultListener);
-
-        modelManager.maintenance();
-
-        modelManager.getThresholdingResult(detectorId, modelId, score, thresholdResultListener);
-        verify(checkpointDao, times(2)).getModelCheckpoint(eq(modelId), any(ActionListener.class));
-    }
-
-    @Test
-    public void maintenance_keepActiveThresholdModel() {
-        String modelId = "testModelId";
-        double score = 1.;
-        when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.of(checkpoint));
-        doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
-        doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
-        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH, Instant.EPOCH);
-        modelManager.getThresholdingResult(detectorId, modelId, score, thresholdResultListener);
-
-        modelManager.maintenance();
-
-        modelManager.getThresholdingResult(detectorId, modelId, score, thresholdResultListener);
-        verify(checkpointDao, times(1)).getModelCheckpoint(eq(modelId), any(ActionListener.class));
-    }
-
-    @Test
-    public void maintenance_skipCheckpoint_whenLastCheckpointIsRecent() {
-        String modelId = "testModelId";
-        double score = 1.;
-        when(checkpointDao.getModelCheckpoint(modelId)).thenReturn(Optional.of(checkpoint));
-        doReturn(hybridThresholdingModel).when(gson).fromJson(checkpoint, thresholdingModelClass);
-        doReturn(checkpoint).when(gson).toJson(hybridThresholdingModel);
-        when(clock.instant()).thenReturn(Instant.MIN, Instant.EPOCH);
-        modelManager.getThresholdingResult(detectorId, modelId, score, thresholdResultListener);
-
-        modelManager.maintenance();
-        modelManager.maintenance();
-
-        verify(checkpointDao, times(1)).putModelCheckpoint(eq(modelId), anyObject());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
     public void maintenance_returnExpectedToListener_forRcfModel() {
         String successModelId = "testSuccessModelId";
         String failModelId = "testFailModelId";
-        String successCheckpoint = "testSuccessCheckpoint";
-        String failCheckpoint = "testFailCheckpoint";
         double[] point = new double[0];
         RandomCutForest forest = mock(RandomCutForest.class);
         RandomCutForest failForest = mock(RandomCutForest.class);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(successCheckpoint));
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(successModelId), any(ActionListener.class));
+        }).when(checkpointDao).getRCFModel(eq(successModelId), any(ActionListener.class));
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(failCheckpoint));
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(failForest));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(failModelId), any(ActionListener.class));
+        }).when(checkpointDao).getRCFModel(eq(failModelId), any(ActionListener.class));
         doAnswer(invocation -> {
             ActionListener<Optional<String>> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(successModelId), eq(successCheckpoint), any(ActionListener.class));
+        }).when(checkpointDao).putRCFCheckpoint(eq(successModelId), eq(forest), any(ActionListener.class));
         doAnswer(invocation -> {
             ActionListener<Optional<String>> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(failModelId), eq(failCheckpoint), any(ActionListener.class));
-        when(rcfSerde.fromJson(successCheckpoint)).thenReturn(forest);
-        when(rcfSerde.fromJson(failCheckpoint)).thenReturn(failForest);
-        when(rcfSerde.toJson(forest)).thenReturn(successCheckpoint);
-        when(rcfSerde.toJson(failForest)).thenReturn(failCheckpoint);
+        }).when(checkpointDao).putRCFCheckpoint(eq(failModelId), eq(failForest), any(ActionListener.class));
         when(clock.instant()).thenReturn(Instant.EPOCH);
         ActionListener<RcfResult> scoreListener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, successModelId, point, scoreListener);
@@ -1085,43 +845,36 @@ public class ModelManagerTests {
         modelManager.maintenance(listener);
 
         verify(listener).onResponse(eq(null));
-        verify(checkpointDao, times(1)).putModelCheckpoint(eq(successModelId), eq(successCheckpoint), any(ActionListener.class));
-        verify(checkpointDao, times(1)).putModelCheckpoint(eq(failModelId), eq(failCheckpoint), any(ActionListener.class));
+        verify(checkpointDao, times(1)).putRCFCheckpoint(eq(successModelId), eq(forest), any(ActionListener.class));
+        verify(checkpointDao, times(1)).putRCFCheckpoint(eq(failModelId), eq(failForest), any(ActionListener.class));
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void maintenance_returnExpectedToListener_forThresholdModel() {
         String successModelId = "testSuccessModelId";
         String failModelId = "testFailModelId";
-        String successCheckpoint = "testSuccessCheckpoint";
-        String failCheckpoint = "testFailCheckpoint";
         double score = 1.;
         HybridThresholdingModel failThresholdModel = mock(HybridThresholdingModel.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(successCheckpoint));
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(hybridThresholdingModel));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(successModelId), any(ActionListener.class));
+        }).when(checkpointDao).getThresholdModel(eq(successModelId), any(ActionListener.class));
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(failCheckpoint));
+            ActionListener<Optional<ThresholdingModel>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(failThresholdModel));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(failModelId), any(ActionListener.class));
+        }).when(checkpointDao).getThresholdModel(eq(failModelId), any(ActionListener.class));
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Void>> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(successModelId), eq(successCheckpoint), any(ActionListener.class));
+        }).when(checkpointDao).putThresholdCheckpoint(eq(successModelId), eq(hybridThresholdingModel), any(ActionListener.class));
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Void>> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(failModelId), eq(failCheckpoint), any(ActionListener.class));
-        doReturn(hybridThresholdingModel).when(gson).fromJson(successCheckpoint, thresholdingModelClass);
-        doReturn(failThresholdModel).when(gson).fromJson(failCheckpoint, thresholdingModelClass);
-        doReturn(successCheckpoint).when(gson).toJson(hybridThresholdingModel);
-        doThrow(new RuntimeException()).when(gson).toJson(failThresholdModel);
+        }).when(checkpointDao).putThresholdCheckpoint(eq(failModelId), eq(failThresholdModel), any(ActionListener.class));
         when(clock.instant()).thenReturn(Instant.EPOCH);
         ActionListener<ThresholdingResult> scoreListener = mock(ActionListener.class);
         modelManager.getThresholdingResult(detectorId, successModelId, score, scoreListener);
@@ -1131,27 +884,24 @@ public class ModelManagerTests {
         modelManager.maintenance(listener);
 
         verify(listener).onResponse(eq(null));
-        verify(checkpointDao, times(1)).putModelCheckpoint(eq(successModelId), eq(successCheckpoint), any(ActionListener.class));
+        verify(checkpointDao, times(1)).putThresholdCheckpoint(eq(successModelId), eq(hybridThresholdingModel), any(ActionListener.class));
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void maintenance_returnExpectedToListener_stopModel() {
         double[] point = new double[0];
         RandomCutForest forest = mock(RandomCutForest.class);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(checkpoint));
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(2);
+            ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(rcfModelId), eq(checkpoint), any(ActionListener.class));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
-        when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
+        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
         when(clock.instant()).thenReturn(Instant.EPOCH, Instant.EPOCH, Instant.EPOCH.plus(modelTtl.plusSeconds(1)));
         ActionListener<RcfResult> scoreListener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
@@ -1161,28 +911,25 @@ public class ModelManagerTests {
         verify(listener).onResponse(eq(null));
 
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
-        verify(checkpointDao, times(2)).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+        verify(checkpointDao, times(2)).getRCFModel(eq(rcfModelId), any(ActionListener.class));
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void maintenance_returnExpectedToListener_doNothing() {
         double[] point = new double[0];
         RandomCutForest forest = mock(RandomCutForest.class);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(checkpoint));
+            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
         doAnswer(invocation -> {
-            ActionListener<Optional<String>> listener = invocation.getArgument(2);
+            ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putModelCheckpoint(eq(rcfModelId), eq(checkpoint), any(ActionListener.class));
-        when(rcfSerde.fromJson(checkpoint)).thenReturn(forest);
+        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
         when(forest.getAnomalyAttribution(point)).thenReturn(attributionVec);
-        when(rcfSerde.toJson(forest)).thenReturn(checkpoint);
         when(clock.instant()).thenReturn(Instant.MIN);
         ActionListener<RcfResult> scoreListener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
@@ -1195,7 +942,7 @@ public class ModelManagerTests {
         verify(listener).onResponse(eq(null));
 
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
-        verify(checkpointDao, times(1)).getModelCheckpoint(eq(rcfModelId), any(ActionListener.class));
+        verify(checkpointDao, times(1)).getRCFModel(eq(rcfModelId), any(ActionListener.class));
     }
 
     @Test
@@ -1203,7 +950,7 @@ public class ModelManagerTests {
         int numPoints = 1000;
         double[][] points = Stream.generate(() -> new double[] { 0 }).limit(numPoints).toArray(double[][]::new);
 
-        List<ThresholdingResult> results = modelManager.getPreviewResults(points);
+        List<ThresholdingResult> results = modelManager.getPreviewResults(points, shingleSize);
 
         assertEquals(numPoints, results.size());
         assertTrue(results.stream().noneMatch(r -> r.getGrade() > 0));
@@ -1215,7 +962,7 @@ public class ModelManagerTests {
         double[][] points = Stream.generate(() -> new double[] { 0 }).limit(numPoints).toArray(double[][]::new);
         points[points.length - 1] = new double[] { 1. };
 
-        List<ThresholdingResult> results = modelManager.getPreviewResults(points);
+        List<ThresholdingResult> results = modelManager.getPreviewResults(points, shingleSize);
 
         assertEquals(numPoints, results.size());
         assertTrue(results.stream().limit(numPoints - 1).noneMatch(r -> r.getGrade() > 0));
@@ -1224,6 +971,6 @@ public class ModelManagerTests {
 
     @Test(expected = IllegalArgumentException.class)
     public void getPreviewResults_throwIllegalArgument_forInvalidInput() {
-        modelManager.getPreviewResults(new double[0][0]);
+        modelManager.getPreviewResults(new double[0][0], shingleSize);
     }
 }

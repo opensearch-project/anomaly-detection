@@ -24,7 +24,7 @@
  * permissions and limitations under the License.
  */
 
-package org.opensearch.ad.transport;
+package org.opensearch;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -34,28 +34,25 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.ad.model.ModelProfileOnNode;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 
-public class EntityProfileResponse extends ActionResponse implements ToXContentObject {
+public class EntityProfileResponse1_0 extends ActionResponse implements ToXContentObject {
     public static final String ACTIVE = "active";
     public static final String LAST_ACTIVE_TS = "last_active_timestamp";
     public static final String TOTAL_UPDATES = "total_updates";
     private final Boolean isActive;
     private final long lastActiveMs;
     private final long totalUpdates;
-    private final ModelProfileOnNode modelProfile;
+    private final ModelProfile1_0 modelProfile;
 
     public static class Builder {
         private Boolean isActive = null;
         private long lastActiveMs = -1L;
         private long totalUpdates = -1L;
-        private ModelProfileOnNode modelProfile = null;
+        private ModelProfile1_0 modelProfile = null;
 
         public Builder() {}
 
@@ -74,37 +71,30 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
             return this;
         }
 
-        public Builder setModelProfile(ModelProfileOnNode modelProfile) {
+        public Builder setModelProfile(ModelProfile1_0 modelProfile) {
             this.modelProfile = modelProfile;
             return this;
         }
 
-        public EntityProfileResponse build() {
-            return new EntityProfileResponse(isActive, lastActiveMs, totalUpdates, modelProfile);
+        public EntityProfileResponse1_0 build() {
+            return new EntityProfileResponse1_0(isActive, lastActiveMs, totalUpdates, modelProfile);
         }
     }
 
-    public EntityProfileResponse(Boolean isActive, long lastActiveTimeMs, long totalUpdates, ModelProfileOnNode modelProfile) {
+    public EntityProfileResponse1_0(Boolean isActive, long lastActiveTimeMs, long totalUpdates, ModelProfile1_0 modelProfile) {
         this.isActive = isActive;
         this.lastActiveMs = lastActiveTimeMs;
         this.totalUpdates = totalUpdates;
         this.modelProfile = modelProfile;
     }
 
-    public EntityProfileResponse(StreamInput in) throws IOException {
+    public EntityProfileResponse1_0(StreamInput in) throws IOException {
         super(in);
         isActive = in.readOptionalBoolean();
         lastActiveMs = in.readLong();
         totalUpdates = in.readLong();
         if (in.readBoolean()) {
-            if (Bwc.supportMultiCategoryFields(in.getVersion())) {
-                modelProfile = new ModelProfileOnNode(in);
-            } else {
-                // we don't have model information from old node
-                ModelProfile profile = new ModelProfile(in);
-                modelProfile = new ModelProfileOnNode("", profile);
-            }
-
+            modelProfile = new ModelProfile1_0(in);
         } else {
             modelProfile = null;
         }
@@ -122,7 +112,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
         return totalUpdates;
     }
 
-    public ModelProfileOnNode getModelProfile() {
+    public ModelProfile1_0 getModelProfile() {
         return modelProfile;
     }
 
@@ -133,12 +123,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
         out.writeLong(totalUpdates);
         if (modelProfile != null) {
             out.writeBoolean(true);
-            if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-                modelProfile.writeTo(out);
-            } else {
-                ModelProfile oldFormatModelProfile = modelProfile.getModelProfile();
-                oldFormatModelProfile.writeTo(out);
-            }
+            modelProfile.writeTo(out);
         } else {
             out.writeBoolean(false);
         }
@@ -182,8 +167,8 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
             return false;
         if (getClass() != obj.getClass())
             return false;
-        if (obj instanceof EntityProfileResponse) {
-            EntityProfileResponse other = (EntityProfileResponse) obj;
+        if (obj instanceof EntityProfileResponse1_0) {
+            EntityProfileResponse1_0 other = (EntityProfileResponse1_0) obj;
             EqualsBuilder equalsBuilder = new EqualsBuilder();
             equalsBuilder.append(isActive, other.isActive);
             equalsBuilder.append(lastActiveMs, other.lastActiveMs);

@@ -26,10 +26,14 @@
 
 package org.opensearch.ad;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,8 +55,10 @@ import org.opensearch.ad.transport.BackPressureRouting;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
@@ -65,18 +71,18 @@ import org.opensearch.common.xcontent.XContentType;
  */
 public class NodeStateManager implements MaintenanceState, CleanState {
     private static final Logger LOG = LogManager.getLogger(NodeStateManager.class);
+    public static final String NO_ERROR = "no_error";
     private ConcurrentHashMap<String, NodeState> states;
     private Client client;
     private ModelPartitioner modelPartitioner;
     private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
-    // map from ES node id to the node's backpressureMuter
-    private Map<String, BackPressureRouting> backpressureMuter;
+    // map from detector id to the map of ES node id to the node's backpressureMuter
+    private Map<String, Map<String, BackPressureRouting>> backpressureMuter;
     private final Clock clock;
-    private final Settings settings;
     private final Duration stateTtl;
-
-    public static final String NO_ERROR = "no_error";
+    private int maxRetryForUnresponsiveNode;
+    private TimeValue mutePeriod;
 
     /**
      * Constructor
@@ -88,7 +94,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param clock A UTC clock
      * @param stateTtl Max time to keep state in memory
      * @param modelPartitioner Used to partiton a RCF forest
-    
+     * @param clusterService Cluster service accessor
      */
     public NodeStateManager(
         Client client,
@@ -97,7 +103,8 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         ClientUtil clientUtil,
         Clock clock,
         Duration stateTtl,
-        ModelPartitioner modelPartitioner
+        ModelPartitioner modelPartitioner,
+        ClusterService clusterService
     ) {
         this.states = new ConcurrentHashMap<>();
         this.client = client;
@@ -106,8 +113,25 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         this.clientUtil = clientUtil;
         this.backpressureMuter = new ConcurrentHashMap<>();
         this.clock = clock;
-        this.settings = settings;
         this.stateTtl = stateTtl;
+        this.maxRetryForUnresponsiveNode = MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RETRY_FOR_UNRESPONSIVE_NODE, it -> {
+            this.maxRetryForUnresponsiveNode = it;
+            Iterator<Map<String, BackPressureRouting>> iter = backpressureMuter.values().iterator();
+            while (iter.hasNext()) {
+                Map<String, BackPressureRouting> entry = iter.next();
+                entry.values().forEach(v -> v.setMaxRetryForUnresponsiveNode(it));
+            }
+        });
+        this.mutePeriod = BACKOFF_MINUTES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(BACKOFF_MINUTES, it -> {
+            this.mutePeriod = it;
+            Iterator<Map<String, BackPressureRouting>> iter = backpressureMuter.values().iterator();
+            while (iter.hasNext()) {
+                Map<String, BackPressureRouting> entry = iter.next();
+                entry.values().forEach(v -> v.setMutePeriod(it));
+            }
+        });
     }
 
     /**
@@ -235,24 +259,38 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         maintenance(states, stateTtl);
     }
 
-    public boolean isMuted(String nodeId) {
-        return backpressureMuter.containsKey(nodeId) && backpressureMuter.get(nodeId).isMuted();
+    public boolean isMuted(String nodeId, String detectorId) {
+        Map<String, BackPressureRouting> routingMap = backpressureMuter.get(detectorId);
+        if (routingMap == null || routingMap.isEmpty()) {
+            return false;
+        }
+        BackPressureRouting routing = routingMap.get(nodeId);
+        return routing != null && routing.isMuted();
     }
 
     /**
      * When we have a unsuccessful call with a node, increment the backpressure counter.
      * @param nodeId an ES node's ID
+     * @param detectorId Detector ID
      */
-    public void addPressure(String nodeId) {
-        backpressureMuter.computeIfAbsent(nodeId, k -> new BackPressureRouting(k, clock, settings)).addPressure();
+    public void addPressure(String nodeId, String detectorId) {
+        Map<String, BackPressureRouting> routingMap = backpressureMuter
+            .computeIfAbsent(detectorId, k -> new HashMap<String, BackPressureRouting>());
+        routingMap.computeIfAbsent(nodeId, k -> new BackPressureRouting(k, clock, maxRetryForUnresponsiveNode, mutePeriod)).addPressure();
     }
 
     /**
      * When we have a successful call with a node, clear the backpressure counter.
      * @param nodeId an ES node's ID
+     * @param detectorId Detector ID
      */
-    public void resetBackpressureCounter(String nodeId) {
-        backpressureMuter.remove(nodeId);
+    public void resetBackpressureCounter(String nodeId, String detectorId) {
+        Map<String, BackPressureRouting> routingMap = backpressureMuter.get(detectorId);
+        if (routingMap == null || routingMap.isEmpty()) {
+            backpressureMuter.remove(detectorId);
+            return;
+        }
+        routingMap.remove(nodeId);
     }
 
     /**

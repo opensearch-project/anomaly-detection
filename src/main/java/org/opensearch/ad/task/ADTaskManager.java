@@ -171,6 +171,7 @@ import com.google.common.collect.ImmutableSet;
  */
 public class ADTaskManager {
     private final Logger logger = LogManager.getLogger(this.getClass());
+    static final String STATE_INDEX_NOT_EXIST_MSG = "State index does not exist.";
     private final Set<String> retryableErrors = ImmutableSet.of(EXCEED_HISTORICAL_ANALYSIS_LIMIT, NO_ELIGIBLE_NODE_TO_RUN_DETECTOR);
     private final Client client;
     private final ClusterService clusterService;
@@ -2094,7 +2095,15 @@ public class ADTaskManager {
                 }
             }
             maintainRunningHistoricalTask(taskQueue, transportService);
-        }, e -> { logger.error("Failed to search historical tasks in maintaining job", e); }));
+        }, e -> {
+            if (e instanceof IndexNotFoundException) {
+                // the method will be called hourly
+                // don't log stack trace as most of OpenSearch domains have no AD installed
+                logger.debug(STATE_INDEX_NOT_EXIST_MSG);
+            } else {
+                logger.error("Failed to search historical tasks in maintaining job", e);
+            }
+        }));
     }
 
     private void maintainRunningHistoricalTask(ConcurrentLinkedQueue<ADTask> taskQueue, TransportService transportService) {

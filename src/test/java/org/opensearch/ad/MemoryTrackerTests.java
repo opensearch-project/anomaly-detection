@@ -47,6 +47,7 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.test.OpenSearchTestCase;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.config.Precision;
 
 public class MemoryTrackerTests extends OpenSearchTestCase {
 
@@ -56,7 +57,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     double rcfTimeDecay;
     int numMinSamples;
     MemoryTracker tracker;
-    long expectedModelSize;
+    long expectedRCFModelSize;
     String detectorId;
     long largeHeapSize;
     long smallHeapSize;
@@ -101,7 +102,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        expectedModelSize = 712480;
+        expectedRCFModelSize = 118144;
         detectorId = "123";
 
         rcf = RandomCutForest
@@ -109,9 +110,14 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .dimensions(rcfNumFeatures)
             .sampleSize(rcfSampleSize)
             .numberOfTrees(numberOfTrees)
-            .lambda(rcfTimeDecay)
+            .timeDecay(rcfTimeDecay)
             .outputAfter(numMinSamples)
             .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(rcfNumFeatures)
             .build();
 
         detector = mock(AnomalyDetector.class);
@@ -151,10 +157,13 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     public void testEstimateModelSize() {
         setUpBigHeap();
 
-        assertEquals(expectedModelSize, tracker.estimateModelSize(rcf));
+        assertEquals(expectedRCFModelSize + tracker.getThresholdModelBytes(), tracker.estimateTotalModelSize(rcf));
         assertTrue(tracker.isHostingAllowed(detectorId, rcf));
 
-        assertEquals(expectedModelSize, tracker.estimateModelSize(detector, numberOfTrees));
+        assertEquals(
+            expectedRCFModelSize + tracker.getThresholdModelBytes(),
+            tracker.estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+        );
     }
 
     public void testCanAllocate() {

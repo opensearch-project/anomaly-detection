@@ -32,6 +32,9 @@
           "type": "keyword"
         }
       }
+    },
+    "modelV2": {
+      "type": "text"
     }
   }
 }

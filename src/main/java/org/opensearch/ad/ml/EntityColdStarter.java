@@ -71,6 +71,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.config.Precision;
 
 /**
  * Training models for HCAD detectors
@@ -237,8 +238,9 @@ public class EntityColdStarter implements MaintenanceState {
                         } else {
                             logger.info("Cannot get training data for {}", modelId);
                         }
-                    } finally {
                         listener.onResponse(null);
+                    } catch (Exception e) {
+                        listener.onFailure(e);
                     }
 
                 }, exception -> {
@@ -254,8 +256,9 @@ public class EntityColdStarter implements MaintenanceState {
                         } else {
                             nodeStateManager.setException(detectorId, new AnomalyDetectionException(detectorId, cause));
                         }
-                    } finally {
                         listener.onFailure(exception);
+                    } catch (Exception e) {
+                        listener.onFailure(e);
                     }
                 });
 
@@ -331,9 +334,18 @@ public class EntityColdStarter implements MaintenanceState {
             .dimensions(rcfNumFeatures)
             .sampleSize(rcfSampleSize)
             .numberOfTrees(numberOfTrees)
-            .lambda(rcfTimeDecay)
+            .timeDecay(rcfTimeDecay)
             .outputAfter(numMinSamples)
             .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            // same with dimension for opportunistic memory saving
+            // Usually, we use it as shingleSize(dimension). When a new point comes in, we will
+            // look at the point store if there is any overlapping. Say the previously-stored
+            // vector is x1, x2, x3, x4, now we add x3, x4, x5, x6. RCF will recognize
+            // overlapping x3, x4, and only store x5, x6.
+            .shingleSize(shingleSize)
             .build();
         List<double[]> allScores = new ArrayList<>();
         int totalLength = 0;
@@ -570,8 +582,9 @@ public class EntityColdStarter implements MaintenanceState {
             try {
                 double[][] trainData = featureManager.batchShingle(samples.toArray(new double[0][0]), this.shingleSize);
                 trainModelFromDataSegments(Collections.singletonList(trainData), entity, modelState);
-            } finally {
                 listener.onResponse(null);
+            } catch (Exception e) {
+                listener.onFailure(e);
             }
         }
     }
@@ -584,8 +597,16 @@ public class EntityColdStarter implements MaintenanceState {
         EntityModel model = modelState.getModel();
         Queue<double[]> samples = model.getSamples();
         if (samples.size() >= this.numMinSamples) {
-            double[][] trainData = featureManager.batchShingle(samples.toArray(new double[0][0]), this.shingleSize);
-            trainModelFromDataSegments(Collections.singletonList(trainData), model.getEntity().orElse(null), modelState);
+            try {
+                double[][] trainData = featureManager.batchShingle(samples.toArray(new double[0][0]), this.shingleSize);
+                trainModelFromDataSegments(Collections.singletonList(trainData), model.getEntity().orElse(null), modelState);
+            } catch (Exception e) {
+                // e.g., exception from rcf. We can do nothing except logging the error
+                // We won't retry training for the same entity in the cooldown period
+                // (60 detector intervals).
+                logger.error("Unexpected training error", e);
+            }
+
         }
     }
 
