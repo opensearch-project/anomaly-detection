@@ -26,11 +26,18 @@
 
 package org.opensearch.ad.util;
 
+import static org.opensearch.rest.RestStatus.BAD_REQUEST;
+import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
+
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.common.Strings;
@@ -41,8 +48,10 @@ import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 
 import com.google.common.collect.ImmutableMap;
@@ -142,5 +151,33 @@ public final class RestHandlerUtils {
             errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
         }
         return errorMsgBuilder.toString();
+    }
+
+    /**
+     * Wrap action listener to avoid return verbose error message and wrong 500 error to user.
+     * Suggestion for exception handling in AD:
+     * 1. If the error is caused by wrong input, throw IllegalArgumentException exception.
+     * 2. For other errors, please use AnomalyDetectionException or its subclass, or use
+     *    OpenSearchStatusException.
+     *
+     * @param actionListener action listener
+     * @param generalErrorMessage general error message
+     * @param <T> action listener response type
+     * @return wrapped action listener
+     */
+    public static <T> ActionListener wrapRestActionListener(ActionListener<T> actionListener, String generalErrorMessage) {
+        return ActionListener.<T>wrap(r -> { actionListener.onResponse(r); }, e -> {
+            if (e instanceof OpenSearchStatusException || e instanceof IndexNotFoundException) {
+                actionListener.onFailure(e);
+            } else {
+                RestStatus status = e instanceof IllegalArgumentException || e instanceof ResourceNotFoundException
+                    ? BAD_REQUEST
+                    : INTERNAL_SERVER_ERROR;
+                String errorMessage = e instanceof IllegalArgumentException || e instanceof AnomalyDetectionException
+                    ? e.getMessage()
+                    : generalErrorMessage;
+                actionListener.onFailure(new OpenSearchStatusException(errorMessage, status));
+            }
+        });
     }
 }

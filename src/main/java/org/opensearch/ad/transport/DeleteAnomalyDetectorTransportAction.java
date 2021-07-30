@@ -26,11 +26,13 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_DELETE_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -98,10 +100,11 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
     }
 
     @Override
-    protected void doExecute(Task task, DeleteAnomalyDetectorRequest request, ActionListener<DeleteResponse> listener) {
+    protected void doExecute(Task task, DeleteAnomalyDetectorRequest request, ActionListener<DeleteResponse> actionListener) {
         String detectorId = request.getDetectorID();
         LOG.info("Delete anomaly detector job {}", detectorId);
         User user = getUserContext(client);
+        ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_DETECTOR);
         // By the time request reaches here, the user permissions are validated by Security plugin.
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(

@@ -26,10 +26,13 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_CREATE_DETECTOR;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_UPDATE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.ad.util.ParseUtils.getDetector;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.io.IOException;
 import java.util.List;
@@ -95,10 +98,12 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     }
 
     @Override
-    protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> listener) {
+    protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
         User user = getUserContext(client);
         String detectorId = request.getDetectorID();
         RestRequest.Method method = request.getMethod();
+        String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_DETECTOR : FAIL_TO_CREATE_DETECTOR;
+        ActionListener<IndexAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, errorMessage);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(user, detectorId, method, listener, (detector) -> adExecute(request, user, detector, context, listener));
         } catch (Exception e) {

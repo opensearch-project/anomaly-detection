@@ -26,9 +26,11 @@
 
 package org.opensearch.ad.transport.handler;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_SEARCH;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -61,10 +63,11 @@ public class ADSearchHandler {
      * and execute search.
      *
      * @param request search request
-     * @param listener action listerner
+     * @param actionListener action listerner
      */
-    public void search(SearchRequest request, ActionListener<SearchResponse> listener) {
+    public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
         User user = getUserContext(client);
+        ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, user, listener);
         } catch (Exception e) {
