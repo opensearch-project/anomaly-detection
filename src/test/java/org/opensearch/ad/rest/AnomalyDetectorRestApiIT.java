@@ -27,6 +27,7 @@
 package org.opensearch.ad.rest;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -837,7 +838,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "AnomalyDetector is not found",
+                FAIL_TO_FIND_DETECTOR_MSG,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -939,7 +940,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "AnomalyDetector is not found",
+                FAIL_TO_FIND_DETECTOR_MSG,
                 () -> TestHelpers
                     .makeRequest(
                         client(),

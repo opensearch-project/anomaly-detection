@@ -26,11 +26,14 @@
 
 package org.opensearch.ad;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_PARSE_DETECTOR_MSG;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.rest.RestStatus.BAD_REQUEST;
+import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
 
-import java.security.InvalidParameterException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +42,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
@@ -109,7 +113,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profilesToCollect) {
         if (profilesToCollect.isEmpty()) {
-            listener.onFailure(new InvalidParameterException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
+            listener.onFailure(new IllegalArgumentException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
         calculateTotalResponsesToWait(detectorId, profilesToCollect, listener);
@@ -132,12 +136,16 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);
                     prepareProfile(detector, listener, profilesToCollect);
                 } catch (Exception e) {
-                    listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, e));
+                    logger.error(FAIL_TO_PARSE_DETECTOR_MSG + detectorId, e);
+                    listener.onFailure(new OpenSearchStatusException(FAIL_TO_PARSE_DETECTOR_MSG + detectorId, BAD_REQUEST));
                 }
             } else {
-                listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId));
+                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, BAD_REQUEST));
             }
-        }, exception -> listener.onFailure(new RuntimeException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId, exception))));
+        }, exception -> {
+            logger.error(FAIL_TO_FIND_DETECTOR_MSG + detectorId, exception);
+            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, INTERNAL_SERVER_ERROR));
+        }));
     }
 
     private void prepareProfile(

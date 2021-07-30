@@ -30,6 +30,7 @@ import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
@@ -548,7 +549,7 @@ public class ADTaskManager {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(response -> {
             if (!response.isExists()) {
-                listener.onFailure(new OpenSearchStatusException("AnomalyDetector is not found", RestStatus.NOT_FOUND));
+                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
                 return;
             }
             try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
@@ -574,7 +575,7 @@ public class ADTaskManager {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(response -> {
             if (!response.isExists()) {
-                listener.onFailure(new OpenSearchStatusException("AnomalyDetector is not found", RestStatus.NOT_FOUND));
+                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
                 return;
             }
             try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {

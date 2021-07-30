@@ -66,6 +66,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.ADIndex;
@@ -674,7 +675,7 @@ public class CheckpointDao {
                     clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
                 } else {
                     // create index failure. Notify callers using listener.
-                    listener.onFailure(new RuntimeException("Creating checkpoint with mappings call not acknowledged."));
+                    listener.onFailure(new AnomalyDetectionException("Creating checkpoint with mappings call not acknowledged."));
                 }
             }, exception -> {
                 if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {

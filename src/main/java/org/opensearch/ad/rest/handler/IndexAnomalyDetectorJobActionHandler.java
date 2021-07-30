@@ -233,7 +233,7 @@ public class IndexAnomalyDetectorJobActionHandler {
             );
     }
 
-    private void onIndexAnomalyDetectorJobResponse(IndexResponse response, AnomalyDetectorFunction function) throws IOException {
+    private void onIndexAnomalyDetectorJobResponse(IndexResponse response, AnomalyDetectorFunction function) {
         if (response == null || (response.getResult() != CREATED && response.getResult() != UPDATED)) {
             String errorMsg = getShardsFailure(response);
             listener.onFailure(new OpenSearchStatusException(errorMsg, response.status()));

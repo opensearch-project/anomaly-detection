@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.rest.handler;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
@@ -229,7 +230,7 @@ public class IndexAnomalyDetectorActionHandler {
 
     private void onGetAnomalyDetectorResponse(GetResponse response) {
         if (!response.isExists()) {
-            listener.onFailure(new OpenSearchStatusException("AnomalyDetector is not found with id: " + detectorId, RestStatus.NOT_FOUND));
+            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
             return;
         }
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
