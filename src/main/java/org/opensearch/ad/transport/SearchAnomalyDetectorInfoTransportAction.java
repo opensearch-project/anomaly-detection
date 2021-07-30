@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_DETECTOR_INFO;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -74,7 +75,7 @@ public class SearchAnomalyDetectorInfoTransportAction extends
     ) {
         String name = request.getName();
         String rawPath = request.getRawPath();
-        ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, "Failed to get detector info");
+        ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR_INFO);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             SearchRequest searchRequest = new SearchRequest().indices(ANOMALY_DETECTORS_INDEX);
             if (rawPath.endsWith(RestHandlerUtils.COUNT)) {

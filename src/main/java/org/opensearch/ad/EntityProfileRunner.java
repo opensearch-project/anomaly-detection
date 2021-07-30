@@ -76,6 +76,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(EntityProfileRunner.class);
 
     static final String NOT_HC_DETECTOR_ERR_MSG = "This is not a high cardinality detector";
+    static final String EMPTY_ENTITY_ATTRIBUTES = "Empty entity attributes";
     static final String NO_ENTITY = "Cannot find entity";
     private Client client;
     private NamedXContentRegistry xContentRegistry;
@@ -159,7 +160,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     ) {
         Map<String, String> attributes = entity.getAttributes();
         if (attributes == null || attributes.size() != categoryFields.size()) {
-            listener.onFailure(new IllegalArgumentException("Empty entity attributes"));
+            listener.onFailure(new IllegalArgumentException(EMPTY_ENTITY_ATTRIBUTES));
             return;
         }
         for (String field : categoryFields) {

@@ -45,9 +45,12 @@ public class CommonErrorMessages {
         "Having trouble querying data because all of your features have been disabled.";
     public static final String INVALID_TIMESTAMP_ERR_MSG = "timestamp is invalid";
     public static String FAIL_TO_PARSE_DETECTOR_MSG = "Fail to parse detector with id: ";
-    public static String FAIL_TO_FIND_DETECTOR_MSG = "Fail to find detector with id: ";
+    // change this error message to make it compatible with old version's integration(nexus) test
+    public static String FAIL_TO_FIND_DETECTOR_MSG = "Can't find detector with id: ";
     public static String FAIL_TO_GET_PROFILE_MSG = "Fail to get profile for detector ";
     public static String FAIL_TO_GET_TOTAL_ENTITIES = "Failed to get total entities for detector ";
+    public static String FAIL_TO_GET_USER_INFO = "Unable to get user information from detector ";
+    public static String NO_PERMISSION_TO_ACCESS_DETECTOR = "User does not have permissions to access detector: ";
     public static String CATEGORICAL_FIELD_NUMBER_SURPASSED = "We don't support categorical fields more than ";
     public static String EMPTY_PROFILES_COLLECT = "profiles to collect are missing or invalid";
     public static String FAIL_FETCH_ERR_MSG = "Fail to fetch profile for ";
@@ -72,4 +75,16 @@ public class CommonErrorMessages {
     public static String EXCEED_HISTORICAL_ANALYSIS_LIMIT = "Exceed max historical analysis limit per node";
     public static String NO_ELIGIBLE_NODE_TO_RUN_DETECTOR = "No eligible node to run detector ";
     public static String EMPTY_STALE_RUNNING_ENTITIES = "Empty stale running entities";
+
+    public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
+    public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";
+    public static String FAIL_TO_CREATE_DETECTOR = "Fail to create detector";
+    public static String FAIL_TO_UPDATE_DETECTOR = "Fail to update detector";
+    public static String FAIL_TO_PREVIEW_DETECTOR = "Fail to preview detector";
+    public static String FAIL_TO_START_DETECTOR = "Fail to start detector";
+    public static String FAIL_TO_STOP_DETECTOR = "Fail to stop detector";
+    public static String FAIL_TO_DELETE_DETECTOR = "Fail to delete detector";
+    public static String FAIL_TO_DELETE_AD_RESULT = "Fail to delete anomaly result";
+    public static String FAIL_TO_GET_STATS = "Fail to get stats";
+    public static String FAIL_TO_SEARCH = "Fail to search";
 }

@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_PREVIEW_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
@@ -116,7 +117,7 @@ public class PreviewAnomalyDetectorTransportAction extends
     ) {
         String detectorId = request.getDetectorId();
         User user = getUserContext(client);
-        ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, "Failed to preview detector");
+        ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,

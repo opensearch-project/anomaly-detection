@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_DELETE_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
@@ -103,7 +104,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         String detectorId = request.getDetectorID();
         LOG.info("Delete anomaly detector job {}", detectorId);
         User user = getUserContext(client);
-        ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, "Failed to delete detector");
+        ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_DETECTOR);
         // By the time request reaches here, the user permissions are validated by Security plugin.
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(

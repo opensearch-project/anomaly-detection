@@ -27,6 +27,7 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
@@ -118,7 +119,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             OpenSearchStatusException.class,
             () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000)
         );
-        assertTrue(exception.getMessage().contains("AnomalyDetector is not found"));
+        assertTrue(exception.getMessage().contains(FAIL_TO_FIND_DETECTOR_MSG));
     }
 
     @Ignore

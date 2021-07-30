@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_STATS;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.HashMap;
@@ -83,7 +84,7 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
 
     @Override
     protected void doExecute(Task task, ADStatsRequest request, ActionListener<StatsAnomalyDetectorResponse> actionListener) {
-        ActionListener<StatsAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, "Failed to get stats");
+        ActionListener<StatsAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_STATS);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             getStats(client, listener, request);
         } catch (Exception e) {

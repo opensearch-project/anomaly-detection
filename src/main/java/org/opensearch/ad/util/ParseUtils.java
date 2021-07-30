@@ -26,6 +26,9 @@
 
 package org.opensearch.ad.util;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_USER_INFO;
+import static org.opensearch.ad.constant.CommonErrorMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
 import static org.opensearch.ad.constant.CommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.constant.CommonName.EPOCH_MILLIS_FORMAT;
 import static org.opensearch.ad.constant.CommonName.FEATURE_AGGS;
@@ -562,13 +565,13 @@ public final class ParseUtils {
                     function.accept(detector);
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
-                    listener.onFailure(new AnomalyDetectionException("User does not have permissions to access detector: " + detectorId));
+                    listener.onFailure(new AnomalyDetectionException(NO_PERMISSION_TO_ACCESS_DETECTOR + detectorId));
                 }
             } catch (Exception e) {
-                listener.onFailure(new AnomalyDetectionException("Unable to get user information from detector " + detectorId));
+                listener.onFailure(new AnomalyDetectionException(FAIL_TO_GET_USER_INFO + detectorId));
             }
         } else {
-            listener.onFailure(new ResourceNotFoundException(detectorId, "AnomalyDetector is not found with id: " + detectorId));
+            listener.onFailure(new ResourceNotFoundException(detectorId, FAIL_TO_FIND_DETECTOR_MSG + detectorId));
         }
     }
 

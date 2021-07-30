@@ -26,6 +26,8 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_STOP_DETECTOR;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -87,10 +89,9 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
                 listener.onResponse(new StopDetectorResponse(false));
             }));
         } catch (Exception e) {
-            String errorMessage = "Fail to stop detector " + adID;
-            LOG.error(errorMessage, e);
+            LOG.error(FAIL_TO_STOP_DETECTOR + " " + adID, e);
             Throwable cause = ExceptionsHelper.unwrapCause(e);
-            listener.onFailure(new InternalFailure(adID, errorMessage, cause));
+            listener.onFailure(new InternalFailure(adID, FAIL_TO_STOP_DETECTOR, cause));
         }
     }
 }

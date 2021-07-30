@@ -26,6 +26,8 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.ALL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
@@ -144,7 +146,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> actionListener) {
         String detectorID = request.getDetectorID();
         User user = getUserContext(client);
-        ActionListener<GetAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, "Failed to get detector");
+        ActionListener<GetAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,
@@ -295,10 +297,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                 for (MultiGetItemResponse response : responses) {
                     if (ANOMALY_DETECTORS_INDEX.equals(response.getIndex())) {
                         if (response.getResponse() == null || !response.getResponse().isExists()) {
-                            listener
-                                .onFailure(
-                                    new OpenSearchStatusException("Can't find detector with id:  " + detectorId, RestStatus.NOT_FOUND)
-                                );
+                            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
                             return;
                         }
                         id = response.getId();

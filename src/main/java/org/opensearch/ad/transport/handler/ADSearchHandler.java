@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport.handler;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_SEARCH;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
@@ -66,7 +67,7 @@ public class ADSearchHandler {
      */
     public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
         User user = getUserContext(client);
-        ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, "Failed to get stats");
+        ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, user, listener);
         } catch (Exception e) {
