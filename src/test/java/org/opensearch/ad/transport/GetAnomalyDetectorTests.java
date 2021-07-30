@@ -33,13 +33,13 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 
 import java.io.IOException;
-import java.security.InvalidParameterException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -136,7 +136,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
-        assertException(future, InvalidParameterException.class, CommonErrorMessages.EMPTY_PROFILES_COLLECT);
+        assertException(future, OpenSearchStatusException.class, CommonErrorMessages.EMPTY_PROFILES_COLLECT);
     }
 
     @SuppressWarnings("unchecked")
@@ -161,6 +161,6 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
-        assertException(future, InvalidParameterException.class, CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG);
+        assertException(future, OpenSearchStatusException.class, CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG);
     }
 }

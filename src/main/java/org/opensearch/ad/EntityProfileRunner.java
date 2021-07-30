@@ -30,7 +30,6 @@ import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
-import java.security.InvalidParameterException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,6 +76,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(EntityProfileRunner.class);
 
     static final String NOT_HC_DETECTOR_ERR_MSG = "This is not a high cardinality detector";
+    static final String EMPTY_ENTITY_ATTRIBUTES = "Empty entity attributes";
     static final String NO_ENTITY = "Cannot find entity";
     private Client client;
     private NamedXContentRegistry xContentRegistry;
@@ -102,7 +102,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         ActionListener<EntityProfile> listener
     ) {
         if (profilesToCollect == null || profilesToCollect.size() == 0) {
-            listener.onFailure(new InvalidParameterException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
+            listener.onFailure(new IllegalArgumentException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
         GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
@@ -119,10 +119,10 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                     List<String> categoryFields = detector.getCategoryField();
                     int maxCategoryFields = NumericSetting.maxCategoricalFields();
                     if (categoryFields == null || categoryFields.size() == 0) {
-                        listener.onFailure(new InvalidParameterException(NOT_HC_DETECTOR_ERR_MSG));
+                        listener.onFailure(new IllegalArgumentException(NOT_HC_DETECTOR_ERR_MSG));
                     } else if (categoryFields.size() > maxCategoryFields) {
                         listener
-                            .onFailure(new InvalidParameterException(CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields)));
+                            .onFailure(new IllegalArgumentException(CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields)));
                     } else {
                         validateEntity(entityValue, categoryFields, detectorId, profilesToCollect, detector, listener);
                     }
@@ -130,7 +130,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                     listener.onFailure(t);
                 }
             } else {
-                listener.onFailure(new InvalidParameterException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId));
+                listener.onFailure(new IllegalArgumentException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId));
             }
         }, listener::onFailure));
     }
@@ -160,12 +160,12 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     ) {
         Map<String, String> attributes = entity.getAttributes();
         if (attributes == null || attributes.size() != categoryFields.size()) {
-            listener.onFailure(new InvalidParameterException("Empty entity attributes"));
+            listener.onFailure(new IllegalArgumentException(EMPTY_ENTITY_ATTRIBUTES));
             return;
         }
         for (String field : categoryFields) {
             if (false == attributes.containsKey(field)) {
-                listener.onFailure(new InvalidParameterException("Cannot find " + field));
+                listener.onFailure(new IllegalArgumentException("Cannot find " + field));
                 return;
             }
         }
@@ -184,15 +184,15 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         client.search(searchRequest, ActionListener.wrap(searchResponse -> {
             try {
                 if (searchResponse.getHits().getHits().length == 0) {
-                    listener.onFailure(new InvalidParameterException(NO_ENTITY));
+                    listener.onFailure(new IllegalArgumentException(NO_ENTITY));
                     return;
                 }
                 prepareEntityProfile(listener, detectorId, entity, profilesToCollect, detector, categoryFields.get(0));
             } catch (Exception e) {
-                listener.onFailure(new InvalidParameterException(NO_ENTITY));
+                listener.onFailure(new IllegalArgumentException(NO_ENTITY));
                 return;
             }
-        }, e -> listener.onFailure(new InvalidParameterException(NO_ENTITY))));
+        }, e -> listener.onFailure(new IllegalArgumentException(NO_ENTITY))));
 
     }
 

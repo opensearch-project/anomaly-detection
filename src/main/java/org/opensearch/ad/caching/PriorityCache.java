@@ -53,10 +53,10 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.OpenSearchException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.MemoryTracker.Origin;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -637,7 +637,7 @@ public class PriorityCache implements EntityCache {
             });
         } catch (Exception e) {
             // will be thrown to ES's transport broadcast handler
-            throw new OpenSearchException("Fail to maintain cache", e);
+            throw new AnomalyDetectionException("Fail to maintain cache", e);
         }
 
     }

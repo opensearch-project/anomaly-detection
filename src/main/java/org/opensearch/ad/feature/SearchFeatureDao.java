@@ -55,6 +55,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -425,7 +426,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                         listener.onResponse(topEntities);
                     } else if (expirationEpochMs < clock.millis()) {
                         if (topEntities.isEmpty()) {
-                            listener.onFailure(new IllegalStateException("timeout to get preview results.  Please retry later."));
+                            listener.onFailure(new AnomalyDetectionException("timeout to get preview results.  Please retry later."));
                         } else {
                             logger.info("timeout to get preview results. Send whatever we have.");
                             listener.onResponse(topEntities);
