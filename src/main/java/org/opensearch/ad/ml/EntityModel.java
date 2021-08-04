@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.ml;
 
+import java.util.ArrayDeque;
 import java.util.Optional;
 import java.util.Queue;
 
@@ -61,6 +62,9 @@ public class EntityModel {
     }
 
     public void addSample(double[] sample) {
+        if (this.samples == null) {
+            this.samples = new ArrayDeque<>();
+        }
         if (sample != null && sample.length != 0) {
             this.samples.add(sample);
         }
