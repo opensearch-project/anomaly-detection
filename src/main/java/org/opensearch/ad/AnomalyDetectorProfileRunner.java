@@ -43,6 +43,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
@@ -494,7 +495,11 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             // exception can be a RemoteTransportException
             Exception causeException = (Exception) cause;
             if (ExceptionUtil
-                .isException(causeException, ResourceNotFoundException.class, ExceptionUtil.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
+                .isException(
+                    causeException,
+                    ResourceNotFoundException.class,
+                    NotSerializedADExceptionName.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE.getName()
+                )
                 || (ExceptionUtil.isIndexNotAvailable(causeException)
                     && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
                 // cannot find checkpoint

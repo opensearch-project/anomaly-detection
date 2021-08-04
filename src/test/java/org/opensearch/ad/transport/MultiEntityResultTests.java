@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,9 +66,11 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
 import org.opensearch.BwcTests;
+import org.opensearch.OpenSearchTimeoutException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
@@ -88,6 +91,7 @@ import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.CompositeRetriever;
@@ -386,7 +390,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         };
     }
 
-    private void setUpEntityResult(int nodeIndex) {
+    private void setUpEntityResult(int nodeIndex, NodeStateManager nodeStateManager) {
         // register entity result action
         new EntityResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -395,7 +399,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             normalModelManager,
             adCircuitBreakerService,
             provider,
-            stateManager,
+            nodeStateManager,
             indexUtil,
             resultWriteQueue,
             checkpointReadQueue,
@@ -404,6 +408,10 @@ public class MultiEntityResultTests extends AbstractADTest {
         );
 
         when(normalModelManager.getAnomalyResultForEntity(any(), any(), any(), any(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
+    }
+
+    private void setUpEntityResult(int nodeIndex) {
+        setUpEntityResult(nodeIndex, stateManager);
     }
 
     @SuppressWarnings("unchecked")
@@ -1109,5 +1117,157 @@ public class MultiEntityResultTests extends AbstractADTest {
         String repr = page.toString();
         // we have at least class name
         assertTrue("actual:" + repr, repr.contains("Page"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Pair<NodeStateManager, CountDownLatch> setUpTestExceptionTestingInModelNode() throws IOException {
+        CountDownLatch inProgress = setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler);
+        // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
+        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+
+        NodeStateManager modelNodeStateManager = mock(NodeStateManager.class);
+        // make sure parameters are not null, otherwise this mock won't get invoked
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(modelNodeStateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
+        return Pair.of(modelNodeStateManager, inProgress);
+    }
+
+    public void testEndRunNowInModelNode() throws InterruptedException, IOException {
+        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
+        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
+        CountDownLatch inProgress = preparedFixture.getRight();
+
+        when(modelNodeStateManager.fetchExceptionAndClear(anyString()))
+            .thenReturn(
+                Optional
+                    .of(
+                        new EndRunException(
+                            detectorId,
+                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            new NoSuchElementException("No value present"),
+                            true
+                        )
+                    )
+            );
+
+        setUpEntityResult(1, modelNodeStateManager);
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        // since it is end run now, we don't expect any of the normal workflow continues
+        verify(resultWriteQueue, never()).put(any());
+    }
+
+    public void testEndRunNowFalseInModelNode() throws InterruptedException, IOException {
+        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
+        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
+        CountDownLatch inProgress = preparedFixture.getRight();
+
+        when(modelNodeStateManager.fetchExceptionAndClear(anyString()))
+            .thenReturn(
+                Optional
+                    .of(
+                        new EndRunException(
+                            detectorId,
+                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            new NoSuchElementException("No value present"),
+                            false
+                        )
+                    )
+            );
+
+        setUpEntityResult(1, modelNodeStateManager);
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        // since it is end run now = false, the normal workflow continues
+        verify(resultWriteQueue, times(3)).put(any());
+        ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
+        verify(stateManager).setException(anyString(), exceptionCaptor.capture());
+        EndRunException endRunException = (EndRunException) (exceptionCaptor.getValue());
+        assertTrue(!endRunException.isEndNow());
+    }
+
+    /**
+     * Test that in model node, previously recorded exception is OpenSearchTimeoutException,
+     * @throws IOException when failing to set up transport layer
+     * @throws InterruptedException when failing to wait for inProgress to finish
+     */
+    public void testTimeOutExceptionInModelNode() throws IOException, InterruptedException {
+        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
+        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
+        CountDownLatch inProgress = preparedFixture.getRight();
+
+        when(modelNodeStateManager.fetchExceptionAndClear(anyString())).thenReturn(Optional.of(new OpenSearchTimeoutException("blah")));
+
+        setUpEntityResult(1, modelNodeStateManager);
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        // since OpenSearchTimeoutException is not end run exception (now = true), the normal workflow continues
+        verify(resultWriteQueue, times(3)).put(any());
+        ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
+        verify(stateManager).setException(anyString(), exceptionCaptor.capture());
+        Exception actual = exceptionCaptor.getValue();
+        assertTrue("actual exception is " + actual, actual instanceof InternalFailure);
+    }
+
+    /**
+     * Test that when both previous and current run returns exception, we return more
+     * important exception (EndRunException is more important)
+     * @throws InterruptedException when failing to wait for inProgress to finish
+     * @throws IOException when failing to set up transport layer
+     */
+    public void testSelectHigherExceptionInModelNode() throws InterruptedException, IOException {
+        when(entityCache.get(any(), any())).thenThrow(EndRunException.class);
+
+        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
+        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
+        CountDownLatch inProgress = preparedFixture.getRight();
+
+        when(modelNodeStateManager.fetchExceptionAndClear(anyString())).thenReturn(Optional.of(new OpenSearchTimeoutException("blah")));
+
+        setUpEntityResult(1, modelNodeStateManager);
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+
+        // since EndRunException is thrown before getting any result, we cannot save anything
+        verify(resultWriteQueue, never()).put(any());
+        ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
+        verify(stateManager).setException(anyString(), exceptionCaptor.capture());
+        EndRunException endRunException = (EndRunException) (exceptionCaptor.getValue());
+        assertTrue(!endRunException.isEndNow());
     }
 }
