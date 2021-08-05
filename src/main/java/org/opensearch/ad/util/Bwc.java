@@ -27,7 +27,7 @@ public class Bwc {
      * @return whether the version support multiple category fields
      */
     public static boolean supportMultiCategoryFields(Version version) {
-        // TODO: remove DISABLE_BWC before release
+        // TODO: remove DISABLE_BWC before 1.1 release
         return DISABLE_BWC || version.after(Version.V_1_0_0);
     }
 }
