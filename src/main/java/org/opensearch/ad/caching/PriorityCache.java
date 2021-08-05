@@ -649,7 +649,7 @@ public class PriorityCache implements EntityCache {
      */
     @Override
     public void clear(String detectorId) {
-        if (detectorId == null) {
+        if (Strings.isEmpty(detectorId)) {
             return;
         }
         CacheBuffer buffer = activeEnities.remove(detectorId);

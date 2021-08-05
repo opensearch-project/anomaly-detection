@@ -407,7 +407,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             threadPool
         );
 
-        when(normalModelManager.getAnomalyResultForEntity(any(), any(), any(), any(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
+        when(normalModelManager.getAnomalyResultForEntity(any(), any(), any(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
     }
 
     private void setUpEntityResult(int nodeIndex) {

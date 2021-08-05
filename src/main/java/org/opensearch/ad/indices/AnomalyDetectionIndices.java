@@ -103,7 +103,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     // The index name pattern to query all AD result, history and current AD result
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
 
-    private static final String META = "_meta";
+    // package private for testing
+    static final String META = "_meta";
     private static final String SCHEMA_VERSION = "schema_version";
 
     private ClusterService clusterService;

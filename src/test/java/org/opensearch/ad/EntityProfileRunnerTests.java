@@ -33,6 +33,8 @@ import static org.mockito.Mockito.mock;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
+import java.io.IOException;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -40,6 +42,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -52,18 +55,24 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.EntityState;
+import org.opensearch.ad.model.InitProgressProfile;
+import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileResponse;
 import org.opensearch.client.Client;
+import org.opensearch.common.text.Text;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.metrics.InternalMax;
+import org.opensearch.search.internal.InternalSearchResponse;
 
 public class EntityProfileRunnerTests extends AbstractADTest {
     private AnomalyDetector detector;
@@ -205,6 +214,57 @@ public class EntityProfileRunnerTests extends AbstractADTest {
 
             return null;
         }).when(client).execute(any(EntityProfileAction.class), any(), any());
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            SearchRequest request = (SearchRequest) args[0];
+            String indexName = request.indices()[0];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            SearchResponse searchResponse = null;
+            if (indexName.equals(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+                InternalMax maxAgg = new InternalMax(CommonName.AGG_NAME_MAX_TIME, latestSampleTimestamp, DocValueFormat.RAW, emptyMap());
+                InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(maxAgg));
+
+                SearchHits hits = new SearchHits(new SearchHit[] {}, null, Float.NaN);
+                SearchResponseSections searchSections = new SearchResponseSections(hits, internalAggregations, null, false, false, null, 1);
+
+                searchResponse = new SearchResponse(
+                    searchSections,
+                    null,
+                    1,
+                    1,
+                    0,
+                    30,
+                    ShardSearchFailure.EMPTY_ARRAY,
+                    SearchResponse.Clusters.EMPTY
+                );
+            } else {
+                SearchHits collapsedHits = new SearchHits(
+                    new SearchHit[] {
+                        new SearchHit(2, "ID", new Text("type"), Collections.emptyMap(), Collections.emptyMap()),
+                        new SearchHit(3, "ID", new Text("type"), Collections.emptyMap(), Collections.emptyMap()) },
+                    new TotalHits(1, TotalHits.Relation.EQUAL_TO),
+                    1.0F
+                );
+
+                InternalSearchResponse internalSearchResponse = new InternalSearchResponse(collapsedHits, null, null, null, false, null, 1);
+                searchResponse = new SearchResponse(
+                    internalSearchResponse,
+                    null,
+                    1,
+                    1,
+                    0,
+                    0,
+                    ShardSearchFailure.EMPTY_ARRAY,
+                    SearchResponse.Clusters.EMPTY
+                );
+            }
+
+            listener.onResponse(searchResponse);
+
+            return null;
+
+        }).when(client).search(any(), any());
     }
 
     public void stateTestTemplate(InittedEverResultStatus returnedState, EntityState expectedState) throws InterruptedException {
@@ -222,6 +282,18 @@ public class EntityProfileRunnerTests extends AbstractADTest {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
+    public void testRunningState() throws InterruptedException {
+        stateTestTemplate(InittedEverResultStatus.INITTED, EntityState.RUNNING);
+    }
+
+    public void testUnknownState() throws InterruptedException {
+        stateTestTemplate(InittedEverResultStatus.UNKNOWN, EntityState.UNKNOWN);
+    }
+
+    public void testInitState() throws InterruptedException {
+        stateTestTemplate(InittedEverResultStatus.NOT_INITTED, EntityState.INIT);
+    }
+
     public void testEmptyProfile() throws InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
@@ -230,6 +302,118 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             inProgressLatch.countDown();
         }, exception -> {
             assertTrue(exception.getMessage().contains(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testModel() throws InterruptedException {
+        setUpExecuteEntityProfileAction(InittedEverResultStatus.INITTED);
+        EntityProfile.Builder expectedProfile = new EntityProfile.Builder();
+        ModelProfileOnNode modelProfile = new ModelProfileOnNode(nodeId, new ModelProfile(modelId, entity, modelSize));
+        expectedProfile.modelProfile(modelProfile);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        runner.profile(detectorId, entity, model, ActionListener.wrap(response -> {
+            assertEquals(expectedProfile.build(), response);
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue("Should not reach here", false);
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testJobIndexNotFound() throws InterruptedException {
+        setUpExecuteEntityProfileAction(InittedEverResultStatus.INITTED);
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            GetRequest request = (GetRequest) args[0];
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
+
+            String indexName = request.index();
+            if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
+                listener
+                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            } else if (indexName.equals(ANOMALY_DETECTOR_JOB_INDEX)) {
+                listener.onFailure(new IndexNotFoundException(ANOMALY_DETECTOR_JOB_INDEX));
+            }
+
+            return null;
+        }).when(client).get(any(), any());
+
+        EntityProfile expectedProfile = new EntityProfile.Builder().build();
+
+        runner.profile(detectorId, entity, initNInfo, ActionListener.wrap(response -> {
+            assertEquals(expectedProfile, response);
+            inProgressLatch.countDown();
+        }, exception -> {
+            LOG.error("Unexpected error", exception);
+            assertTrue("Should not reach here", false);
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testNotMultiEntityDetector() throws IOException, InterruptedException {
+        detector = TestHelpers.randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(detectorIntervalMin, ChronoUnit.MINUTES));
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            GetRequest request = (GetRequest) args[0];
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
+
+            String indexName = request.index();
+            if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
+                listener
+                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            }
+
+            return null;
+        }).when(client).get(any(), any());
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        runner.profile(detectorId, entity, state, ActionListener.wrap(response -> {
+            assertTrue("Should not reach here", false);
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(exception.getMessage().contains(EntityProfileRunner.NOT_HC_DETECTOR_ERR_MSG));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testInitNInfo() throws InterruptedException {
+        setUpExecuteEntityProfileAction(InittedEverResultStatus.NOT_INITTED);
+        latestSampleTimestamp = 1_603_989_830_158L;
+
+        EntityProfile.Builder expectedProfile = new EntityProfile.Builder();
+
+        // 1 / 128 rounded to 1%
+        int neededSamples = requiredSamples - smallUpdates;
+        InitProgressProfile profile = new InitProgressProfile(
+            "1%",
+            neededSamples * detector.getDetectorIntervalInSeconds() / 60,
+            neededSamples
+        );
+        expectedProfile.initProgress(profile);
+        expectedProfile.isActive(isActive);
+        expectedProfile.lastActiveTimestampMs(latestActiveTimestamp);
+        expectedProfile.lastSampleTimestampMs(latestSampleTimestamp);
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        runner.profile(detectorId, entity, initNInfo, ActionListener.wrap(response -> {
+            assertEquals(expectedProfile.build(), response);
+            inProgressLatch.countDown();
+        }, exception -> {
+            LOG.error("Unexpected error", exception);
+            assertTrue("Should not reach here", false);
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));

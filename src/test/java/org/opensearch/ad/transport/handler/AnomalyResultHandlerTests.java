@@ -32,8 +32,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -41,95 +39,37 @@ import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.ad.util.ThrowingConsumerWrapper;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
-import org.opensearch.threadpool.ThreadPool;
 
-public class AnomalyResultHandlerTests extends AbstractADTest {
-    private static Settings settings;
-    @Mock
-    private ClusterService clusterService;
-
-    @Mock
-    private Client client;
-
-    private ClientUtil clientUtil;
-
-    @Mock
-    private IndexNameExpressionResolver indexNameResolver;
-
-    @Mock
-    private AnomalyDetectionIndices anomalyDetectionIndices;
-
-    private String detectorId = "123";
-
-    @Mock
-    private Throttler throttler;
-
-    private ThreadPool context;
-
-    private IndexUtils indexUtil;
-
+public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     @Mock
     private NodeStateManager nodeStateManager;
 
     @Mock
     private Clock clock;
 
-    @BeforeClass
-    public static void setUpBeforeClass() {
-        setUpThreadPool(AnomalyResultTests.class.getSimpleName());
-        settings = Settings.EMPTY;
-    }
-
-    @AfterClass
-    public static void tearDownAfterClass() {
-        tearDownThreadPool();
-        settings = null;
-    }
-
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
         super.setUpLog4jForJUnit(AnomalyIndexHandler.class);
-        MockitoAnnotations.initMocks(this);
-        setWriteBlockAdResultIndex(false);
-        context = TestHelpers.createThreadPool();
-        clientUtil = new ClientUtil(settings, client, throttler, context);
-        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
     }
 
     @Override
@@ -208,7 +148,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
 
     @Test
     public void testAdResultIndexExist() throws IOException {
-        setInitAnomalyResultIndexException(true);
+        setUpSavingAnomalyResultIndex(false, IndexCreation.RESOURCE_EXISTS_EXCEPTION);
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
             client,
             settings,
@@ -229,7 +169,7 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
         expectedEx.expect(AnomalyDetectionException.class);
         expectedEx.expectMessage("Error in saving .opendistro-anomaly-results for detector " + detectorId);
 
-        setInitAnomalyResultIndexException(false);
+        setUpSavingAnomalyResultIndex(false, IndexCreation.RUNTIME_EXCEPTION);
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
             client,
             settings,
@@ -243,28 +183,6 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
         verify(client, never()).index(any(), any());
-    }
-
-    private void setInitAnomalyResultIndexException(boolean indexExistException) throws IOException {
-        Exception e = indexExistException ? mock(ResourceAlreadyExistsException.class) : mock(RuntimeException.class);
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 1);
-            ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            assertTrue(listener != null);
-            listener.onFailure(e);
-            return null;
-        }).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());
-    }
-
-    private void setWriteBlockAdResultIndex(boolean blocked) {
-        String indexName = randomAlphaOfLength(10);
-        Settings settings = blocked
-            ? Settings.builder().put(IndexMetadata.INDEX_BLOCKS_WRITE_SETTING.getKey(), true).build()
-            : Settings.EMPTY;
-        ClusterState blockedClusterState = createIndexBlockedState(indexName, settings, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        when(clusterService.state()).thenReturn(blockedClusterState);
-        when(indexNameResolver.concreteIndexNames(any(), any(), any(String.class))).thenReturn(new String[] { indexName });
     }
 
     /**
@@ -323,19 +241,5 @@ public class AnomalyResultHandlerTests extends AbstractADTest {
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
 
         backoffLatch.await(1, TimeUnit.MINUTES);
-    }
-
-    @SuppressWarnings("unchecked")
-    private void setUpSavingAnomalyResultIndex(boolean anomalyResultIndexExists) throws IOException {
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 1);
-            ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            assertTrue(listener != null);
-            listener.onResponse(new CreateIndexResponse(true, true, CommonName.ANOMALY_RESULT_INDEX_ALIAS) {
-            });
-            return null;
-        }).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());
-        when(anomalyDetectionIndices.doesAnomalyResultIndexExist()).thenReturn(anomalyResultIndexExists);
     }
 }
