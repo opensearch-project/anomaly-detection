@@ -70,6 +70,7 @@ import org.opensearch.ad.common.exception.ClientException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
@@ -773,7 +774,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             failure.set(causeException);
         } else if (causeException instanceof NotSerializableExceptionWrapper) {
             // we only expect this happens on AD exceptions
-            Optional<AnomalyDetectionException> actualException = ExceptionUtil
+            Optional<AnomalyDetectionException> actualException = NotSerializedADExceptionName
                 .convertWrappedAnomalyDetectionException((NotSerializableExceptionWrapper) causeException, adID);
             if (actualException.isPresent()) {
                 AnomalyDetectionException adException = actualException.get();
@@ -1058,6 +1059,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
+    /**
+     * Handle a prediction failure.  Possibly (i.e., we don't always need to do that)
+     * convert the exception to a form that AD can recognize and handle and sets the
+     * input failure reference to the converted exception.
+     *
+     * @param e prediction exception
+     * @param adID Detector Id
+     * @param nodeID Node Id
+     * @param failure Parameter to receive the possibly converted function for the
+     *  caller to deal with
+     */
     private void handlePredictionFailure(Exception e, String adID, String nodeID, AtomicReference<Exception> failure) {
         LOG.error(new ParameterizedMessage("Received an error from node {} while doing model inference for {}", nodeID, adID), e);
         if (e == null) {

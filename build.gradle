@@ -351,7 +351,9 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.AnomalyDetectorJobTransportAction',
         'org.opensearch.ad.transport.CronNodeRequest',
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
-        'org.opensearch.ad.transport.GetAnomalyDetectorResponse'
+        'org.opensearch.ad.transport.GetAnomalyDetectorResponse',
+        'org.opensearch.ad.transport.ADBatchAnomalyResultRequest',
+        'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction',
 ]
 
 jacocoTestCoverageVerification {
