@@ -50,6 +50,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ExceptionsHelper;
+import org.opensearch.OpenSearchException;
 import org.opensearch.OpenSearchTimeoutException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
@@ -99,7 +100,6 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -125,6 +125,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute node";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
     static final String INDEX_READ_BLOCKED = "Cannot read user index due to read block.";
+    static final String LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE = OpenSearchException.getExceptionName(new LimitExceededException("", ""));
     static final String NULL_RESPONSE = "Received null response from";
 
     static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
@@ -360,7 +361,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             }
                         }
 
-                        final AtomicReference<Exception> failure = new AtomicReference<>();
+                        final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<>();
                         int nodeCount = node2Entities.size();
                         AtomicInteger responseCount = new AtomicInteger();
                         node2Entities.stream().forEach(nodeEntity -> {
@@ -437,7 +438,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             // HC logic starts here
             if (anomalyDetector.isMultientityDetector()) {
-                Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
+                Optional<AnomalyDetectionException> previousException = stateManager.fetchExceptionAndClear(adID);
 
                 if (previousException.isPresent()) {
                     Exception exception = previousException.get();
@@ -559,7 +560,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             if (!featureOptional.getProcessedFeatures().isPresent()) {
-                Optional<Exception> exception = coldStartIfNoCheckPoint(detector);
+                Optional<AnomalyDetectionException> exception = coldStartIfNoCheckPoint(detector);
                 if (exception.isPresent()) {
                     listener.onFailure(exception.get());
                     return;
@@ -606,7 +607,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             List<RCFResultResponse> rcfResults = new ArrayList<>();
 
-            final AtomicReference<Exception> failure = new AtomicReference<Exception>();
+            final AtomicReference<AnomalyDetectionException> failure = new AtomicReference<AnomalyDetectionException>();
 
             final AtomicInteger responseCount = new AtomicInteger();
 
@@ -714,10 +715,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      * @param failure  object that may contain exceptions thrown
      * @param detector detector object
      * @return exception if AD job execution gets resource not found exception
-     * @throws Exception when the input failure is not a ResourceNotFoundException
+     * @throws AnomalyDetectionException List of exceptions we can throw
+     *     1. Exception from cold start:
+     *       1). InternalFailure due to
+     *         a. OpenSearchTimeoutException thrown by putModelCheckpoint during cold start
+     *       2). EndRunException with endNow equal to false
+     *         a. training data not available
+     *         b. cold start cannot succeed
+     *         c. invalid training data
+     *       3) EndRunException with endNow equal to true
+     *         a. invalid search query
+     *     2. LimitExceededException from one of RCF model node when the total size of the models
+     *      is more than X% of heap memory.
+     *     3. InternalFailure wrapping OpenSearchTimeoutException inside caused by
+     *      RCF/Threshold model node failing to get checkpoint to restore model before timeout.
      */
-    private Exception coldStartIfNoModel(AtomicReference<Exception> failure, AnomalyDetector detector) throws Exception {
-        Exception exp = failure.get();
+    private AnomalyDetectionException coldStartIfNoModel(AtomicReference<AnomalyDetectionException> failure, AnomalyDetector detector)
+        throws AnomalyDetectionException {
+        AnomalyDetectionException exp = failure.get();
         if (exp == null) {
             return null;
         }
@@ -729,12 +744,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         // fetch previous cold start exception
         String adID = detector.getDetectorId();
-        final Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
+        final Optional<AnomalyDetectionException> previousException = stateManager.fetchExceptionAndClear(adID);
         if (previousException.isPresent()) {
             Exception exception = previousException.get();
             LOG.error("Previous exception of {}: {}", () -> adID, () -> exception);
             if (exception instanceof EndRunException && ((EndRunException) exception).isEndNow()) {
-                return exception;
+                return (EndRunException) exception;
             }
         }
         LOG.info("Trigger cold start for {}", detector.getDetectorId());
@@ -742,11 +757,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         return previousException.orElse(new InternalFailure(adID, NO_MODEL_ERR_MSG));
     }
 
-    private void findException(Throwable cause, String adID, AtomicReference<Exception> failure, String nodeId) {
-        if (cause == null) {
-            LOG.error(new ParameterizedMessage("Null input exception"));
-            return;
-        }
+    private void findException(Throwable cause, String adID, AtomicReference<AnomalyDetectionException> failure, String nodeId) {
         if (cause instanceof Error) {
             // we cannot do anything with Error.
             LOG.error(new ParameterizedMessage("Error during prediction for {}: ", adID), cause);
@@ -754,31 +765,17 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         Exception causeException = (Exception) cause;
-        LOG.info("hello:" + cause);
-
-        if (causeException instanceof AnomalyDetectionException) {
-            failure.set(causeException);
-        } else if (causeException instanceof NotSerializableExceptionWrapper) {
-            // we only expect this happens on AD exceptions
-            Optional<AnomalyDetectionException> actualException = ExceptionUtil
-                .convertWrappedAnomalyDetectionException((NotSerializableExceptionWrapper) causeException, adID);
-            if (actualException.isPresent()) {
-                AnomalyDetectionException adException = actualException.get();
-                failure.set(adException);
-                if (adException instanceof ResourceNotFoundException) {
-                    // During a rolling upgrade or blue/green deployment, ResourceNotFoundException might be caused by old node using RCF
-                    // 1.0
-                    // cannot recognize new checkpoint produced by the coordinating node using compact RCF. Add pressure to mute the node
-                    // after consecutive failures.
-                    stateManager.addPressure(nodeId, adID);
-                }
-            } else {
-                // some unexpected bugs occur while predicting anomaly
-                failure.set(new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, causeException, false));
-            }
-        } else if (causeException instanceof IndexNotFoundException
-            && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME)) {
+        if (ExceptionUtil
+            .isException(causeException, ResourceNotFoundException.class, ExceptionUtil.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE)
+            || (causeException instanceof IndexNotFoundException
+                && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
+            // During a rolling upgrade or blue/green deployment, ResourceNotFoundException might be caused by old node using RCF 1.0
+            // cannot recognize new checkpoint produced by the coordinating node using compact RCF. Add pressure to mute the node
+            // after consecutive failures.
+            stateManager.addPressure(nodeId, adID);
+        } else if (ExceptionUtil.isException(causeException, LimitExceededException.class, LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE)) {
+            failure.set(new LimitExceededException(adID, causeException.getMessage(), false));
         } else if (causeException instanceof OpenSearchTimeoutException) {
             // we can have OpenSearchTimeoutException when a node tries to load RCF or
             // threshold model
@@ -823,7 +820,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     class RCFActionListener implements ActionListener<RCFResultResponse> {
         private List<RCFResultResponse> rcfResults;
         private String modelID;
-        private AtomicReference<Exception> failure;
+        private AtomicReference<AnomalyDetectionException> failure;
         private String rcfNodeID;
         private AnomalyDetector detector;
         private ActionListener<AnomalyResultResponse> listener;
@@ -838,7 +835,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         RCFActionListener(
             List<RCFResultResponse> rcfResults,
             String modelID,
-            AtomicReference<Exception> failure,
+            AtomicReference<AnomalyDetectionException> failure,
             String rcfNodeID,
             AnomalyDetector detector,
             ActionListener<AnomalyResultResponse> listener,
@@ -898,7 +895,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleRCFResults(int numFeatures) {
             try {
-                Exception exception = coldStartIfNoModel(failure, detector);
+                AnomalyDetectionException exception = coldStartIfNoModel(failure, detector);
                 if (exception != null) {
                     listener.onFailure(exception);
                     return;
@@ -946,7 +943,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     class ThresholdActionListener implements ActionListener<ThresholdResultResponse> {
         private AtomicReference<AnomalyResultResponse> anomalyResultResponse;
         private List<FeatureData> features;
-        private AtomicReference<Exception> failure;
+        private AtomicReference<AnomalyDetectionException> failure;
         private String thresholdNodeID;
         private ActionListener<AnomalyResultResponse> listener;
         private AnomalyDetector detector;
@@ -971,7 +968,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             this.thresholdNodeID = thresholdNodeID;
             this.detector = detector;
             this.combinedResult = combinedResult;
-            this.failure = new AtomicReference<Exception>();
+            this.failure = new AtomicReference<AnomalyDetectionException>();
             this.listener = listener;
             this.adID = adID;
             this.rcfTotalUpdates = rcfTotalUpdates;
@@ -1016,7 +1013,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleThresholdResult() {
             try {
-                Exception exception = coldStartIfNoModel(failure, detector);
+                AnomalyDetectionException exception = coldStartIfNoModel(failure, detector);
                 if (exception != null) {
                     listener.onFailure(exception);
                     return;
@@ -1045,7 +1042,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
-    private void handlePredictionFailure(Exception e, String adID, String nodeID, AtomicReference<Exception> failure) {
+    private void handlePredictionFailure(Exception e, String adID, String nodeID, AtomicReference<AnomalyDetectionException> failure) {
         LOG.error(new ParameterizedMessage("Received an error from node {} while doing model inference for {}", nodeID, adID), e);
         if (e == null) {
             return;
@@ -1242,10 +1239,10 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      * @param detector detector object
      * @return previous cold start exception
      */
-    private Optional<Exception> coldStartIfNoCheckPoint(AnomalyDetector detector) {
+    private Optional<AnomalyDetectionException> coldStartIfNoCheckPoint(AnomalyDetector detector) {
         String detectorId = detector.getDetectorId();
 
-        Optional<Exception> previousException = stateManager.fetchExceptionAndClear(detectorId);
+        Optional<AnomalyDetectionException> previousException = stateManager.fetchExceptionAndClear(detectorId);
 
         if (previousException.isPresent()) {
             Exception exception = previousException.get();
@@ -1278,7 +1275,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     class EntityResultListener implements ActionListener<AcknowledgedResponse> {
         private String nodeId;
         private final String adID;
-        private AtomicReference<Exception> failure;
+        private AtomicReference<AnomalyDetectionException> failure;
         private int nodeCount;
         private AtomicInteger responseCount;
         private PageIterator pageIterator;
@@ -1287,7 +1284,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         EntityResultListener(
             String nodeId,
             String adID,
-            AtomicReference<Exception> failure,
+            AtomicReference<AnomalyDetectionException> failure,
             int nodeCount,
             PageIterator pageIterator,
             PageListener pageListener,

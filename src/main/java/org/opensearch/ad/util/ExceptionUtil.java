@@ -26,16 +26,11 @@
 
 package org.opensearch.ad.util;
 
-import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 
 import org.apache.commons.lang.exception.ExceptionUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.Throwables;
-import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
@@ -43,14 +38,9 @@ import org.opensearch.action.NoShardAvailableActionException;
 import org.opensearch.action.UnavailableShardsException;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.ad.common.exception.ADTaskCancelledException;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.ClientException;
-import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
@@ -58,15 +48,12 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
 
 public class ExceptionUtil {
-    private static final Logger LOG = LogManager.getLogger(ExceptionUtil.class);
+    public static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = OpenSearchException
+        .getExceptionName(new ResourceNotFoundException("", ""));
+
     // a positive cache of retriable error rest status
     private static final EnumSet<RestStatus> RETRYABLE_STATUS = EnumSet
         .of(RestStatus.REQUEST_TIMEOUT, RestStatus.CONFLICT, RestStatus.INTERNAL_SERVER_ERROR);
-    private static final String[] NOT_SERIALIZED_AD_EXCEPTION;
-
-    static {
-        NOT_SERIALIZED_AD_EXCEPTION = Arrays.stream(NotSerializedADExceptionName.values()).map(h -> h.getName()).toArray(String[]::new);
-    }
 
     /**
      * OpenSearch restricts the kind of exceptions can be thrown over the wire
@@ -99,56 +86,6 @@ public class ExceptionUtil {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Convert from a NotSerializableExceptionWrapper to an AnomalyDetectionException. Since NotSerializableExceptionWrapper does not
-     * keep some details we need, we initialize the exception with default values.
-     * @param exception an NotSerializableExceptionWrapper exception.
-     * @param adID Detector Id.
-     * @return converted AnomalyDetectionException
-     */
-    public static Optional<AnomalyDetectionException> convertWrappedAnomalyDetectionException(
-        NotSerializableExceptionWrapper exception,
-        String adID
-    ) {
-        String exceptionMsg = exception.getMessage().trim();
-
-        AnomalyDetectionException convertedException = null;
-        for (NotSerializedADExceptionName adException : NotSerializedADExceptionName.values()) {
-            if (exceptionMsg.startsWith(adException.getName())) {
-                switch (adException) {
-                    case RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ResourceNotFoundException(adID, exceptionMsg);
-                        break;
-                    case LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new LimitExceededException(adID, exceptionMsg, false);
-                        break;
-                    case END_RUN_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new EndRunException(adID, exceptionMsg, false);
-                        break;
-                    case ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new AnomalyDetectionException(adID, exceptionMsg);
-                        break;
-                    case INTERNAL_FAILURE_NAME_UNDERSCORE:
-                        convertedException = new InternalFailure(adID, exceptionMsg);
-                        break;
-                    case CLIENT_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ClientException(adID, exceptionMsg);
-                        break;
-                    case CANCELLATION_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ADTaskCancelledException(exceptionMsg, "");
-                        break;
-                    case DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new DuplicateTaskException(exceptionMsg);
-                        break;
-                    default:
-                        LOG.warn(new ParameterizedMessage("Unexpected AD exception {}", adException));
-                        break;
-                }
-            }
-        }
-        return Optional.ofNullable(convertedException);
     }
 
     /**

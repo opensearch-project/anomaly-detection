@@ -44,6 +44,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -330,13 +331,13 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param adID detector id
      * @return the detector's exception
      */
-    public Optional<Exception> fetchExceptionAndClear(String adID) {
+    public Optional<AnomalyDetectionException> fetchExceptionAndClear(String adID) {
         NodeState state = states.get(adID);
         if (state == null) {
             return Optional.empty();
         }
 
-        Optional<Exception> exception = state.getException();
+        Optional<AnomalyDetectionException> exception = state.getException();
         exception.ifPresent(e -> state.setException(null));
         return exception;
     }
@@ -362,7 +363,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             return;
         }
         NodeState state = states.computeIfAbsent(detectorId, d -> new NodeState(detectorId, clock));
-        Optional<Exception> exception = state.getException();
+        Optional<AnomalyDetectionException> exception = state.getException();
         if (exception.isPresent()) {
             Exception higherPriorityException = ExceptionUtil.selectHigherPriorityException(e, exception.get());
             if (higherPriorityException != e) {
@@ -370,14 +371,13 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             }
         }
 
-        // AnomalyDetectionException adExep = null;
-        // if (e instanceof AnomalyDetectionException) {
-        // adExep = (AnomalyDetectionException) e;
-        // } else {
-        // adExep = new AnomalyDetectionException(detectorId, e);
-        // }
-        // state.setException(adExep);
-        state.setException(e);
+        AnomalyDetectionException adExep = null;
+        if (e instanceof AnomalyDetectionException) {
+            adExep = (AnomalyDetectionException) e;
+        } else {
+            adExep = new AnomalyDetectionException(detectorId, e);
+        }
+        state.setException(adExep);
     }
 
     /**
