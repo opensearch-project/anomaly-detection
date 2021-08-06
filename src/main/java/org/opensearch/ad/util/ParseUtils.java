@@ -631,6 +631,7 @@ public final class ParseUtils {
      * Generate batch query request for feature aggregation on given date range.
      *
      * @param detector anomaly detector
+     * @param entity entity
      * @param startTime start time
      * @param endTime end time
      * @param xContentRegistry content registry
@@ -640,6 +641,7 @@ public final class ParseUtils {
      */
     public static SearchSourceBuilder batchFeatureQuery(
         AnomalyDetector detector,
+        Entity entity,
         long startTime,
         long endTime,
         NamedXContentRegistry xContentRegistry
@@ -652,6 +654,13 @@ public final class ParseUtils {
             .includeUpper(false);
 
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
+
+        if (detector.isMultientityDetector() && entity != null && entity.getAttributes().size() > 0) {
+            entity
+                .getAttributes()
+                .entrySet()
+                .forEach(attr -> { internalFilterQuery.filter(new TermQueryBuilder(attr.getKey(), attr.getValue())); });
+        }
 
         long intervalSeconds = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().getSeconds();
 

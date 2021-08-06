@@ -35,7 +35,6 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -527,7 +526,7 @@ public class FeatureManagerTests {
     public void getPreviewFeatureForEntity() throws IOException {
         long start = 0L;
         long end = 240_000L;
-        Entity entity = Entity.createSingleAttributeEntity(detectorId, "fieldName", "value");
+        Entity entity = Entity.createSingleAttributeEntity("fieldName", "value");
 
         List<Optional<double[]>> coldStartSamples = new ArrayList<>();
         coldStartSamples.add(Optional.of(new double[] { 10.0 }));
@@ -555,7 +554,7 @@ public class FeatureManagerTests {
     public void getPreviewFeatureForEntity_noDataToPreview() throws IOException {
         long start = 0L;
         long end = 240_000L;
-        Entity entity = Entity.createSingleAttributeEntity(detectorId, "fieldName", "value");
+        Entity entity = Entity.createSingleAttributeEntity("fieldName", "value");
 
         doAnswer(invocation -> {
             ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
@@ -575,8 +574,8 @@ public class FeatureManagerTests {
         long start = 0L;
         long end = 240_000L;
 
-        Entity entity1 = Entity.createSingleAttributeEntity(detectorId, "fieldName", "value1");
-        Entity entity2 = Entity.createSingleAttributeEntity(detectorId, "fieldName", "value2");
+        Entity entity1 = Entity.createSingleAttributeEntity("fieldName", "value1");
+        Entity entity2 = Entity.createSingleAttributeEntity("fieldName", "value2");
         List<Entity> entities = asList(entity1, entity2);
         doAnswer(invocation -> {
             ActionListener<List<Entity>> listener = invocation.getArgument(3);

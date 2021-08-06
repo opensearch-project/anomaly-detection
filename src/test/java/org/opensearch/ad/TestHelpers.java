@@ -649,7 +649,7 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error,
-            Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5), randomAlphaOfLength(5)),
+            Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)),
             randomUser(),
             CommonValue.NO_SCHEMA_VERSION
         );
@@ -950,6 +950,49 @@ public class TestHelpers {
             .startedBy(randomAlphaOfLength(5))
             .stoppedBy(stoppedBy)
             .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .build();
+        return task;
+    }
+
+    public static ADTask randomAdTask(
+        String taskId,
+        ADTaskState state,
+        Instant executionEndTime,
+        String stoppedBy,
+        AnomalyDetector detector
+    ) throws IOException {
+        executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
+        Entity entity = null;
+        if (detector != null) {
+            if (detector.isMultiCategoryDetector()) {
+                Map<String, Object> attrMap = new HashMap<>();
+                detector.getCategoryField().stream().forEach(f -> attrMap.put(f, randomAlphaOfLength(5)));
+                entity = Entity.createEntityByReordering(attrMap);
+            } else if (detector.isMultientityDetector()) {
+                entity = Entity.createEntityByReordering(ImmutableMap.of(detector.getCategoryField().get(0), randomAlphaOfLength(5)));
+            }
+        }
+        String taskType = entity == null ? ADTaskType.HISTORICAL_SINGLE_ENTITY.name() : ADTaskType.HISTORICAL_HC_ENTITY.name();
+        ADTask task = ADTask
+            .builder()
+            .taskId(taskId)
+            .taskType(taskType)
+            .detectorId(randomAlphaOfLength(5))
+            .detector(detector)
+            .state(state.name())
+            .taskProgress(0.5f)
+            .initProgress(1.0f)
+            .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))
+            .executionStartTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(100, ChronoUnit.MINUTES))
+            .executionEndTime(executionEndTime)
+            .isLatest(true)
+            .error(randomAlphaOfLength(5))
+            .checkpointId(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .startedBy(randomAlphaOfLength(5))
+            .stoppedBy(stoppedBy)
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .entity(entity)
             .build();
         return task;
     }

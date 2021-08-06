@@ -800,9 +800,9 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
 
-        Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
-        Entity entity2 = Entity.createEntityByReordering(detectorId, attrs2);
-        Entity entity3 = Entity.createEntityByReordering(detectorId, attrs3);
+        Entity entity1 = Entity.createEntityByReordering(attrs1);
+        Entity entity2 = Entity.createEntityByReordering(attrs2);
+        Entity entity3 = Entity.createEntityByReordering(attrs3);
 
         // we use ordered attributes values as the key to hashring
         when(hashRing.getOwningNode(eq(entity1.toString()))).thenReturn(Optional.of(testNodes[2].discoveryNode()));
@@ -838,14 +838,14 @@ public class MultiEntityResultTests extends AbstractADTest {
         Map<String, Object> attrs4 = new HashMap<>();
         attrs4.put(serviceField, app0);
         attrs4.put(hostField, "server_4");
-        Entity entity4 = Entity.createEntityByReordering(detectorId, attrs4);
+        Entity entity4 = Entity.createEntityByReordering(attrs4);
         hotEntities.add(entity4);
 
         List<Entity> coldEntities = new ArrayList<>();
         Map<String, Object> attrs5 = new HashMap<>();
         attrs5.put(serviceField, app0);
         attrs5.put(hostField, "server_5");
-        Entity entity5 = Entity.createEntityByReordering(detectorId, attrs5);
+        Entity entity5 = Entity.createEntityByReordering(attrs5);
         coldEntities.add(entity5);
 
         when(entityCache.selectUpdateCandidate(any(), any(), any())).thenReturn(Pair.of(hotEntities, coldEntities));
@@ -883,11 +883,11 @@ public class MultiEntityResultTests extends AbstractADTest {
         when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         List<Entity> hotEntities = new ArrayList<>();
-        Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
+        Entity entity1 = Entity.createEntityByReordering(attrs1);
         hotEntities.add(entity1);
 
         List<Entity> coldEntities = new ArrayList<>();
-        Entity entity2 = Entity.createEntityByReordering(detectorId, attrs2);
+        Entity entity2 = Entity.createEntityByReordering(attrs2);
         coldEntities.add(entity2);
 
         provider = mock(CacheProvider.class);
@@ -1079,7 +1079,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             1000
         );
         Map<Entity, double[]> results = new HashMap<>();
-        Entity entity1 = Entity.createEntityByReordering(detectorId, attrs1);
+        Entity entity1 = Entity.createEntityByReordering(attrs1);
         double[] val = new double[1];
         val[0] = 3.0;
         results.put(entity1, val);

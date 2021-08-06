@@ -196,11 +196,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     Map<String, String> attrValues = categoricalValues.getAttributes();
                     // handle a request from a version before OpenSearch 1.1.
                     categoricalValues = Entity
-                        .createSingleAttributeEntity(
-                            detectorId,
-                            detector.getCategoryField().get(0),
-                            attrValues.get(CommonName.EMPTY_FIELD)
-                        );
+                        .createSingleAttributeEntity(detector.getCategoryField().get(0), attrValues.get(CommonName.EMPTY_FIELD));
                 }
 
                 Optional<String> modelIdOptional = categoricalValues.getModelId(detectorId);

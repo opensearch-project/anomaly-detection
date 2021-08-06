@@ -260,8 +260,8 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         verify(listener).onResponse(captor.capture());
         List<Entity> result = captor.getValue();
         assertEquals(2, result.size());
-        assertEquals(Entity.createSingleAttributeEntity(detectorId, categoryField, entity1Name), result.get(0));
-        assertEquals(Entity.createSingleAttributeEntity(detectorId, categoryField, entity2Name), result.get(1));
+        assertEquals(Entity.createSingleAttributeEntity(categoryField, entity1Name), result.get(0));
+        assertEquals(Entity.createSingleAttributeEntity(categoryField, entity2Name), result.get(1));
     }
 
     @SuppressWarnings("unchecked")
@@ -286,7 +286,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         verify(listener).onResponse(captor.capture());
         List<Entity> result = captor.getValue();
         assertEquals(1, result.size());
-        assertEquals(Entity.createEntityByReordering(detectorId, attrs1), result.get(0));
+        assertEquals(Entity.createEntityByReordering(attrs1), result.get(0));
     }
 
     @SuppressWarnings("unchecked")
@@ -338,7 +338,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         verify(listener).onResponse(captor.capture());
         List<Entity> result = captor.getValue();
         assertEquals(1, result.size());
-        assertEquals(Entity.createEntityByReordering(detectorId, attrs1), result.get(0));
+        assertEquals(Entity.createEntityByReordering(attrs1), result.get(0));
         // both counts are used in client.search
         assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
     }
@@ -398,7 +398,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         verify(listener).onResponse(captor.capture());
         List<Entity> result = captor.getValue();
         assertEquals(1, result.size());
-        assertEquals(Entity.createEntityByReordering(detectorId, attrs1), result.get(0));
+        assertEquals(Entity.createEntityByReordering(attrs1), result.get(0));
         // exited early due to timeout
         assertEquals(1, inProgress.getCount());
         // first called to create expired time; second called to check if time has expired

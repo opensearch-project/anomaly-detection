@@ -770,6 +770,10 @@ public class ADTask implements ToXContentObject, Writeable {
         return entity;
     }
 
+    public String getEntityModelId() {
+        return entity == null ? null : entity.getModelId(getDetectorId()).orElse(null);
+    }
+
     public String getParentTaskId() {
         return parentTaskId;
     }

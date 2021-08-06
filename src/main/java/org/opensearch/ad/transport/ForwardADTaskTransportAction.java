@@ -79,10 +79,8 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         String detectorId = detector.getDetectorId();
         ADTask adTask = request.getAdTask();
-        String categoryField = detector.isMultientityDetector() ? detector.getCategoryField().get(0) : null;
-        String entityValue = detector.isMultientityDetector() && adTask != null
-            ? adTask.getEntity().getAttributes().get(categoryField)
-            : null;
+
+        String entityValue = adTaskManager.convertEntityToString(adTask);
 
         switch (adTaskAction) {
             case START:

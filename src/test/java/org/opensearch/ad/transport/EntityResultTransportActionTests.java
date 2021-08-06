@@ -205,13 +205,13 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         cacheMissData = new double[] { 0.1 };
         cacheHitEntity = "0.0.0.2";
         cacheHitData = new double[] { 0.2 };
-        cacheMissEntityObj = Entity.createSingleAttributeEntity(detectorId, detector.getCategoryField().get(0), cacheMissEntity);
+        cacheMissEntityObj = Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), cacheMissEntity);
         entities.put(cacheMissEntityObj, cacheMissData);
-        cacheHitEntityObj = Entity.createSingleAttributeEntity(detectorId, detector.getCategoryField().get(0), cacheHitEntity);
+        cacheHitEntityObj = Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), cacheHitEntity);
         entities.put(cacheHitEntityObj, cacheHitData);
         tooLongEntity = randomAlphaOfLength(AnomalyDetectorSettings.MAX_ENTITY_LENGTH + 1);
         tooLongData = new double[] { 0.3 };
-        entities.put(Entity.createSingleAttributeEntity(detectorId, detector.getCategoryField().get(0), tooLongEntity), tooLongData);
+        entities.put(Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), tooLongEntity), tooLongData);
 
         ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
         when(entityCache.get(eq(cacheMissEntityObj.getModelId(detectorId).get()), any())).thenReturn(null);

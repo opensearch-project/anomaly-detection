@@ -33,7 +33,7 @@ public class DetectorProfileTests extends OpenSearchTestCase {
                         randomAlphaOfLength(10),
                         new ModelProfile(
                             randomAlphaOfLength(5),
-                            Entity.createSingleAttributeEntity(detectorId, randomAlphaOfLength(5), randomAlphaOfLength(5)),
+                            Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)),
                             randomLong()
                         )
                     ) }

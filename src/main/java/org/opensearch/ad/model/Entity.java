@@ -39,8 +39,6 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.SetOnce;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonName;
@@ -68,7 +66,6 @@ import com.google.common.base.Objects;
  *
  */
 public class Entity implements ToXContentObject, Writeable {
-    private static final Logger LOG = LogManager.getLogger(Entity.class);
 
     private static final long RANDOM_SEED = 42;
     private static final String MODEL_ID_INFIX = "_entity_";
@@ -85,11 +82,10 @@ public class Entity implements ToXContentObject, Writeable {
 
     /**
      * Create an entity that has multiple attributes
-     * @param detectorId Detector Id
      * @param attrs what we parsed from query output as a map of attribute and its values.
      * @return the created entity
      */
-    public static Entity createEntityByReordering(String detectorId, Map<String, Object> attrs) {
+    public static Entity createEntityByReordering(Map<String, Object> attrs) {
         SortedMap<String, String> sortedMap = new TreeMap<>();
         for (Map.Entry<String, Object> categoryValuePair : attrs.entrySet()) {
             sortedMap.put(categoryValuePair.getKey(), categoryValuePair.getValue().toString());
@@ -99,12 +95,11 @@ public class Entity implements ToXContentObject, Writeable {
 
     /**
      * Create an entity that has only one attribute
-     * @param detectorId Detector Id
      * @param attributeName the attribute's name
      * @param attributeVal the attribute's value
      * @return the created entity
      */
-    public static Entity createSingleAttributeEntity(String detectorId, String attributeName, String attributeVal) {
+    public static Entity createSingleAttributeEntity(String attributeName, String attributeVal) {
         SortedMap<String, String> sortedMap = new TreeMap<>();
         sortedMap.put(attributeName, attributeVal);
         return new Entity(sortedMap);
@@ -112,11 +107,10 @@ public class Entity implements ToXContentObject, Writeable {
 
     /**
      * Create an entity from ordered attributes based on attribute names
-     * @param detectorId Detector Id
      * @param attrs attribute map
      * @return the created entity
      */
-    public static Entity createEntityFromOrderedMap(String detectorId, SortedMap<String, String> attrs) {
+    public static Entity createEntityFromOrderedMap(SortedMap<String, String> attrs) {
         return new Entity(attrs);
     }
 

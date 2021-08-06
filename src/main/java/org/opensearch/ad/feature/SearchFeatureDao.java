@@ -221,6 +221,28 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener listener to return back the entities
      */
     public void getHighestCountEntities(AnomalyDetector detector, long startTime, long endTime, ActionListener<List<Entity>> listener) {
+        getHighestCountEntities(detector, startTime, endTime, maxEntitiesForPreview, minimumDocCountForPreview, pageSize, listener);
+    }
+
+    /**
+     * Get list of entities with high count in descending order within specified time range
+     * @param detector detector config
+     * @param startTime start time of time range
+     * @param endTime end time of time range
+     * @param maxEntitiesSize max top entities
+     * @param minimumDocCount minimum doc count for top entities
+     * @param pageSize page size when query multi-category HC detector's top entities
+     * @param listener listener to return back the entities
+     */
+    public void getHighestCountEntities(
+        AnomalyDetector detector,
+        long startTime,
+        long endTime,
+        int maxEntitiesSize,
+        int minimumDocCount,
+        int pageSize,
+        ActionListener<List<Entity>> listener
+    ) {
         if (!detector.isMultientityDetector()) {
             listener.onResponse(null);
             return;
@@ -237,7 +259,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         AggregationBuilder bucketAggs = null;
 
         if (detector.getCategoryField().size() == 1) {
-            bucketAggs = AggregationBuilders.terms(AGG_NAME_TOP).size(maxEntitiesForPreview).field(detector.getCategoryField().get(0));
+            bucketAggs = AggregationBuilders.terms(AGG_NAME_TOP).size(maxEntitiesSize).field(detector.getCategoryField().get(0));
         } else {
             /*
              * We don't have an efficient solution for terms aggregation on multiple fields.
@@ -339,7 +361,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                 .subAggregation(
                     PipelineAggregatorBuilders
                         .bucketSort("bucketSort", Arrays.asList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
-                        .size(maxEntitiesForPreview)
+                        .size(maxEntitiesSize)
                 );
         }
 
@@ -352,7 +374,14 @@ public class SearchFeatureDao extends AbstractRetriever {
         client
             .search(
                 searchRequest,
-                new TopEntitiesListener(listener, detector, searchSourceBuilder, clock.millis() + previewTimeoutInMilliseconds)
+                new TopEntitiesListener(
+                    listener,
+                    detector,
+                    searchSourceBuilder,
+                    clock.millis() + previewTimeoutInMilliseconds,
+                    maxEntitiesSize,
+                    minimumDocCount
+                )
             );
     }
 
@@ -362,18 +391,24 @@ public class SearchFeatureDao extends AbstractRetriever {
         private List<Entity> topEntities;
         private SearchSourceBuilder searchSourceBuilder;
         private long expirationEpochMs;
+        private long minimumDocCount;
+        private int maxEntitiesSize;
 
         TopEntitiesListener(
             ActionListener<List<Entity>> listener,
             AnomalyDetector detector,
             SearchSourceBuilder searchSourceBuilder,
-            long expirationEpochMs
+            long expirationEpochMs,
+            int maxEntitiesSize,
+            int minimumDocCount
         ) {
             this.listener = listener;
             this.detector = detector;
             this.topEntities = new ArrayList<>();
             this.searchSourceBuilder = searchSourceBuilder;
             this.expirationEpochMs = expirationEpochMs;
+            this.maxEntitiesSize = maxEntitiesSize;
+            this.minimumDocCount = minimumDocCount;
         }
 
         @Override
@@ -402,10 +437,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                         .map(bucket -> bucket.getKeyAsString())
                         .collect(Collectors.toList())
                         .stream()
-                        .map(
-                            entityValue -> Entity
-                                .createSingleAttributeEntity(detector.getDetectorId(), detector.getCategoryField().get(0), entityValue)
-                        )
+                        .map(entityValue -> Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), entityValue))
                         .collect(Collectors.toList());
                     listener.onResponse(topEntities);
                 } else {
@@ -413,16 +445,16 @@ public class SearchFeatureDao extends AbstractRetriever {
                     List<Entity> pageResults = compositeAgg
                         .getBuckets()
                         .stream()
-                        .filter(bucket -> bucket.getDocCount() >= minimumDocCountForPreview)
-                        .map(bucket -> Entity.createEntityByReordering(detector.getDetectorId(), bucket.getKey()))
+                        .filter(bucket -> bucket.getDocCount() >= minimumDocCount)
+                        .map(bucket -> Entity.createEntityByReordering(bucket.getKey()))
                         .collect(Collectors.toList());
                     // we only need at most maxEntitiesForPreview
-                    int amountToWrite = maxEntitiesForPreview - topEntities.size();
+                    int amountToWrite = maxEntitiesSize - topEntities.size();
                     for (int i = 0; i < amountToWrite && i < pageResults.size(); i++) {
                         topEntities.add(pageResults.get(i));
                     }
                     Map<String, Object> afterKey = compositeAgg.afterKey();
-                    if (topEntities.size() >= maxEntitiesForPreview || afterKey == null) {
+                    if (topEntities.size() >= maxEntitiesSize || afterKey == null) {
                         listener.onResponse(topEntities);
                     } else if (expirationEpochMs < clock.millis()) {
                         if (topEntities.isEmpty()) {
@@ -541,11 +573,12 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     public void getFeaturesForPeriodByBatch(
         AnomalyDetector detector,
+        Entity entity,
         long startTime,
         long endTime,
         ActionListener<Map<Long, Optional<double[]>>> listener
     ) throws IOException {
-        SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, startTime, endTime, xContent);
+        SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, entity, startTime, endTime, xContent);
         logger.debug("Batch query for detector {}: {} ", detector.getDetectorId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
