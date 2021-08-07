@@ -210,7 +210,16 @@ public final class AnomalyDetectorSettings {
 
     public static final int NUM_MIN_SAMPLES = 128;
 
-    public static final double DESIRED_MODEL_SIZE_PERCENTAGE = 0.0002;
+    // The threshold for splitting RCF models in single-stream detectors.
+    // The smallest machine in the Amazon managed service has 1GB heap.
+    // With the setting, the desired model size there is of 1 MB.
+    // By default, we can have at most 5 features.  Since the default shingle size
+    // is 8, we have at most 40 dimensions in RCF. In our current RCF setting,
+    // 30 trees, and bounding box cache ratio 0, 40 dimensions use 920KB.
+    // Since the size is smaller than the threshold 1 MB, we won't split models
+    // even in the smallest machine. Of course, when users increase the shingle
+    // size, we may split models.
+    public static final double DESIRED_MODEL_SIZE_PERCENTAGE = 0.001;
 
     public static final Setting<Double> MODEL_MAX_SIZE_PERCENTAGE = Setting
         .doubleSetting(
