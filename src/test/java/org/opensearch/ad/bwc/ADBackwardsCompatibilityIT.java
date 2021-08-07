@@ -13,14 +13,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.junit.Assert;
-import org.opensearch.ad.AnomalyDetectorRestTestCase;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
-public class ADBackwardsCompatibilityIT extends AnomalyDetectorRestTestCase {
+import com.google.common.collect.ImmutableMap;
 
-    private static final ClusterType CLUSTER_TYPE = ClusterType.parse(System.getProperty("tests.rest.suite"));
-    private static final String CLUSTER_NAME = System.getProperty("tests.cluster_name");
+public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
+
+    private static final ClusterType CLUSTER_TYPE = ClusterType.parse(System.getProperty("tests.rest.bwcsuite"));
+    private static final String CLUSTER_NAME = System.getProperty("tests.clustername");
 
     @Override
     protected final boolean preserveIndicesUponCompletion() {
@@ -60,10 +66,12 @@ public class ADBackwardsCompatibilityIT extends AnomalyDetectorRestTestCase {
                 case OLD:
                     Assert.assertTrue(pluginNames.contains("opendistro-anomaly-detection"));
                     Assert.assertTrue(pluginNames.contains("opendistro-job-scheduler"));
+                    createBasicAnomalyDetector();
                     break;
                 case MIXED:
                     Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
+                    verifyAnomalyDetector(TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI);
                     break;
             }
             break;
@@ -84,6 +92,36 @@ public class ADBackwardsCompatibilityIT extends AnomalyDetectorRestTestCase {
                     throw new AssertionError("unknown cluster type: " + value);
             }
         }
+    }
+
+    private void createBasicAnomalyDetector() throws Exception {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(detector),
+                null
+            );
+        // verify that the detector is created
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        int version = (int) responseMap.get("_version");
+        assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
+        assertTrue("incorrect version", version > 0);
+    }
+
+    private void verifyAnomalyDetector(String uri) throws Exception {
+        Response response = TestHelpers.makeRequest(client(), "GET", uri + "/" + RestHandlerUtils.COUNT, null, "", null);
+        Map<String, Object> responseMap = entityAsMap(response);
+        Integer count = (Integer) responseMap.get("count");
+        assertEquals(1, (long) count);
     }
 
 }

@@ -68,7 +68,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 ResponseException.class,
                 "index_not_found_exception",
                 () -> TestHelpers
-                    .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI,
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    )
             );
     }
 
@@ -80,7 +87,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "PUT",
                 "/" + detector.getIndices().get(0),
                 ImmutableMap.of(),
-                toHttpEntity("{\"settings\":{\"number_of_shards\":1},\"mappings\":{\"properties\":" + "{\"field1\":{\"type\":\"text\"}}}}"),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"settings\":{\"number_of_shards\":1}," + " \"mappings\":{\"properties\":" + "{\"field1\":{\"type\":\"text\"}}}}"
+                    ),
                 null
             );
 
@@ -89,7 +99,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 ResponseException.class,
                 "Can't create anomaly detector as no document found in indices",
                 () -> TestHelpers
-                    .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI,
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    )
             );
     }
 
@@ -125,7 +142,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         "POST",
                         TestHelpers.AD_BASE_DETECTORS_URI,
                         ImmutableMap.of(),
-                        toHttpEntity(detectorDuplicateName),
+                        TestHelpers.toHttpEntity(detectorDuplicateName),
                         null
                     )
             );
@@ -134,21 +151,28 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testCreateAnomalyDetector() throws Exception {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
         String indexName = detector.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
             () -> TestHelpers
-                .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null)
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(detector),
+                    null
+                )
         );
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response response = TestHelpers
-            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
-        assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
         int version = (int) responseMap.get("_version");
@@ -209,7 +233,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     "PUT",
                     TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
                     ImmutableMap.of(),
-                    toHttpEntity(newDetector),
+                    TestHelpers.toHttpEntity(newDetector),
                     null
                 )
         );
@@ -223,11 +247,11 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "PUT",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
                 ImmutableMap.of(),
-                toHttpEntity(newDetector),
+                TestHelpers.toHttpEntity(newDetector),
                 null
             );
 
-        assertEquals("Update anomaly detector failed", RestStatus.OK, restStatus(updateResponse));
+        assertEquals("Update anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(updateResponse));
         Map<String, Object> responseBody = entityAsMap(updateResponse);
         assertEquals("Updated anomaly detector id doesn't match", detector.getDetectorId(), responseBody.get("_id"));
         assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
@@ -271,7 +295,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         "POST",
                         TestHelpers.AD_BASE_DETECTORS_URI,
                         ImmutableMap.of(),
-                        toHttpEntity(newDetector1WithDetector2Name),
+                        TestHelpers.toHttpEntity(newDetector1WithDetector2Name),
                         null
                     )
             );
@@ -305,7 +329,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "PUT",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
                 ImmutableMap.of(),
-                toHttpEntity(detectorWithNewName),
+                TestHelpers.toHttpEntity(detectorWithNewName),
                 null
             );
 
@@ -355,7 +379,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         "PUT",
                         TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                         ImmutableMap.of(),
-                        toHttpEntity(newDetector),
+                        TestHelpers.toHttpEntity(newDetector),
                         null
                     )
             );
@@ -392,7 +416,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
                 null
             );
-        assertEquals("Search anomaly detector failed", RestStatus.OK, restStatus(searchResponse));
+        assertEquals("Search anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(searchResponse));
     }
 
     public void testStatsAnomalyDetector() throws Exception {
@@ -408,7 +432,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Response statsResponse = TestHelpers
             .makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null);
 
-        assertEquals("Get stats failed", RestStatus.OK, restStatus(statsResponse));
+        assertEquals("Get stats failed", RestStatus.OK, TestHelpers.restStatus(statsResponse));
     }
 
     public void testPreviewAnomalyDetector() throws Exception {
@@ -430,7 +454,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     "POST",
                     String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                     ImmutableMap.of(),
-                    toHttpEntity(input),
+                    TestHelpers.toHttpEntity(input),
                     null
                 )
         );
@@ -444,10 +468,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "POST",
                 String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
-                toHttpEntity(input),
+                TestHelpers.toHttpEntity(input),
                 null
             );
-        assertEquals("Execute anomaly detector failed", RestStatus.OK, restStatus(response));
+        assertEquals("Execute anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(response));
     }
 
     public void testPreviewAnomalyDetectorWhichNotExist() throws Exception {
@@ -467,7 +491,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         "POST",
                         String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                         ImmutableMap.of(),
-                        toHttpEntity(input),
+                        TestHelpers.toHttpEntity(input),
                         null
                     )
             );
@@ -489,7 +513,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         "POST",
                         String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                         ImmutableMap.of(),
-                        toHttpEntity(input),
+                        TestHelpers.toHttpEntity(input),
                         null
                     )
             );
@@ -509,11 +533,11 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "POST",
                 String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
-                toHttpEntity(input),
+                TestHelpers.toHttpEntity(input),
                 null,
                 false
             );
-        assertEquals("Execute anomaly detector failed", RestStatus.OK, restStatus(response));
+        assertEquals("Execute anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(response));
     }
 
     public void testPreviewAnomalyDetectorWithDetectorAndNoFeatures() throws Exception {
@@ -534,7 +558,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         "POST",
                         String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                         ImmutableMap.of(),
-                        toHttpEntity(input),
+                        TestHelpers.toHttpEntity(input),
                         null
                     )
             );
@@ -548,11 +572,11 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "POST",
                 "/.opendistro-anomaly-results/_doc/" + UUIDs.base64UUID(),
                 ImmutableMap.of(),
-                toHttpEntity(anomalyResult),
+                TestHelpers.toHttpEntity(anomalyResult),
                 null,
                 false
             );
-        assertEquals("Post anomaly result failed", RestStatus.CREATED, restStatus(response));
+        assertEquals("Post anomaly result failed", RestStatus.CREATED, TestHelpers.restStatus(response));
 
         SearchSourceBuilder search = (new SearchSourceBuilder())
             .query(QueryBuilders.termQuery("detector_id", anomalyResult.getDetectorId()));
@@ -584,7 +608,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
                 null
             );
-        assertEquals("Search anomaly result failed", RestStatus.OK, restStatus(searchResponse));
+        assertEquals("Search anomaly result failed", RestStatus.OK, TestHelpers.restStatus(searchResponse));
 
         SearchSourceBuilder searchAll = SearchSourceBuilder.fromXContent(TestHelpers.parser("{\"query\":{\"match_all\":{}}}"));
         Response searchAllResponse = TestHelpers
@@ -596,7 +620,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 new NStringEntity(searchAll.toString(), ContentType.APPLICATION_JSON),
                 null
             );
-        assertEquals("Search anomaly result failed", RestStatus.OK, restStatus(searchAllResponse));
+        assertEquals("Search anomaly result failed", RestStatus.OK, TestHelpers.restStatus(searchAllResponse));
     }
 
     public void testDeleteAnomalyDetector() throws Exception {
@@ -629,7 +653,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Delete anomaly detector failed", RestStatus.OK, restStatus(response));
+        assertEquals("Delete anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(response));
     }
 
     public void testDeleteAnomalyDetectorWhichNotExist() throws Exception {
@@ -659,7 +683,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Delete anomaly detector failed", RestStatus.OK, restStatus(response));
+        assertEquals("Delete anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(response));
     }
 
     public void testDeleteAnomalyDetectorWithRunningAdJob() throws Exception {
@@ -675,7 +699,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         TestHelpers
             .assertFailWith(
@@ -706,7 +730,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         String newDescription = randomAlphaOfLength(5);
 
@@ -739,7 +763,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         "PUT",
                         TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
                         ImmutableMap.of(),
-                        toHttpEntity(newDetector),
+                        TestHelpers.toHttpEntity(newDetector),
                         null
                     )
             );
@@ -758,7 +782,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         ToXContentObject[] results = getAnomalyDetector(detector.getDetectorId(), true, client());
         assertEquals("Incorrect Location header", detector, results[0]);
@@ -801,7 +825,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         startAdJobResponse = TestHelpers
             .makeRequest(
@@ -813,7 +837,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
     }
 
     public void testStartAdJobWithNonexistingDetectorIndex() throws Exception {
@@ -863,7 +887,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
@@ -892,7 +916,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to stop AD job", RestStatus.OK, restStatus(stopAdJobResponse));
+        assertEquals("Fail to stop AD job", RestStatus.OK, TestHelpers.restStatus(stopAdJobResponse));
 
         stopAdJobResponse = TestHelpers
             .makeRequest(
@@ -903,7 +927,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to stop AD job", RestStatus.OK, restStatus(stopAdJobResponse));
+        assertEquals("Fail to stop AD job", RestStatus.OK, TestHelpers.restStatus(stopAdJobResponse));
     }
 
     public void testStopNonExistingAdJobIndex() throws Exception {
@@ -935,7 +959,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         TestHelpers
             .assertFailWith(
@@ -964,7 +988,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         Response stopAdJobResponse = TestHelpers
             .makeRequest(
@@ -975,7 +999,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Fail to stop AD job", RestStatus.OK, restStatus(stopAdJobResponse));
+        assertEquals("Fail to stop AD job", RestStatus.OK, TestHelpers.restStatus(stopAdJobResponse));
 
         startAdJobResponse = TestHelpers
             .makeRequest(
@@ -987,13 +1011,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        assertEquals("Fail to start AD job", RestStatus.OK, restStatus(startAdJobResponse));
+        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
     }
 
     public void testStartAdjobWithNullFeatures() throws Exception {
         AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(null, null, Instant.now());
         String indexName = detectorWithoutFeature.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
         AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true, client());
         TestHelpers
             .assertFailWith(
@@ -1014,7 +1038,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testStartAdjobWithEmptyFeatures() throws Exception {
         AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(ImmutableList.of(), null, Instant.now());
         String indexName = detectorWithoutFeature.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
         AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true, client());
         TestHelpers
             .assertFailWith(
@@ -1043,7 +1067,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
         Response profileResponse = getDetectorProfile(detector.getDetectorId());
-        assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
+        assertEquals("Incorrect profile status", RestStatus.OK, TestHelpers.restStatus(profileResponse));
     }
 
     @Ignore
@@ -1051,7 +1075,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         Response profileResponse = getDetectorProfile(detector.getDetectorId(), true);
-        assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
+        assertEquals("Incorrect profile status", RestStatus.OK, TestHelpers.restStatus(profileResponse));
     }
 
     @Ignore
@@ -1059,7 +1083,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         Response profileResponse = getDetectorProfile(detector.getDetectorId(), true, "/models/", client());
-        assertEquals("Incorrect profile status", RestStatus.OK, restStatus(profileResponse));
+        assertEquals("Incorrect profile status", RestStatus.OK, TestHelpers.restStatus(profileResponse));
     }
 
     public void testSearchAnomalyDetectorCountNoIndex() throws Exception {
@@ -1132,7 +1156,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         // Create a detector
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
         String indexName = detector.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName, toHttpEntity("{\"name\": \"test\"}"));
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
 
         // Verify the detector is created using legacy _opendistro API
         Response response = TestHelpers
@@ -1141,10 +1165,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "POST",
                 TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI,
                 ImmutableMap.of(),
-                toHttpEntity(detector),
+                TestHelpers.toHttpEntity(detector),
                 null
             );
-        assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
         int version = (int) responseMap.get("_version");
@@ -1165,7 +1189,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "",
                 null
             );
-        assertEquals("Delete anomaly detector failed", RestStatus.OK, restStatus(response));
+        assertEquals("Delete anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(response));
 
     }
 }

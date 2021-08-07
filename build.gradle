@@ -185,7 +185,7 @@ integTest {
         }
     }
 
-    if (System.getProperty("tests.rest.suite") == null) {
+    if (System.getProperty("tests.rest.bwcsuite") == null) {
         filter {
             excludeTestsMatching "org.opensearch.ad.bwc.*IT"
         }
@@ -297,7 +297,6 @@ testClusters {
                 }
             }
         }))
-        setting 'repositories.url.allowed_urls', 'http://snapshot.test*'
         setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
         setting 'http.content_type.required', 'true'
     }
@@ -310,9 +309,8 @@ task "${baseName}#oldVersionClusterTask"(type: StandaloneRestIntegTestTask) {
             includeTestsMatching "org.opensearch.ad.bwc.*IT"
         }
     }
-    systemProperty 'tests.rest.suite', 'old_cluster'
+    systemProperty 'tests.rest.bwcsuite', 'old_cluster'
     systemProperty 'tests.plugin_bwc_version', bwcVersion
-    systemProperty 'tests.cluster_name', baseName
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
 }
@@ -352,9 +350,8 @@ task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
             includeTestsMatching "org.opensearch.ad.bwc.*IT"
         }
     }
-    systemProperty 'tests.rest.suite', 'mixed_cluster'
+    systemProperty 'tests.rest.bwcsuite', 'mixed_cluster'
     systemProperty 'tests.plugin_bwc_version', bwcVersion
-    systemProperty 'tests.cluster_name', baseName
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
 }
