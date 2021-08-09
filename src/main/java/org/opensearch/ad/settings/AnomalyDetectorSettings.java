@@ -63,7 +63,7 @@ public final class AnomalyDetectorSettings {
             "plugins.anomaly_detection.max_anomaly_features",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
             0,
-            100,
+            10,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -212,14 +212,15 @@ public final class AnomalyDetectorSettings {
 
     // The threshold for splitting RCF models in single-stream detectors.
     // The smallest machine in the Amazon managed service has 1GB heap.
-    // With the setting, the desired model size there is of 1 MB.
-    // By default, we can have at most 5 features.  Since the default shingle size
+    // With the setting, the desired model size there is of 2 MB.
+    // By default, we can have at most 5 features. Since the default shingle size
     // is 8, we have at most 40 dimensions in RCF. In our current RCF setting,
-    // 30 trees, and bounding box cache ratio 0, 40 dimensions use 920KB.
-    // Since the size is smaller than the threshold 1 MB, we won't split models
-    // even in the smallest machine. Of course, when users increase the shingle
-    // size, we may split models.
-    public static final double DESIRED_MODEL_SIZE_PERCENTAGE = 0.001;
+    // 30 trees, and bounding box cache ratio 0, 40 dimensions use 449KB.
+    // Users can increase the number of features to 10 and shingle size to 60,
+    // 30 trees, bounding box cache ratio 0, 600 dimensions use 1.8 MB.
+    // Since these sizes are smaller than the threshold 2 MB, we won't split models
+    // even in the smallest machine.
+    public static final double DESIRED_MODEL_SIZE_PERCENTAGE = 0.002;
 
     public static final Setting<Double> MODEL_MAX_SIZE_PERCENTAGE = Setting
         .doubleSetting(
@@ -244,7 +245,9 @@ public final class AnomalyDetectorSettings {
     // TODO (kaituo): change to 4
     public static final int DEFAULT_MULTI_ENTITY_SHINGLE = 1;
 
-    public static final int MAX_SHINGLE_SIZE = 1024;
+    // max shingle size we have seen from external users
+    // the larger shingle size, the harder to fill in a complete shingle
+    public static final int MAX_SHINGLE_SIZE = 60;
 
     // Thresholding
     public static final double THRESHOLD_MIN_PVALUE = 0.995;

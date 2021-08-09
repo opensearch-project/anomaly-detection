@@ -237,8 +237,8 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(98));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(10));
 
-        settings = Settings.builder().put("plugins.anomaly_detection.max_anomaly_features", 97).build();
-        assertEquals(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings), Integer.valueOf(97));
+        settings = Settings.builder().put("plugins.anomaly_detection.max_anomaly_features", 7).build();
+        assertEquals(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings), Integer.valueOf(7));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings), Integer.valueOf(5));
 
         settings = Settings.builder().put("plugins.anomaly_detection.detection_interval", TimeValue.timeValueMinutes(96)).build();
