@@ -52,6 +52,7 @@ plugins {
     id "com.diffplug.gradle.spotless" version "3.26.1"
     id 'java-library'
     id 'checkstyle'
+    id "io.freefair.lombok" version "5.1.0"
 }
 
 repositories {
@@ -354,6 +355,9 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.CronNodeRequest',
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
         'org.opensearch.ad.transport.GetAnomalyDetectorResponse'
+
+        // TODO: until ercf move to rcf repo,
+        ,'com.amazon.randomcutforest.*'
 ]
 
 jacocoTestCoverageVerification {
@@ -450,6 +454,9 @@ dependencies {
 }
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
+compileJava {
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+}
 
 apply plugin: 'nebula.ospackage'
 
