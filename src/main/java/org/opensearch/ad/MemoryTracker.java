@@ -37,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.util.MathUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.monitor.jvm.JvmService;
 
@@ -265,25 +266,14 @@ public class MemoryTracker {
         double averagePointStoreUsage = 0;
         int logNumber = dimension + 1;
         if (dimension >= 32) {
-            averagePointStoreUsage = 1.0d / (log2(logNumber) + Math.log10(logNumber));
+            averagePointStoreUsage = 1.0d / (MathUtil.log2(logNumber) + Math.log10(logNumber));
         } else {
-            averagePointStoreUsage = 1.0d / log2(logNumber);
+            averagePointStoreUsage = 1.0d / MathUtil.log2(logNumber);
         }
         double actualBoundingBoxUsage = boundingBoxCacheFraction >= 0.3 ? 1d : boundingBoxCacheFraction;
         long compactRcfSize = (long) (56 + numberOfTrees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * actualBoundingBoxUsage) + 256
             * numberOfTrees * (3 + dimension) * 4 * averagePointStoreUsage + 1128);
         return compactRcfSize;
-    }
-
-    /**
-     * Function to calculate the log base 2 of an integer
-     *
-     * @param N input number
-     * @return the base 2 logarithm of an integer value
-     */
-    public static double log2(int N) {
-        // calculate log2 N indirectly using log() method
-        return Math.log(N) / Math.log(2);
     }
 
     public long estimateTotalModelSize(int dimension, int numberOfTrees, double boundingBoxCacheFraction) {
