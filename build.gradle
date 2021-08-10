@@ -111,6 +111,7 @@ configurations.all {
         force "net.bytebuddy:byte-buddy:1.9.15"
         force "net.bytebuddy:byte-buddy-agent:1.9.15"
         force "com.google.code.gson:gson:2.8.6"
+        force "junit:junit:4.12"
     }
 }
 
@@ -445,11 +446,21 @@ dependencies {
     testImplementation group: 'org.javassist', name: 'javassist', version: '3.27.0-GA'
     testCompile group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
     testCompile group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
+    testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
+    testCompileOnly 'junit:junit:4.12'
 
     checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
 }
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
+
+test {
+    useJUnitPlatform()
+}
 
 apply plugin: 'nebula.ospackage'
 
