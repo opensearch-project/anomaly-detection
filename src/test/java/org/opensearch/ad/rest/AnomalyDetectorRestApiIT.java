@@ -47,6 +47,7 @@ import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectionDateRange;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -107,7 +108,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
-            randomIntBetween(1, 1024),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
             TestHelpers.randomUiMetadata(),
             randomInt(),
             null,
