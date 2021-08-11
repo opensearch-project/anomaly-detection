@@ -37,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.util.MathUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.monitor.jvm.JvmService;
 
@@ -226,7 +227,13 @@ public class MemoryTracker {
      *   + IndexManager
      *     - int array for free indexes: 256 * numberOfTrees * 4, where 4 is the size of an integer
      *   - two int array for locationList and refCount: 256 * numberOfTrees * 4 bytes * 2
-     *   - a float array for data store: 256 * trees * dimension * 4 bytes
+     *   - a float array for data store: 256 * trees * dimension * 4 bytes: due to various
+     *     optimization like shingleSize(dimensions), we don't use all of the array.  The actual
+     *     usage percentage is
+     *     {@code IF(dimensions>=32, 1/(LOG(dimensions+1, 2)+LOG(dimensions+1, 10)), 1/LOG(dimensions+1, 2))}
+     *     where LOG gets the logarithm of a number and the syntax of LOG is {@code LOG (number, [base])}.
+     *     We derive the formula by observing the point store usage ratio is a decreasing function of dimensions
+     *     and the relationship is logarithm. Adding 1 to dimension to ensure dimension 1 results in a ratio 1.
      * - ComponentList: an array of size numberOfTrees
      *   + SamplerPlusTree
      *    - CompactSampler: 2248
@@ -248,7 +255,7 @@ public class MemoryTracker {
      *  56 + # trees * (2248 + 152 + 6120 + 104 + (1040 + 255* (dimension * 4 * 2 + 64)) * adjusted bounding box cache ratio) +
      *  (256 * # trees  * 2 + 256 * # trees * dimension) * 4 bytes  * 0.5 + 1064 + 24 + 24 + 16
      *  = 56 + # trees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * adjusted bounding box cache ratio) + 256 * # trees *
-     *   (2 + dimension) * 4 * 0.5 + 1128
+     *   (3 + dimension) * 4 * 0.5 + 1128
      *
      * @param dimension The number of feature dimensions in RCF
      * @param numberOfTrees The number of trees in RCF
@@ -256,10 +263,16 @@ public class MemoryTracker {
      * @return estimated RCF model size
      */
     public long estimateRCFModelSize(int dimension, int numberOfTrees, double boundingBoxCacheFraction) {
-        float averagePointStoreUsage = dimension == 1 ? 1 : 0.5f;
-        float actualBoundingBoxUsage = boundingBoxCacheFraction >= 0.3 ? 1 : (float) boundingBoxCacheFraction;
+        double averagePointStoreUsage = 0;
+        int logNumber = dimension + 1;
+        if (dimension >= 32) {
+            averagePointStoreUsage = 1.0d / (MathUtil.log2(logNumber) + Math.log10(logNumber));
+        } else {
+            averagePointStoreUsage = 1.0d / MathUtil.log2(logNumber);
+        }
+        double actualBoundingBoxUsage = boundingBoxCacheFraction >= 0.3 ? 1d : boundingBoxCacheFraction;
         long compactRcfSize = (long) (56 + numberOfTrees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * actualBoundingBoxUsage) + 256
-            * numberOfTrees * (2 + dimension) * 4 * averagePointStoreUsage + 1128);
+            * numberOfTrees * (3 + dimension) * 4 * averagePointStoreUsage + 1128);
         return compactRcfSize;
     }
 
