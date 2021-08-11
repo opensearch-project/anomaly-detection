@@ -36,6 +36,7 @@ buildscript {
         opensearch_build = opensearch_version.replaceAll(/(\.\d)([^\d]*)$/, '$1.0$2')
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
+        ml_version = System.getProperty("ml.version", "1.0.0.0")
     }
 
     repositories {
@@ -529,6 +530,7 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.GetAnomalyDetectorResponse',
         'org.opensearch.ad.transport.ADBatchAnomalyResultRequest',
         'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction',
+        'org.opensearch.ad.transport.PMMLResultTransportAction'
 ]
 
 jacocoTestCoverageVerification {
@@ -572,6 +574,7 @@ dependencies {
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     compile "org.opensearch:common-utils:${common_utils_version}"
+    compile "org.opensearch.ml:opensearch-ml-client:${ml_version}"
     compile "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'

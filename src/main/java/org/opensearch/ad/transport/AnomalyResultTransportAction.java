@@ -299,8 +299,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
-    //
-
     /**
      * didn't use ActionListener.wrap so that I can
      * 1) use this to refer to the listener inside the listener
@@ -510,19 +508,23 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             // HC logic ends and single entity logic starts here
-            String thresholdModelID = modelPartitioner.getThresholdModelId(adID);
-            Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
-            if (!asThresholdNode.isPresent()) {
-                listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
-                return;
+            String thresholdModelID = null;
+            DiscoveryNode thresholdNode = null;
+            // fetch threshold model if using RCF model
+            if (!anomalyDetector.isUsingCustomModel()) {
+                thresholdModelID = modelPartitioner.getThresholdModelId(adID);
+                Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
+                if (!asThresholdNode.isPresent()) {
+                    listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
+                    return;
+                }
+
+                thresholdNode = asThresholdNode.get();
+
+                if (!shouldStart(listener, adID, anomalyDetector, thresholdNode.getId(), thresholdModelID)) {
+                    return;
+                }
             }
-
-            DiscoveryNode thresholdNode = asThresholdNode.get();
-
-            if (!shouldStart(listener, adID, anomalyDetector, thresholdNode.getId(), thresholdModelID)) {
-                return;
-            }
-
             featureManager
                 .getCurrentFeatures(
                     anomalyDetector,
@@ -600,70 +602,92 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
-            // Can throw LimitExceededException when a single partition is more than X% of heap memory.
-            // Compute this number once and the value won't change unless the coordinating AD node for an
-            // detector changes or the cluster size changes.
-            int rcfPartitionNum = stateManager.getPartitionNumber(adID, detector);
-
-            List<RCFResultResponse> rcfResults = new ArrayList<>();
-
-            final AtomicReference<Exception> failure = new AtomicReference<Exception>();
-
-            final AtomicInteger responseCount = new AtomicInteger();
-
-            Map<String, Pair<String, DiscoveryNode>> modelIdToNodeId = new HashMap<>();
-
-            for (int i = 0; i < rcfPartitionNum; i++) {
-                String rcfModelID = modelPartitioner.getRcfModelId(adID, i);
-
-                Optional<DiscoveryNode> rcfNode = hashRing.getOwningNode(rcfModelID.toString());
-                if (!rcfNode.isPresent()) {
-                    continue;
-                }
-
-                DiscoveryNode node = rcfNode.get();
-                String rcfNodeId = node.getId();
-                if (stateManager.isMuted(rcfNodeId, adID)) {
-                    LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for model %s", rcfNodeId, rcfModelID));
-                    continue;
-                }
-                modelIdToNodeId.put(rcfModelID, Pair.of(rcfNodeId, node));
-            }
-
-            int responsesToCollect = modelIdToNodeId.size();
-            for (Map.Entry<String, Pair<String, DiscoveryNode>> entry : modelIdToNodeId.entrySet()) {
-
-                String rcfModelId = entry.getKey();
-                Pair<String, DiscoveryNode> rcfNodePair = entry.getValue();
-                String rcfNodeId = rcfNodePair.getLeft();
-                DiscoveryNode rcfNode = rcfNodePair.getRight();
-
-                LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelId);
-
-                RCFActionListener rcfListener = new RCFActionListener(
-                    rcfResults,
-                    rcfModelId.toString(),
-                    failure,
-                    rcfNodeId,
-                    detector,
-                    listener,
-                    thresholdModelID,
-                    thresholdNode,
+            // custom PMML model path, or RCF model path
+            if (detector.isUsingCustomModel()) {
+                PMMLActionListener pmmlListener = new PMMLActionListener(
                     featureInResponse,
-                    responsesToCollect,
-                    responseCount,
                     adID,
-                    detector.getEnabledFeatureIds().size()
+                    listener,
+                    detector.getDetectorIntervalInMinutes()
                 );
-
-                transportService
-                    .sendRequest(
-                        rcfNode,
-                        RCFResultAction.NAME,
-                        new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
-                        option,
-                        new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
+                String[] featureNames = new String[featureInResponse.size()];
+                for (int i = 0; i < featureNames.length; i++) {
+                    featureNames[i] = featureInResponse.get(i).getFeatureName();
+                }
+                LOG.info("Sending PMML request");
+                // for pmml, we use unprocessed data instead of processed which is used for RCF specifically
+                client
+                    .execute(
+                        PMMLResultAction.INSTANCE,
+                        new PMMLResultRequest(adID, detector.getMlModelId(), featureNames, featureOptional.getUnprocessedFeatures().get()),
+                        ActionListener.wrap(pmmlListener::onResponse, pmmlListener::onFailure)
                     );
+            } else {
+                // Can throw LimitExceededException when a single partition is more than X% of heap memory.
+                // Compute this number once and the value won't change unless the coordinating AD node for an
+                // detector changes or the cluster size changes.
+                int rcfPartitionNum = stateManager.getPartitionNumber(adID, detector);
+
+                List<RCFResultResponse> rcfResults = new ArrayList<>();
+
+                final AtomicReference<Exception> failure = new AtomicReference<Exception>();
+
+                final AtomicInteger responseCount = new AtomicInteger();
+
+                Map<String, Pair<String, DiscoveryNode>> modelIdToNodeId = new HashMap<>();
+
+                for (int i = 0; i < rcfPartitionNum; i++) {
+                    String rcfModelID = modelPartitioner.getRcfModelId(adID, i);
+
+                    Optional<DiscoveryNode> rcfNode = hashRing.getOwningNode(rcfModelID.toString());
+                    if (!rcfNode.isPresent()) {
+                        continue;
+                    }
+
+                    DiscoveryNode node = rcfNode.get();
+                    String rcfNodeId = node.getId();
+                    if (stateManager.isMuted(rcfNodeId, adID)) {
+                        LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for model %s", rcfNodeId, rcfModelID));
+                        continue;
+                    }
+                    modelIdToNodeId.put(rcfModelID, Pair.of(rcfNodeId, node));
+                }
+
+                int responsesToCollect = modelIdToNodeId.size();
+                for (Map.Entry<String, Pair<String, DiscoveryNode>> entry : modelIdToNodeId.entrySet()) {
+
+                    String rcfModelId = entry.getKey();
+                    Pair<String, DiscoveryNode> rcfNodePair = entry.getValue();
+                    String rcfNodeId = rcfNodePair.getLeft();
+                    DiscoveryNode rcfNode = rcfNodePair.getRight();
+
+                    LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelId);
+
+                    RCFActionListener rcfListener = new RCFActionListener(
+                        rcfResults,
+                        rcfModelId.toString(),
+                        failure,
+                        rcfNodeId,
+                        detector,
+                        listener,
+                        thresholdModelID,
+                        thresholdNode,
+                        featureInResponse,
+                        responsesToCollect,
+                        responseCount,
+                        adID,
+                        detector.getEnabledFeatureIds().size()
+                    );
+
+                    transportService
+                        .sendRequest(
+                            rcfNode,
+                            RCFResultAction.NAME,
+                            new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
+                            option,
+                            new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
+                        );
+                }
             }
         }, exception -> { handleQueryFailure(exception, listener, adID); });
     }
@@ -1056,6 +1080,104 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } catch (Exception ex) {
                 handleExecuteException(ex, listener, adID);
             }
+        }
+    }
+
+    // For single entity detector, receiving results from the ML plugin
+    class PMMLActionListener implements ActionListener<PMMLResultResponse> {
+        private PMMLResultResponse pmmlResult;
+        private List<FeatureData> features;
+        private final String adID;
+        private ActionListener<AnomalyResultResponse> listener;
+        private long detectorIntervalInMinutes;
+
+        PMMLActionListener(
+            List<FeatureData> features,
+            String adID,
+            ActionListener<AnomalyResultResponse> listener,
+            long detectorIntervalInMinutes
+        ) {
+            this.pmmlResult = null;
+            this.features = features;
+            this.adID = adID;
+            this.listener = listener;
+            this.detectorIntervalInMinutes = detectorIntervalInMinutes;
+        }
+
+        @Override
+        public void onResponse(PMMLResultResponse response) {
+            if (response == null) {
+                LOG.warn(NULL_RESPONSE + " ML plugin");
+            } else {
+                pmmlResult = response;
+            }
+            handlePMMLResults();
+        }
+
+        @Override
+        public void onFailure(Exception e) {
+            try {
+                handleExecuteException(e, listener, adID);
+            } catch (Exception ex) {
+                LOG.error("Unexpected exception: {} for {}" + ", while calling the ML plugin", ex, adID);
+            } finally {
+                handlePMMLResults();
+            }
+        }
+
+        // Transform result from the ML plugin to the anomaly result format
+        private void handlePMMLResults() {
+            try {
+                if (listener == null) {
+                    LOG.error("Unexpected exception: {} for {}" + ", while calling the ML plugin", "listener is null", adID);
+                    return;
+                }
+                if (pmmlResult == null) {
+                    listener.onFailure(new InternalFailure(adID, "No response from the ML plugin"));
+                    return;
+                }
+                // convert the results from PMML to AD specific format
+                double anomalyGrade = handleGrade(pmmlResult.getOutlier(), pmmlResult.getDecisionFunction());
+                double anomalyScore = handleScore(pmmlResult.getDecisionFunction());
+                // some values are dummy:
+                // 1. Confidence doesn't really change since the ML plugin uploaded models are immutable.
+                double confidence = 1;
+                // 2. PMML models don't have rcfTotalUpdates.
+                long rcfTotalUpdates = 1000;
+                AnomalyResultResponse response = new AnomalyResultResponse(
+                    anomalyGrade,
+                    confidence,
+                    anomalyScore,
+                    features,
+                    null,
+                    rcfTotalUpdates,
+                    detectorIntervalInMinutes
+                );
+                listener.onResponse(response);
+            } catch (Exception e) {
+                handleExecuteException(e, listener, adID);
+            }
+        }
+
+        // Anomaly grade in AD: 0 for normal points, (0, 1] for anomalous points.
+        // Convert [-0.5, 0) to (0, 1] for anomalous points, and [0, 0.5] to 0 for normal points.
+        private double handleGrade(boolean outlier, double decisionFunction) {
+            if (!outlier) {
+                return 0;
+            }
+            return -2 * decisionFunction;
+        }
+
+        // Decision function double from the ML plugin: [-0.5, 0.5]. Negative means anomalous.
+        // Anomaly score in AD is strictly positive. More positive means more anomalous. 1 is a typical cutoff.
+        // Thus, the values can be converted linearly: [-0.5, 0.5] to (0, 2].
+        private double handleScore(double decisionFunction) {
+            double result = 2 * (0.5 - decisionFunction);
+            // if the value is 0, use the smallest positive double.
+            if (result == 0) {
+                return Double.MIN_VALUE;
+            }
+            return result;
         }
     }
 

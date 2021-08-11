@@ -123,11 +123,17 @@ public class CommonName {
     public static final String ENTITY_KEY = "entity";
 
     // ======================================
+    // Used in integration with the ML plugin
+    // ======================================
+    public static final String ML_MODEL_ID_KEY = "ml_model_id";
+
+    // ======================================
     // Used in toXContent
     // ======================================
     public static final String RCF_SCORE_JSON_KEY = "rCFScore";
     public static final String ID_JSON_KEY = "adID";
     public static final String FEATURE_JSON_KEY = "features";
+    public static final String FEATURE_NAME_JSON_KEY = "featureNames";
     public static final String CONFIDENCE_JSON_KEY = "confidence";
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
     public static final String QUEUE_JSON_KEY = "queue";

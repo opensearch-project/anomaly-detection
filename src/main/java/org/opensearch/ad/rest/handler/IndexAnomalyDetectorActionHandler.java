@@ -503,7 +503,8 @@ public class IndexAnomalyDetectorActionHandler {
             Instant.now(),
             anomalyDetector.getCategoryField(),
             user,
-            anomalyDetector.getDetectorType()
+            anomalyDetector.getDetectorType(),
+            anomalyDetector.getMlModelId()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

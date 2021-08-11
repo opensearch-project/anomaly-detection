@@ -99,6 +99,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String CATEGORY_FIELD = "category_field";
     public static final String USER_FIELD = "user";
     public static final String DETECTOR_TYPE_FIELD = "detector_type";
+    public static final String ML_MODEL_ID_FIELD = "ml_model_id";
 
     private final String detectorId;
     private final Long version;
@@ -117,6 +118,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final List<String> categoryFields;
     private User user;
     private String detectorType;
+    private String mlModelId;
 
     /**
      * Constructor function.
@@ -173,6 +175,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             lastUpdateTime,
             categoryFields,
             user,
+            null,
             null
         );
     }
@@ -195,6 +198,48 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         List<String> categoryFields,
         User user,
         String detectorType
+    ) {
+        this(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            categoryFields,
+            user,
+            detectorType,
+            null
+        );
+    }
+
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        List<String> categoryFields,
+        User user,
+        String detectorType,
+        String mlModelId
     ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
@@ -240,6 +285,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.categoryFields = categoryFields;
         this.user = user;
         this.detectorType = detectorType;
+        this.mlModelId = mlModelId;
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {
@@ -263,6 +309,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             user = null;
         }
         detectorType = input.readOptionalString();
+        mlModelId = input.readOptionalString();
         if (input.readBoolean()) {
             this.uiMetadata = input.readMap();
         } else {
@@ -297,6 +344,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             output.writeBoolean(false); // user does not exist
         }
         output.writeOptionalString(detectorType);
+        output.writeOptionalString(mlModelId);
         if (uiMetadata != null) {
             output.writeBoolean(true);
             output.writeMap(uiMetadata);
@@ -334,6 +382,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (detectorType != null) {
             xContentBuilder.field(DETECTOR_TYPE_FIELD, detectorType);
+        }
+        if (mlModelId != null) {
+            xContentBuilder.field(ML_MODEL_ID_FIELD, mlModelId);
         }
         return xContentBuilder.endObject();
     }
@@ -401,8 +452,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
         User user = null;
-
         List<String> categoryField = null;
+        String mlModelId = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -465,12 +516,15 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
+                case ML_MODEL_ID_FIELD:
+                    mlModelId = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
             }
         }
-        return new AnomalyDetector(
+        AnomalyDetector anomalyDetector = new AnomalyDetector(
             detectorId,
             version,
             name,
@@ -488,6 +542,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             categoryField,
             user
         );
+        anomalyDetector.setMlModelId(mlModelId);
+        return anomalyDetector;
     }
 
     @Generated
@@ -508,7 +564,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             && Objects.equal(getWindowDelay(), detector.getWindowDelay())
             && Objects.equal(getShingleSize(), detector.getShingleSize())
             && Objects.equal(getCategoryField(), detector.getCategoryField())
-            && Objects.equal(getUser(), detector.getUser());
+            && Objects.equal(getUser(), detector.getUser())
+            && Objects.equal(getMlModelId(), detector.getMlModelId());
     }
 
     @Generated
@@ -529,6 +586,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 schemaVersion,
                 lastUpdateTime,
                 user,
+                mlModelId,
                 detectorType
             );
     }
@@ -645,6 +703,18 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public String getMlModelId() {
+        return mlModelId;
+    }
+
+    public void setMlModelId(String mlModelId) {
+        this.mlModelId = mlModelId;
+    }
+
+    public boolean isUsingCustomModel() {
+        return getMlModelId() != null;
     }
 
     public String getDetectorType() {

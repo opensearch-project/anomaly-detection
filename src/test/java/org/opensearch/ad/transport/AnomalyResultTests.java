@@ -108,6 +108,7 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.client.Client;
+import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlocks;
@@ -164,6 +165,12 @@ public class AnomalyResultTests extends AbstractADTest {
     private ADStats adStats;
     private int partitionNum;
 
+    // for PMML detector use
+    private NodeClient nodeClient;
+    private NodeStateManager stateManager2;
+    private AnomalyDetector detector2;
+    private String ad2ID;
+
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyResultTests.class.getSimpleName());
@@ -187,6 +194,7 @@ public class AnomalyResultTests extends AbstractADTest {
         clusterService = testNodes[0].clusterService;
         settings = clusterService.getSettings();
 
+        // RCF detector
         stateManager = mock(NodeStateManager.class);
         // return 2 RCF partitions
         partitionNum = 2;
@@ -206,6 +214,8 @@ public class AnomalyResultTests extends AbstractADTest {
         adID = "123";
         when(detector.getDetectorId()).thenReturn(adID);
         when(detector.getCategoryField()).thenReturn(null);
+        when(detector.getMlModelId()).thenReturn(null);
+        when(detector.isUsingCustomModel()).thenReturn(false);
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(detector));
@@ -308,6 +318,35 @@ public class AnomalyResultTests extends AbstractADTest {
 
             return null;
         }).when(client).get(any(), any());
+
+        // PMML detector
+        nodeClient = mock(NodeClient.class);
+        detector2 = mock(AnomalyDetector.class);
+        when(detector2.getEnabledFeatureIds()).thenReturn(Collections.singletonList(featureId));
+        when(detector2.getEnabledFeatureNames()).thenReturn(Collections.singletonList(featureName));
+        when(detector2.getIndices()).thenReturn(userIndex);
+        ad2ID = "124";
+        when(detector2.getDetectorId()).thenReturn(ad2ID);
+        when(detector2.getCategoryField()).thenReturn(null);
+        String mlModelId = "1";
+        when(detector2.getMlModelId()).thenReturn(mlModelId);
+        when(detector2.isUsingCustomModel()).thenReturn(true);
+
+        stateManager2 = mock(NodeStateManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector2));
+            return null;
+        }).when(stateManager2).getAnomalyDetector(any(String.class), any(ActionListener.class));
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            PMMLResultRequest request = (PMMLResultRequest) args[1];
+            ActionListener<PMMLResultResponse> listener = (ActionListener<PMMLResultResponse>) args[2];
+            PMMLResultResponse response = new PMMLResultResponse(false, 0.3);
+            listener.onResponse(response);
+            return null;
+        }).when(client).execute(any(), any(), any());
     }
 
     @Override
@@ -358,6 +397,60 @@ public class AnomalyResultTests extends AbstractADTest {
 
         AnomalyResultResponse response = listener.actionGet(10000L);
         assertAnomalyResultResponse(response, 0, 1, 0d);
+    }
+
+    public void testNormalPMML() throws IOException {
+
+        // These constructors register handler in transport service
+        new PMMLResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, adCircuitBreakerService, nodeClient);
+
+        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+            new ActionFilters(Collections.emptySet()),
+            transportService,
+            settings,
+            client,
+            stateManager2,
+            featureQuery,
+            normalModelManager,
+            normalModelPartitioner,
+            hashRing,
+            clusterService,
+            indexNameResolver,
+            adCircuitBreakerService,
+            adStats,
+            threadPool,
+            NamedXContentRegistry.EMPTY
+        );
+
+        AnomalyResultRequest request = new AnomalyResultRequest(ad2ID, 100, 200);
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertAnomalyResultResponse(response, 0, 1, 0d);
+    }
+
+    // no exception should be thrown
+    public void testPMMLOnFailureNull() throws IOException {
+        AnomalyResultTransportAction action = new AnomalyResultTransportAction(
+            new ActionFilters(Collections.emptySet()),
+            transportService,
+            settings,
+            client,
+            stateManager2,
+            featureQuery,
+            normalModelManager,
+            normalModelPartitioner,
+            hashRing,
+            clusterService,
+            indexNameResolver,
+            adCircuitBreakerService,
+            adStats,
+            threadPool,
+            NamedXContentRegistry.EMPTY
+        );
+        AnomalyResultTransportAction.PMMLActionListener listener = action.new PMMLActionListener(null, null, null, 1);
+        listener.onFailure(null);
     }
 
     private void assertAnomalyResultResponse(AnomalyResultResponse response, double anomalyGrade, double confidence, double featureData) {

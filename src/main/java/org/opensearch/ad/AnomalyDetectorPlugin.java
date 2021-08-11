@@ -138,6 +138,8 @@ import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.PMMLResultAction;
+import org.opensearch.ad.transport.PMMLResultTransportAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.ProfileAction;
@@ -909,6 +911,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
+                new ActionHandler<>(PMMLResultAction.INSTANCE, PMMLResultTransportAction.class),
                 new ActionHandler<>(ThresholdResultAction.INSTANCE, ThresholdResultTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
                 new ActionHandler<>(CronAction.INSTANCE, CronTransportAction.class),
