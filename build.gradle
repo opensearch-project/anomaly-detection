@@ -422,6 +422,7 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
     implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
     implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
+    compile files('lib/randomcutforest-parkservices-2.0.jar')
 
     // used for serializing/deserializing rcf models.
     compile group: 'io.protostuff', name: 'protostuff-core', version: '1.7.4'
