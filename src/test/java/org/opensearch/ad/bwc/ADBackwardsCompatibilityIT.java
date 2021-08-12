@@ -55,10 +55,47 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
             .build();
     }
 
-    @SuppressWarnings("unchecked")
     public void testPluginUpgradeInAMixedCluster() throws Exception {
-        Map<String, Map<String, Object>> responseMap = (Map<String, Map<String, Object>>) getAsMap("_nodes/" + CLUSTER_NAME + "-0/plugins")
-            .get("nodes");
+        assertPluginUpgrade("_nodes/" + CLUSTER_NAME + "-0/plugins");
+    }
+
+    public void testPluginUpgradeInAnUpgradedCluster() throws Exception {
+        assertPluginUpgrade("_nodes/plugins");
+    }
+
+    public void testPluginUpgradeInARollingUpgradedCluster() throws Exception {
+        String round = System.getProperty("tests.rest.bwcsuite_round");
+        if (round.equals("first") || round.equals("old")) {
+            assertPluginUpgrade("_nodes/" + CLUSTER_NAME + "-0/plugins");
+        } else if (round.equals("second")) {
+            assertPluginUpgrade("_nodes/" + CLUSTER_NAME + "-1/plugins");
+        } else if (round.equals("third")) {
+            assertPluginUpgrade("_nodes/" + CLUSTER_NAME + "-2/plugins");
+        }
+    }
+
+    private enum ClusterType {
+        OLD,
+        MIXED,
+        UPGRADED;
+
+        public static ClusterType parse(String value) {
+            switch (value) {
+                case "old_cluster":
+                    return OLD;
+                case "mixed_cluster":
+                    return MIXED;
+                case "upgraded_cluster":
+                    return UPGRADED;
+                default:
+                    throw new AssertionError("unknown cluster type: " + value);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertPluginUpgrade(String uri) throws Exception {
+        Map<String, Map<String, Object>> responseMap = (Map<String, Map<String, Object>>) getAsMap(uri).get("nodes");
         for (Map<String, Object> response : responseMap.values()) {
             List<Map<String, Object>> plugins = (List<Map<String, Object>>) response.get("plugins");
             Set<Object> pluginNames = plugins.stream().map(map -> map.get("name")).collect(Collectors.toSet());
@@ -73,24 +110,13 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
                     verifyAnomalyDetector(TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI);
                     break;
+                case UPGRADED:
+                    Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
+                    Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
+                    verifyAnomalyDetector(TestHelpers.AD_BASE_DETECTORS_URI);
+                    break;
             }
             break;
-        }
-    }
-
-    private enum ClusterType {
-        OLD,
-        MIXED;
-
-        public static ClusterType parse(String value) {
-            switch (value) {
-                case "old_cluster":
-                    return OLD;
-                case "mixed_cluster":
-                    return MIXED;
-                default:
-                    throw new AssertionError("unknown cluster type: " + value);
-            }
         }
     }
 

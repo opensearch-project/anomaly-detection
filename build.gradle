@@ -267,7 +267,7 @@ testClusters.integTest {
 }
 
 String bwcVersion = "1.13.0.0";
-String baseName = "adMixedCluster"
+String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
 
 testClusters {
@@ -302,23 +302,7 @@ testClusters {
     }
 }
 
-task "${baseName}#oldVersionClusterTask"(type: StandaloneRestIntegTestTask) {
-    useCluster testClusters."${baseName}"
-    if (System.getProperty("mixedCluster") != null) {
-        filter {
-            includeTestsMatching "org.opensearch.ad.bwc.*IT"
-        }
-    }
-    systemProperty 'tests.rest.bwcsuite', 'old_cluster'
-    systemProperty 'tests.plugin_bwc_version', bwcVersion
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
-}
-
-task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
-    dependsOn "${baseName}#oldVersionClusterTask"
-    useCluster testClusters."${baseName}"
-    List<Provider<RegularFile>> plugins = [
+List<Provider<RegularFile>> plugins = [
         provider(new Callable<RegularFile>(){
             @Override
             RegularFile call() throws Exception {
@@ -342,19 +326,119 @@ task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
             }
         })
     ]
+
+// Creates a test cluster with 3 nodes of the old version.
+task "${baseName}#oldVersionClusterTask"(type: StandaloneRestIntegTestTask) {
+    useCluster testClusters."${baseName}"
+    if (System.getProperty("mixedCluster") != null) {
+        filter {
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInAMixedCluster")
+        }
+    }
+    if (System.getProperty("rollingUpgradeCluster") != null) {
+        filter {
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInARollingUpgradedCluster")
+        }
+    }
+    if (System.getProperty("fullRestartCluster") != null) {
+        filter {
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInAnUpgradedCluster")
+        }
+    }
+    systemProperty 'tests.rest.bwcsuite', 'old_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'old'
+    systemProperty 'tests.plugin_bwc_version', bwcVersion
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+}
+
+// Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version 
+// This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
+// This is also used as a one third upgraded cluster for a rolling upgrade.
+task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
+    dependsOn "${baseName}#oldVersionClusterTask"
+    useCluster testClusters."${baseName}"
     doFirst {
       testClusters."${baseName}".upgradeNodeAndPluginToNextVersion(plugins)
     }
     if (System.getProperty("mixedCluster") != null) {
         filter {
-            includeTestsMatching "org.opensearch.ad.bwc.*IT"
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInAMixedCluster")
+        }
+    }
+    if (System.getProperty("rollingUpgradeCluster") != null) {
+        filter {
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInARollingUpgradedCluster")
         }
     }
     systemProperty 'tests.rest.bwcsuite', 'mixed_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'first'
     systemProperty 'tests.plugin_bwc_version', bwcVersion
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
 }
+
+// Upgrades the second node to new OpenSearch version with upgraded plugin version after the first node is upgraded.
+// This results in a mixed cluster with 1 node on the old version and 2 upgraded nodes.
+// This is used for rolling upgrade.
+task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTask) {
+    dependsOn "${baseName}#mixedClusterTask"
+    useCluster testClusters."${baseName}"
+    doFirst {
+      testClusters."${baseName}".upgradeNodeAndPluginToNextVersion(plugins)
+    }
+    if (System.getProperty("rollingUpgradeCluster") != null) {
+        filter {
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInARollingUpgradedCluster")
+        }
+    }
+    systemProperty 'tests.rest.bwcsuite', 'mixed_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'second'
+    systemProperty 'tests.plugin_bwc_version', bwcVersion
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+}
+
+// Upgrades the third node to new OpenSearch version with upgraded plugin version after the second node is upgraded.
+// This results in a fully upgraded cluster.
+// This is used for rolling upgrade.
+task "${baseName}#rollingUpgradeClusterTask"(type: StandaloneRestIntegTestTask) {
+    dependsOn "${baseName}#twoThirdsUpgradedClusterTask"
+    useCluster testClusters."${baseName}"
+    doFirst {
+      testClusters."${baseName}".upgradeNodeAndPluginToNextVersion(plugins)
+    }
+    if (System.getProperty("rollingUpgradeCluster") != null) {
+        filter {
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInARollingUpgradedCluster")
+        }
+    }
+    systemProperty 'tests.rest.bwcsuite', 'mixed_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'third'
+    systemProperty 'tests.plugin_bwc_version', bwcVersion
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+}
+
+// Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version 
+// at the same time resulting in a fully upgraded cluster.
+tasks.register("${baseName}#fullRestartClusterTask", StandaloneRestIntegTestTask) {
+    dependsOn "${baseName}#oldVersionClusterTask"
+    useCluster testClusters."${baseName}"
+    doFirst {
+      testClusters."${baseName}".upgradeAllNodesAndPluginsToNextVersion(plugins)
+    }
+    if (System.getProperty("fullRestartCluster") != null) {
+        filter {
+            includeTest("org.opensearch.ad.bwc.ADBackwardsCompatibilityIT", "testPluginUpgradeInAnUpgradedCluster")
+        }
+    }
+    systemProperty 'tests.rest.bwcsuite', 'upgraded_cluster'
+    systemProperty 'tests.plugin_bwc_version', bwcVersion
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+}
+
 
 run {
     doFirst {
