@@ -121,7 +121,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
 
         // stop historical detector
         Response stopDetectorResponse = stopAnomalyDetector(detectorId, client());
-        assertEquals(RestStatus.OK, restStatus(stopDetectorResponse));
+        assertEquals(RestStatus.OK, TestHelpers.restStatus(stopDetectorResponse));
 
         // get task profile
         ADTaskProfile stoppedAdTaskProfile = waitUntilTaskFinished(detectorId);
@@ -159,7 +159,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
                 "PUT",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?refresh=true",
                 ImmutableMap.of(),
-                toHttpEntity(newDetector),
+                TestHelpers.toHttpEntity(newDetector),
                 null
             );
         Map<String, Object> responseBody = entityAsMap(updateResponse);
@@ -194,7 +194,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
                         "PUT",
                         TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?refresh=true",
                         ImmutableMap.of(),
-                        toHttpEntity(newDetector),
+                        TestHelpers.toHttpEntity(newDetector),
                         null
                     )
             );
@@ -211,7 +211,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         // delete detector
         Response response = TestHelpers
             .makeRequest(client(), "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null);
-        assertEquals(RestStatus.OK, restStatus(response));
+        assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
     }
 
     // TODO: fix delete

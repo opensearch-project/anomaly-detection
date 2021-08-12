@@ -135,6 +135,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.SearchModule;
@@ -965,6 +966,10 @@ public class TestHelpers {
     public static String toJsonString(ToXContentObject object) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         return TestHelpers.xContentBuilderToString(object.toXContent(builder, ToXContent.EMPTY_PARAMS));
+    }
+
+    public static RestStatus restStatus(Response response) {
+        return RestStatus.fromCode(response.getStatusLine().getStatusCode());
     }
 
     public static SearchHits createSearchHits(int totalHits) {
