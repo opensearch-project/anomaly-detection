@@ -46,7 +46,6 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -143,7 +142,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         try {
             String detectorId = request.getDetectorId();
 
-            Optional<AnomalyDetectionException> previousException = stateManager.fetchExceptionAndClear(detectorId);
+            Optional<Exception> previousException = stateManager.fetchExceptionAndClear(detectorId);
 
             if (previousException.isPresent()) {
                 Exception exception = previousException.get();
@@ -170,7 +169,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         ActionListener<AcknowledgedResponse> listener,
         String detectorId,
         EntityResultRequest request,
-        Optional<AnomalyDetectionException> prevException
+        Optional<Exception> prevException
     ) {
         return ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {

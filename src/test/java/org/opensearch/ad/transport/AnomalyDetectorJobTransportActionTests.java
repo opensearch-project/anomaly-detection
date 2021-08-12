@@ -330,7 +330,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertEquals(0, getExecutingADTask());
     }
 
-    // @Ignore
+    @Ignore
     public void testProfileHistoricalDetector() throws IOException, InterruptedException {
         ADTask adTask = startHistoricalAnalysis(startTime, endTime);
         GetAnomalyDetectorRequest request = taskProfileRequest(adTask.getDetectorId());
