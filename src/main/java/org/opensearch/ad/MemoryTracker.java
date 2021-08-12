@@ -67,7 +67,6 @@ public class MemoryTracker {
     private long desiredModelSize;
     // we observe threshold model uses a fixed size array and the size is the same
     private int thresholdModelBytes;
-    private int sampleSize;
     private ADCircuitBreakerService adCircuitBreakerService;
 
     /**
@@ -77,7 +76,6 @@ public class MemoryTracker {
      * @param modelMaxSizePercentage Percentage of heap for the max size of a model
      * @param modelDesiredSizePercentage percentage of heap for the desired size of a model
      * @param clusterService Cluster service object
-     * @param sampleSize The sample size used by stream samplers in a RCF forest
      * @param adCircuitBreakerService Memory circuit breaker
      */
     public MemoryTracker(
@@ -85,7 +83,6 @@ public class MemoryTracker {
         double modelMaxSizePercentage,
         double modelDesiredSizePercentage,
         ClusterService clusterService,
-        int sampleSize,
         ADCircuitBreakerService adCircuitBreakerService
     ) {
         this.totalMemoryBytes = 0;
@@ -99,7 +96,6 @@ public class MemoryTracker {
             .getClusterSettings()
             .addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
         this.thresholdModelBytes = 180_000;
-        this.sampleSize = sampleSize;
         this.adCircuitBreakerService = adCircuitBreakerService;
     }
 

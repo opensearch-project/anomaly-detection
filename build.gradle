@@ -334,7 +334,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.util.BulkUtil',
         'org.opensearch.ad.util.ExceptionUtil',
         'org.opensearch.ad.ml.EntityModel',
-        'org.opensearch.ad.ml.ModelPartitioner',
 
         // TODO: unified flow caused coverage drop
         'org.opensearch.ad.transport.AnomalyDetectorJobRequest',
