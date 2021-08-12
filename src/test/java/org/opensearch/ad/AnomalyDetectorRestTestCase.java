@@ -26,7 +26,6 @@
 
 package org.opensearch.ad;
 
-import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.opensearch.common.xcontent.json.JsonXContent.jsonXContent;
 
 import java.io.IOException;
@@ -35,9 +34,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Map;
 
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -52,7 +49,6 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContent;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -115,7 +111,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                     "POST",
                     "/" + detector.getIndices().get(0) + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
                     ImmutableMap.of(),
-                    toHttpEntity("{\"name\": \"test\"}"),
+                    TestHelpers.toHttpEntity("{\"name\": \"test\"}"),
                     null,
                     false
                 );
@@ -142,8 +138,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
     protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, RestClient client) throws IOException {
         Response response = TestHelpers
-            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), toHttpEntity(detector), null);
-        assertEquals("Create anomaly detector failed", RestStatus.CREATED, restStatus(response));
+            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
 
         Map<String, Object> detectorJson = jsonXContent
             .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getEntity().getContent())
@@ -176,7 +172,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "POST",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start",
                 ImmutableMap.of(),
-                dateRange == null ? null : toHttpEntity(dateRange),
+                dateRange == null ? null : TestHelpers.toHttpEntity(dateRange),
                 null
             );
     }
@@ -198,7 +194,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "POST",
                 String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
-                toHttpEntity(input),
+                TestHelpers.toHttpEntity(input),
                 null
             );
     }
@@ -215,7 +211,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "PUT",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId,
                 null,
-                toJsonString(newDetector),
+                TestHelpers.toJsonString(newDetector),
                 ImmutableList.of(header)
             );
     }
@@ -245,7 +241,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "",
                 ImmutableList.of(header)
             );
-        assertEquals("Unable to get anomaly detector " + detectorId, RestStatus.OK, restStatus(response));
+        assertEquals("Unable to get anomaly detector " + detectorId, RestStatus.OK, TestHelpers.restStatus(response));
         XContentParser parser = createAdParser(XContentType.JSON.xContent(), response.getEntity().getContent());
         parser.nextToken();
         XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -299,23 +295,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             ),
             detectorJob,
             adTask };
-    }
-
-    protected HttpEntity toHttpEntity(ToXContentObject object) throws IOException {
-        return new StringEntity(toJsonString(object), APPLICATION_JSON);
-    }
-
-    protected HttpEntity toHttpEntity(String jsonString) throws IOException {
-        return new StringEntity(jsonString, APPLICATION_JSON);
-    }
-
-    protected String toJsonString(ToXContentObject object) throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder();
-        return TestHelpers.xContentBuilderToString(shuffleXContent(object.toXContent(builder, ToXContent.EMPTY_PARAMS)));
-    }
-
-    protected RestStatus restStatus(Response response) {
-        return RestStatus.fromCode(response.getStatusLine().getStatusCode());
     }
 
     protected final XContentParser createAdParser(XContent xContent, InputStream data) throws IOException {
@@ -391,17 +370,18 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "PUT",
                 "/_opendistro/_security/api/internalusers/" + name,
                 null,
-                toHttpEntity(
-                    " {\n"
-                        + "\"password\": \""
-                        + password
-                        + "\",\n"
-                        + "\"backend_roles\": "
-                        + backendRolesString
-                        + ",\n"
-                        + "\"attributes\": {\n"
-                        + "}} "
-                ),
+                TestHelpers
+                    .toHttpEntity(
+                        " {\n"
+                            + "\"password\": \""
+                            + password
+                            + "\",\n"
+                            + "\"backend_roles\": "
+                            + backendRolesString
+                            + ",\n"
+                            + "\"attributes\": {\n"
+                            + "}} "
+                    ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }
@@ -417,9 +397,10 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "PUT",
                 "/_opendistro/_security/api/rolesmapping/" + role,
                 null,
-                toHttpEntity(
-                    "{\n" + "  \"backend_roles\" : [  ],\n" + "  \"hosts\" : [  ],\n" + "  \"users\" : " + usersString + "\n" + "}"
-                ),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n" + "  \"backend_roles\" : [  ],\n" + "  \"hosts\" : [  ],\n" + "  \"users\" : " + usersString + "\n" + "}"
+                    ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }
@@ -431,29 +412,30 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "PUT",
                 "/_opendistro/_security/api/roles/" + role,
                 null,
-                toHttpEntity(
-                    "{\n"
-                        + "\"cluster_permissions\": [\n"
-                        + "],\n"
-                        + "\"index_permissions\": [\n"
-                        + "{\n"
-                        + "\"index_patterns\": [\n"
-                        + "\""
-                        + index
-                        + "\"\n"
-                        + "],\n"
-                        + "\"dls\": \"\",\n"
-                        + "\"fls\": [],\n"
-                        + "\"masked_fields\": [],\n"
-                        + "\"allowed_actions\": [\n"
-                        + "\"crud\",\n"
-                        + "\"indices:admin/create\"\n"
-                        + "]\n"
-                        + "}\n"
-                        + "],\n"
-                        + "\"tenant_permissions\": []\n"
-                        + "}"
-                ),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n"
+                            + "\"cluster_permissions\": [\n"
+                            + "],\n"
+                            + "\"index_permissions\": [\n"
+                            + "{\n"
+                            + "\"index_patterns\": [\n"
+                            + "\""
+                            + index
+                            + "\"\n"
+                            + "],\n"
+                            + "\"dls\": \"\",\n"
+                            + "\"fls\": [],\n"
+                            + "\"masked_fields\": [],\n"
+                            + "\"allowed_actions\": [\n"
+                            + "\"crud\",\n"
+                            + "\"indices:admin/create\"\n"
+                            + "]\n"
+                            + "}\n"
+                            + "],\n"
+                            + "\"tenant_permissions\": []\n"
+                            + "}"
+                    ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }
@@ -489,13 +471,14 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "PUT",
                 "_cluster/settings",
                 null,
-                toHttpEntity(
-                    "{\n"
-                        + "  \"persistent\": {\n"
-                        + "       \"opendistro.anomaly_detection.filter_by_backend_roles\" : \"true\"\n"
-                        + "   }\n"
-                        + "}"
-                ),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n"
+                            + "  \"persistent\": {\n"
+                            + "       \"opendistro.anomaly_detection.filter_by_backend_roles\" : \"true\"\n"
+                            + "   }\n"
+                            + "}"
+                    ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }
@@ -507,13 +490,14 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 "PUT",
                 "_cluster/settings",
                 null,
-                toHttpEntity(
-                    "{\n"
-                        + "  \"persistent\": {\n"
-                        + "       \"opendistro.anomaly_detection.filter_by_backend_roles\" : \"false\"\n"
-                        + "   }\n"
-                        + "}"
-                ),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n"
+                            + "  \"persistent\": {\n"
+                            + "       \"opendistro.anomaly_detection.filter_by_backend_roles\" : \"false\"\n"
+                            + "   }\n"
+                            + "}"
+                    ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }
