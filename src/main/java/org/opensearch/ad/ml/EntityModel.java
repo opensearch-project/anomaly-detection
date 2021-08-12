@@ -31,6 +31,7 @@ import java.util.Queue;
 
 import org.opensearch.ad.model.Entity;
 
+import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
 import com.amazon.randomcutforest.RandomCutForest;
 
 public class EntityModel {
@@ -39,12 +40,26 @@ public class EntityModel {
     private Queue<double[]> samples;
     private RandomCutForest rcf;
     private ThresholdingModel threshold;
+    private ExtendedRandomCutForest ercf;
 
     public EntityModel(Entity entity, Queue<double[]> samples, RandomCutForest rcf, ThresholdingModel threshold) {
         this.entity = entity;
         this.samples = samples;
         this.rcf = rcf;
         this.threshold = threshold;
+    }
+
+    /**
+     * Constructor with ERCF.
+     *
+     * @param entity entity if any
+     * @param samples samples with the model
+     * @param ercf extended rcf model
+     */
+    public EntityModel(Entity entity, Queue<double[]> samples, ExtendedRandomCutForest ercf) {
+        this.entity = entity;
+        this.samples = samples;
+        this.ercf = ercf;
     }
 
     /**
@@ -82,9 +97,19 @@ public class EntityModel {
         this.threshold = threshold;
     }
 
+    /**
+     * Returns optional ercf model.
+     *
+     * @return the ercf model or empty
+     */
+    public Optional<ExtendedRandomCutForest> getErcf() {
+        return Optional.ofNullable(this.ercf);
+    }
+
     public void clear() {
         samples.clear();
         rcf = null;
         threshold = null;
+        ercf = null;
     }
 }
