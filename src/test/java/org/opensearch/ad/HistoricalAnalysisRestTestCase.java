@@ -100,12 +100,12 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
                 "PUT",
                 indexName,
                 null,
-                toHttpEntity(MockSimpleLog.INDEX_MAPPING),
+                TestHelpers.toHttpEntity(MockSimpleLog.INDEX_MAPPING),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
 
         Response statsResponse = TestHelpers.makeRequest(client(), "GET", indexName, ImmutableMap.of(), "", null);
-        assertEquals(RestStatus.OK, restStatus(statsResponse));
+        assertEquals(RestStatus.OK, TestHelpers.restStatus(statsResponse));
         String result = EntityUtils.toString(statsResponse.getEntity());
         assertTrue(result.contains(indexName));
 
@@ -130,7 +130,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
                 "POST",
                 "_bulk?refresh=true",
                 null,
-                toHttpEntity(bulkRequestBuilder.toString()),
+                TestHelpers.toHttpEntity(bulkRequestBuilder.toString()),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
         return bulkResponse;

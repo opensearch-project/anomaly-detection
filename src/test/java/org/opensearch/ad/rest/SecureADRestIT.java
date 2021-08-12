@@ -37,6 +37,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
+import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.DetectionDateRange;
@@ -299,7 +300,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null
         );
         Response response = previewAnomalyDetector(aliceDetector.getDetectorId(), aliceClient, input);
-        Assert.assertEquals(RestStatus.OK, restStatus(response));
+        Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
     }
 
     public void testPreviewAnomalyDetectorWithReadAccess() throws IOException {
