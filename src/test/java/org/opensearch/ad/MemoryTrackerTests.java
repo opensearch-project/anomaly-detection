@@ -76,7 +76,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         super.setUp();
         rcfNumFeatures = 1;
         rcfSampleSize = 256;
-        numberOfTrees = 10;
+        numberOfTrees = 30;
         rcfTimeDecay = 0.2;
         numMinSamples = 128;
 
@@ -102,7 +102,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        expectedRCFModelSize = 118144;
+        expectedRCFModelSize = 382784;
         detectorId = "123";
 
         rcf = RandomCutForest
@@ -131,27 +131,13 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     private void setUpBigHeap() {
         ByteSizeValue value = new ByteSizeValue(largeHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(
-            jvmService,
-            modelMaxSizePercentage,
-            modelDesiredSizePercentage,
-            clusterService,
-            rcfSampleSize,
-            circuitBreaker
-        );
+        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, circuitBreaker);
     }
 
     private void setUpSmallHeap() {
         ByteSizeValue value = new ByteSizeValue(smallHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(
-            jvmService,
-            modelMaxSizePercentage,
-            modelDesiredSizePercentage,
-            clusterService,
-            rcfSampleSize,
-            circuitBreaker
-        );
+        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, circuitBreaker);
     }
 
     public void testEstimateModelSize() {
@@ -164,6 +150,23 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             expectedRCFModelSize + tracker.getThresholdModelBytes(),
             tracker.estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
         );
+
+        RandomCutForest rcf2 = RandomCutForest
+            .builder()
+            .dimensions(32) // 32 to trigger another calculation of point store usage
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(rcfNumFeatures)
+            .build();
+        assertEquals(423733 + tracker.getThresholdModelBytes(), tracker.estimateTotalModelSize(rcf2));
+        assertTrue(tracker.isHostingAllowed(detectorId, rcf2));
     }
 
     public void testCanAllocate() {
