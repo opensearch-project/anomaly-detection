@@ -31,7 +31,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.model.AnomalyDetector;
 
 /**
@@ -50,7 +49,7 @@ public class NodeState implements ExpiringState {
     // to check if the error for a detector has changed or not. If changed, trigger indexing.
     private Optional<String> lastDetectionError;
     // last error.
-    private Optional<AnomalyDetectionException> exception;
+    private Optional<Exception> exception;
     // flag indicating whether checkpoint for the detector exists
     private boolean checkPointExists;
     // clock to get current time
@@ -150,7 +149,7 @@ public class NodeState implements ExpiringState {
      *
      * @return last exception if any
      */
-    public Optional<AnomalyDetectionException> getException() {
+    public Optional<Exception> getException() {
         refreshLastUpdateTime();
         return exception;
     }
@@ -159,7 +158,7 @@ public class NodeState implements ExpiringState {
      *
      * @param exception exception to record
      */
-    public void setException(AnomalyDetectionException exception) {
+    public void setException(Exception exception) {
         this.exception = Optional.ofNullable(exception);
         refreshLastUpdateTime();
     }

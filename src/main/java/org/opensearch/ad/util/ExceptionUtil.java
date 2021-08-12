@@ -41,16 +41,12 @@ import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
 
 public class ExceptionUtil {
-    public static final String RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE = OpenSearchException
-        .getExceptionName(new ResourceNotFoundException("", ""));
-
     // a positive cache of retriable error rest status
     private static final EnumSet<RestStatus> RETRYABLE_STATUS = EnumSet
         .of(RestStatus.REQUEST_TIMEOUT, RestStatus.CONFLICT, RestStatus.INTERNAL_SERVER_ERROR);
