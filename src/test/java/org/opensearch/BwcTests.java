@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.junit.BeforeClass;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
@@ -39,6 +40,7 @@ import org.opensearch.ad.transport.EntityProfileResponse;
 import org.opensearch.ad.transport.EntityResultRequest;
 import org.opensearch.ad.transport.ProfileNodeResponse;
 import org.opensearch.ad.transport.ProfileResponse;
+import org.opensearch.ad.transport.RCFResultResponse;
 import org.opensearch.ad.util.Bwc;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -76,6 +78,8 @@ public class BwcTests extends AbstractADTest {
     private ProfileResponse1_0 profileResponse1_0;
     private ModelProfileOnNode[] convertedModelProfileOnNodeArray;
     private ModelProfile1_0[] convertedModelProfile;
+    private RCFResultResponse rcfResultResponse1_1;
+    private RCFResultResponse1_0 rcfResultResponse1_0;
 
     private boolean areEqualWithArrayValue(Map<Entity, double[]> first, Map<Entity, double[]> second) {
         if (first.size() != second.size()) {
@@ -91,6 +95,11 @@ public class BwcTests extends AbstractADTest {
         }
 
         return first.entrySet().stream().allMatch(e -> Arrays.equals(e.getValue(), second.get(e.getKey())));
+    }
+
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        Bwc.DISABLE_BWC = false;
     }
 
     @Override
@@ -463,5 +472,66 @@ public class BwcTests extends AbstractADTest {
     public void testBwcInstance() {
         Bwc bwc = new Bwc();
         assertNotNull(bwc);
+    }
+
+    private void setUpRCFResultResponse() {
+        rcfResultResponse1_1 = new RCFResultResponse(0.345, 0.123, 30, new double[] { 0.3, 0.7 }, 134);
+        rcfResultResponse1_0 = new RCFResultResponse1_0(0.345, 0.123, 30, new double[] { 0.3, 0.7 });
+    }
+
+    /**
+     * For RCFResultResponse, the input is a 1.1 stream.
+     * @throws IOException when serialization/deserialization has issues.
+     */
+    public void testDeserializeRCFResultResponse1_1() throws IOException {
+        setUpRCFResultResponse();
+
+        rcfResultResponse1_1.writeTo(output1_1);
+
+        StreamInput streamInput = output1_1.bytes().streamInput();
+        streamInput.setVersion(V_1_1_0);
+        RCFResultResponse readResponse = new RCFResultResponse(streamInput);
+        assertArrayEquals(readResponse.getAttribution(), rcfResultResponse1_1.getAttribution(), 0.001);
+        assertThat(readResponse.getConfidence(), equalTo(rcfResultResponse1_1.getConfidence()));
+        assertThat(readResponse.getForestSize(), equalTo(rcfResultResponse1_1.getForestSize()));
+        assertThat(readResponse.getTotalUpdates(), equalTo(rcfResultResponse1_1.getTotalUpdates()));
+        assertThat(readResponse.getRCFScore(), equalTo(rcfResultResponse1_1.getRCFScore()));
+    }
+
+    /**
+     * For RCFResultResponse, the input is a 1.0 stream.
+     * @throws IOException when serialization/deserialization has issues.
+     */
+    public void testDeserializeRCFResultResponse1_0() throws IOException {
+        setUpRCFResultResponse();
+
+        rcfResultResponse1_0.writeTo(output1_0);
+
+        StreamInput streamInput = output1_0.bytes().streamInput();
+        streamInput.setVersion(Version.V_1_0_0);
+        RCFResultResponse readResponse = new RCFResultResponse(streamInput);
+        assertArrayEquals(readResponse.getAttribution(), rcfResultResponse1_0.getAttribution(), 0.001);
+        assertThat(readResponse.getConfidence(), equalTo(rcfResultResponse1_0.getConfidence()));
+        assertThat(readResponse.getForestSize(), equalTo(rcfResultResponse1_0.getForestSize()));
+        assertThat(readResponse.getTotalUpdates(), equalTo(0L));
+        assertThat(readResponse.getRCFScore(), equalTo(rcfResultResponse1_0.getRCFScore()));
+    }
+
+    /**
+     * For RCFResultResponse, the output is a 1.0 stream.
+     * @throws IOException when serialization/deserialization has issues.
+     */
+    public void testSerializeRCFResultResponse1_0() throws IOException {
+        setUpRCFResultResponse();
+
+        rcfResultResponse1_1.writeTo(output1_0);
+
+        StreamInput streamInput = output1_0.bytes().streamInput();
+        streamInput.setVersion(Version.V_1_0_0);
+        RCFResultResponse1_0 readResponse = new RCFResultResponse1_0(streamInput);
+        assertArrayEquals(readResponse.getAttribution(), rcfResultResponse1_0.getAttribution(), 0.001);
+        assertThat(readResponse.getConfidence(), equalTo(rcfResultResponse1_0.getConfidence()));
+        assertThat(readResponse.getForestSize(), equalTo(rcfResultResponse1_0.getForestSize()));
+        assertThat(readResponse.getRCFScore(), equalTo(rcfResultResponse1_0.getRCFScore()));
     }
 }

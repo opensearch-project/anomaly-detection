@@ -121,7 +121,7 @@ public class ModelPartitioner {
      * @throws LimitExceededException when there is no sufficient resource available
      */
     public Entry<Integer, Integer> getPartitionedForestSizes(RandomCutForest forest, String detectorId) {
-        long totalSize = memoryTracker.estimateTotalModelSize(forest);
+        long totalSize = memoryTracker.estimateRCFModelSize(forest);
 
         // desired partitioning
         long partitionSize = (Math.min(memoryTracker.getDesiredModelSize(), totalSize));

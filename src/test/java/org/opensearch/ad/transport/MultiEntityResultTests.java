@@ -108,6 +108,7 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.ad.util.Bwc;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -180,6 +181,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyResultTests.class.getSimpleName());
+        Bwc.DISABLE_BWC = false;
     }
 
     @AfterClass
