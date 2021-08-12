@@ -63,6 +63,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.ERCF.AnomalyDescriptor;
+import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.returntypes.DiVector;
@@ -838,33 +839,41 @@ public class ModelManager implements DetectorModelSize {
     }
 
     public ThresholdingResult score(double[] feature, String modelId, ModelState<EntityModel> modelState) {
+        ThresholdingResult result = null;
         EntityModel model = modelState.getModel();
         if (model == null) {
-            return new ThresholdingResult(0, 0, 0);
-        }
-        RandomCutForest rcf = model.getRcf();
-        ThresholdingModel threshold = model.getThreshold();
-        if (rcf == null || threshold == null) {
-            return new ThresholdingResult(0, 0, 0);
-        }
+            result = new ThresholdingResult(0, 0, 0);
+        } else if (model.getErcf().isPresent()) {
+            ExtendedRandomCutForest ercf = model.getErcf().get();
+            Optional.ofNullable(model.getSamples()).ifPresent(q -> {
+                q.stream().forEach(s -> ercf.process(s));
+                q.clear();
+            });
+            result = toResult(ercf.process(feature));
+        } else {
+            RandomCutForest rcf = model.getRcf();
+            ThresholdingModel threshold = model.getThreshold();
+            if (rcf == null || threshold == null) {
+                return new ThresholdingResult(0, 0, 0);
+            }
 
-        // clear feature not scored yet
-        Queue<double[]> samples = model.getSamples();
-        while (samples != null && samples.peek() != null) {
-            double[] recordedFeature = samples.poll();
-            double rcfScore = rcf.getAnomalyScore(recordedFeature);
-            rcf.update(recordedFeature);
+            // clear feature not scored yet
+            Queue<double[]> samples = model.getSamples();
+            while (samples != null && samples.peek() != null) {
+                double[] recordedFeature = samples.poll();
+                double rcfScore = rcf.getAnomalyScore(recordedFeature);
+                rcf.update(recordedFeature);
+                threshold.update(rcfScore);
+            }
+
+            double rcfScore = rcf.getAnomalyScore(feature);
+            rcf.update(feature);
             threshold.update(rcfScore);
+
+            double anomalyGrade = threshold.grade(rcfScore);
+            double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
+            result = new ThresholdingResult(anomalyGrade, anomalyConfidence, rcfScore);
         }
-
-        double rcfScore = rcf.getAnomalyScore(feature);
-        rcf.update(feature);
-        threshold.update(rcfScore);
-
-        double anomalyGrade = threshold.grade(rcfScore);
-        double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
-        ThresholdingResult result = new ThresholdingResult(anomalyGrade, anomalyConfidence, rcfScore);
-
         modelState.setLastUsedTime(clock.instant());
         return result;
     }
