@@ -87,7 +87,9 @@ public class EntityModel {
     }
 
     public void clear() {
-        samples.clear();
+        if (samples != null) {
+            samples.clear();
+        }
         rcf = null;
         threshold = null;
     }
