@@ -48,6 +48,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
@@ -997,6 +999,21 @@ public class ModelManagerTests {
 
         ThresholdingResult result = modelManager
             .getAnomalyResultForEntity(this.point, this.modelState, this.detectorId, this.anomalyDetector, null);
+        assertEquals(
+            new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), /*TODO: pending ercf*/1.0, anomalyDescriptor.getRcfScore()),
+            result
+        );
+    }
+
+    @Test
+    public void score_with_ercf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.ercf.process(this.point)).thenReturn(anomalyDescriptor);
+        when(this.entityModel.getSamples()).thenReturn(new ArrayDeque<>(Arrays.asList(this.point)));
+
+        ThresholdingResult result = modelManager.score(this.point, this.detectorId, this.modelState);
         assertEquals(
             new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), /*TODO: pending ercf*/1.0, anomalyDescriptor.getRcfScore()),
             result
