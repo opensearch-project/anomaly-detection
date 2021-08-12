@@ -91,6 +91,8 @@ import org.opensearch.threadpool.ThreadPool;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
+import com.amazon.randomcutforest.ERCF.AnomalyDescriptor;
+import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
 import com.google.common.collect.Sets;
@@ -125,6 +127,15 @@ public class ModelManagerTests {
 
     @Mock
     private EntityCache cache;
+
+    @Mock
+    private ModelState<EntityModel> modelState;
+
+    @Mock
+    private EntityModel entityModel;
+
+    @Mock
+    private ExtendedRandomCutForest ercf;
 
     private double modelDesiredSizePercentage;
     private double modelMaxSizePercentage;
@@ -266,6 +277,9 @@ public class ModelManagerTests {
         detectorId = "detectorId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
+
+        when(this.modelState.getModel()).thenReturn(this.entityModel);
+        when(this.entityModel.getErcf()).thenReturn(Optional.of(this.ercf));
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -972,5 +986,20 @@ public class ModelManagerTests {
     @Test(expected = IllegalArgumentException.class)
     public void getPreviewResults_throwIllegalArgument_forInvalidInput() {
         modelManager.getPreviewResults(new double[0][0], shingleSize);
+    }
+
+    @Test
+    public void getAnomalyResultForEntity_withercf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.ercf.process(this.point)).thenReturn(anomalyDescriptor);
+
+        ThresholdingResult result = modelManager
+            .getAnomalyResultForEntity(this.point, this.modelState, this.detectorId, this.anomalyDetector, null);
+        assertEquals(
+            new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), /*TODO: pending ercf*/1.0, anomalyDescriptor.getRcfScore()),
+            result
+        );
     }
 }

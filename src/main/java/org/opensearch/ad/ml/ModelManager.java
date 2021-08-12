@@ -62,6 +62,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
+import com.amazon.randomcutforest.ERCF.AnomalyDescriptor;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.returntypes.DiVector;
@@ -809,6 +810,7 @@ public class ModelManager implements DetectorModelSize {
         AnomalyDetector detector,
         Entity entity
     ) {
+        ThresholdingResult result = new ThresholdingResult(0, 0, 0);
         if (modelState != null) {
             EntityModel entityModel = modelState.getModel();
 
@@ -817,20 +819,25 @@ public class ModelManager implements DetectorModelSize {
                 modelState.setModel(entityModel);
             }
 
-            // trainModelFromExistingSamples may be able to make models not null
-            if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
-                entityColdStarter.trainModelFromExistingSamples(modelState);
-            }
-
-            if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
-                return score(datapoint, modelId, modelState);
+            if (entityModel.getErcf().isPresent()) {
+                result = toResult(entityModel.getErcf().get().process(datapoint));
             } else {
-                entityModel.addSample(datapoint);
-                return new ThresholdingResult(0, 0, 0);
+                // trainModelFromExistingSamples may be able to make models not null
+                if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
+                    entityColdStarter.trainModelFromExistingSamples(modelState);
+                }
+
+                if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
+                    return score(datapoint, modelId, modelState);
+                } else {
+                    entityModel.addSample(datapoint);
+                    return new ThresholdingResult(0, 0, 0);
+                }
             }
         } else {
             return new ThresholdingResult(0, 0, 0);
         }
+        return result;
     }
 
     public ThresholdingResult score(double[] feature, String modelId, ModelState<EntityModel> modelState) {
@@ -918,5 +925,9 @@ public class ModelManager implements DetectorModelSize {
         while (samples.peek() != null) {
             toModel.addSample(samples.poll());
         }
+    }
+
+    private ThresholdingResult toResult(AnomalyDescriptor anomalyDescriptor) {
+        return new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), /*TODO: pending ercf*/1.0, anomalyDescriptor.getRcfScore());
     }
 }
