@@ -222,7 +222,6 @@ public class ModelManagerTests {
             modelMaxSizePercentage,
             modelDesiredSizePercentage,
             clusterService,
-            numSamples,
             adCircuitBreakerService
         );
 
@@ -373,17 +372,10 @@ public class ModelManagerTests {
     ) {
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
         MemoryTracker memoryTracker = spy(
-            new MemoryTracker(
-                jvmService,
-                modelMaxSizePercentage,
-                modelDesiredSizePercentage,
-                clusterService,
-                numSamples,
-                adCircuitBreakerService
-            )
+            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, adCircuitBreakerService)
         );
 
-        when(memoryTracker.estimateTotalModelSize(rcf)).thenReturn(totalModelSize);
+        when(memoryTracker.estimateRCFModelSize(rcf)).thenReturn(totalModelSize);
 
         modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
 
@@ -410,16 +402,9 @@ public class ModelManagerTests {
     ) {
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
         MemoryTracker memoryTracker = spy(
-            new MemoryTracker(
-                jvmService,
-                modelMaxSizePercentage,
-                modelDesiredSizePercentage,
-                clusterService,
-                numSamples,
-                adCircuitBreakerService
-            )
+            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, adCircuitBreakerService)
         );
-        when(memoryTracker.estimateTotalModelSize(rcf)).thenReturn(totalModelSize);
+        when(memoryTracker.estimateRCFModelSize(rcf)).thenReturn(totalModelSize);
         modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
 
         when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
@@ -435,7 +420,7 @@ public class ModelManagerTests {
 
     @Parameters(method = "estimateModelSizeData")
     public void estimateModelSize_returnExpected(RandomCutForest rcf, long expectedSize) {
-        assertEquals(expectedSize, memoryTracker.estimateTotalModelSize(rcf));
+        assertEquals(expectedSize, memoryTracker.estimateRCFModelSize(rcf));
     }
 
     @Test
@@ -499,7 +484,6 @@ public class ModelManagerTests {
             modelMaxSizePercentage,
             modelDesiredSizePercentage,
             clusterService,
-            numSamples,
             adCircuitBreakerService
         );
 
