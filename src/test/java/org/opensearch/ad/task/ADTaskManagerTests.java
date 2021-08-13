@@ -38,6 +38,7 @@ import static org.opensearch.ad.TestHelpers.randomFeature;
 import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
@@ -103,7 +104,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             .put(REQUEST_TIMEOUT.getKey(), TimeValue.timeValueSeconds(10))
             .build();
 
-        clusterSettings = clusterSetting(settings, MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, BATCH_TASK_PIECE_INTERVAL_SECONDS, REQUEST_TIMEOUT);
+        clusterSettings = clusterSetting(
+            settings,
+            MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
+            BATCH_TASK_PIECE_INTERVAL_SECONDS,
+            REQUEST_TIMEOUT,
+            DELETE_AD_RESULT_WHEN_DELETE_DETECTOR
+        );
 
         clusterService = new ClusterService(settings, clusterSettings, null);
 

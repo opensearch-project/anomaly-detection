@@ -876,7 +876,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
                 AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                 AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW,
-                AnomalyDetectorSettings.PAGE_SIZE
+                AnomalyDetectorSettings.PAGE_SIZE,
+                // clean resource
+                AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR
             );
         return unmodifiableList(
             Stream
