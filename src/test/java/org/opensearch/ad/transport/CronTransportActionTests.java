@@ -118,6 +118,7 @@ public class CronTransportActionTests extends AbstractADTest {
         nodeRequestOut.setVersion(Version.V_1_0_0);
         nodeRequest.writeTo(nodeRequestOut);
         StreamInput siNode = nodeRequestOut.bytes().streamInput();
+        siNode.setVersion(Version.V_1_0_0);
 
         CronNodeRequest nodeResponseRead = new CronNodeRequest(siNode);
 
