@@ -40,7 +40,6 @@ import static org.opensearch.ad.model.ADTask.WORKER_NODE_FIELD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_PAGE_SIZE_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
@@ -394,7 +393,7 @@ public class ADBatchTaskRunner {
                 dataEndTime,
                 MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS,
                 1,
-                MAX_PAGE_SIZE_FOR_HISTORICAL_ANALYSIS,
+                MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS,
                 topEntitiesListener
             );
     }
@@ -422,7 +421,7 @@ public class ADBatchTaskRunner {
         String topEntitiesAgg = "topEntities";
         AggregationBuilder aggregation = new TermsAggregationBuilder(topEntitiesAgg)
             .field(adTask.getDetector().getCategoryField().get(0))
-            .size(MAX_PAGE_SIZE_FOR_HISTORICAL_ANALYSIS);
+            .size(MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS);
         sourceBuilder.aggregation(aggregation).size(0);
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(sourceBuilder);
@@ -792,12 +791,6 @@ public class ADBatchTaskRunner {
                 adTaskManager.cleanDetectorCache(adTask, transportService, () -> handleException(adTask, e));
             } else {
                 adTaskManager.entityTaskDone(adTask, e, transportService);
-                threadPool
-                    .schedule(
-                        () -> startNewEntityTaskLane(adTask, transportService),
-                        TimeValue.timeValueSeconds(SLEEP_TIME_FOR_NEXT_ENTITY_TASK_IN_MILLIS),
-                        AD_BATCH_TASK_THREAD_POOL_NAME
-                    );
                 handleException(adTask, e);
             }
         });

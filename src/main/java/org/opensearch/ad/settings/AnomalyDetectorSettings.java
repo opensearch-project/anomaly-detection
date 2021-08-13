@@ -446,7 +446,6 @@ public final class AnomalyDetectorSettings {
         );
 
     // Maximum number of entities we support for historical analysis.
-    public static final int MAX_PAGE_SIZE_FOR_HISTORICAL_ANALYSIS = 10_000;
     public static final int MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS = 10_000;
     public static final Setting<Integer> MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS = Setting
         .intSetting(

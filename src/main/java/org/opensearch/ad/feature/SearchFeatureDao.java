@@ -378,6 +378,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                     listener,
                     detector,
                     searchSourceBuilder,
+                    // TODO: tune timeout for historical analysis based on performance test result
                     clock.millis() + previewTimeoutInMilliseconds,
                     maxEntitiesSize,
                     minimumDocCount
