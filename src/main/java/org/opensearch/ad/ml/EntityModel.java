@@ -98,6 +98,15 @@ public class EntityModel {
     }
 
     /**
+     * Sets an ercf model.
+     *
+     * @param ercf an ercf model
+     */
+    public void setErcf(ExtendedRandomCutForest ercf) {
+        this.ercf = ercf;
+    }
+
+    /**
      * Returns optional ercf model.
      *
      * @return the ercf model or empty
