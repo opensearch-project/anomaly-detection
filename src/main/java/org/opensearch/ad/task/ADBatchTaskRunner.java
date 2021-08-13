@@ -387,7 +387,7 @@ public class ADBatchTaskRunner {
             internalHCListener.onFailure(e);
         });
 
-        int minimumDocCount = Math.min((int) (bucketInterval / adTask.getDetector().getDetectorIntervalInMilliseconds()), 1);
+        int minimumDocCount = Math.min((int) (bucketInterval / adTask.getDetector().getDetectorIntervalInMilliseconds()) / 2, 1);
         searchFeatureDao
             .getHighestCountEntities(
                 adTask.getDetector(),
