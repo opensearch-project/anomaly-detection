@@ -15,3 +15,4 @@ out/
 .vscode
 bin/
 src/test/resources/job-scheduler
+lombok.config

@@ -29,11 +29,14 @@ package org.opensearch.ad.ml;
 import java.util.Optional;
 import java.util.Queue;
 
+import lombok.Data;
+
 import org.opensearch.ad.model.Entity;
 
 import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
 import com.amazon.randomcutforest.RandomCutForest;
 
+@Data
 public class EntityModel {
     private Entity entity;
     // TODO: sample should record timestamp
