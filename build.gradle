@@ -67,8 +67,6 @@ ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
 }
 
-version = "${opensearchVersion}.0"
-
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'opensearch.opensearchplugin'
@@ -79,6 +77,11 @@ apply plugin: 'eclipse'
 
 allprojects {
     group = 'org.opensearch'
+
+    version = "${opensearch_version}" - "-SNAPSHOT" + ".0"
+    if (isSnapshot) {
+        version += "-SNAPSHOT"
+    }
 
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = "1.8"
