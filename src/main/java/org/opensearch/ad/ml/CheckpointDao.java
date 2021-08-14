@@ -82,6 +82,9 @@ import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ScrollableHitSource;
 
+import com.amazon.randomcutforest.ERCF.ERCFMapper;
+import com.amazon.randomcutforest.ERCF.ERCFState;
+import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
@@ -116,6 +119,7 @@ public class CheckpointDao {
     public static final String ENTITY_SAMPLE = "sp";
     public static final String ENTITY_RCF = "rcf";
     public static final String ENTITY_THRESHOLD = "th";
+    public static final String ENTITY_ERCF = "ercf";
     public static final String FIELD_MODEL = "model";
     public static final String FIELD_MODELV2 = "modelV2";
     public static final String TIMESTAMP = "timestamp";
@@ -132,6 +136,8 @@ public class CheckpointDao {
     private RandomCutForestMapper mapper;
     private Schema<RandomCutForestState> schema;
     private V1JsonToV2StateConverter converter;
+    private ERCFMapper ercfMapper;
+    private Schema<ERCFState> ercfSchema;
 
     private final Class<? extends ThresholdingModel> thresholdingModelClass;
 
@@ -154,6 +160,8 @@ public class CheckpointDao {
      * @param mapper RCF model serialization utility
      * @param schema RandomCutForestState schema used by ProtoStuff
      * @param converter converter from rcf v1 serde to protostuff based format
+     * @param ercfMapper ERCF serialization mapper
+     * @param ercfSchema ERCF serialization schema
      * @param thresholdingModelClass thresholding model's class
      * @param indexUtil Index utility methods
      * @param maxCheckpointBytes max checkpoint size in bytes
@@ -168,6 +176,8 @@ public class CheckpointDao {
         RandomCutForestMapper mapper,
         Schema<RandomCutForestState> schema,
         V1JsonToV2StateConverter converter,
+        ERCFMapper ercfMapper,
+        Schema<ERCFState> ercfSchema,
         Class<? extends ThresholdingModel> thresholdingModelClass,
         AnomalyDetectionIndices indexUtil,
         int maxCheckpointBytes,
@@ -181,6 +191,8 @@ public class CheckpointDao {
         this.mapper = mapper;
         this.schema = schema;
         this.converter = converter;
+        this.ercfMapper = ercfMapper;
+        this.ercfSchema = ercfSchema;
         this.thresholdingModelClass = thresholdingModelClass;
         this.indexUtil = indexUtil;
         this.maxCheckpointBytes = maxCheckpointBytes;
@@ -337,8 +349,67 @@ public class CheckpointDao {
             if (model.getThreshold() != null) {
                 json.addProperty(ENTITY_THRESHOLD, gson.toJson(model.getThreshold()));
             }
+            if (model.getErcf().isPresent()) {
+                json.addProperty(ENTITY_ERCF, toCheckpoint(model.getErcf().get()));
+            }
             return gson.toJson(json);
         });
+    }
+
+    private String toCheckpoint(ExtendedRandomCutForest ercf) {
+        String checkpoint = null;
+        Map.Entry<LinkedBuffer, Boolean> result = checkoutOrNewBuffer();
+        LinkedBuffer buffer = result.getKey();
+        boolean requireCheckin = result.getValue();
+        try {
+            checkpoint = toCheckpoint(ercf, buffer);
+        } catch (RuntimeException e) {
+            logger.error("Failed to serialize model", e);
+            if (requireCheckin) {
+                try {
+                    serializeRCFBufferPool.invalidateObject(buffer);
+                    requireCheckin = false;
+                } catch (Exception x) {
+                    logger.warn("Failed to invalidate buffer", x);
+                }
+                checkpoint = toCheckpoint(ercf, LinkedBuffer.allocate(serializeRCFBufferSize));
+            }
+        } finally {
+            if (requireCheckin) {
+                try {
+                    serializeRCFBufferPool.returnObject(buffer);
+                } catch (Exception e) {
+                    logger.warn("Failed to return buffer to pool", e);
+                }
+            }
+        }
+        return checkpoint;
+    }
+
+    private Map.Entry<LinkedBuffer, Boolean> checkoutOrNewBuffer() {
+        LinkedBuffer buffer = null;
+        boolean requireCheckin = true;
+        try {
+            buffer = serializeRCFBufferPool.borrowObject();
+        } catch (Exception e) {
+            logger.warn("Failed to borrow a buffer from pool", e);
+        }
+        if (buffer == null) {
+            buffer = LinkedBuffer.allocate(serializeRCFBufferSize);
+            requireCheckin = false;
+        }
+        return new SimpleImmutableEntry(buffer, requireCheckin);
+    }
+
+    private String toCheckpoint(ExtendedRandomCutForest ercf, LinkedBuffer buffer) {
+        try {
+            ERCFState ercfState = ercfMapper.toState(ercf);
+            byte[] bytes = AccessController
+                .doPrivileged((PrivilegedAction<byte[]>) () -> ProtostuffIOUtil.toByteArray(ercfState, ercfSchema, buffer));
+            return Base64.getEncoder().encodeToString(bytes);
+        } finally {
+            buffer.clear();
+        }
     }
 
     private String rcfModelToCheckpoint(RandomCutForest model) {

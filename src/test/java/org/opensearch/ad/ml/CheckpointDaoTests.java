@@ -26,11 +26,15 @@
 
 package org.opensearch.ad.ml;
 
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -105,6 +109,8 @@ import test.org.opensearch.ad.util.JsonDeserializer;
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
+import com.amazon.randomcutforest.ERCF.ERCFMapper;
+import com.amazon.randomcutforest.ERCF.ERCFState;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
@@ -137,6 +143,12 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
     @Mock
     private AnomalyDetectionIndices indexUtil;
+
+    @Mock
+    private ERCFMapper ercfMapper;
+
+    @Mock
+    private Schema<ERCFState> ercfSchema;
 
     // configuration
     private String indexName;
@@ -177,7 +189,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         long heapSizeBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
 
-        serializeRCFBufferPool = AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
+        serializeRCFBufferPool = spy(AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
             @Override
             public GenericObjectPool<LinkedBuffer> run() {
                 return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
@@ -192,7 +204,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
                     }
                 });
             }
-        });
+        }));
         serializeRCFBufferPool.setMaxTotal(AnomalyDetectorSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
         serializeRCFBufferPool.setMaxIdle(AnomalyDetectorSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
         serializeRCFBufferPool.setMinIdle(0);
@@ -207,6 +219,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             mapper,
             schema,
             converter,
+            ercfMapper,
+            ercfSchema,
             thresholdingModelClass,
             indexUtil,
             maxCheckpointBytes,
@@ -594,6 +608,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             mapper,
             schema,
             converter,
+            ercfMapper,
+            ercfSchema,
             thresholdingModelClass,
             indexUtil,
             1, // make the max checkpoint size 1 byte only
@@ -624,6 +640,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             mapper,
             schema,
             converter,
+            ercfMapper,
+            ercfSchema,
             thresholdingModelClass,
             indexUtil,
             1, // make the max checkpoint size 1 byte only
@@ -647,6 +665,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             mockMapper,
             schema,
             converter,
+            ercfMapper,
+            ercfSchema,
             thresholdingModelClass,
             indexUtil,
             1, // make the max checkpoint size 1 byte only
@@ -659,6 +679,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertEquals(null, JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_RCF));
         assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_SAMPLE));
         assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_THRESHOLD));
+        assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_ERCF));
     }
 
     public void testEmptySample() throws IOException {
@@ -667,5 +688,44 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_RCF));
         assertEquals(null, JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_SAMPLE));
         assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_THRESHOLD));
+        assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_ERCF));
+    }
+
+    public void testToCheckpointErcfCheckoutFail() throws Exception {
+        when(serializeRCFBufferPool.borrowObject()).thenThrow(RuntimeException.class);
+
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).sampleSize(0).build());
+        String json = checkpointDao.toCheckpoint(state.getModel());
+
+        assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_ERCF));
+    }
+
+    public void testToCheckpointErcfCheckoutBufferFail() throws Exception {
+        when(ercfMapper.toState(any())).thenThrow(RuntimeException.class).thenReturn(null);
+
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).sampleSize(0).build());
+        String json = checkpointDao.toCheckpoint(state.getModel());
+
+        assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_ERCF));
+    }
+
+    public void testToCheckpointErcfFailNewBuffer() throws Exception {
+        doReturn(null).when(serializeRCFBufferPool).borrowObject();
+        when(ercfMapper.toState(any())).thenThrow(RuntimeException.class);
+
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).sampleSize(0).build());
+        String json = checkpointDao.toCheckpoint(state.getModel());
+
+        assertNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_ERCF));
+    }
+
+    public void testToCheckpointErcfCheckoutBufferInvalidateFail() throws Exception {
+        when(ercfMapper.toState(any())).thenThrow(RuntimeException.class).thenReturn(null);
+        doThrow(RuntimeException.class).when(serializeRCFBufferPool).invalidateObject(any());
+
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).sampleSize(0).build());
+        String json = checkpointDao.toCheckpoint(state.getModel());
+
+        assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_ERCF));
     }
 }
