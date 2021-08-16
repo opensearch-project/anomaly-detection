@@ -28,9 +28,11 @@ package org.opensearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SZIE;
 
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -54,6 +56,8 @@ import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.monitor.jvm.JvmStats;
@@ -95,10 +99,18 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
         nodeStatName1 = "nodeStat1";
         nodeStatName2 = "nodeStat2";
 
+        Settings settings = Settings.builder().put(MAX_MODEL_SZIE.getKey(), 10).build();
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SZIE)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
         statsMap = new HashMap<String, ADStat<?>>() {
             {
                 put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
-                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider)));
+                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService)));
                 put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
                 put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
                 put(InternalStatNames.JVM_HEAP_USAGE.getName(), new ADStat<>(true, new SettableSupplier()));

@@ -37,6 +37,7 @@ import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -60,6 +61,8 @@ import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileRequest;
@@ -80,6 +83,11 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
+import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -92,6 +100,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private DiscoveryNodeFilterer nodeFilter;
     private final TransportService transportService;
     private final ADTaskManager adTaskManager;
+    private final int maxTotalEntitiesToTrack;
 
     public AnomalyDetectorProfileRunner(
         Client client,
@@ -110,6 +119,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         }
         this.transportService = transportService;
         this.adTaskManager = adTaskManager;
+        this.maxTotalEntitiesToTrack = AnomalyDetectorSettings.MAX_TOTAL_ENTITIES_TO_TRACK;
     }
 
     public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profilesToCollect) {
@@ -231,7 +241,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                                 delegateListener.onResponse(profileBuilder.build());
                             } else {
                                 // detector state for this detector does not exist
-                                listener.onResponse(profileBuilder.build());
+                                delegateListener.onResponse(profileBuilder.build());
                             }
                         }, transportService, false, delegateListener);
                     }
@@ -290,26 +300,69 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     private void profileEntityStats(MultiResponsesDelegateActionListener<DetectorProfile> listener, AnomalyDetector detector) {
         List<String> categoryField = detector.getCategoryField();
-        if (categoryField == null || categoryField.size() != 1) {
+        if (categoryField == null || categoryField.size() == 0 || categoryField.size() > NumericSetting.maxCategoricalFields()) {
             listener.onResponse(new DetectorProfile.Builder().build());
         } else {
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-            CardinalityAggregationBuilder aggBuilder = new CardinalityAggregationBuilder(CommonName.TOTAL_ENTITIES);
-            aggBuilder.field(categoryField.get(0));
-            searchSourceBuilder.aggregation(aggBuilder);
+            if (categoryField.size() == 1) {
+                // Run a cardinality aggregation to count the cardinality of single category fields
+                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+                CardinalityAggregationBuilder aggBuilder = new CardinalityAggregationBuilder(CommonName.TOTAL_ENTITIES);
+                aggBuilder.field(categoryField.get(0));
+                searchSourceBuilder.aggregation(aggBuilder);
 
-            SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
-            client.search(request, ActionListener.wrap(searchResponse -> {
-                Map<String, Aggregation> aggMap = searchResponse.getAggregations().asMap();
-                InternalCardinality totalEntities = (InternalCardinality) aggMap.get(CommonName.TOTAL_ENTITIES);
-                long value = totalEntities.getValue();
-                DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
-                DetectorProfile profile = profileBuilder.totalEntities(value).build();
-                listener.onResponse(profile);
-            }, searchException -> {
-                logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
-                listener.onFailure(searchException);
-            }));
+                SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
+                client.search(request, ActionListener.wrap(searchResponse -> {
+                    Map<String, Aggregation> aggMap = searchResponse.getAggregations().asMap();
+                    InternalCardinality totalEntities = (InternalCardinality) aggMap.get(CommonName.TOTAL_ENTITIES);
+                    long value = totalEntities.getValue();
+                    DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
+                    DetectorProfile profile = profileBuilder.totalEntities(value).build();
+                    listener.onResponse(profile);
+                }, searchException -> {
+                    logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
+                    listener.onFailure(searchException);
+                }));
+            } else {
+                // Run a composite query and count the number of buckets to decide cardinality of multiple category fields
+                AggregationBuilder bucketAggs = AggregationBuilders
+                    .composite(
+                        CommonName.TOTAL_ENTITIES,
+                        detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+                    )
+                    .size(maxTotalEntitiesToTrack);
+                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(bucketAggs).trackTotalHits(false).size(0);
+                SearchRequest searchRequest = new SearchRequest()
+                    .indices(detector.getIndices().toArray(new String[0]))
+                    .source(searchSourceBuilder);
+                client.search(searchRequest, ActionListener.wrap(searchResponse -> {
+                    DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
+                    Aggregations aggs = searchResponse.getAggregations();
+                    if (aggs == null) {
+                        // This would indicate some bug or some opensearch core changes that we are not aware of (we don't keep up-to-date
+                        // with
+                        // the large amounts of changes there). For example, they may change to if there are results return it; otherwise
+                        // return
+                        // null instead of an empty Aggregations as they currently do.
+                        logger.warn("Unexpected null aggregation.");
+                        listener.onResponse(profileBuilder.totalEntities(0L).build());
+                        return;
+                    }
+
+                    Aggregation aggrResult = aggs.get(CommonName.TOTAL_ENTITIES);
+                    if (aggrResult == null) {
+                        listener.onFailure(new IllegalArgumentException("Fail to find valid aggregation result"));
+                        return;
+                    }
+
+                    CompositeAggregation compositeAgg = (CompositeAggregation) aggrResult;
+                    DetectorProfile profile = profileBuilder.totalEntities(Long.valueOf(compositeAgg.getBuckets().size())).build();
+                    listener.onResponse(profile);
+                }, searchException -> {
+                    logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
+                    listener.onFailure(searchException);
+                }));
+            }
+
         }
     }
 
@@ -385,6 +438,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             }
             if (profilesToCollect.contains(DetectorProfileName.MODELS)) {
                 profile.modelProfile(profileResponse.getModelProfile());
+                profile.modelCount(profileResponse.getModelCount());
             }
             if (isMultientityDetector && profilesToCollect.contains(DetectorProfileName.ACTIVE_ENTITIES)) {
                 profile.activeEntities(profileResponse.getActiveEntities());

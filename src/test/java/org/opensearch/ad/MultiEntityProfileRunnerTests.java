@@ -218,7 +218,8 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
                 shingleSize,
                 1L,
                 updates,
-                new ArrayList<>()
+                new ArrayList<>(),
+                modelSizeMap1.size()
             );
             ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
                 discoveryNode2,
@@ -226,7 +227,8 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
                 shingleSize,
                 1L,
                 updates,
-                new ArrayList<>()
+                new ArrayList<>(),
+                modelSizeMap2.size()
             );
             List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
             List<FailedNodeException> failures = Collections.emptyList();

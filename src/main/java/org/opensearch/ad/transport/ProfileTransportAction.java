@@ -26,6 +26,8 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SZIE;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,7 @@ import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
@@ -53,6 +56,8 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
+    // the number of models to return. Defaults to 10.
+    private volatile int modelToReturn;
 
     /**
      * Constructor
@@ -64,6 +69,7 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
      * @param modelManager model manager object
      * @param featureManager feature manager object
      * @param cacheProvider cache provider
+     * @param settings Node settings accessor
      */
     @Inject
     public ProfileTransportAction(
@@ -73,7 +79,8 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         ActionFilters actionFilters,
         ModelManager modelManager,
         FeatureManager featureManager,
-        CacheProvider cacheProvider
+        CacheProvider cacheProvider,
+        Settings settings
     ) {
         super(
             ProfileAction.NAME,
@@ -89,6 +96,8 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
+        this.modelToReturn = MAX_MODEL_SZIE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SZIE, it -> this.modelToReturn = it);
     }
 
     @Override
@@ -115,6 +124,7 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         long totalUpdates = 0;
         Map<String, Long> modelSize = null;
         List<ModelProfile> modelProfiles = null;
+        int modelCount = 0;
         if (request.isForMultiEntityDetector()) {
             if (profiles.contains(DetectorProfileName.ACTIVE_ENTITIES)) {
                 activeEntity = cacheProvider.get().getActiveEntities(detectorId);
@@ -128,6 +138,11 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
             // need to provide entity info for HCAD
             if (profiles.contains(DetectorProfileName.MODELS)) {
                 modelProfiles = cacheProvider.get().getAllModelProfile(detectorId);
+                modelCount = modelProfiles.size();
+                int limit = Math.min(modelToReturn, modelCount);
+                if (limit != modelCount) {
+                    modelProfiles = modelProfiles.subList(0, limit);
+                }
             }
         } else {
             if (profiles.contains(DetectorProfileName.COORDINATING_NODE) || profiles.contains(DetectorProfileName.SHINGLE_SIZE)) {
@@ -139,6 +154,14 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
             }
         }
 
-        return new ProfileNodeResponse(clusterService.localNode(), modelSize, shingleSize, activeEntity, totalUpdates, modelProfiles);
+        return new ProfileNodeResponse(
+            clusterService.localNode(),
+            modelSize,
+            shingleSize,
+            activeEntity,
+            totalUpdates,
+            modelProfiles,
+            modelCount
+        );
     }
 }
