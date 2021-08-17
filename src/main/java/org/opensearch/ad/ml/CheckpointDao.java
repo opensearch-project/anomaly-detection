@@ -547,6 +547,10 @@ public class CheckpointDao {
                 ArrayDeque<double[]> samples = new ArrayDeque<>(
                     Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
                 );
+                ExtendedRandomCutForest ercf = null;
+                if (json.has(ENTITY_ERCF)) {
+                    ercf = toErcf(json.getAsJsonPrimitive(ENTITY_ERCF).getAsString());
+                }
                 RandomCutForest rcf = null;
                 if (json.has(ENTITY_RCF)) {
                     String serializedRCF = json.getAsJsonPrimitive(ENTITY_RCF).getAsString();
@@ -569,12 +573,32 @@ public class CheckpointDao {
                         logger.error(new ParameterizedMessage("fail to parse entity", serializedEntity), e);
                     }
                 }
-                return Optional.of(new SimpleImmutableEntry<>(new EntityModel(entity, samples, rcf, threshold), timestamp));
+                EntityModel entityModel = new EntityModel(entity, samples, rcf, threshold);
+                entityModel.setErcf(ercf);
+                return Optional.of(new SimpleImmutableEntry<>(entityModel, timestamp));
             });
         } catch (Exception e) {
             logger.warn("Exception while deserializing checkpoint", e);
             throw e;
         }
+    }
+
+    private ExtendedRandomCutForest toErcf(String checkpoint) {
+        ExtendedRandomCutForest ercf = null;
+        if (checkpoint != null) {
+            try {
+                byte[] bytes = Base64.getDecoder().decode(checkpoint);
+                ERCFState ercfState = ercfSchema.newMessage();
+                AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+                    ProtostuffIOUtil.mergeFrom(bytes, ercfState, ercfSchema);
+                    return null;
+                });
+                ercf = ercfMapper.toModel(ercfState);
+            } catch (RuntimeException e) {
+                logger.error("Failed to deserialize ERCF model", e);
+            }
+        }
+        return ercf;
     }
 
     private RandomCutForest deserializeRCFModel(String rcfCheckpoint) {

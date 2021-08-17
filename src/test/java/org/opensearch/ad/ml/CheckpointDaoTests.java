@@ -39,6 +39,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.ml.CheckpointDao.FIELD_MODELV2;
+import static org.opensearch.ad.ml.CheckpointDao.TIMESTAMP;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -727,5 +728,52 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         String json = checkpointDao.toCheckpoint(state.getModel());
 
         assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_ERCF));
+    }
+
+    public void testFromEntityModelCheckpointWithErcf() throws Exception {
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        checkpointDao = new CheckpointDao(
+            client,
+            clientUtil,
+            indexName,
+            gson,
+            mapper,
+            schema,
+            converter,
+            new ERCFMapper(),
+            AccessController.doPrivileged((PrivilegedAction<Schema<ERCFState>>) () -> RuntimeSchema.getSchema(ERCFState.class)),
+            thresholdingModelClass,
+            indexUtil,
+            maxCheckpointBytes,
+            serializeRCFBufferPool,
+            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES
+        );
+        String model = checkpointDao.toCheckpoint(state.getModel());
+
+        Map<String, Object> entity = new HashMap<>();
+        entity.put(FIELD_MODELV2, model);
+        entity.put(TIMESTAMP, Instant.now().toString());
+        Optional<Entry<EntityModel, Instant>> result = checkpointDao.fromEntityModelCheckpoint(entity, this.modelId);
+
+        assertTrue(result.isPresent());
+        Entry<EntityModel, Instant> pair = result.get();
+        EntityModel entityModel = pair.getKey();
+        assertTrue(entityModel.getErcf().isPresent());
+    }
+
+    public void testFromEntityModelCheckpointErcfMapperFail() throws Exception {
+        when(ercfMapper.toModel(any())).thenThrow(RuntimeException.class);
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        String model = checkpointDao.toCheckpoint(state.getModel());
+
+        Map<String, Object> entity = new HashMap<>();
+        entity.put(FIELD_MODELV2, model);
+        entity.put(TIMESTAMP, Instant.now().toString());
+        Optional<Entry<EntityModel, Instant>> result = checkpointDao.fromEntityModelCheckpoint(entity, this.modelId);
+
+        assertTrue(result.isPresent());
+        Entry<EntityModel, Instant> pair = result.get();
+        EntityModel entityModel = pair.getKey();
+        assertFalse(entityModel.getErcf().isPresent());
     }
 }
