@@ -74,7 +74,6 @@ jobs:
           ls ../src/test/resources/job-scheduler
           echo "Creating ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
           mkdir -p ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
-          pwd
           echo "Copying ./build/distributions/*.zip to ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
           ls ./build/distributions/
           cp ./build/distributions/*.zip ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
@@ -86,7 +85,6 @@ jobs:
           ./gradlew assemble -Dopensearch.version=1.1.0-SNAPSHOT
           echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT ..."
           mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT
-          pwd
           echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT ..."
           ls ./build/distributions/
           cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT
@@ -147,17 +145,17 @@ jobs:
       - name: Mixed cluster backwards compatibility tests
         run: |
           echo "Running mixed cluster backwards compatibility tests ..."
-          ./gradlew adBwcCluster#mixedClusterTask -DmixedCluster=123 -Dtests.security.manager=false
+          ./gradlew adBwcCluster#mixedClusterTask -DmixedCluster=true -Dtests.security.manager=false
 
       - name: Rolling upgrade backwards compatibility tests
         run: |    
           echo "Running rolling upgrade backwards compatibility tests ..."
-          ./gradlew adBwcCluster#rollingUpgradeClusterTask -DrollingUpgradeCluster=123 -Dtests.security.manager=false
+          ./gradlew adBwcCluster#rollingUpgradeClusterTask -DrollingUpgradeCluster=true -Dtests.security.manager=false
 
       - name: Full cluster restart backwards compatibility tests
         run: |     
           echo "Running full restart cluster backwards compatibility tests ..."
-          ./gradlew adBwcCluster#fullRestartClusterTask -DfullRestartCluster=123 -Dtests.security.manager=false
+          ./gradlew adBwcCluster#fullRestartClusterTask -DfullRestartCluster=true -Dtests.security.manager=false
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
