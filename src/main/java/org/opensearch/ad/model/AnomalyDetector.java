@@ -655,6 +655,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return AnomalyDetector.isMultientityDetector(getCategoryField());
     }
 
+    public boolean isMultiCategoryDetector() {
+        return categoryFields != null && categoryFields.size() > 1;
+    }
+
     private static boolean isMultientityDetector(List<String> categoryFields) {
         return categoryFields != null && categoryFields.size() > 0;
     }

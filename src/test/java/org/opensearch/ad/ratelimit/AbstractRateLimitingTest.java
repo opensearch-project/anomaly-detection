@@ -59,8 +59,8 @@ public class AbstractRateLimitingTest extends AbstractADTest {
             return null;
         }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
 
-        entity = Entity.createSingleAttributeEntity(detectorId, categoryField, "value");
-        entity2 = Entity.createSingleAttributeEntity(detectorId, categoryField, "value2");
-        entity3 = Entity.createSingleAttributeEntity(detectorId, categoryField, "value3");
+        entity = Entity.createSingleAttributeEntity(categoryField, "value");
+        entity2 = Entity.createSingleAttributeEntity(categoryField, "value2");
+        entity3 = Entity.createSingleAttributeEntity(categoryField, "value3");
     }
 }

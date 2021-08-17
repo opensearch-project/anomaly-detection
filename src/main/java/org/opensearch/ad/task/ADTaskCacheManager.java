@@ -86,6 +86,8 @@ public class ADTaskCacheManager {
     private Map<String, ADHCBatchTaskCache> hcTaskCaches;
     // cache deleted detector level tasks
     private Queue<String> deletedDetectorTasks;
+    // cache deleted detectors
+    private Queue<String> deletedDetectors;
 
     // This field is to cache all realtime tasks. Key is detector id
     private Map<String, ADRealtimeTaskCache> realtimeTaskCaches;
@@ -108,6 +110,7 @@ public class ADTaskCacheManager {
         this.hcTaskCaches = new ConcurrentHashMap<>();
         this.realtimeTaskCaches = new ConcurrentHashMap<>();
         this.deletedDetectorTasks = new ConcurrentLinkedQueue<>();
+        this.deletedDetectors = new ConcurrentLinkedQueue<>();
     }
 
     /**
@@ -796,7 +799,7 @@ public class ADTaskCacheManager {
      * @param newError new error
      * @return true if realtime task changed comparing with realtime task cache.
      */
-    public boolean checkIfRealtimeTaskChanged(String detectorId, String newState, Float newInitProgress, String newError) {
+    public boolean isRealtimeTaskChanged(String detectorId, String newState, Float newInitProgress, String newError) {
         if (realtimeTaskCaches.containsKey(detectorId)) {
             ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
             boolean stateChanged = false;
@@ -902,4 +905,43 @@ public class ADTaskCacheManager {
         return this.deletedDetectorTasks.poll();
     }
 
+    /**
+     * Add deleted detector's id to deleted detector queue.
+     * @param detectorId detector id
+     */
+    public void addDeletedDetector(String detectorId) {
+        if (deletedDetectors.size() < maxCachedDeletedTask) {
+            deletedDetectors.add(detectorId);
+        }
+    }
+
+    /**
+     * Poll one deleted detector.
+     * @return detector id
+     */
+    public String pollDeletedDetector() {
+        return this.deletedDetectors.poll();
+    }
+
+    /**
+     * Check if detector level task's state changed or not.
+     * @param detectorId detector id
+     * @param newState new state
+     * @return true if detector level task state changed
+     */
+    public synchronized boolean isDetectorTaskStateChanged(String detectorId, String newState) {
+        if (hcTaskCaches.containsKey(detectorId)) {
+            return !Objects.equals(hcTaskCaches.get(detectorId).getDetectorTaskState(), newState);
+        }
+        return true;
+    }
+
+    /**
+     * Update detector level task's state in cache.
+     * @param detectorId detector id
+     * @param newState new state
+     */
+    public synchronized void updateDetectorTaskState(String detectorId, String newState) {
+        this.getHCTaskCache(detectorId).setDetectorTaskState(newState);
+    }
 }

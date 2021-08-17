@@ -162,7 +162,7 @@ public class EntityProfileTests extends AbstractADTest {
         future = new PlainActionFuture<>();
         transportAddress1 = new TransportAddress(new InetSocketAddress(InetAddress.getByName("1.2.3.4"), 9300));
 
-        entity = Entity.createSingleAttributeEntity(detectorId, categoryName, entityValue);
+        entity = Entity.createSingleAttributeEntity(categoryName, entityValue);
 
         request = new EntityProfileRequest(detectorId, entity, state);
 

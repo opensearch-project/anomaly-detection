@@ -737,7 +737,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void testHostException() throws IOException {
         String detectorId2 = "456";
-        Entity entity4 = Entity.createSingleAttributeEntity(detectorId2, categoryField, "value4");
+        Entity entity4 = Entity.createSingleAttributeEntity(categoryField, "value4");
         EntityFeatureRequest request4 = new EntityFeatureRequest(
             Integer.MAX_VALUE,
             detectorId2,

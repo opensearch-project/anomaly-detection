@@ -131,6 +131,9 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         // clean child tasks and AD results of deleted detector level task
         adTaskManager.cleanChildTasksAndADResultsOfDeletedTask();
 
+        // clean AD results of deleted detector
+        adTaskManager.cleanADResultOfDeletedDetector();
+
         // maintain running historical tasks: reset task state as stopped if not running and clean stale running entities
         adTaskManager.maintainRunningHistoricalTasks(transportService, request.getRequestId(), 100);
 

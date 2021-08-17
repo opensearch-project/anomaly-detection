@@ -114,7 +114,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         };
         categoryField = "catField";
         categoryValue = "app-0";
-        entity = Entity.createSingleAttributeEntity("detectorId", categoryField, categoryValue);
+        entity = Entity.createSingleAttributeEntity(categoryField, categoryValue);
     }
 
     @Override

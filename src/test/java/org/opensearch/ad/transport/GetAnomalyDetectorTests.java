@@ -124,7 +124,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
             adTaskManager
         );
 
-        entity = Entity.createSingleAttributeEntity(detectorId, categoryField, entityValue);
+        entity = Entity.createSingleAttributeEntity(categoryField, entityValue);
     }
 
     public void testInvalidRequest() throws IOException {
