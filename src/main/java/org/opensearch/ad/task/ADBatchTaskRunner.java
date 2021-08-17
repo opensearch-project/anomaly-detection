@@ -387,7 +387,7 @@ public class ADBatchTaskRunner {
             internalHCListener.onFailure(e);
         });
 
-        int minimumDocCount = Math.min((int) (bucketInterval / adTask.getDetector().getDetectorIntervalInMilliseconds()) / 2, 1);
+        int minimumDocCount = Math.max((int) (bucketInterval / adTask.getDetector().getDetectorIntervalInMilliseconds()) / 2, 1);
         searchFeatureDao
             .getHighestCountEntities(
                 adTask.getDetector(),
@@ -539,8 +539,8 @@ public class ADBatchTaskRunner {
                                 .executionStartTime(now)
                                 .taskProgress(0.0f)
                                 .initProgress(0.0f)
-                                .state(ADTaskState.INIT.name()) // TODO where to set INIT state
-                                .initProgress(0.0f) // TODO where to set INIT state
+                                .state(ADTaskState.INIT.name())
+                                .initProgress(0.0f)
                                 .lastUpdateTime(now)
                                 .startedBy(adTask.getStartedBy())
                                 .coordinatingNode(clusterService.localNode().getId())
@@ -1237,7 +1237,7 @@ public class ADBatchTaskRunner {
                             ActionListener
                                 .wrap(
                                     r -> { adTaskCacheManager.updateDetectorTaskState(detectorId, newState); },
-                                    e -> { logger.debug("Failed to update detector level task " + detectorTaskId, e); }
+                                    e -> { logger.error("Failed to update detector level task " + detectorTaskId, e); }
                                 )
                         );
                 }
