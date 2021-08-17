@@ -141,7 +141,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             return null;
         }).when(client).get(any(), any());
 
-        entity = Entity.createSingleAttributeEntity(detectorId, categoryField, entityValue);
+        entity = Entity.createSingleAttributeEntity(categoryField, entityValue);
     }
 
     @SuppressWarnings("unchecked")

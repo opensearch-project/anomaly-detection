@@ -65,7 +65,7 @@ public class EntityProfileRequest extends ActionRequest implements ToXContentObj
             // Cannot assign null to entityValue as old node has no logic to
             // deal with a null entity.
             String oldFormatEntityString = in.readString();
-            entityValue = Entity.createSingleAttributeEntity(adID, CommonName.EMPTY_FIELD, oldFormatEntityString);
+            entityValue = Entity.createSingleAttributeEntity(CommonName.EMPTY_FIELD, oldFormatEntityString);
         }
         int size = in.readVInt();
         profilesToCollect = new HashSet<EntityProfileName>();

@@ -317,10 +317,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         String newState = ADTaskState.INIT.name();
         Float newInitProgress = 0.0f;
         String newError = randomAlphaOfLength(5);
-        assertTrue(adTaskCacheManager.checkIfRealtimeTaskChanged(detectorId1, newState, newInitProgress, newError));
+        assertTrue(adTaskCacheManager.isRealtimeTaskChanged(detectorId1, newState, newInitProgress, newError));
 
         adTaskCacheManager.updateRealtimeTaskCache(detectorId1, newState, newInitProgress, newError);
-        assertFalse(adTaskCacheManager.checkIfRealtimeTaskChanged(detectorId1, newState, newInitProgress, newError));
+        assertFalse(adTaskCacheManager.isRealtimeTaskChanged(detectorId1, newState, newInitProgress, newError));
         assertArrayEquals(new String[] { detectorId1 }, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache());
 
         // If detector id doesn't exist in realtime task cache, will create new realtime task cache.
@@ -331,7 +331,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         newState = ADTaskState.RUNNING.name();
         newInitProgress = 1.0f;
         newError = "test error";
-        assertTrue(adTaskCacheManager.checkIfRealtimeTaskChanged(detectorId1, newState, newInitProgress, newError));
+        assertTrue(adTaskCacheManager.isRealtimeTaskChanged(detectorId1, newState, newInitProgress, newError));
         adTaskCacheManager.updateRealtimeTaskCache(detectorId1, newState, newInitProgress, newError);
         assertEquals(newInitProgress, adTaskCacheManager.getRealtimeTaskCache(detectorId1).getInitProgress());
         assertEquals(newState, adTaskCacheManager.getRealtimeTaskCache(detectorId1).getState());

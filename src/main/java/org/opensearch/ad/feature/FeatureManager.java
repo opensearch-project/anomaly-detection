@@ -688,12 +688,13 @@ public class FeatureManager implements CleanState {
 
     public void getFeatureDataPointsByBatch(
         AnomalyDetector detector,
+        Entity entity,
         long startTime,
         long endTime,
         ActionListener<Map<Long, Optional<double[]>>> listener
     ) {
         try {
-            searchFeatureDao.getFeaturesForPeriodByBatch(detector, startTime, endTime, ActionListener.wrap(points -> {
+            searchFeatureDao.getFeaturesForPeriodByBatch(detector, entity, startTime, endTime, ActionListener.wrap(points -> {
                 logger.debug("features size: {}", points.size());
                 listener.onResponse(points);
             }, listener::onFailure));

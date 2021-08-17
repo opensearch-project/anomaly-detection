@@ -252,7 +252,7 @@ public class CompositeRetriever extends AbstractRetriever {
                 Optional<double[]> featureValues = parseBucket(bucket, anomalyDetector.getEnabledFeatureIds());
                 // bucket.getKey() returns a map of categorical field like "host" and its value like "server_1"
                 if (featureValues.isPresent() && bucket.getKey() != null) {
-                    results.put(Entity.createEntityByReordering(anomalyDetector.getDetectorId(), bucket.getKey()), featureValues.get());
+                    results.put(Entity.createEntityByReordering(bucket.getKey()), featureValues.get());
                 }
             }
 

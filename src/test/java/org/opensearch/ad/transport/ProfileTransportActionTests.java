@@ -94,8 +94,8 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
         String field = "field";
         String fieldVal1 = "value1";
         String fieldVal2 = "value2";
-        Entity entity1 = Entity.createSingleAttributeEntity(detectorId, field, fieldVal1);
-        Entity entity2 = Entity.createSingleAttributeEntity(detectorId, field, fieldVal2);
+        Entity entity1 = Entity.createSingleAttributeEntity(field, fieldVal1);
+        Entity entity2 = Entity.createSingleAttributeEntity(field, fieldVal2);
         modelProfiles.add(new ModelProfile(modelId1, entity1, multiEntityModelSize));
         modelProfiles.add(new ModelProfile(modelId1, entity2, multiEntityModelSize));
         when(cache.getAllModelProfile(anyString())).thenReturn(modelProfiles);

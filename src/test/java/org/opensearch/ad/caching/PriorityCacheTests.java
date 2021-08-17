@@ -485,8 +485,8 @@ public class PriorityCacheTests extends AbstractCacheTest {
     }
 
     private void replaceInOtherCacheSetUp() {
-        Entity entity5 = Entity.createSingleAttributeEntity(detectorId2, "attributeName1", "attributeVal5");
-        Entity entity6 = Entity.createSingleAttributeEntity(detectorId2, "attributeName1", "attributeVal6");
+        Entity entity5 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal5");
+        Entity entity6 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal6");
         ModelState<EntityModel> modelState5 = new ModelState<>(
             new EntityModel(entity5, new ArrayDeque<>(), null, null),
             entity5.getModelId(detectorId2).get(),
@@ -578,7 +578,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         assertTrue(null != cacheProvider.get(entity1.getModelId(detectorId).get(), detector));
         assertTrue(null != cacheProvider.get(entity2.getModelId(detectorId).get(), detector));
 
-        Entity entity5 = Entity.createSingleAttributeEntity(detectorId2, "attributeName1", "attributeVal5");
+        Entity entity5 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal5");
         when(memoryTracker.memoryToShed()).thenReturn(memoryPerEntity);
         for (int i = 0; i < 2; i++) {
             // bypass doorkeeper, CacheBuffer created, and trigger clearMemory

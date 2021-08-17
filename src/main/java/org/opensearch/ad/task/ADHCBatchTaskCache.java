@@ -18,6 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.opensearch.ad.model.ADTaskState;
+
 /**
  * AD HC detector batch task cache which will mainly hold these for HC detector
  * 1. pending entities queue
@@ -61,6 +63,9 @@ public class ADHCBatchTaskCache {
     // Record how many times the task has retried. Key is task id.
     private Map<String, AtomicInteger> taskRetryTimes;
 
+    // detector level task state
+    private String detectorTaskState;
+
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
         this.runningEntities = new ConcurrentLinkedQueue<>();
@@ -68,6 +73,7 @@ public class ADHCBatchTaskCache {
         this.taskRetryTimes = new ConcurrentHashMap<>();
         this.detectorTaskUpdating = false;
         this.topEntitiesInited = false;
+        this.detectorTaskState = ADTaskState.INIT.name();
     }
 
     public void setTopEntityCount(Integer topEntityCount) {
@@ -112,6 +118,14 @@ public class ADHCBatchTaskCache {
 
     public int getTaskRetryTimes(String taskId) {
         return taskRetryTimes.computeIfAbsent(taskId, id -> new AtomicInteger(0)).get();
+    }
+
+    public String getDetectorTaskState() {
+        return detectorTaskState;
+    }
+
+    public void setDetectorTaskState(String detectorTaskState) {
+        this.detectorTaskState = detectorTaskState;
     }
 
     /**
