@@ -38,6 +38,7 @@ import static org.opensearch.ad.TestHelpers.randomFeature;
 import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
@@ -54,8 +55,10 @@ import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
@@ -101,7 +104,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             .put(REQUEST_TIMEOUT.getKey(), TimeValue.timeValueSeconds(10))
             .build();
 
-        clusterSettings = clusterSetting(settings, MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, BATCH_TASK_PIECE_INTERVAL_SECONDS, REQUEST_TIMEOUT);
+        clusterSettings = clusterSetting(
+            settings,
+            MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
+            BATCH_TASK_PIECE_INTERVAL_SECONDS,
+            REQUEST_TIMEOUT,
+            DELETE_AD_RESULT_WHEN_DELETE_DETECTOR
+        );
 
         clusterService = new ClusterService(settings, clusterSettings, null);
 
@@ -182,5 +191,37 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskManager.handleADTaskException(adTask, new DuplicateTaskException("test"));
         verify(client, times(1)).delete(any(), any());
+    }
+
+    public void testParseEntityForSingleCategoryHC() throws IOException {
+        ADTask adTask = TestHelpers
+            .randomAdTask(
+                randomAlphaOfLength(5),
+                ADTaskState.INIT,
+                Instant.now(),
+                randomAlphaOfLength(5),
+                TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
+            );
+        String entityValue = adTaskManager.convertEntityToString(adTask);
+        Entity entity = adTaskManager.parseEntityFromString(entityValue, adTask);
+        assertEquals(entity, adTask.getEntity());
+    }
+
+    public void testParseEntityForMultiCategoryHC() throws IOException {
+        ADTask adTask = TestHelpers
+            .randomAdTask(
+                randomAlphaOfLength(5),
+                ADTaskState.INIT,
+                Instant.now(),
+                randomAlphaOfLength(5),
+                TestHelpers
+                    .randomAnomalyDetectorUsingCategoryFields(
+                        randomAlphaOfLength(5),
+                        ImmutableList.of(randomAlphaOfLength(5), randomAlphaOfLength(5))
+                    )
+            );
+        String entityValue = adTaskManager.convertEntityToString(adTask);
+        Entity entity = adTaskManager.parseEntityFromString(entityValue, adTask);
+        assertEquals(entity, adTask.getEntity());
     }
 }

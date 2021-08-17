@@ -155,7 +155,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         if (entityName != null && entityValue != null) {
             // single-stream profile request:
             // GET _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress?category_field=<field-name>&entity=<value>
-            return Entity.createSingleAttributeEntity(detectorId, entityName, entityValue);
+            return Entity.createSingleAttributeEntity(entityName, entityValue);
         } else if (request.hasContent()) {
             /* HCAD profile request:
              * GET _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress

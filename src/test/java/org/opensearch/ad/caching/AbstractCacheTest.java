@@ -57,10 +57,10 @@ public class AbstractCacheTest extends AbstractADTest {
         when(detector.getDetectionIntervalDuration()).thenReturn(detectorDuration);
         when(detector.getDetectorIntervalInSeconds()).thenReturn(detectorDuration.getSeconds());
 
-        entity1 = Entity.createSingleAttributeEntity(detectorId, "attributeName1", "attributeVal1");
-        entity2 = Entity.createSingleAttributeEntity(detectorId, "attributeName1", "attributeVal2");
-        entity3 = Entity.createSingleAttributeEntity(detectorId, "attributeName1", "attributeVal3");
-        entity4 = Entity.createSingleAttributeEntity(detectorId, "attributeName1", "attributeVal4");
+        entity1 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal1");
+        entity2 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal2");
+        entity3 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal3");
+        entity4 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal4");
         modelId1 = entity1.getModelId(detectorId).get();
         modelId2 = entity2.getModelId(detectorId).get();
         modelId3 = entity3.getModelId(detectorId).get();

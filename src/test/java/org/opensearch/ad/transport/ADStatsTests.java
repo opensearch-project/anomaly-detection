@@ -154,7 +154,7 @@ public class ADStatsTests extends OpenSearchTestCase {
         attributes.put(name1, val1);
         attributes.put(name2, val2);
         String detectorId = "detectorId";
-        Entity entity = Entity.createEntityFromOrderedMap(detectorId, attributes);
+        Entity entity = Entity.createEntityFromOrderedMap(attributes);
         EntityModel entityModel = new EntityModel(entity, null, null, null);
         Clock clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());

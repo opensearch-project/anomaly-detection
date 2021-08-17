@@ -84,7 +84,7 @@ public class MLUtil {
         if (fullModel) {
             model = createNonEmptyModel(detectorId, sampleSize);
         } else {
-            model = createEmptyModel(Entity.createSingleAttributeEntity(detectorId, "", ""), sampleSize);
+            model = createEmptyModel(Entity.createSingleAttributeEntity("", ""), sampleSize);
         }
 
         return new ModelState<>(model, detectorId, detectorId, ModelType.ENTITY.getName(), clock, priority);
@@ -128,7 +128,7 @@ public class MLUtil {
             AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
         );
         threshold.train(nonZeroScores);
-        return new EntityModel(Entity.createSingleAttributeEntity(detectorId, "", ""), samples, rcf, threshold);
+        return new EntityModel(Entity.createSingleAttributeEntity("", ""), samples, rcf, threshold);
     }
 
     public static EntityModel createNonEmptyModel(String detectorId) {

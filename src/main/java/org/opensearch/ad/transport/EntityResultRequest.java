@@ -73,7 +73,7 @@ public class EntityResultRequest extends ActionRequest implements ToXContentObje
                 // we don't know the category field name as we don't have access to detector config object
                 // so we put empty string as the category field name for now. Will handle the case
                 // in EntityResultTransportAciton.
-                entities.put(Entity.createSingleAttributeEntity(detectorId, CommonName.EMPTY_FIELD, entry.getKey()), entry.getValue());
+                entities.put(Entity.createSingleAttributeEntity(CommonName.EMPTY_FIELD, entry.getKey()), entry.getValue());
             }
         }
 

@@ -113,9 +113,9 @@ public class BwcTests extends AbstractADTest {
         feature = new double[] { 0.3 };
         detectorId = "123";
 
-        entity = Entity.createSingleAttributeEntity(detectorId, categoryField, categoryValue);
-        entity2 = Entity.createSingleAttributeEntity(detectorId, categoryField, categoryValue2);
-        convertedEntity = Entity.createSingleAttributeEntity(detectorId, CommonName.EMPTY_FIELD, categoryValue);
+        entity = Entity.createSingleAttributeEntity(categoryField, categoryValue);
+        entity2 = Entity.createSingleAttributeEntity(categoryField, categoryValue2);
+        convertedEntity = Entity.createSingleAttributeEntity(CommonName.EMPTY_FIELD, categoryValue);
 
         output1_1 = new BytesStreamOutput();
         output1_1.setVersion(V_1_1_0);

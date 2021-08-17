@@ -789,7 +789,7 @@ public class SearchFeatureDaoTests {
         }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
         ActionListener<Entry<Optional<Long>, Optional<Long>>> listener = mock(ActionListener.class);
-        Entity entity = Entity.createSingleAttributeEntity(detectorId, "field", "app_1");
+        Entity entity = Entity.createSingleAttributeEntity("field", "app_1");
         searchFeatureDao.getEntityMinMaxDataTime(detector, entity, listener);
 
         ArgumentCaptor<Entry<Optional<Long>, Optional<Long>>> captor = ArgumentCaptor.forClass(Entry.class);

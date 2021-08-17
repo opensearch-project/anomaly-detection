@@ -223,7 +223,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         modelId = "123_entity_abc";
         entityName = "abc";
         priority = 0.3f;
-        entity = Entity.createSingleAttributeEntity(detectorId, "field", entityName);
+        entity = Entity.createSingleAttributeEntity("field", entityName);
 
         released = new AtomicBoolean();
 
