@@ -72,6 +72,24 @@ jobs:
           cp ./build/distributions/*.zip ../src/test/resources/job-scheduler
           echo "Copied ./build/distributions/*.zip to ../src/test/resources/job-scheduler ..."
           ls ../src/test/resources/job-scheduler
+          echo "Creating ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
+          mkdir -p ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
+          echo "Copying ./build/distributions/*.zip to ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
+          ls ./build/distributions/
+          cp ./build/distributions/*.zip ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
+          echo "Copied ./build/distributions/*.zip to ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
+          ls ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
+
+      - name: Assemble anomaly-detection
+        run: |
+          ./gradlew assemble -Dopensearch.version=1.1.0-SNAPSHOT
+          echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT ..."
+          mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT
+          echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT ..."
+          ls ./build/distributions/
+          cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT
+          echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT ..."
+          ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.1.0.0-SNAPSHOT    
 
       - name: Build and Run Tests
         run: |
@@ -123,6 +141,21 @@ jobs:
             echo "Security plugin is NOT available"
             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
           fi
+
+      - name: Mixed cluster backwards compatibility tests
+        run: |
+          echo "Running mixed cluster backwards compatibility tests ..."
+          ./gradlew adBwcCluster#mixedClusterTask -DmixedCluster=true -Dtests.security.manager=false
+
+      - name: Rolling upgrade backwards compatibility tests
+        run: |    
+          echo "Running rolling upgrade backwards compatibility tests ..."
+          ./gradlew adBwcCluster#rollingUpgradeClusterTask -DrollingUpgradeCluster=true -Dtests.security.manager=false
+
+      - name: Full cluster restart backwards compatibility tests
+        run: |     
+          echo "Running full restart cluster backwards compatibility tests ..."
+          ./gradlew adBwcCluster#fullRestartClusterTask -DfullRestartCluster=true -Dtests.security.manager=false
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
