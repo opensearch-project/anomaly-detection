@@ -48,6 +48,7 @@ import org.opensearch.Version;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
@@ -61,6 +62,8 @@ public class HashRingTests extends AbstractADTest {
     private DiscoveryNodeFilterer nodeFilter;
     private Settings settings;
     private Clock clock;
+    private Client client;
+    private ADDataMigrator dataMigrator;
 
     private DiscoveryNode createNode(String nodeId, Map<String, String> attributes) {
         return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), attributes, BUILT_IN_ROLES, Version.CURRENT);
@@ -111,6 +114,8 @@ public class HashRingTests extends AbstractADTest {
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
+        client = mock(Client.class);
+        dataMigrator = mock(ADDataMigrator.class);
 
         settings = Settings
             .builder()
@@ -131,7 +136,7 @@ public class HashRingTests extends AbstractADTest {
     public void testGetOwningNode() {
         setNodeState();
 
-        HashRing ring = new HashRing(nodeFilter, clock, settings);
+        HashRing ring = new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator);
         Optional<DiscoveryNode> node = ring.getOwningNode("http-latency-rcf-1");
         assertTrue(node.isPresent());
         String id = node.get().getId();
@@ -149,7 +154,7 @@ public class HashRingTests extends AbstractADTest {
         attributesForNode1.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         setNodeState(attributesForNode1);
 
-        HashRing ring = new HashRing(nodeFilter, clock, settings);
+        HashRing ring = new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator);
         Optional<DiscoveryNode> node = ring.getOwningNode("http-latency-rcf-1");
         assertTrue(node.isPresent());
         String id = node.get().getId();

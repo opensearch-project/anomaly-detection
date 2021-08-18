@@ -272,7 +272,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(3, adTaskCacheManager.getTopEntityCount(detectorId).intValue());
         assertEquals(2, adTaskCacheManager.getPendingEntityCount(detectorId));
         assertEquals(1, adTaskCacheManager.getRunningEntityCount(detectorId));
-        assertArrayEquals(new String[] { entity1 }, adTaskCacheManager.getRunningEntities(detectorId));
+        assertArrayEquals(new String[] { entity1 }, adTaskCacheManager.getRunningEntities(detectorId).toArray(new String[0]));
 
         assertFalse(adTaskCacheManager.removeRunningEntity(randomAlphaOfLength(10), entity1));
         assertFalse(adTaskCacheManager.removeRunningEntity(detectorId, randomAlphaOfLength(5)));
@@ -289,7 +289,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
         assertNull(adTaskCacheManager.pollEntity(detectorId));
 
-        assertArrayEquals(new String[] {}, adTaskCacheManager.getRunningEntities(randomAlphaOfLength(10)));
+        assertNull(adTaskCacheManager.getRunningEntities(randomAlphaOfLength(10)));
     }
 
     public void testPushBackEntity() {

@@ -44,6 +44,7 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
@@ -279,8 +280,7 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
                 () -> client().execute(AnomalyResultAction.INSTANCE, resultRequest).actionGet(30_000)
             );
         }
-
-        assertTrue("Unexpected error: " + e.getMessage(), e.getMessage().contains(errorMessage));
+        assertTrue("Unexpected error: " + e.getMessage(), ExceptionUtil.getErrorMessage(e).contains(errorMessage));
     }
 
     private void assertErrorMessage(String adId, String errorMessage) {

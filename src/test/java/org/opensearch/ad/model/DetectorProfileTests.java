@@ -17,8 +17,6 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.test.OpenSearchTestCase;
 
-import com.google.common.collect.ImmutableMap;
-
 public class DetectorProfileTests extends OpenSearchTestCase {
 
     public void testParseDetectorProfile() throws IOException {
@@ -42,13 +40,7 @@ public class DetectorProfileTests extends OpenSearchTestCase {
             .coordinatingNode(randomAlphaOfLength(10))
             .totalEntities(randomLong())
             .activeEntities(randomLong())
-            .adTaskProfiles(
-                ImmutableMap
-                    .of(
-                        randomAlphaOfLength(5),
-                        new ADTaskProfile(randomAlphaOfLength(5), randomInt(), randomInt(), randomInt(), runningEntities)
-                    )
-            )
+            .adTaskProfile(new ADTaskProfile(randomInt(), randomLong(), randomBoolean(), randomInt(), randomLong(), randomAlphaOfLength(5)))
             .build();
 
         BytesStreamOutput output = new BytesStreamOutput();

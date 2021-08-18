@@ -71,6 +71,10 @@ public class DiscoveryNodeFilterer {
         return eligibleNodes.toArray(new DiscoveryNode[0]);
     }
 
+    public boolean isEligibleDataNode(DiscoveryNode node) {
+        return eligibleNodeFilter.test(node);
+    }
+
     /**
      *
      * @return the number of eligible data nodes

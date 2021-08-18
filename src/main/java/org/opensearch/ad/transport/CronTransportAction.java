@@ -112,7 +112,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
      */
     @Override
     protected CronNodeResponse nodeOperation(CronNodeRequest request) {
-
+        LOG.debug("Start running hourly cron, request Id is " + request.getRequestId());
         // makes checkpoints for hosted models and stop hosting models not actively
         // used.
         // for single-entity detector

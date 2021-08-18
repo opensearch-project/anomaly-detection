@@ -87,12 +87,12 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
             randomLong(),
             randomAlphaOfLength(5)
         );
-        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), ImmutableList.of(adTaskProfile));
+        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), adTaskProfile, Version.CURRENT);
         testADTaskProfileResponse(response);
     }
 
     public void testADTaskProfileNodeResponseWithNullProfile() throws IOException {
-        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), null);
+        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), null, Version.CURRENT);
         testADTaskProfileResponse(response);
     }
 
@@ -105,12 +105,12 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
             randomLong(),
             randomAlphaOfLength(5)
         );
-        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), ImmutableList.of(adTaskProfile));
+        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), adTaskProfile, Version.CURRENT);
         testADTaskProfileResponse(response);
     }
 
     public void testADTaskProfileNodeResponseReadMethodWithNullProfile() throws IOException {
-        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), null);
+        ADTaskProfileNodeResponse response = new ADTaskProfileNodeResponse(randomDiscoveryNode(), null, Version.CURRENT);
         testADTaskProfileResponse(response);
     }
 
@@ -135,9 +135,15 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
             randomBoolean(),
             randomInt(),
             randomLong(),
-            randomAlphaOfLength(5)
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomInt(),
+            randomInt(),
+            randomInt(),
+            ImmutableList.of(randomAlphaOfLength(5))
         );
-        ADTaskProfileNodeResponse nodeResponse = new ADTaskProfileNodeResponse(node, ImmutableList.of(profile));
+        ADTaskProfileNodeResponse nodeResponse = new ADTaskProfileNodeResponse(node, profile, Version.CURRENT);
         ImmutableList<ADTaskProfileNodeResponse> nodes = ImmutableList.of(nodeResponse);
         ADTaskProfileResponse response = new ADTaskProfileResponse(new ClusterName("test"), nodes, ImmutableList.of());
 
@@ -147,14 +153,15 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
 
         List<ADTaskProfileNodeResponse> adTaskProfileNodeResponses = response.readNodesFrom(input);
         assertEquals(1, adTaskProfileNodeResponses.size());
+        ADTaskProfileNodeResponse parsedProfile = adTaskProfileNodeResponses.get(0);
+        if (Version.CURRENT.onOrBefore(Version.V_1_0_0)) {
+            assertEquals(profile.getNodeId(), parsedProfile.getAdTaskProfile().getNodeId());
+            assertNull(parsedProfile.getAdTaskProfile().getTaskId());
+        } else {
+            assertEquals(profile.getTaskId(), parsedProfile.getAdTaskProfile().getTaskId());
+        }
         // assertEquals(profile, adTaskProfileNodeResponses.get(0).getAdTaskProfile());
 
-        BytesStreamOutput output2 = new BytesStreamOutput();
-        response.writeTo(output2);
-        NamedWriteableAwareStreamInput input2 = new NamedWriteableAwareStreamInput(output2.bytes().streamInput(), writableRegistry());
-
-        ADTaskProfileResponse response2 = new ADTaskProfileResponse(input2);
-        assertEquals(1, response2.getNodes().size());
         // assertEquals(profile, response2.getNodes().get(0).getAdTaskProfile());
     }
 }

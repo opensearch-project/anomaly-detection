@@ -34,6 +34,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
@@ -561,13 +562,12 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      * @return detector's running entities in cache
      */
-    public String[] getRunningEntities(String detectorId) {
+    public List<String> getRunningEntities(String detectorId) {
         if (hcTaskCaches.containsKey(detectorId)) {
             ADHCBatchTaskCache hcTaskCache = getExistingHCTaskCache(detectorId);
-            return hcTaskCache.getRunningEntities();
-        } else {
-            return new String[] {};
+            return Arrays.asList(hcTaskCache.getRunningEntities());
         }
+        return null;
     }
 
     /**
@@ -611,6 +611,29 @@ public class ADTaskCacheManager {
 
     private ADHCBatchTaskCache getHCTaskCache(String detectorId) {
         return hcTaskCaches.computeIfAbsent(detectorId, id -> new ADHCBatchTaskCache());
+    }
+
+    /**
+     * Check if there is any HC task running on current node.
+     * @param detectorId detector id
+     * @return true if find detector id in any entity task or HC cache
+     */
+    public boolean isHCTaskRunning(String detectorId) {
+        Optional<ADBatchTaskCache> entityTask = this.taskCaches
+            .values()
+            .stream()
+            .filter(cache -> Objects.equals(detectorId, cache.getDetectorId()) && cache.getEntity() != null)
+            .findFirst();
+        return hcTaskCaches.containsKey(detectorId) || entityTask.isPresent();
+    }
+
+    /**
+     * Check if current node is coordianting node of HC detector.
+     * @param detectorId detector id
+     * @return true if find detector id in HC cache
+     */
+    public boolean isHCTaskCoordinatingNode(String detectorId) {
+        return hcTaskCaches.containsKey(detectorId);
     }
 
     /**

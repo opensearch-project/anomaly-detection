@@ -29,9 +29,11 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 import java.util.List;
 
+import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
+import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
@@ -44,6 +46,8 @@ public class ADTaskProfileTransportAction extends
     TransportNodesAction<ADTaskProfileRequest, ADTaskProfileResponse, ADTaskProfileNodeRequest, ADTaskProfileNodeResponse> {
 
     private ADTaskManager adTaskManager;
+    private HashRing hashRing;
+    private Version remoteAdVersion;
 
     @Inject
     public ADTaskProfileTransportAction(
@@ -51,7 +55,8 @@ public class ADTaskProfileTransportAction extends
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        HashRing hashRing
     ) {
         super(
             ADTaskProfileAction.NAME,
@@ -65,6 +70,7 @@ public class ADTaskProfileTransportAction extends
             ADTaskProfileNodeResponse.class
         );
         this.adTaskManager = adTaskManager;
+        this.hashRing = hashRing;
     }
 
     @Override
@@ -88,8 +94,9 @@ public class ADTaskProfileTransportAction extends
 
     @Override
     protected ADTaskProfileNodeResponse nodeOperation(ADTaskProfileNodeRequest request) {
-        List<ADTaskProfile> adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getDetectorId());
-
-        return new ADTaskProfileNodeResponse(clusterService.localNode(), adTaskProfile);
+        String remoteNodeId = request.getParentTask().getNodeId();
+        this.remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
+        ADTaskProfile adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getDetectorId());
+        return new ADTaskProfileNodeResponse(clusterService.localNode(), adTaskProfile, remoteAdVersion);
     }
 }

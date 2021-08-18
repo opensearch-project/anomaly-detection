@@ -34,6 +34,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
@@ -60,7 +62,7 @@ import com.google.common.collect.ImmutableMap;
  * Utility functions for REST handlers.
  */
 public final class RestHandlerUtils {
-
+    private static final Logger logger = LogManager.getLogger(RestHandlerUtils.class);
     public static final String _ID = "_id";
     public static final String _VERSION = "_version";
     public static final String _SEQ_NO = "_seq_no";
@@ -167,17 +169,35 @@ public final class RestHandlerUtils {
      */
     public static <T> ActionListener wrapRestActionListener(ActionListener<T> actionListener, String generalErrorMessage) {
         return ActionListener.<T>wrap(r -> { actionListener.onResponse(r); }, e -> {
-            if (e instanceof OpenSearchStatusException || e instanceof IndexNotFoundException) {
+            Throwable cause = e.getCause();
+            if (isProperExceptionToReturn(e)) {
                 actionListener.onFailure(e);
+            } else if (isProperExceptionToReturn(cause)) {
+                Exception exception = cause instanceof OpenSearchStatusException
+                    ? (OpenSearchStatusException) cause
+                    : (IndexNotFoundException) cause;
+                actionListener.onFailure(exception);
             } else {
-                RestStatus status = e instanceof IllegalArgumentException || e instanceof ResourceNotFoundException
-                    ? BAD_REQUEST
-                    : INTERNAL_SERVER_ERROR;
-                String errorMessage = e instanceof IllegalArgumentException || e instanceof AnomalyDetectionException
+                RestStatus status = isBadRequest(e) ? BAD_REQUEST : INTERNAL_SERVER_ERROR;
+                String errorMessage = isBadRequest(e) || isBadRequest(e.getCause()) || e instanceof AnomalyDetectionException
                     ? e.getMessage()
                     : generalErrorMessage;
                 actionListener.onFailure(new OpenSearchStatusException(errorMessage, status));
             }
         });
+    }
+
+    public static boolean isBadRequest(Throwable e) {
+        if (e == null) {
+            return false;
+        }
+        return e instanceof IllegalArgumentException || e instanceof ResourceNotFoundException;
+    }
+
+    public static boolean isProperExceptionToReturn(Throwable e) {
+        if (e == null) {
+            return false;
+        }
+        return e instanceof OpenSearchStatusException || e instanceof IndexNotFoundException;
     }
 }

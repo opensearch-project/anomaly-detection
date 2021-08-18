@@ -38,12 +38,13 @@ public final class AnomalyDetectorSettings {
 
     private AnomalyDetectorSettings() {}
 
+    public static final int MAX_DETECTOR_UPPER_LIMIT = 10000;
     public static final Setting<Integer> MAX_SINGLE_ENTITY_ANOMALY_DETECTORS = Setting
         .intSetting(
             "plugins.anomaly_detection.max_anomaly_detectors",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
             0,
-            10_000,
+            MAX_DETECTOR_UPPER_LIMIT,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -53,7 +54,7 @@ public final class AnomalyDetectorSettings {
             "plugins.anomaly_detection.max_multi_entity_anomaly_detectors",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
             0,
-            10_000,
+            MAX_DETECTOR_UPPER_LIMIT,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );

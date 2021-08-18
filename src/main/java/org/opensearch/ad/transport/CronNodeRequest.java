@@ -29,7 +29,6 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.support.nodes.BaseNodeRequest;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 
@@ -48,7 +47,8 @@ public class CronNodeRequest extends BaseNodeRequest {
 
     public CronNodeRequest(StreamInput in) throws IOException {
         super(in);
-        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+        // The request id is added since AD 1.1
+        if (in.available() > 0) {
             requestId = in.readString();
         }
     }
@@ -60,8 +60,5 @@ public class CronNodeRequest extends BaseNodeRequest {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-            out.writeString(requestId);
-        }
     }
 }

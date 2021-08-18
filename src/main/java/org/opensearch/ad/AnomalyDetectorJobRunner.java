@@ -51,6 +51,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.InternalFailure;
+import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTaskState;
@@ -241,12 +242,13 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
          */
         String user;
         List<String> roles;
-        if (((AnomalyDetectorJob) jobParameter).getUser() == null) {
+        AnomalyDetectorJob job = (AnomalyDetectorJob) jobParameter;
+        if (job.getUser() == null) {
             user = "";
             roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
         } else {
-            user = ((AnomalyDetectorJob) jobParameter).getUser().getName();
-            roles = ((AnomalyDetectorJob) jobParameter).getUser().getRoles();
+            user = job.getUser().getName();
+            roles = job.getUser().getRoles();
         }
 
         try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
@@ -484,7 +486,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             // For a HCAD detector, we don't need to save on the detector level.
             // We return 0 or Double.NaN rcf score if there is no error.
             if ((response.getAnomalyScore() <= 0 || Double.isNaN(response.getAnomalyScore())) && response.getError() == null) {
-                updateRealtimeTask(response, detectorId);
+                updateRealtimeTask(jobParameter, response, detectorId);
                 return;
             }
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
@@ -510,7 +512,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            updateRealtimeTask(response, detectorId);
+            updateRealtimeTask(jobParameter, response, detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
@@ -518,7 +520,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         }
     }
 
-    private void updateRealtimeTask(AnomalyResultResponse response, String detectorId) {
+    private void updateRealtimeTask(ScheduledJobParameter jobParameter, AnomalyResultResponse response, String detectorId) {
         if (response.isHCDetector() != null
             && response.isHCDetector()
             && !adTaskManager.skipUpdateHCRealtimeTask(detectorId, response.getError())) {
@@ -528,25 +530,25 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             ProfileRequest profileRequest = new ProfileRequest(detectorId, profiles, true, dataNodes);
             client.execute(ProfileAction.INSTANCE, profileRequest, ActionListener.wrap(r -> {
                 log.debug("Update latest realtime task for HC detector {}, total updates: {}", detectorId, r.getTotalUpdates());
-                adTaskManager
-                    .updateLatestRealtimeTask(
-                        detectorId,
-                        null,
-                        r.getTotalUpdates(),
-                        response.getDetectorIntervalInMinutes(),
-                        response.getError()
-                    );
-            }, e -> { log.error("Failed to get init progress profile for " + detectorId, e); }));
-        } else {
-            log.debug("Update latest realtime task for SINGLE detector {}, total updates: {}", detectorId, response.getRcfTotalUpdates());
-            adTaskManager
-                .updateLatestRealtimeTask(
+                updateLatestRealtimeTask(
+                    jobParameter,
                     detectorId,
                     null,
-                    response.getRcfTotalUpdates(),
+                    r.getTotalUpdates(),
                     response.getDetectorIntervalInMinutes(),
                     response.getError()
                 );
+            }, e -> { log.error("Failed to get init progress profile for " + detectorId, e); }));
+        } else {
+            log.debug("Update latest realtime task for SINGLE detector {}, total updates: {}", detectorId, response.getRcfTotalUpdates());
+            updateLatestRealtimeTask(
+                jobParameter,
+                detectorId,
+                null,
+                response.getRcfTotalUpdates(),
+                response.getDetectorIntervalInMinutes(),
+                response.getError()
+            );
         }
     }
 
@@ -622,7 +624,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            adTaskManager.updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
+            updateLatestRealtimeTask(jobParameter, detectorId, taskState, null, null, errorMessage);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
@@ -630,6 +632,34 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 releaseLock(jobParameter, lockService, lock);
             }
         }
+    }
+
+    private void updateLatestRealtimeTask(
+        ScheduledJobParameter job,
+        String detectorId,
+        String taskState,
+        Long rcfTotalUpdates,
+        Long detectorIntervalInMinutes,
+        String error
+    ) {
+        adTaskManager
+            .updateLatestRealtimeTask(detectorId, taskState, rcfTotalUpdates, detectorIntervalInMinutes, error, ActionListener.wrap(r -> {
+                log
+                    .info(
+                        "Updated latest realtime task successfully for detector {}, taskState: {},"
+                            + " RCF total update: {}, detectorIntervalInMinutes: {}",
+                        detectorId,
+                        taskState,
+                        rcfTotalUpdates,
+                        detectorIntervalInMinutes
+                    );
+            }, e -> {
+                if ((e instanceof ResourceNotFoundException) && e.getMessage().contains("can't find latest task")) {
+                    adTaskManager.createRealtimeTask((AnomalyDetectorJob) job);
+                } else {
+                    log.error("Failed to update latest realtime task for detector " + detectorId, e);
+                }
+            }));
     }
 
     private void releaseLock(ScheduledJobParameter jobParameter, LockService lockService, LockModel lock) {

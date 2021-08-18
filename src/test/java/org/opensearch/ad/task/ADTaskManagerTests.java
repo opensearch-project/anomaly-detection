@@ -51,6 +51,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.cluster.ADDataMigrator;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -85,6 +86,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private TransportService transportService;
     private ADTaskManager adTaskManager;
     private ThreadPool threadPool;
+    private ADDataMigrator dataMigrator;
 
     private Instant startTime;
     private Instant endTime;
@@ -121,6 +123,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         hashRing = mock(HashRing.class);
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
+        dataMigrator = mock(ADDataMigrator.class);
         adTaskManager = new ADTaskManager(
             settings,
             clusterService,
@@ -130,7 +133,8 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             nodeFilter,
             hashRing,
             adTaskCacheManager,
-            threadPool
+            threadPool,
+            dataMigrator
         );
 
         listener = spy(new ActionListener<AnomalyDetectorJobResponse>() {
