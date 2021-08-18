@@ -151,7 +151,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         ADTask.Builder builder = ADTask
             .builder()
             .taskId(taskId)
-            .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
+            .taskType(ADTaskType.HISTORICAL_SINGLE_FLOW.name())
             .detectorId(detectorId)
             .detectionDateRange(detectionDateRange)
             .detector(detector)

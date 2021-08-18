@@ -81,6 +81,7 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
 
     public void testADTaskProfileNodeResponse() throws IOException {
         ADTaskProfile adTaskProfile = new ADTaskProfile(
+            randomAlphaOfLength(5),
             randomInt(),
             randomLong(),
             randomBoolean(),
@@ -99,6 +100,7 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
 
     public void testADTaskProfileNodeResponseReadMethod() throws IOException {
         ADTaskProfile adTaskProfile = new ADTaskProfile(
+            randomAlphaOfLength(5),
             randomInt(),
             randomLong(),
             randomBoolean(),

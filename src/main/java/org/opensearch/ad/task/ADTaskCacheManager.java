@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -61,7 +60,6 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.set.Sets;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.google.common.collect.ImmutableList;
@@ -75,14 +73,14 @@ public class ADTaskCacheManager {
     private final int numberSize = 8;
     public static final int TASK_RETRY_LIMIT = 3;
 
-    // We use this field to record all detectors which running on the
+    // We use this field to record all detector level tasks which running on the
     // coordinating node to resolve race condition. We will check if
     // detector id exists in cache or not first. If user starts
     // multiple tasks for the same detector, we will put the first
     // task in cache. For other tasks, we find the detector id exists,
     // that means there is already one task running for this detector,
     // so we will reject the task.
-    private Set<String> detectors;
+    private Map<String, String> detectorTasks;
 
     // Use this field to cache all HC tasks. Key is detector id
     private Map<String, ADHCBatchTaskCache> hcTaskCaches;
@@ -110,7 +108,7 @@ public class ADTaskCacheManager {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CACHED_DELETED_TASKS, it -> maxCachedDeletedTask = it);
         taskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
-        this.detectors = Sets.newConcurrentHashSet();
+        this.detectorTasks = new ConcurrentHashMap<>();
         this.hcTaskCaches = new ConcurrentHashMap<>();
         this.realtimeTaskCaches = new ConcurrentHashMap<>();
         this.deletedDetectorTasks = new ConcurrentLinkedQueue<>();
@@ -151,17 +149,17 @@ public class ADTaskCacheManager {
      * Put detector id in running detector cache.
      *
      * @param detectorId detector id
-     * @param taskType task type
+     * @param adTask AD task
      * @throws DuplicateTaskException throw DuplicateTaskException when the detector id already in cache
      */
-    public synchronized void add(String detectorId, String taskType) {
-        if (detectors.contains(detectorId)) {
-            logger.debug("detector is already in running detector cache, detectorId: " + detectorId);
+    public synchronized void add(String detectorId, ADTask adTask) {
+        if (detectorTasks.containsKey(detectorId)) {
+            logger.warn("detector is already in running detector cache, detectorId: " + detectorId);
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
-        logger.debug("add detector in running detector cache, detectorId: " + detectorId);
-        this.detectors.add(detectorId);
-        if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(taskType)) {
+        logger.info("add detector in running detector cache, detectorId: {}, taskId: {}", detectorId, adTask.getTaskId());
+        this.detectorTasks.put(detectorId, adTask.getTaskId());
+        if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(adTask.getTaskType())) {
             ADHCBatchTaskCache adhcBatchTaskCache = new ADHCBatchTaskCache();
             adhcBatchTaskCache.setIsCoordinatingNode(true);
             this.hcTaskCaches.put(detectorId, adhcBatchTaskCache);
@@ -391,8 +389,8 @@ public class ADTaskCacheManager {
             hcTaskCaches.get(detectorId).clear();
             hcTaskCaches.remove(detectorId);
         }
-        if (detectors.contains(detectorId)) {
-            detectors.remove(detectorId);
+        if (detectorTasks.containsKey(detectorId)) {
+            detectorTasks.remove(detectorId);
             logger.info("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
         } else {
             logger.info("Detector is not in AD task coordinating node cache");
@@ -489,7 +487,7 @@ public class ADTaskCacheManager {
      */
     public void clear() {
         taskCaches.clear();
-        detectors.clear();
+        detectorTasks.clear();
     }
 
     /**
@@ -607,7 +605,7 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      * @param taskSlots task slots
      */
-    public synchronized void setDetectorTaskSLots(String detectorId, int taskSlots) {
+    public synchronized void setDetectorTaskSlots(String detectorId, int taskSlots) {
         logger.debug("Set task slots of detector {} as {}", detectorId, taskSlots);
         ADTaskSlotLimit adTaskSlotLimit = detectorTaskSlotLimit
             .computeIfAbsent(detectorId, key -> new ADTaskSlotLimit(taskSlots, taskSlots));
@@ -919,30 +917,26 @@ public class ADTaskCacheManager {
     }
 
     /**
-     * Updating detector level task or not.
-     * This is to solve version conflict while multiple entity task done messages
-     * triggers updating detector level task.
+     * Try to get semaphore to update detector task.
      * @param detectorId detector id
-     * @return true if is updating detector task
+     * @return true if can get semaphore
      */
-    public Boolean isDetectorTaskUpdating(String detectorId) {
-        if (hcTaskCaches.containsKey(detectorId)) {
-            return getExistingHCTaskCache(detectorId).getDetectorTaskUpdating();
-        } else {
-            return null;
+    public boolean tryAcquireTaskUpdatingSemaphore(String detectorId) {
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            return taskCache.tryAcquireTaskUpdatingSemaphore();
         }
+        return false;
     }
 
     /**
-     * Set detector level task is updating currently. This is to avoid version conflict
-     * caused by multiple entity tasks update detector level task concurrently.
-     *
+     * Try to release semaphore of updating detector task.
      * @param detectorId detector id
-     * @param updating updating or not
      */
-    public void setDetectorTaskUpdating(String detectorId, boolean updating) {
-        if (hcTaskCaches.containsKey(detectorId)) {
-            getExistingHCTaskCache(detectorId).setDetectorTaskUpdating(updating);
+    public void releaseTaskUpdatingSemaphore(String detectorId) {
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            taskCache.releaseTaskUpdatingSemaphore();
         }
     }
 
@@ -1113,5 +1107,9 @@ public class ADTaskCacheManager {
      */
     public synchronized void updateDetectorTaskState(String detectorId, String newState) {
         this.getOrCreateHCTaskCache(detectorId).setDetectorTaskState(newState);
+    }
+
+    public String getDetectorTaskId(String detectorId) {
+        return detectorTasks.get(detectorId);
     }
 }

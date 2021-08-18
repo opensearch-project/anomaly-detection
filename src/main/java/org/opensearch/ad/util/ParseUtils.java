@@ -42,6 +42,7 @@ import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_N
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -698,4 +699,7 @@ public final class ParseUtils {
         return searchSourceBuilder;
     }
 
+    public static <T> boolean isNullOrEmpty(Collection<T> collection) {
+        return collection == null || collection.size() == 0;
+    }
 }

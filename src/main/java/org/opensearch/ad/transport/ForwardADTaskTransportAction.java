@@ -135,7 +135,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskManager.setHCDetectorTaskDone(adTask, state, listener);
                     } else {
                         logger.debug("Run next entity for detector " + detectorId);
-                        adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId);
                         if (adTaskCacheManager.getAvailableNewEntityTaskLanes(detectorId) <= 0
                             && adTaskCacheManager.isEligibleToScaleUpTaskSlots(detectorId)) {
                             boolean lastScaleTimeExpired = lastScaleEntityTaskLaneTime
@@ -164,6 +163,8 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                                     }
                                 }
                             }
+                        } else {
+                            adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId);
                         }
                         adTaskManager.runNextEntityForHCADHistorical(adTask, listener);
                         adTaskManager

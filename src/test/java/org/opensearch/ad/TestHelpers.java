@@ -895,6 +895,17 @@ public class TestHelpers {
         );
     }
 
+    public static ADTask randomAdTask(ADTaskType adTaskType) throws IOException {
+        return randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.RUNNING,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            randomAlphaOfLength(5),
+            true,
+            adTaskType
+        );
+    }
+
     public static ADTask randomAdTask(
         String taskId,
         ADTaskState state,
@@ -907,7 +918,7 @@ public class TestHelpers {
         ADTask task = ADTask
             .builder()
             .taskId(taskId)
-            .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
+            .taskType(ADTaskType.HISTORICAL_SINGLE_FLOW.name())
             .detectorId(detectorId)
             .detector(detector)
             .state(state.name())
@@ -928,6 +939,17 @@ public class TestHelpers {
 
     public static ADTask randomAdTask(String taskId, ADTaskState state, Instant executionEndTime, String stoppedBy, boolean withDetector)
         throws IOException {
+        return randomAdTask(taskId, state, executionEndTime, stoppedBy, withDetector, ADTaskType.HISTORICAL_SINGLE_FLOW);
+    }
+
+    public static ADTask randomAdTask(
+        String taskId,
+        ADTaskState state,
+        Instant executionEndTime,
+        String stoppedBy,
+        boolean withDetector,
+        ADTaskType adTaskType
+    ) throws IOException {
         AnomalyDetector detector = withDetector
             ? randomAnomalyDetector(ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS), true)
             : null;
@@ -935,7 +957,7 @@ public class TestHelpers {
         ADTask task = ADTask
             .builder()
             .taskId(taskId)
-            .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
+            .taskType(adTaskType.name())
             .detectorId(randomAlphaOfLength(5))
             .detector(detector)
             .state(state.name())
@@ -973,7 +995,7 @@ public class TestHelpers {
                 entity = Entity.createEntityByReordering(ImmutableMap.of(detector.getCategoryField().get(0), randomAlphaOfLength(5)));
             }
         }
-        String taskType = entity == null ? ADTaskType.HISTORICAL_SINGLE_ENTITY.name() : ADTaskType.HISTORICAL_HC_ENTITY.name();
+        String taskType = entity == null ? ADTaskType.HISTORICAL_SINGLE_FLOW.name() : ADTaskType.HISTORICAL_HC_ENTITY.name();
         ADTask task = ADTask
             .builder()
             .taskId(taskId)

@@ -162,6 +162,8 @@ public final class RestHandlerUtils {
      * 2. For other errors, please use AnomalyDetectionException or its subclass, or use
      *    OpenSearchStatusException.
      *
+     * TODO: tune this function for wrapped exception, return root exception error message
+     *
      * @param actionListener action listener
      * @param generalErrorMessage general error message
      * @param <T> action listener response type
@@ -169,6 +171,7 @@ public final class RestHandlerUtils {
      */
     public static <T> ActionListener wrapRestActionListener(ActionListener<T> actionListener, String generalErrorMessage) {
         return ActionListener.<T>wrap(r -> { actionListener.onResponse(r); }, e -> {
+            logger.error("Wrap exception before sending back to user", e);
             Throwable cause = e.getCause();
             if (isProperExceptionToReturn(e)) {
                 actionListener.onFailure(e);

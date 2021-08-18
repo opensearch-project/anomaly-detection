@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.lucene.util.SetOnce;
@@ -54,9 +55,8 @@ public class ADHCBatchTaskCache {
     // Will calculate HC task progress with it and profile API needs this.
     private Integer topEntityCount;
 
-    // HC detector level task updating or not.
     // This is to control only one entity task updating detector level task.
-    private Boolean detectorTaskUpdating;
+    private Semaphore detectorTaskUpdatingSemaphore;
 
     // Top entities inited or not.
     private Boolean topEntitiesInited;
@@ -74,7 +74,7 @@ public class ADHCBatchTaskCache {
         this.runningEntities = new ConcurrentLinkedQueue<>();
         this.tempEntities = new ConcurrentLinkedQueue<>();
         this.taskRetryTimes = new ConcurrentHashMap<>();
-        this.detectorTaskUpdating = false;
+        this.detectorTaskUpdatingSemaphore = new Semaphore(1);
         this.topEntitiesInited = false;
         this.detectorTaskState = ADTaskState.INIT.name();
         this.isCoordinatingNode = new SetOnce<>();
@@ -105,12 +105,12 @@ public class ADHCBatchTaskCache {
         return topEntityCount;
     }
 
-    public Boolean getDetectorTaskUpdating() {
-        return detectorTaskUpdating;
+    public boolean tryAcquireTaskUpdatingSemaphore() {
+        return detectorTaskUpdatingSemaphore.tryAcquire();
     }
 
-    public void setDetectorTaskUpdating(boolean detectorTaskUpdating) {
-        this.detectorTaskUpdating = detectorTaskUpdating;
+    public void releaseTaskUpdatingSemaphore() {
+        detectorTaskUpdatingSemaphore.release();
     }
 
     public boolean getTopEntitiesInited() {

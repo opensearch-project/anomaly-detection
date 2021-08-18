@@ -40,7 +40,17 @@ public class DetectorProfileTests extends OpenSearchTestCase {
             .coordinatingNode(randomAlphaOfLength(10))
             .totalEntities(randomLong())
             .activeEntities(randomLong())
-            .adTaskProfile(new ADTaskProfile(randomInt(), randomLong(), randomBoolean(), randomInt(), randomLong(), randomAlphaOfLength(5)))
+            .adTaskProfile(
+                new ADTaskProfile(
+                    randomAlphaOfLength(5),
+                    randomInt(),
+                    randomLong(),
+                    randomBoolean(),
+                    randomInt(),
+                    randomLong(),
+                    randomAlphaOfLength(5)
+                )
+            )
             .build();
 
         BytesStreamOutput output = new BytesStreamOutput();

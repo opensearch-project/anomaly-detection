@@ -90,6 +90,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
     }
 
     public ADTaskProfile(
+        String taskId,
         int shingleSize,
         long rcfTotalUpdates,
         boolean thresholdModelTrained,
@@ -97,6 +98,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         long modelSizeInBytes,
         String nodeId
     ) {
+        this.taskId = taskId;
         this.shingleSize = shingleSize;
         this.rcfTotalUpdates = rcfTotalUpdates;
         this.thresholdModelTrained = thresholdModelTrained;
@@ -150,6 +152,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         this.modelSizeInBytes = input.readOptionalLong();
         this.nodeId = input.readOptionalString();
         if (input.available() > 0) {
+            this.taskId = input.readOptionalString();
             this.adTaskType = input.readOptionalString();
             this.detectorTaskSlots = input.readOptionalInt();
             this.totalEntitiesCount = input.readOptionalInt();
@@ -184,6 +187,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         out.writeOptionalLong(modelSizeInBytes);
         out.writeOptionalString(nodeId);
         if (ADVersionUtil.versionCompatible(adVersion)) {
+            out.writeOptionalString(taskId);
             out.writeOptionalString(adTaskType);
             out.writeOptionalInt(detectorTaskSlots);
             out.writeOptionalInt(totalEntitiesCount);
