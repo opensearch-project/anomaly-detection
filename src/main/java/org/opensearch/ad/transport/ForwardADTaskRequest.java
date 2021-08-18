@@ -51,6 +51,7 @@ public class ForwardADTaskRequest extends ActionRequest {
     private DetectionDateRange detectionDateRange;
     private List<String> staleRunningEntities;
     private User user;
+    private Integer availableTaskSLots;
     private ADTaskAction adTaskAction;
 
     public ForwardADTaskRequest(
@@ -60,9 +61,21 @@ public class ForwardADTaskRequest extends ActionRequest {
         ADTaskAction adTaskAction,
         Version remoteAdVersion
     ) {
+        this(detector, detectionDateRange, user, adTaskAction, null, remoteAdVersion);
+    }
+
+    public ForwardADTaskRequest(
+        AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
+        User user,
+        ADTaskAction adTaskAction,
+        Integer availableTaskSLots,
+        Version remoteAdVersion
+    ) {
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
         this.user = user;
+        this.availableTaskSLots = availableTaskSLots;
         this.adTaskAction = adTaskAction;
         if (!ADVersionUtil.versionCompatible(remoteAdVersion)) {
             throw new ADVersionException("Can't forward AD task request to node running AD version " + remoteAdVersion);
@@ -71,6 +84,11 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public ForwardADTaskRequest(ADTask adTask, ADTaskAction adTaskAction) {
         this(adTask, adTaskAction, null);
+    }
+
+    public ForwardADTaskRequest(ADTask adTask, Integer availableTaskSLots, ADTaskAction adTaskAction) {
+        this(adTask, adTaskAction, null);
+        this.availableTaskSLots = availableTaskSLots;
     }
 
     public ForwardADTaskRequest(ADTask adTask, ADTaskAction adTaskAction, List<String> staleRunningEntities) {
@@ -99,6 +117,7 @@ public class ForwardADTaskRequest extends ActionRequest {
             this.detectionDateRange = new DetectionDateRange(in);
         }
         this.staleRunningEntities = in.readOptionalStringList();
+        availableTaskSLots = in.readOptionalInt();
     }
 
     @Override
@@ -126,6 +145,7 @@ public class ForwardADTaskRequest extends ActionRequest {
             out.writeBoolean(false);
         }
         out.writeOptionalStringCollection(staleRunningEntities);
+        out.writeOptionalInt(availableTaskSLots);
     }
 
     @Override
@@ -167,5 +187,9 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public List<String> getStaleRunningEntities() {
         return staleRunningEntities;
+    }
+
+    public Integer getAvailableTaskSLots() {
+        return availableTaskSLots;
     }
 }

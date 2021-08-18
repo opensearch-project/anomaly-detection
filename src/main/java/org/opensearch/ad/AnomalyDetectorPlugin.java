@@ -694,7 +694,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             hashRing,
             adTaskCacheManager,
             threadPool,
-            dataMigrator
+            dataMigrator,
+            searchFeatureDao
         );
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,
@@ -712,7 +713,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             threadPool,
             clusterService,
             client,
-            nodeFilter,
             adCircuitBreakerService,
             featureManager,
             adTaskManager,

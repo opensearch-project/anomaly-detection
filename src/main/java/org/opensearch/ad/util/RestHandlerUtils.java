@@ -179,9 +179,12 @@ public final class RestHandlerUtils {
                 actionListener.onFailure(exception);
             } else {
                 RestStatus status = isBadRequest(e) ? BAD_REQUEST : INTERNAL_SERVER_ERROR;
-                String errorMessage = isBadRequest(e) || isBadRequest(e.getCause()) || e instanceof AnomalyDetectionException
-                    ? e.getMessage()
-                    : generalErrorMessage;
+                String errorMessage = generalErrorMessage;
+                if (isBadRequest(e) || e instanceof AnomalyDetectionException) {
+                    errorMessage = e.getMessage();
+                } else if (cause != null && (isBadRequest(cause) || cause instanceof AnomalyDetectionException)) {
+                    errorMessage = cause.getMessage();
+                }
                 actionListener.onFailure(new OpenSearchStatusException(errorMessage, status));
             }
         });

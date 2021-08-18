@@ -57,6 +57,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
     public static final String NODE_ID_FIELD = "node_id";
     public static final String TASK_ID_FIELD = "task_id";
     public static final String AD_TASK_TYPE_FIELD = "task_type";
+    public static final String DETECTOR_TASK_SLOTS_FIELD = "detector_task_slots";
     public static final String TOTAL_ENTITIES_COUNT_FIELD = "total_entities_count";
     public static final String PENDING_ENTITIES_COUNT_FIELD = "pending_entities_count";
     public static final String RUNNING_ENTITIES_COUNT_FIELD = "running_entities_count";
@@ -72,6 +73,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
     private String nodeId;
     private String taskId;
     private String adTaskType;
+    private Integer detectorTaskSlots;
     private Integer totalEntitiesCount;
     private Integer pendingEntitiesCount;
     private Integer runningEntitiesCount;
@@ -113,6 +115,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         String nodeId,
         String taskId,
         String adTaskType,
+        Integer detectorTaskSlots,
         Integer totalEntitiesCount,
         Integer pendingEntitiesCount,
         Integer runningEntitiesCount,
@@ -127,6 +130,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         this.nodeId = nodeId;
         this.taskId = taskId;
         this.adTaskType = adTaskType;
+        this.detectorTaskSlots = detectorTaskSlots;
         this.totalEntitiesCount = totalEntitiesCount;
         this.pendingEntitiesCount = pendingEntitiesCount;
         this.runningEntitiesCount = runningEntitiesCount;
@@ -147,6 +151,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         this.nodeId = input.readOptionalString();
         if (input.available() > 0) {
             this.adTaskType = input.readOptionalString();
+            this.detectorTaskSlots = input.readOptionalInt();
             this.totalEntitiesCount = input.readOptionalInt();
             this.pendingEntitiesCount = input.readOptionalInt();
             this.runningEntitiesCount = input.readOptionalInt();
@@ -180,6 +185,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         out.writeOptionalString(nodeId);
         if (ADVersionUtil.versionCompatible(adVersion)) {
             out.writeOptionalString(adTaskType);
+            out.writeOptionalInt(detectorTaskSlots);
             out.writeOptionalInt(totalEntitiesCount);
             out.writeOptionalInt(pendingEntitiesCount);
             out.writeOptionalInt(runningEntitiesCount);
@@ -228,6 +234,9 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         if (adTaskType != null) {
             xContentBuilder.field(AD_TASK_TYPE_FIELD, adTaskType);
         }
+        if (detectorTaskSlots != null) {
+            xContentBuilder.field(DETECTOR_TASK_SLOTS_FIELD, detectorTaskSlots);
+        }
         if (totalEntitiesCount != null) {
             xContentBuilder.field(TOTAL_ENTITIES_COUNT_FIELD, totalEntitiesCount);
         }
@@ -256,6 +265,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         String nodeId = null;
         String taskId = null;
         String taskType = null;
+        Integer detectorTaskSlots = null;
         Integer totalEntitiesCount = null;
         Integer pendingEntitiesCount = null;
         Integer runningEntitiesCount = null;
@@ -295,6 +305,9 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
                 case AD_TASK_TYPE_FIELD:
                     taskType = parser.text();
                     break;
+                case DETECTOR_TASK_SLOTS_FIELD:
+                    detectorTaskSlots = parser.intValue();
+                    break;
                 case TOTAL_ENTITIES_COUNT_FIELD:
                     totalEntitiesCount = parser.intValue();
                     break;
@@ -333,6 +346,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             nodeId,
             taskId,
             taskType,
+            detectorTaskSlots,
             totalEntitiesCount,
             pendingEntitiesCount,
             runningEntitiesCount,
@@ -420,6 +434,14 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         this.totalEntitiesCount = totalEntitiesCount;
     }
 
+    public Integer getDetectorTaskSlots() {
+        return detectorTaskSlots;
+    }
+
+    public void setDetectorTaskSlots(Integer detectorTaskSlots) {
+        this.detectorTaskSlots = detectorTaskSlots;
+    }
+
     public Integer getPendingEntitiesCount() {
         return pendingEntitiesCount;
     }
@@ -469,6 +491,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             && Objects.equals(nodeId, that.nodeId)
             && Objects.equals(taskId, that.taskId)
             && Objects.equals(adTaskType, that.adTaskType)
+            && Objects.equals(detectorTaskSlots, that.detectorTaskSlots)
             && Objects.equals(totalEntitiesCount, that.totalEntitiesCount)
             && Objects.equals(pendingEntitiesCount, that.pendingEntitiesCount)
             && Objects.equals(runningEntitiesCount, that.runningEntitiesCount)
@@ -490,6 +513,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
                 nodeId,
                 taskId,
                 adTaskType,
+                detectorTaskSlots,
                 totalEntitiesCount,
                 pendingEntitiesCount,
                 runningEntitiesCount,

@@ -94,7 +94,8 @@ public class ADClusterEventListener implements ClusterStateListener {
         }
 
         try {
-            // Init AD version hash ring as early as possible
+            // Init AD version hash ring as early as possible. Some test case may fail as AD
+            // version hash ring not initialized when test run.
             if (!hashRing.isAdVersionHashRingInited()) {
                 hashRing
                     .buildCirclesOnAdVersions(

@@ -49,6 +49,7 @@ import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import org.opensearch.ad.stats.suppliers.SettableSupplier;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
@@ -68,6 +69,7 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
     private Map<String, ADStat<?>> statsMap;
     private String clusterStatName1, clusterStatName2;
     private String nodeStatName1, nodeStatName2;
+    private ADTaskManager adTaskManager;
 
     @Override
     @Before
@@ -114,13 +116,15 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
         when(jvmStats.getMem()).thenReturn(mem);
         when(mem.getHeapUsedPercent()).thenReturn(randomShort());
 
+        adTaskManager = mock(ADTaskManager.class);
         action = new ADStatsNodesTransportAction(
             client().threadPool(),
             clusterService(),
             mock(TransportService.class),
             mock(ActionFilters.class),
             adStats,
-            jvmService
+            jvmService,
+            adTaskManager
         );
     }
 

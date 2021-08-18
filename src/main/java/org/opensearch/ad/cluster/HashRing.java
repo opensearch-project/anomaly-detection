@@ -238,81 +238,88 @@ public class HashRing {
             actionListener.onResponse(false);
             return;
         }
-        DiscoveryNode localNode = clusterService.localNode();
-        if (removedNodeIds != null && removedNodeIds.size() > 0) {
-            LOG.info("Remove nodes from AD version hash ring: {}", Arrays.toString(removedNodeIds.toArray(new String[0])));
-            for (String nodeId : removedNodeIds) {
-                removeNodeFromAdVersionCircles(nodeId);
+        try {
+            DiscoveryNode localNode = clusterService.localNode();
+            if (removedNodeIds != null && removedNodeIds.size() > 0) {
+                LOG.info("Remove nodes from AD version hash ring: {}", Arrays.toString(removedNodeIds.toArray(new String[0])));
+                for (String nodeId : removedNodeIds) {
+                    removeNodeFromAdVersionCircles(nodeId);
+                }
             }
-        }
-        Set<String> allAddedNodes = new HashSet<>();
+            Set<String> allAddedNodes = new HashSet<>();
 
-        if (addedNodeIds != null) {
-            allAddedNodes.addAll(addedNodeIds);
-        }
-        if (nodeFilter.isEligibleNode(localNode) && !nodeAdVersions.containsKey(localNode.getId())) {
-            allAddedNodes.add(localNode.getId());
-        }
-        if (allAddedNodes.size() == 0) {
-            actionListener.onResponse(true);
-            return;
-        }
+            if (addedNodeIds != null) {
+                allAddedNodes.addAll(addedNodeIds);
+            }
+            if (nodeFilter.isEligibleNode(localNode) && !nodeAdVersions.containsKey(localNode.getId())) {
+                allAddedNodes.add(localNode.getId());
+            }
+            if (allAddedNodes.size() == 0) {
+                actionListener.onResponse(true);
+                LOG.info("No newly added nodes, return");
+                adVersionCircleInProgress.release();
+                return;
+            }
 
-        LOG.info("Add nodes to AD version hash ring: {}", Arrays.toString(allAddedNodes.toArray(new String[0])));
-        NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
-        nodesInfoRequest.nodesIds(allAddedNodes.toArray(new String[0]));
-        nodesInfoRequest.clear().addMetric(NodesInfoRequest.Metric.PLUGINS.metricName());
+            LOG.info("Add nodes to AD version hash ring: {}", Arrays.toString(allAddedNodes.toArray(new String[0])));
+            NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
+            nodesInfoRequest.nodesIds(allAddedNodes.toArray(new String[0]));
+            nodesInfoRequest.clear().addMetric(NodesInfoRequest.Metric.PLUGINS.metricName());
 
-        client.admin().cluster().nodesInfo(nodesInfoRequest, ActionListener.wrap(r -> {
-            Map<String, NodeInfo> nodesMap = r.getNodesMap();
-            if (nodesMap != null && nodesMap.size() > 0) {
-                for (Map.Entry<String, NodeInfo> entry : nodesMap.entrySet()) {
-                    NodeInfo nodeInfo = entry.getValue();
-                    PluginsAndModules plugins = nodeInfo.getInfo(PluginsAndModules.class);
-                    if (plugins == null) {
-                        continue;
-                    }
-                    DiscoveryNode curNode = nodeInfo.getNode();
-                    if (!nodeFilter.isEligibleDataNode(curNode)) {
-                        continue;
-                    }
-                    TreeMap<Integer, DiscoveryNode> circle = null;
-                    for (PluginInfo pluginInfo : plugins.getPluginInfos()) {
-                        if (AD_PLUGIN_NAME.equals(pluginInfo.getName()) || AD_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
-                            Version version = ADVersionUtil.fromString(pluginInfo.getVersion());
-                            circle = adVersionCircles.computeIfAbsent(version, key -> new TreeMap<>());
-                            nodeAdVersions.computeIfAbsent(curNode.getId(), key -> ADVersionUtil.fromString(pluginInfo.getVersion()));
-                            break;
+            client.admin().cluster().nodesInfo(nodesInfoRequest, ActionListener.wrap(r -> {
+                Map<String, NodeInfo> nodesMap = r.getNodesMap();
+                if (nodesMap != null && nodesMap.size() > 0) {
+                    for (Map.Entry<String, NodeInfo> entry : nodesMap.entrySet()) {
+                        NodeInfo nodeInfo = entry.getValue();
+                        PluginsAndModules plugins = nodeInfo.getInfo(PluginsAndModules.class);
+                        if (plugins == null) {
+                            continue;
                         }
-                    }
-                    if (circle != null) {
-                        for (int i = 0; i < VIRTUAL_NODE_COUNT; i++) {
-                            circle.put(Murmur3HashFunction.hash(curNode.getId() + i), curNode);
+                        DiscoveryNode curNode = nodeInfo.getNode();
+                        if (!nodeFilter.isEligibleDataNode(curNode)) {
+                            continue;
+                        }
+                        TreeMap<Integer, DiscoveryNode> circle = null;
+                        for (PluginInfo pluginInfo : plugins.getPluginInfos()) {
+                            if (AD_PLUGIN_NAME.equals(pluginInfo.getName()) || AD_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
+                                Version version = ADVersionUtil.fromString(pluginInfo.getVersion());
+                                circle = adVersionCircles.computeIfAbsent(version, key -> new TreeMap<>());
+                                nodeAdVersions.computeIfAbsent(curNode.getId(), key -> ADVersionUtil.fromString(pluginInfo.getVersion()));
+                                break;
+                            }
+                        }
+                        if (circle != null) {
+                            for (int i = 0; i < VIRTUAL_NODE_COUNT; i++) {
+                                circle.put(Murmur3HashFunction.hash(curNode.getId() + i), curNode);
+                            }
                         }
                     }
                 }
-            }
-            LOG.info("All nodes in AD version hash ring: {}", nodeAdVersions);
+                LOG.info("All nodes in AD version hash ring: {}", nodeAdVersions);
 
-            if (adVersionCircles.size() > 2 && !ADVersionUtil.versionCompatible(adVersionCircles.lastEntry().getKey())) {
-                // Find owning node with highest AD version to make sure the data migration logic be compatible to
-                // latest AD version when upgrade.
-                Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
-                String localNodeId = localNode.getId();
-                if (owningNode.isPresent() && localNodeId.equals(owningNode.get().getId())) {
-                    dataMigrator.migrateData();
-                } else {
-                    dataMigrator.skipMigration();
+                if (adVersionCircles.size() > 0 && adVersionCircles.lastEntry().getKey().after(Version.V_1_0_0)) {
+                    // Find owning node with highest AD version to make sure the data migration logic be compatible to
+                    // latest AD version when upgrade.
+                    Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
+                    String localNodeId = localNode.getId();
+                    if (owningNode.isPresent() && localNodeId.equals(owningNode.get().getId())) {
+                        dataMigrator.migrateData();
+                    } else {
+                        dataMigrator.skipMigration();
+                    }
                 }
-            }
+                adVersionCircleInProgress.release();
+                adVersionHashRingInited.set(true);
+                actionListener.onResponse(true);
+            }, e -> {
+                adVersionCircleInProgress.release();
+                actionListener.onFailure(e);
+                LOG.error("Fail to get node info to build AD version hash ring", e);
+            }));
+        } catch (Exception e) {
+            LOG.error("Failed to build AD version circles", e);
             adVersionCircleInProgress.release();
-            adVersionHashRingInited.set(true);
-            actionListener.onResponse(true);
-        }, e -> {
-            adVersionCircleInProgress.release();
-            actionListener.onFailure(e);
-            LOG.error("Fail to get node info to build AD version hash ring", e);
-        }));
+        }
     }
 
     private void removeNodeFromAdVersionCircles(String nodeId) {

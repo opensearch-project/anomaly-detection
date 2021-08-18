@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.lucene.util.SetOnce;
 import org.opensearch.ad.model.ADTaskState;
 
 /**
@@ -66,6 +67,8 @@ public class ADHCBatchTaskCache {
     // detector level task state
     private String detectorTaskState;
 
+    private SetOnce<Boolean> isCoordinatingNode;
+
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
         this.runningEntities = new ConcurrentLinkedQueue<>();
@@ -74,6 +77,16 @@ public class ADHCBatchTaskCache {
         this.detectorTaskUpdating = false;
         this.topEntitiesInited = false;
         this.detectorTaskState = ADTaskState.INIT.name();
+        this.isCoordinatingNode = new SetOnce<>();
+    }
+
+    public void setIsCoordinatingNode(boolean isCoordinatingNode) {
+        this.isCoordinatingNode.set(isCoordinatingNode);
+    }
+
+    public boolean isCoordinatingNode() {
+        Boolean isCoordinating = this.isCoordinatingNode.get();
+        return isCoordinating != null && isCoordinating.booleanValue();
     }
 
     public void setTopEntityCount(Integer topEntityCount) {
@@ -110,6 +123,10 @@ public class ADHCBatchTaskCache {
 
     public int getAndDecreaseEntityTaskLanes() {
         return this.entityTaskLanes.getAndDecrement();
+    }
+
+    public int getEntityTaskLanes() {
+        return this.entityTaskLanes.get();
     }
 
     public void setTopEntitiesInited(boolean inited) {
@@ -180,6 +197,10 @@ public class ADHCBatchTaskCache {
 
     public int getRunningEntityCount() {
         return this.runningEntities.size();
+    }
+
+    public int getUnfinishedEntityCount() {
+        return this.runningEntities.size() + this.tempEntities.size() + this.pendingEntities.size();
     }
 
     public int getTempEntityCount() {

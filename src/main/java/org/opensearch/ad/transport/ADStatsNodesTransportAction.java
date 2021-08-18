@@ -37,6 +37,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.InternalStatNames;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
@@ -52,6 +53,7 @@ public class ADStatsNodesTransportAction extends
 
     private ADStats adStats;
     private final JvmService jvmService;
+    private final ADTaskManager adTaskManager;
 
     /**
      * Constructor
@@ -62,6 +64,7 @@ public class ADStatsNodesTransportAction extends
      * @param actionFilters Action Filters
      * @param adStats ADStats object
      * @param jvmService ES JVM Service
+     * @param adTaskManager AD task manager
      */
     @Inject
     public ADStatsNodesTransportAction(
@@ -70,7 +73,8 @@ public class ADStatsNodesTransportAction extends
         TransportService transportService,
         ActionFilters actionFilters,
         ADStats adStats,
-        JvmService jvmService
+        JvmService jvmService,
+        ADTaskManager adTaskManager
     ) {
         super(
             ADStatsNodesAction.NAME,
@@ -85,6 +89,7 @@ public class ADStatsNodesTransportAction extends
         );
         this.adStats = adStats;
         this.jvmService = jvmService;
+        this.adTaskManager = adTaskManager;
     }
 
     @Override
@@ -118,6 +123,11 @@ public class ADStatsNodesTransportAction extends
         if (statsToBeRetrieved.contains(InternalStatNames.JVM_HEAP_USAGE.getName())) {
             long heapUsedPercent = jvmService.stats().getMem().getHeapUsedPercent();
             statValues.put(InternalStatNames.JVM_HEAP_USAGE.getName(), heapUsedPercent);
+        }
+
+        if (statsToBeRetrieved.contains(InternalStatNames.AD_BATCH_TASK_USED_SLOT_COUNT.getName())) {
+            int usedSlot = adTaskManager.getLocalADTaskUsedSlot();
+            statValues.put(InternalStatNames.AD_BATCH_TASK_USED_SLOT_COUNT.getName(), usedSlot);
         }
 
         for (String statName : adStats.getNodeStats().keySet()) {

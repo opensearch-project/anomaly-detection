@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.MemoryTracker;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.ml.ThresholdingModel;
@@ -92,6 +93,8 @@ public class ADTaskCacheManager {
 
     // This field is to cache all realtime tasks. Key is detector id
     private Map<String, ADRealtimeTaskCache> realtimeTaskCaches;
+    // This field is to cache all detectors' task slot and task lane limit
+    private Map<String, ADTaskSlotLimit> detectorTaskSlotLimit;
 
     /**
      * Constructor to create AD task cache manager.
@@ -112,6 +115,7 @@ public class ADTaskCacheManager {
         this.realtimeTaskCaches = new ConcurrentHashMap<>();
         this.deletedDetectorTasks = new ConcurrentLinkedQueue<>();
         this.deletedDetectors = new ConcurrentLinkedQueue<>();
+        this.detectorTaskSlotLimit = new ConcurrentHashMap<>();
     }
 
     /**
@@ -158,7 +162,9 @@ public class ADTaskCacheManager {
         logger.debug("add detector in running detector cache, detectorId: " + detectorId);
         this.detectors.add(detectorId);
         if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(taskType)) {
-            this.hcTaskCaches.put(detectorId, new ADHCBatchTaskCache());
+            ADHCBatchTaskCache adhcBatchTaskCache = new ADHCBatchTaskCache();
+            adhcBatchTaskCache.setIsCoordinatingNode(true);
+            this.hcTaskCaches.put(detectorId, adhcBatchTaskCache);
         }
     }
 
@@ -378,12 +384,20 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      */
     public void removeDetector(String detectorId) {
+        if (hcTaskCaches.containsKey(detectorId)) {
+            if (hasEntity(detectorId)) {
+                throw new AnomalyDetectionException("Can't remove detector from cache as there is running entity tasks");
+            }
+            hcTaskCaches.get(detectorId).clear();
+            hcTaskCaches.remove(detectorId);
+        }
         if (detectors.contains(detectorId)) {
             detectors.remove(detectorId);
-            logger.debug("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
+            logger.info("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
         } else {
-            logger.debug("Detector is not in AD task coordinating node cache");
+            logger.info("Detector is not in AD task coordinating node cache");
         }
+        detectorTaskSlotLimit.remove(detectorId);
     }
 
     /**
@@ -522,7 +536,7 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      */
     public void setTopEntityInited(String detectorId) {
-        getHCTaskCache(detectorId).setTopEntitiesInited(true);
+        getOrCreateHCTaskCache(detectorId).setTopEntitiesInited(true);
     }
 
     /**
@@ -552,7 +566,12 @@ public class ADTaskCacheManager {
      * @return total top entity count
      */
     public Integer getTopEntityCount(String detectorId) {
-        return hcTaskCaches.containsKey(detectorId) ? hcTaskCaches.get(detectorId).getTopEntityCount() : 0;
+        ADHCBatchTaskCache batchTaskCache = hcTaskCaches.get(detectorId);
+        if (batchTaskCache != null) {
+            return batchTaskCache.getTopEntityCount();
+        } else {
+            return 0;
+        }
     }
 
     /**
@@ -581,6 +600,122 @@ public class ADTaskCacheManager {
     }
 
     /**
+     * Set detector task slots. We cache task slots assigned to detector on coordinating node.
+     * When start new historical analysis, will gather detector task slots on all nodes and
+     * check how many task slots available for new historical analysis.
+     *
+     * @param detectorId detector id
+     * @param taskSlots task slots
+     */
+    public synchronized void setDetectorTaskSLots(String detectorId, int taskSlots) {
+        logger.debug("Set task slots of detector {} as {}", detectorId, taskSlots);
+        ADTaskSlotLimit adTaskSlotLimit = detectorTaskSlotLimit
+            .computeIfAbsent(detectorId, key -> new ADTaskSlotLimit(taskSlots, taskSlots));
+        adTaskSlotLimit.setDetectorTaskSlots(taskSlots);
+    }
+
+    /**
+     * Scale up detector task slots.
+     * @param detectorId detector id
+     * @param newTaskSlots new task slots to be scaled up
+     */
+    public synchronized void scaleUpDetectorTaskSlots(String detectorId, int newTaskSlots) {
+        ADTaskSlotLimit adTaskSlotLimit = detectorTaskSlotLimit.get(detectorId);
+        if (adTaskSlotLimit != null) {
+            int newDetectorTaskSlots = adTaskSlotLimit.getDetectorTaskSlots() + newTaskSlots;
+            logger
+                .debug(
+                    "Scale up task slots of detector {} from {} to {}",
+                    detectorId,
+                    adTaskSlotLimit.getDetectorTaskSlots(),
+                    newDetectorTaskSlots
+                );
+            adTaskSlotLimit.setDetectorTaskSlots(newDetectorTaskSlots);
+        }
+
+    }
+
+    /**
+     * Set detector task lane limit.
+     * @param detectorId detector id
+     * @param taskLaneLimit task lane limit
+     */
+    public synchronized void setDetectorTaskLaneLimit(String detectorId, int taskLaneLimit) {
+        ADTaskSlotLimit adTaskSlotLimit = detectorTaskSlotLimit.get(detectorId);
+        if (adTaskSlotLimit != null) {
+            adTaskSlotLimit.setDetectorTaskLaneLimit(taskLaneLimit);
+        }
+    }
+
+    /**
+     * Get how many task slots assigned to detector
+     * @param detectorId detector id
+     * @return detector task slot count
+     */
+    public int getDetectorTaskSlots(String detectorId) {
+        ADTaskSlotLimit taskSlotLimit = detectorTaskSlotLimit.get(detectorId);
+        if (taskSlotLimit != null) {
+            return taskSlotLimit.getDetectorTaskSlots();
+        }
+        return 0;
+    }
+
+    /**
+     * Check if detector task slot is eligible to scale up.
+     * @param detectorId detector id
+     * @return true if detector task slot scale up delta is greater than 0
+     */
+    public boolean isEligibleToScaleUpTaskSlots(String detectorId) {
+        return detectorTaskSlotScaleUpDelta(detectorId) > 0;
+    }
+
+    /**
+     * Get how many task slots can be scaled up for detector.
+     * @param detectorId detector id
+     * @return how many task slots can be scaled up
+     */
+    public int detectorTaskSlotScaleUpDelta(String detectorId) {
+        ADTaskSlotLimit taskSlotLimit = detectorTaskSlotLimit.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskSlotLimit != null && taskCache != null) {
+            int taskLaneDelta = taskSlotLimit.getDetectorTaskLaneLimit() - taskSlotLimit.getDetectorTaskSlots();
+            int unfinishedEntityDelta = taskCache.getUnfinishedEntityCount() - taskSlotLimit.getDetectorTaskSlots();
+            return Math.min(taskLaneDelta, unfinishedEntityDelta);
+        }
+        return 0;
+    }
+
+    /**
+     * Check how many unfinished entities in cache. If it's less than detector task slots, we
+     * can scale down detector task slots to same as unfinished entities count. We can save
+     * task slots in this way. The released task slots can be reused for other task run.
+     * @param detectorId detector id
+     */
+    public synchronized void scaleDownHCDetectorTaskSlots(String detectorId) {
+        ADHCBatchTaskCache batchTaskCache = hcTaskCaches.get(detectorId);
+        int taskSlots = this.getDetectorTaskSlots(detectorId);
+        if (batchTaskCache != null) {
+            int unfinishedEntityCount = batchTaskCache.getUnfinishedEntityCount();
+            if (taskSlots > unfinishedEntityCount) {
+                logger.debug("Scale down detector task slots from {} to {}", taskSlots, unfinishedEntityCount);
+                this.detectorTaskSlotLimit.get(detectorId).setDetectorTaskSlots(unfinishedEntityCount);
+            }
+        }
+    }
+
+    /**
+     * Get total task slots on this node.
+     * @return total task slots
+     */
+    public int getTotalDetectorTaskSlots() {
+        int totalTaskSLots = 0;
+        for (Map.Entry<String, ADTaskSlotLimit> entry : detectorTaskSlotLimit.entrySet()) {
+            totalTaskSLots += entry.getValue().getDetectorTaskSlots();
+        }
+        return totalTaskSLots;
+    }
+
+    /**
      * Get current allowed entity task lanes and decrease it by 1.
      *
      * @param detectorId detector id
@@ -588,6 +723,15 @@ public class ADTaskCacheManager {
      */
     public synchronized int getAndDecreaseEntityTaskLanes(String detectorId) {
         return getExistingHCTaskCache(detectorId).getAndDecreaseEntityTaskLanes();
+    }
+
+    /**
+     * Get current available new entity task lanes.
+     * @param detectorId detector id
+     * @return how many task lane available now
+     */
+    public int getAvailableNewEntityTaskLanes(String detectorId) {
+        return getExistingHCTaskCache(detectorId).getEntityTaskLanes();
     }
 
     private ADHCBatchTaskCache getExistingHCTaskCache(String detectorId) {
@@ -606,10 +750,10 @@ public class ADTaskCacheManager {
      * @param entities list of entities
      */
     public void addPendingEntities(String detectorId, List<String> entities) {
-        getHCTaskCache(detectorId).addEntities(entities);
+        getOrCreateHCTaskCache(detectorId).addEntities(entities);
     }
 
-    private ADHCBatchTaskCache getHCTaskCache(String detectorId) {
+    private ADHCBatchTaskCache getOrCreateHCTaskCache(String detectorId) {
         return hcTaskCaches.computeIfAbsent(detectorId, id -> new ADHCBatchTaskCache());
     }
 
@@ -619,12 +763,15 @@ public class ADTaskCacheManager {
      * @return true if find detector id in any entity task or HC cache
      */
     public boolean isHCTaskRunning(String detectorId) {
+        if (isHCTaskCoordinatingNode(detectorId)) {
+            return true;
+        }
         Optional<ADBatchTaskCache> entityTask = this.taskCaches
             .values()
             .stream()
             .filter(cache -> Objects.equals(detectorId, cache.getDetectorId()) && cache.getEntity() != null)
             .findFirst();
-        return hcTaskCaches.containsKey(detectorId) || entityTask.isPresent();
+        return entityTask.isPresent();
     }
 
     /**
@@ -633,7 +780,7 @@ public class ADTaskCacheManager {
      * @return true if find detector id in HC cache
      */
     public boolean isHCTaskCoordinatingNode(String detectorId) {
-        return hcTaskCaches.containsKey(detectorId);
+        return hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).isCoordinatingNode();
     }
 
     /**
@@ -643,7 +790,7 @@ public class ADTaskCacheManager {
      * @param count top entity count
      */
     public void setTopEntityCount(String detectorId, Integer count) {
-        ADHCBatchTaskCache hcTaskCache = getHCTaskCache(detectorId);
+        ADHCBatchTaskCache hcTaskCache = getOrCreateHCTaskCache(detectorId);
         hcTaskCache.setTopEntityCount(count);
     }
 
@@ -751,7 +898,7 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      * @return true if detector still has entity in cache
      */
-    public boolean hasEntity(String detectorId) {
+    public synchronized boolean hasEntity(String detectorId) {
         return hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).hasEntity();
     }
 
@@ -965,6 +1112,6 @@ public class ADTaskCacheManager {
      * @param newState new state
      */
     public synchronized void updateDetectorTaskState(String detectorId, String newState) {
-        this.getHCTaskCache(detectorId).setDetectorTaskState(newState);
+        this.getOrCreateHCTaskCache(detectorId).setDetectorTaskState(newState);
     }
 }

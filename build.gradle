@@ -523,7 +523,10 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.cluster.ADDataMigrator',
         'org.opensearch.ad.transport.RCFResultResponse',
         'org.opensearch.ad.transport.ADTaskProfileResponse',
-        'org.opensearch.ad.feature.SearchFeatureDao'
+        'org.opensearch.ad.feature.SearchFeatureDao',
+        'org.opensearch.ad.common.exception.ResourceNotFoundException',
+        'org.opensearch.ad.task.ADTaskSlotLimit',
+        'org.opensearch.ad.task.ADTaskCacheManager'
 ]
 
 jacocoTestCoverageVerification {
