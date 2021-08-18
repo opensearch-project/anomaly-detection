@@ -258,12 +258,15 @@ public class PriorityCache implements EntityCache {
         toUpdate.setLastUsedTime(clock.instant());
         toUpdate.setPriority(priority);
 
+        LOG.info("LL 1");
+
         // current buffer's dedicated cache has free slots or can allocate in shared cache
         if (buffer.dedicatedCacheAvailable() || memoryTracker.canAllocate(buffer.getMemoryConsumptionPerEntity())) {
             // buffer.put will call MemoryTracker.consumeMemory
             buffer.put(modelId, toUpdate);
             return true;
         }
+        LOG.info("LL 2");
 
         if (memoryTracker.canAllocate(buffer.getMemoryConsumptionPerEntity())) {
             // buffer.put will call MemoryTracker.consumeMemory
@@ -271,6 +274,7 @@ public class PriorityCache implements EntityCache {
             return true;
         }
 
+        LOG.info("LL 3");
         // can replace an entity in the same CacheBuffer living in reserved or shared cache
         if (buffer.canReplaceWithinDetector(priority)) {
             ModelState<EntityModel> removed = buffer.replace(modelId, toUpdate);
@@ -289,6 +293,7 @@ public class PriorityCache implements EntityCache {
         CacheBuffer bufferToRemove = bufferToRemoveEntity.getLeft();
         String entityModelId = bufferToRemoveEntity.getMiddle();
         ModelState<EntityModel> removed = null;
+        LOG.info("LL 4");
         if (bufferToRemove != null && ((removed = bufferToRemove.remove(entityModelId)) != null)) {
             buffer.put(modelId, toUpdate);
             addIntoInactiveCache(removed);

@@ -115,10 +115,6 @@ public class EntityModel {
         return Optional.ofNullable(this.ercf);
     }
 
-    public void setErcf(ExtendedRandomCutForest ercf) {
-        this.ercf = ercf;
-    }
-
     public void clear() {
         samples.clear();
         rcf = null;

@@ -167,8 +167,10 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     public void getAnomalyDetector(String adID, ActionListener<Optional<AnomalyDetector>> listener) {
         NodeState state = states.get(adID);
         if (state != null && state.getDetectorDef() != null) {
+            LOG.info("LLLL state !");
             listener.onResponse(Optional.of(state.getDetectorDef()));
         } else {
+            LOG.info("LLLL state no!");
             GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, adID);
             clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorResponse(adID, listener));
         }

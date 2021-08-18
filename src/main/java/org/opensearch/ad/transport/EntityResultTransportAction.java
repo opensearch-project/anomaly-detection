@@ -218,6 +218,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 }
                 ThresholdingResult result = modelManager
                     .getAnomalyResultForEntity(datapoint, entityModel, modelId, detector, categoricalValues);
+                LOG.info("LLLL result score > 0? " + (result.getRcfScore() > 0));
                 // result.getRcfScore() = 0 means the model is not initialized
                 // result.getGrade() = 0 means it is not an anomaly
                 // So many OpenSearchRejectedExecutionException if we write no matter what

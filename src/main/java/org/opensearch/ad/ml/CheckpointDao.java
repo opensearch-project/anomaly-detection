@@ -544,9 +544,12 @@ public class CheckpointDao {
                 }
                 JsonObject json = parser.parse(model).getAsJsonObject();
                 // verified, don't need privileged call to get permission
-                ArrayDeque<double[]> samples = new ArrayDeque<>(
-                    Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
-                );
+                ArrayDeque<double[]> samples = new ArrayDeque<>();
+                if (json.has(ENTITY_SAMPLE)) {
+                    samples = new ArrayDeque<>(
+                        Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
+                    );
+                }
                 ExtendedRandomCutForest ercf = null;
                 if (json.has(ENTITY_ERCF)) {
                     ercf = toErcf(json.getAsJsonPrimitive(ENTITY_ERCF).getAsString());

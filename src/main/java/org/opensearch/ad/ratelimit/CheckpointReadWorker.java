@@ -265,14 +265,17 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 Optional<Entry<EntityModel, Instant>> checkpoint = checkpointDao
                     .processGetResponse(checkpointResponse.getResponse(), modelId);
 
+                LOG.info("LLLL checkpoint? " + checkpoint.isPresent());
                 if (false == checkpoint.isPresent()) {
                     // checkpoint is too big
                     return;
                 }
 
                 ModelState<EntityModel> modelState = modelManager.processEntityCheckpoint(checkpoint, entity, modelId, detectorId);
+                LOG.info("LLLL model state ? " + (modelState != null));
 
                 EntityModel entityModel = modelState.getModel();
+                LOG.info("LLLL enity model? " + (entityModel != null));
 
                 ThresholdingResult result = null;
                 if (entityModel.getErcf().isPresent()) {
@@ -280,9 +283,15 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 } else if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
                     result = modelManager.score(origRequest.getCurrentFeature(), modelId, modelState);
                 } else {
-                    entityModel.addSample(origRequest.getCurrentFeature());
+                    try {
+                        LOG.info("LLLL add sample ! ");
+                        entityModel.addSample(origRequest.getCurrentFeature());
+                    } catch (Exception e) {
+                        LOG.info("LLLLL fail add!");
+                    }
                 }
 
+                LOG.info("LLLL result ? " + (result != null));
                 nodeStateManager
                     .getAnomalyDetector(
                         detectorId,
@@ -310,7 +319,9 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         Set<String> retryableRequests,
         ModelState<EntityModel> modelState
     ) {
+        LOG.info("LLLL on get ! ");
         return ActionListener.wrap(detectorOptional -> {
+            LOG.info("LLLL detector?  " + detectorOptional.isPresent());
             if (false == detectorOptional.isPresent()) {
                 LOG.warn(new ParameterizedMessage("AnomalyDetector [{}] is not available.", detectorId));
                 processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
@@ -349,6 +360,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
 
             // try to load to cache
             boolean loaded = cacheProvider.get().hostIfPossible(detector, modelState);
+            LOG.info("LLLL loaded? " + loaded);
 
             if (false == loaded) {
                 // not in memory. Maybe cold entities or some other entities
