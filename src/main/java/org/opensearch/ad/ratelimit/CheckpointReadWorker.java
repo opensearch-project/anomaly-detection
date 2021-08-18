@@ -275,7 +275,9 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 EntityModel entityModel = modelState.getModel();
 
                 ThresholdingResult result = null;
-                if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
+                if (entityModel.getErcf().isPresent()) {
+                    result = modelManager.score(origRequest.getCurrentFeature(), modelId, modelState);
+                } else if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
                     result = modelManager.score(origRequest.getCurrentFeature(), modelId, modelState);
                 } else {
                     entityModel.addSample(origRequest.getCurrentFeature());
