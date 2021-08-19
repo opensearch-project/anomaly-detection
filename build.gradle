@@ -507,16 +507,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.SearchAnomalyResultTransportAction*',
         'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
 
-        // TODO: hc caused coverage to drop
-        'org.opensearch.ad.indices.AnomalyDetectionIndices',
-        'org.opensearch.ad.transport.handler.MultiEntityResultHandler',
-        'org.opensearch.ad.util.ThrowingSupplierWrapper',
-        'org.opensearch.ad.transport.ProfileNodeResponse',
-        'org.opensearch.ad.transport.ADResultBulkResponse',
-        'org.opensearch.ad.transport.AggregationType',
-        'org.opensearch.ad.EntityProfileRunner',
-        'org.opensearch.ad.NodeStateManager',
-        'org.opensearch.ad.util.BulkUtil',
 
         // TODO: unified flow caused coverage drop
         'org.opensearch.ad.transport.AnomalyDetectorJobRequest',

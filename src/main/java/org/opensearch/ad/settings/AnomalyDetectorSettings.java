@@ -757,7 +757,7 @@ public final class AnomalyDetectorSettings {
 
     // max concurrent preview to limit resource usage
     public static final Setting<Integer> MAX_CONCURRENT_PREVIEW = Setting
-        .intSetting("plugins.anomaly_detection.max_concurrent_preview", 5, 1, 20, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("plugins.anomaly_detection.max_concurrent_preview", 2, 1, 20, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // preview timeout in terms of milliseconds
     public static final long PREVIEW_TIMEOUT_IN_MILLIS = 60_000;

@@ -600,6 +600,8 @@ public class EntityColdStarter implements MaintenanceState {
             try {
                 double[][] trainData = featureManager.batchShingle(samples.toArray(new double[0][0]), this.shingleSize);
                 trainModelFromDataSegments(Collections.singletonList(trainData), model.getEntity().orElse(null), modelState);
+                // clear samples after using
+                samples.clear();
             } catch (Exception e) {
                 // e.g., exception from rcf. We can do nothing except logging the error
                 // We won't retry training for the same entity in the cooldown period

@@ -71,13 +71,19 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
+import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
+import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.rcf.CombinedRcfResult;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -90,6 +96,9 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
+
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
@@ -956,5 +965,133 @@ public class ModelManagerTests {
     @Test(expected = IllegalArgumentException.class)
     public void getPreviewResults_throwIllegalArgument_forInvalidInput() {
         modelManager.getPreviewResults(new double[0][0], shingleSize);
+    }
+
+    @Test
+    public void processEmptyCheckpoint() {
+        ModelState<EntityModel> modelState = modelManager.processEntityCheckpoint(Optional.empty(), null, "", "");
+        assertEquals(Instant.MIN, modelState.getLastCheckpointTime());
+    }
+
+    @Test
+    public void processNonEmptyCheckpoint() {
+        String modelId = "abc";
+        String detectorId = "123";
+        EntityModel model = MLUtil.createNonEmptyModel(modelId);
+        Instant checkpointTime = Instant.ofEpochMilli(1000);
+        ModelState<EntityModel> modelState = modelManager
+            .processEntityCheckpoint(Optional.of(new SimpleImmutableEntry<>(model, checkpointTime)), null, modelId, detectorId);
+        assertEquals(checkpointTime, modelState.getLastCheckpointTime());
+        assertEquals(model.getSamples().size(), modelState.getModel().getSamples().size());
+        assertEquals(now, modelState.getLastUsedTime());
+    }
+
+    @Test
+    public void getNullState() {
+        assertEquals(new ThresholdingResult(0, 0, 0), modelManager.getAnomalyResultForEntity(new double[] {}, null, "", null));
+    }
+
+    @Test
+    public void getEmptyStateFullSamples() {
+        SearchFeatureDao searchFeatureDao = mock(SearchFeatureDao.class);
+
+        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
+            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
+        LinearUniformInterpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+
+        NodeStateManager stateManager = mock(NodeStateManager.class);
+        featureManager = new FeatureManager(
+            searchFeatureDao,
+            interpolator,
+            clock,
+            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
+            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
+            AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
+            AnomalyDetectorSettings.MIN_TRAIN_SAMPLES,
+            AnomalyDetectorSettings.MAX_SHINGLE_PROPORTION_MISSING,
+            AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
+            AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
+            AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+        );
+
+        CheckpointWriteWorker checkpointWriteQueue = mock(CheckpointWriteWorker.class);
+
+        entityColdStarter = new EntityColdStarter(
+            clock,
+            threadPool,
+            stateManager,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
+            AnomalyDetectorSettings.TIME_DECAY,
+            numMinSamples,
+            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
+            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
+            interpolator,
+            searchFeatureDao,
+            AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE,
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
+            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
+            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
+            featureManager,
+            settings,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue
+        );
+
+        modelManager = spy(
+            new ModelManager(
+                checkpointDao,
+                clock,
+                numTrees,
+                numSamples,
+                rcfTimeDecay,
+                numMinSamples,
+                thresholdMinPvalue,
+                thresholdMaxRankError,
+                thresholdMaxScore,
+                thresholdNumLogNormalQuantiles,
+                thresholdDownsamples,
+                thresholdMaxSamples,
+                minPreviewSize,
+                modelTtl,
+                checkpointInterval,
+                entityColdStarter,
+                modelPartitioner,
+                featureManager,
+                memoryTracker
+            )
+        );
+
+        ModelState<EntityModel> state = MLUtil
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(false).sampleSize(numMinSamples).build());
+        EntityModel model = state.getModel();
+        assertTrue(model.getRcf() == null || model.getThreshold() == null);
+        ThresholdingResult result = modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null);
+        // model outputs scores
+        assertTrue(result.getRcfScore() != 0);
+        // added the sample to score since our model is empty
+        assertEquals(0, model.getSamples().size());
+    }
+
+    @Test
+    public void getEmptyStateNotFullSamples() {
+        ModelState<EntityModel> state = MLUtil
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(false).sampleSize(numMinSamples - 1).build());
+        assertEquals(new ThresholdingResult(0, 0, 0), modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null));
+        assertEquals(numMinSamples, state.getModel().getSamples().size());
+    }
+
+    @Test
+    public void scoreSamples() {
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null);
+        assertEquals(0, state.getModel().getSamples().size());
+        assertEquals(now, state.getLastUsedTime());
     }
 }
