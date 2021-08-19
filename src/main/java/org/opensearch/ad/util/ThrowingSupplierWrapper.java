@@ -29,6 +29,12 @@ package org.opensearch.ad.util;
 import java.util.function.Supplier;
 
 public class ThrowingSupplierWrapper {
+    /*
+     * Private constructor to avoid Jacoco complaining about public constructor
+     * not covered: https://tinyurl.com/yetc7tra
+     */
+    private ThrowingSupplierWrapper() {}
+
     /**
      * Utility method to use a method throwing checked exception inside a place
      *  that does not allow throwing the corresponding checked exception (e.g.,

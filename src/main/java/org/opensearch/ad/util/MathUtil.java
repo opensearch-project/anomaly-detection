@@ -13,7 +13,7 @@ package org.opensearch.ad.util;
 
 public class MathUtil {
     /*
-     * Private constructor to avoid Jacoco complain about public constructor
+     * Private constructor to avoid Jacoco complaining about public constructor
      * not covered: https://tinyurl.com/yetc7tra
      */
     private MathUtil() {}

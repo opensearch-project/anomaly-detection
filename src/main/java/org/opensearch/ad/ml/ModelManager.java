@@ -56,7 +56,6 @@ import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.rcf.CombinedRcfResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
@@ -288,7 +287,6 @@ public class ModelManager implements DetectorModelSize {
         int forestSize = rcf.getNumberOfTrees();
         double[] attribution = getAnomalyAttribution(rcf, point);
         rcf.update(point);
-        long totalUpdates = rcf.getTotalUpdates();
         listener.onResponse(new RcfResult(score, confidence, forestSize, attribution, rcf.getTotalUpdates()));
     }
 
@@ -797,7 +795,6 @@ public class ModelManager implements DetectorModelSize {
      * @param datapoint Data point
      * @param modelState the state associated with the entity
      * @param modelId the model Id
-     * @param detector Detector accessor
      * @param entity entity accessor
      *
      * @return anomaly result, confidence, and the corresponding RCF score.
@@ -806,7 +803,6 @@ public class ModelManager implements DetectorModelSize {
         double[] datapoint,
         ModelState<EntityModel> modelState,
         String modelId,
-        AnomalyDetector detector,
         Entity entity
     ) {
         if (modelState != null) {
@@ -816,12 +812,10 @@ public class ModelManager implements DetectorModelSize {
                 entityModel = new EntityModel(entity, new ArrayDeque<>(), null, null);
                 modelState.setModel(entityModel);
             }
-
             // trainModelFromExistingSamples may be able to make models not null
             if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
                 entityColdStarter.trainModelFromExistingSamples(modelState);
             }
-
             if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
                 return score(datapoint, modelId, modelState);
             } else {
