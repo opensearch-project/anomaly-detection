@@ -274,7 +274,6 @@ public class ADBatchTaskRunner {
                     .min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
                 adTaskCacheManager.setDetectorTaskLaneLimit(detectorId, maxRunningEntitiesLimit);
                 // scale down HC detector task slots in case there is less top entities in detection date range
-                adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId);
                 int maxRunningEntities = Math.min(maxRunningEntitiesLimit, adTaskCacheManager.getDetectorTaskSlots(detectorId));
                 logger
                     .debug(

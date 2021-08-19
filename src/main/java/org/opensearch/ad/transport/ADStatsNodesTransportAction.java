@@ -125,9 +125,14 @@ public class ADStatsNodesTransportAction extends
             statValues.put(InternalStatNames.JVM_HEAP_USAGE.getName(), heapUsedPercent);
         }
 
-        if (statsToBeRetrieved.contains(InternalStatNames.AD_BATCH_TASK_USED_SLOT_COUNT.getName())) {
-            int usedSlot = adTaskManager.getLocalADTaskUsedSlot();
-            statValues.put(InternalStatNames.AD_BATCH_TASK_USED_SLOT_COUNT.getName(), usedSlot);
+        if (statsToBeRetrieved.contains(InternalStatNames.AD_USED_BATCH_TASK_SLOT_COUNT.getName())) {
+            int usedTaskSlot = adTaskManager.getLocalAdUsedBatchTaskSlot();
+            statValues.put(InternalStatNames.AD_USED_BATCH_TASK_SLOT_COUNT.getName(), usedTaskSlot);
+        }
+
+        if (statsToBeRetrieved.contains(InternalStatNames.AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT.getName())) {
+            int assignedBatchTaskSlot = adTaskManager.getLocalAdAssignedBatchTaskSlot();
+            statValues.put(InternalStatNames.AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT.getName(), assignedBatchTaskSlot);
         }
 
         for (String statName : adStats.getNodeStats().keySet()) {

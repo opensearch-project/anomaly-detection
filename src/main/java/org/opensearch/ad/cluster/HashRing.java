@@ -400,6 +400,13 @@ public class HashRing {
         }, e -> listener.onFailure(e)));
     }
 
+    public DiscoveryNode[] getNodesWithSameLocalAdVersionDirectly() {
+        DiscoveryNode localNode = clusterService.localNode();
+        Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
+        Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion);
+        return nodes.toArray(new DiscoveryNode[0]);
+    }
+
     private Set<DiscoveryNode> getNodesWithSameAdVersion(Version adVersion) {
         TreeMap<Integer, DiscoveryNode> circle = adVersionCircles.get(adVersion);
         Set<String> nodeIds = new HashSet<>();

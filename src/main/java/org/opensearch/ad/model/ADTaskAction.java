@@ -48,7 +48,7 @@ public enum ADTaskAction {
     // Clean stale entities in running entity queue, for example the work node crashed and fail to remove entity
     CLEAN_STALE_RUNNING_ENTITIES,
     // Scale entity task lane
-    SCALE_ENTITY_TASK_LANE,
+    SCALE_ENTITY_TASK_SLOTS,
 
     // ======================================
     // Actions execute on lead node

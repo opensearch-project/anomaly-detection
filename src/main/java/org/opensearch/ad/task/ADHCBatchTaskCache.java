@@ -11,6 +11,7 @@
 
 package org.opensearch.ad.task;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -68,6 +69,8 @@ public class ADHCBatchTaskCache {
     private String detectorTaskState;
 
     private SetOnce<Boolean> isCoordinatingNode;
+    // record last time when HC detector scales entity task slots
+    private Instant lastScaleEntityTaskSlotsTime;
 
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
@@ -78,6 +81,7 @@ public class ADHCBatchTaskCache {
         this.topEntitiesInited = false;
         this.detectorTaskState = ADTaskState.INIT.name();
         this.isCoordinatingNode = new SetOnce<>();
+        this.lastScaleEntityTaskSlotsTime = Instant.now();
     }
 
     public void setIsCoordinatingNode(boolean isCoordinatingNode) {
@@ -205,6 +209,14 @@ public class ADHCBatchTaskCache {
 
     public int getTempEntityCount() {
         return this.tempEntities.size();
+    }
+
+    public Instant getLastScaleEntityTaskSlotsTime() {
+        return this.lastScaleEntityTaskSlotsTime;
+    }
+
+    public void setLastScaleEntityTaskSlotsTime(Instant lastScaleEntityTaskSlotsTime) {
+        this.lastScaleEntityTaskSlotsTime = lastScaleEntityTaskSlotsTime;
     }
 
     public boolean hasEntity() {

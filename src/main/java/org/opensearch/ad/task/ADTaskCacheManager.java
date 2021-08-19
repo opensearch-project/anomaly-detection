@@ -34,6 +34,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
@@ -554,7 +555,19 @@ public class ADTaskCacheManager {
      * @return count of detector's running entity in cache
      */
     public int getRunningEntityCount(String detectorId) {
-        return hcTaskCaches.containsKey(detectorId) ? hcTaskCaches.get(detectorId).getRunningEntityCount() : 0;
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            return taskCache.getRunningEntityCount();
+        }
+        return 0;
+    }
+
+    public int getTempEntityCount(String detectorId) {
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            return taskCache.getTempEntityCount();
+        }
+        return 0;
     }
 
     /**
@@ -594,6 +607,7 @@ public class ADTaskCacheManager {
      * @param allowedRunningEntities max allowed running entities
      */
     public void setAllowedRunningEntities(String detectorId, int allowedRunningEntities) {
+        logger.debug("Set allowed running entities of detector {} as {}", detectorId, allowedRunningEntities);
         getExistingHCTaskCache(detectorId).setEntityTaskLanes(allowedRunningEntities);
     }
 
@@ -683,20 +697,28 @@ public class ADTaskCacheManager {
         return 0;
     }
 
+    public int getUnfinishedEntityCount(String detectorId) {
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            return taskCache.getUnfinishedEntityCount();
+        }
+        return 0;
+    }
+
     /**
      * Check how many unfinished entities in cache. If it's less than detector task slots, we
      * can scale down detector task slots to same as unfinished entities count. We can save
      * task slots in this way. The released task slots can be reused for other task run.
      * @param detectorId detector id
      */
-    public synchronized void scaleDownHCDetectorTaskSlots(String detectorId) {
+    public synchronized void scaleDownHCDetectorTaskSlots(String detectorId, int delta) {
         ADHCBatchTaskCache batchTaskCache = hcTaskCaches.get(detectorId);
         int taskSlots = this.getDetectorTaskSlots(detectorId);
-        if (batchTaskCache != null) {
-            int unfinishedEntityCount = batchTaskCache.getUnfinishedEntityCount();
-            if (taskSlots > unfinishedEntityCount) {
-                logger.debug("Scale down detector task slots from {} to {}", taskSlots, unfinishedEntityCount);
-                this.detectorTaskSlotLimit.get(detectorId).setDetectorTaskSlots(unfinishedEntityCount);
+        if (batchTaskCache != null && delta > 0) {
+            int newTaskSlots = taskSlots - delta;
+            if (newTaskSlots >= 0) {
+                logger.debug("Scale down detector task slots from {} to {}", taskSlots, newTaskSlots);
+                this.detectorTaskSlotLimit.get(detectorId).setDetectorTaskSlots(newTaskSlots);
             }
         }
     }
@@ -711,6 +733,10 @@ public class ADTaskCacheManager {
             totalTaskSLots += entry.getValue().getDetectorTaskSlots();
         }
         return totalTaskSLots;
+    }
+
+    public int getTotalBatchTaskCount() {
+        return taskCaches.size();
     }
 
     /**
@@ -1111,5 +1137,20 @@ public class ADTaskCacheManager {
 
     public String getDetectorTaskId(String detectorId) {
         return detectorTasks.get(detectorId);
+    }
+
+    public Instant getLastScaleEntityTaskLaneTime(String detectorId) {
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            return taskCache.getLastScaleEntityTaskSlotsTime();
+        }
+        return null;
+    }
+
+    public void refreshLastScaleEntityTaskLaneTime(String detectorId) {
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            taskCache.setLastScaleEntityTaskSlotsTime(Instant.now());
+        }
     }
 }
