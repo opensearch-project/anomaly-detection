@@ -284,7 +284,7 @@ public class Entity implements ToXContentObject, Writeable {
     */
     public static Optional<String> getModelId(String detectorId, SortedMap<String, String> attributes) {
         if (attributes.isEmpty()) {
-            return Optional.empty();
+            return Optional.of(detectorId);
         } else if (attributes.size() == 1) {
             for (Map.Entry<String, String> categoryValuePair : attributes.entrySet()) {
                 // For OpenSearch, the limit of the document ID is 512 bytes.
