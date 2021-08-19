@@ -60,6 +60,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.Throttler;
@@ -91,9 +92,11 @@ public class NodeStateManagerTests extends AbstractADTest {
     private AnomalyDetector detectorToCheck;
     private Settings settings;
     private String adId = "123";
+    private String nodeId = "123";
 
     private GetResponse checkpointResponse;
     private ClusterService clusterService;
+    private ClusterSettings clusterSettings;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -132,7 +135,7 @@ public class NodeStateManagerTests extends AbstractADTest {
         Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
         nodestateSetting.add(BACKOFF_MINUTES);
-        ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
+        clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
 
         DiscoveryNode discoveryNode = new DiscoveryNode(
             "node1",
@@ -241,7 +244,6 @@ public class NodeStateManagerTests extends AbstractADTest {
     }
 
     public void testShouldMute() {
-        String nodeId = "123";
         assertTrue(!stateManager.isMuted(nodeId, adId));
 
         when(clock.millis()).thenReturn(10000L);
@@ -386,5 +388,41 @@ public class NodeStateManagerTests extends AbstractADTest {
         assertTrue(!stateManager.isColdStartRunning(adId));
         stateManager.markColdStartRunning(adId);
         assertTrue(stateManager.isColdStartRunning(adId));
+    }
+
+    public void testSettingUpdateMaxRetry() {
+        when(clock.millis()).thenReturn(System.currentTimeMillis());
+        stateManager.addPressure(nodeId, adId);
+        // In setUp method, we mute after 3 tries
+        assertTrue(!stateManager.isMuted(nodeId, adId));
+
+        Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.getKey(), "1").build();
+        Settings.Builder target = Settings.builder();
+        clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
+        clusterSettings.applySettings(target.build());
+        stateManager.addPressure(nodeId, adId);
+        // since we have one violation and the max is 1, this is flagged as muted
+        assertTrue(stateManager.isMuted(nodeId, adId));
+    }
+
+    public void testSettingUpdateBackOffMin() {
+        when(clock.millis()).thenReturn(1000L);
+        // In setUp method, we mute after 3 tries
+        for (int i = 0; i < 4; i++) {
+            stateManager.addPressure(nodeId, adId);
+        }
+
+        assertTrue(stateManager.isMuted(nodeId, adId));
+
+        Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.BACKOFF_MINUTES.getKey(), "1m").build();
+        Settings.Builder target = Settings.builder();
+        clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
+        clusterSettings.applySettings(target.build());
+        stateManager.addPressure(nodeId, adId);
+        // move the clobk by 1000 milliseconds
+        // when evaluating isMuted, 62000 - 1000 (last mute time) > 60000, which
+        // make isMuted true
+        when(clock.millis()).thenReturn(62000L);
+        assertTrue(!stateManager.isMuted(nodeId, adId));
     }
 }

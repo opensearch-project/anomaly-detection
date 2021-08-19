@@ -59,8 +59,9 @@ import org.opensearch.threadpool.ThreadPool;
  */
 public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult> {
     private static final Logger LOG = LogManager.getLogger(MultiEntityResultHandler.class);
-    private static final String SUCCESS_SAVING_RESULT_MSG = "Result saved successfully.";
-    private static final String CANNOT_SAVE_RESULT_ERR_MSG = "Cannot save results due to write block.";
+    // package private for testing
+    static final String SUCCESS_SAVING_RESULT_MSG = "Result saved successfully.";
+    static final String CANNOT_SAVE_RESULT_ERR_MSG = "Cannot save results due to write block.";
 
     @Inject
     public MultiEntityResultHandler(

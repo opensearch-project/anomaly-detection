@@ -42,30 +42,6 @@ import org.opensearch.action.index.IndexRequest;
 public class BulkUtil {
     private static final Logger logger = LogManager.getLogger(BulkUtil.class);
 
-    public static List<IndexRequest> getIndexRequestToRetry(BulkRequest bulkRequest, BulkResponse bulkResponse) {
-        List<IndexRequest> res = new ArrayList<>();
-
-        Set<String> failedId = new HashSet<>();
-        for (BulkItemResponse response : bulkResponse.getItems()) {
-            if (response.isFailed() && ExceptionUtil.isRetryAble(response.getFailure().getStatus())) {
-                failedId.add(response.getId());
-            }
-        }
-
-        for (DocWriteRequest<?> request : bulkRequest.requests()) {
-            try {
-                if (failedId.contains(request.id())) {
-                    res.add(cloneIndexRequest((IndexRequest) request));
-                }
-            } catch (ClassCastException e) {
-                logger.error("We only support IndexRequest", e);
-                throw e;
-            }
-
-        }
-        return res;
-    }
-
     public static List<IndexRequest> getFailedIndexRequest(BulkRequest bulkRequest, BulkResponse bulkResponse) {
         List<IndexRequest> res = new ArrayList<>();
 

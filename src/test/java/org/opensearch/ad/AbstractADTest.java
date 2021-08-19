@@ -62,6 +62,7 @@ import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -177,10 +178,10 @@ public class AbstractADTest extends OpenSearchTestCase {
     protected void setUpLog4jForJUnit(Class<?> cls) {
         String loggerName = toLoggerName(callerClass(cls));
         logger = (Logger) LogManager.getLogger(loggerName);
+        Loggers.setLevel(logger, Level.DEBUG);
         testAppender = new TestAppender(loggerName);
         testAppender.start();
         logger.addAppender(testAppender);
-        logger.setLevel(Level.DEBUG);
     }
 
     private static String toLoggerName(final Class<?> cls) {
