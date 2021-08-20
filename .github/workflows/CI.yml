@@ -142,20 +142,10 @@ jobs:
             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
           fi
 
-      - name: Mixed cluster backwards compatibility tests
+      - name: Run AD Backwards Compatibility Tests
         run: |
-          echo "Running mixed cluster backwards compatibility tests ..."
-          ./gradlew adBwcCluster#mixedClusterTask -DmixedCluster=true -Dtests.security.manager=false
-
-      - name: Rolling upgrade backwards compatibility tests
-        run: |    
-          echo "Running rolling upgrade backwards compatibility tests ..."
-          ./gradlew adBwcCluster#rollingUpgradeClusterTask -DrollingUpgradeCluster=true -Dtests.security.manager=false
-
-      - name: Full cluster restart backwards compatibility tests
-        run: |     
-          echo "Running full restart cluster backwards compatibility tests ..."
-          ./gradlew adBwcCluster#fullRestartClusterTask -DfullRestartCluster=true -Dtests.security.manager=false
+          echo "Running backwards compatibility tests ..."
+          ./gradlew bwcTestSuite -Dtests.security.manager=false
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
