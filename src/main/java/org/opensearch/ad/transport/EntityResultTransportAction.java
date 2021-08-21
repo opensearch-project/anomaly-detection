@@ -211,7 +211,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     cacheMissEntities.put(categoricalValues, datapoint);
                     continue;
                 }
-                ThresholdingResult result = modelManager.getAnomalyResultForEntity(datapoint, entityModel, modelId, categoricalValues);
+                ThresholdingResult result = modelManager
+                    .getAnomalyResultForEntity(datapoint, entityModel, modelId, categoricalValues, detector.getShingleSize());
                 // result.getRcfScore() = 0 means the model is not initialized
                 // result.getGrade() = 0 means it is not an anomaly
                 // So many OpenSearchRejectedExecutionException if we write no matter what

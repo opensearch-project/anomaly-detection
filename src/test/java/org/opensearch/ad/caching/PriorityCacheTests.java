@@ -120,7 +120,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
             AnomalyDetectorSettings.CHECKPOINT_TTL,
             AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
             memoryTracker,
-            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
+            AnomalyDetectorSettings.NUM_TREES,
             clock,
             clusterService,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,

@@ -42,6 +42,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -49,17 +50,20 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.lang3.tuple.Triple;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
@@ -91,6 +95,7 @@ import org.opensearch.threadpool.ThreadPool;
 import test.org.opensearch.ad.util.MLUtil;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.config.Precision;
 
 public class EntityColdStarterTests extends AbstractADTest {
     int numMinSamples;
@@ -114,6 +119,8 @@ public class EntityColdStarterTests extends AbstractADTest {
     CountDownLatch inProgressLatch;
     CheckpointWriteWorker checkpointWriteQueue;
     Entity entity;
+    AnomalyDetector detector;
+    long rcfSeed;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -132,8 +139,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         Client client = mock(Client.class);
         ClientUtil clientUtil = mock(ClientUtil.class);
 
-        AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), true, true);
+        detector = TestHelpers.randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), true, true);
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
             listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
@@ -194,19 +200,19 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         checkpointWriteQueue = mock(CheckpointWriteWorker.class);
 
+        rcfSeed = 2051L;
         entityColdStarter = new EntityColdStarter(
             clock,
             threadPool,
             stateManager,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
+            AnomalyDetectorSettings.NUM_TREES,
             AnomalyDetectorSettings.TIME_DECAY,
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             interpolator,
             searchFeatureDao,
-            AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
             AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
@@ -216,7 +222,8 @@ public class EntityColdStarterTests extends AbstractADTest {
             featureManager,
             settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue
+            checkpointWriteQueue,
+            rcfSeed
         );
 
         detectorId = "123";
@@ -510,5 +517,80 @@ public class EntityColdStarterTests extends AbstractADTest {
         assertTrue(model.getThreshold() == null);
         // the min-max range is too small and thus no data range can be found
         assertEquals("real sample size is " + model.getSamples().size(), 1, model.getSamples().size());
+    }
+
+    public void testTrainModelFromExistingSamplesEnoughSamples() {
+        int inputDimension = 2;
+        int dimensions = inputDimension * detector.getShingleSize();
+
+        RandomCutForest.Builder<?> rcfConfig = RandomCutForest
+            .builder()
+            .compact(true)
+            .dimensions(dimensions)
+            .precision(Precision.FLOAT_32)
+            .randomSeed(rcfSeed)
+            .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
+            .shingleSize(detector.getShingleSize())
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
+            .internalShinglingEnabled(true);
+        Triple<Queue<double[]>, RandomCutForest, ThresholdingModel> models = MLUtil.prepareModel(inputDimension, rcfConfig);
+        Queue<double[]> samples = models.getLeft();
+        RandomCutForest rcf = models.getMiddle();
+        ThresholdingModel threshold = models.getRight();
+
+        EntityModel model = new EntityModel(entity, samples, null, null);
+        modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
+
+        ModelManager modelManager = new ModelManager(
+            mock(CheckpointDao.class),
+            mock(Clock.class),
+            AnomalyDetectorSettings.NUM_TREES,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            AnomalyDetectorSettings.TIME_DECAY,
+            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
+            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
+            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
+            AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            entityColdStarter,
+            mock(ModelPartitioner.class),
+            mock(FeatureManager.class),
+            mock(MemoryTracker.class)
+        );
+
+        Random r = new Random();
+
+        // make sure we trained the expected models
+        for (int i = 0; i < 100; i++) {
+            double[] point = r.ints(inputDimension, 0, 50).asDoubleStream().toArray();
+            double score = rcf.getAnomalyScore(point);
+            ThresholdingResult result = modelManager
+                .getAnomalyResultForEntity(point, modelState, modelId, entity, detector.getShingleSize());
+            assertEquals(score, result.getRcfScore(), 1e-10);
+            assertEquals(threshold.grade(score), result.getGrade(), 1e-10);
+            assertEquals(modelManager.computeRcfConfidence(rcf) * threshold.confidence(), result.getConfidence(), 1e-10);
+            rcf.update(point);
+            threshold.update(score);
+        }
+    }
+
+    public void testTrainModelFromExistingSamplesNotEnoughSamples() {
+        Queue<double[]> samples = new ArrayDeque<>();
+        EntityModel model = new EntityModel(entity, samples, null, null);
+        modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
+        entityColdStarter.trainModelFromExistingSamples(modelState, detector.getShingleSize());
+        RandomCutForest adRCF = modelState.getModel().getRcf();
+        ThresholdingModel adThreshold = modelState.getModel().getThreshold();
+        assertTrue(adRCF == null);
+        assertTrue(adThreshold == null);
     }
 }
