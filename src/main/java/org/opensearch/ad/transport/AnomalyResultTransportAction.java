@@ -1170,7 +1170,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         // Decision function double from the ML plugin: [-0.5, 0.5]. Negative means anomalous.
-        // Anomaly score in AD is strictly positive. More positive means more anomalous. 1 is a typical cutoff.
+        // Anomaly score in AD is strictly positive, so the conversion is needed. Otherwise the result
+        // is being considered erroneous. More positive means more anomalous. 1 is a typical cutoff.
         // Thus, the values can be converted linearly: [-0.5, 0.5] to (0, 2].
         private double handleScore(double decisionFunction) {
             double result = 2 * (0.5 - decisionFunction);

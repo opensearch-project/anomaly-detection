@@ -69,6 +69,7 @@ public class PMMLResultTransportAction extends HandledTransportAction<PMMLResult
         }
 
         try {
+            // TODO: create a singleton of this ML client in AD plugin initialization
             MachineLearningClient mlClient = new MachineLearningNodeClient(client);
             sendPredictionRequest(mlClient, request, listener);
         } catch (Exception e) {
@@ -77,8 +78,10 @@ public class PMMLResultTransportAction extends HandledTransportAction<PMMLResult
         }
     }
 
-    // utilize the ml client layer to make prediction calls
-    public void sendPredictionRequest(
+    /**
+     * utilize the ml client layer to make prediction calls
+     */
+    private void sendPredictionRequest(
         MachineLearningClient mlClient,
         PMMLResultRequest request,
         ActionListener<PMMLResultResponse> listener
@@ -90,25 +93,32 @@ public class PMMLResultTransportAction extends HandledTransportAction<PMMLResult
         }, listener::onFailure));
     }
 
-    // load data frame from array of feature names and array of feature values
-    public DataFrame loadDataFrame(String[] featureNames, double[] features) throws AnomalyDetectionException {
-        if (featureNames.length != features.length) {
+    /**
+     * Loads data frame from array of feature names and array of feature values
+     *
+     * @return data frame containing features
+     */
+    private DataFrame loadDataFrame(String[] featureNames, double[] featureValues) throws AnomalyDetectionException {
+        if (featureNames.length != featureValues.length) {
             throw new AnomalyDetectionException("features names and features have different lengths");
         }
         List<Map<String, Object>> input = new ArrayList<>();
         Map<String, Object> map = new LinkedHashMap<>();
-        for (int i = 0; i < features.length; i++) {
-            map.put(featureNames[i], features[i]);
+        for (int i = 0; i < featureValues.length; i++) {
+            map.put(featureNames[i], featureValues[i]);
         }
         input.add(map);
         return DataFrameBuilder.load(input);
     }
 
-    // unload data frame to a map of result names and result values
-    // PMML result data frame example:
-    // ColumnMeta[] = [ColumnMeta(boolean outlier), ColumnMeta(double decisionFunction)]
-    // Row[] = [Row(false, 0.3), Row(true, -0.1)]
-    public Map<String, Object> unloadDataFrame(DataFrame results) throws AnomalyDetectionException {
+    /**
+     * Unloads data frame to a map of result names and result values. PMML result data frame example:
+     * ColumnMeta[] = [ColumnMeta(boolean outlier), ColumnMeta(double decisionFunction)]
+     * Row[] = [Row(false, 0.3), Row(true, -0.1)]
+     *
+     * @return map containing prediction results
+     */
+    private Map<String, Object> unloadDataFrame(DataFrame results) throws AnomalyDetectionException {
         if (results == null || results.size() == 0) {
             throw new AnomalyDetectionException("null or empty response from the ML plugin");
         }
