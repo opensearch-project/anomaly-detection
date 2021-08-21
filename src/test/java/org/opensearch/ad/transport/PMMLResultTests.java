@@ -211,7 +211,7 @@ public class PMMLResultTests extends OpenSearchTestCase {
         StreamInput streamInput = output.bytes().streamInput();
         PMMLResultRequest readRequest = new PMMLResultRequest(streamInput);
         assertThat(request.getAdID(), equalTo(readRequest.getAdID()));
-        assertThat(request.getFeatures(), equalTo(readRequest.getFeatures()));
+        assertThat(request.getFeatureValues(), equalTo(readRequest.getFeatureValues()));
     }
 
     public void testJsonRequest() throws IOException, JsonPathNotFoundException {
@@ -222,7 +222,7 @@ public class PMMLResultTests extends OpenSearchTestCase {
         String json = Strings.toString(builder);
         assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), request.getAdID());
         assertEquals(JsonDeserializer.getTextValue(json, CommonName.ML_MODEL_ID_KEY), request.getMlModelID());
-        assertArrayEquals(JsonDeserializer.getDoubleArrayValue(json, CommonName.FEATURE_JSON_KEY), request.getFeatures(), 0.001);
+        assertArrayEquals(JsonDeserializer.getDoubleArrayValue(json, CommonName.FEATURE_JSON_KEY), request.getFeatureValues(), 0.001);
     }
 
     @SuppressWarnings("unchecked")

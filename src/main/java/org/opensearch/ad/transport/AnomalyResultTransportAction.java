@@ -1142,7 +1142,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 // some values are dummy:
                 // 1. Confidence doesn't really change since the ML plugin uploaded models are immutable.
                 double confidence = 1;
-                // 2. PMML models don't have rcfTotalUpdates.
+                // 2. PMML models don't have rcfTotalUpdates, but current AD needs to calculate RCF model init
+                // progress with RCF total updates. Hard code this to indicate these model are done initializing.
                 long rcfTotalUpdates = 1000;
                 AnomalyResultResponse response = new AnomalyResultResponse(
                     anomalyGrade,

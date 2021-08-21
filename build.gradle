@@ -530,6 +530,8 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.GetAnomalyDetectorResponse',
         'org.opensearch.ad.transport.ADBatchAnomalyResultRequest',
         'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction',
+
+        // TODO: custom model support caused coverage drop
         'org.opensearch.ad.transport.PMMLResultTransportAction'
 ]
 

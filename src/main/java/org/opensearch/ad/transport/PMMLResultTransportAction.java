@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import java.util.ArrayList;
@@ -58,7 +43,8 @@ public class PMMLResultTransportAction extends HandledTransportAction<PMMLResult
     // AD's client is a node client, but we only cast it here to be used with the ML plugin
     private final NodeClient client;
 
-    // Right now we (only) require/take "outlier" and "decisionFunction" fields out of the prediction result
+    // Right now we (only) require/take "outlier" and "decisionFunction" fields out of the pmml model predictions
+    private static String PMML_FORMAT = "pmml";
     private static String OUTLIER_FIELD = "outlier";
     private static String DECISION_FUNCTION_FIELD = "decisionFunction";
 
@@ -97,8 +83,8 @@ public class PMMLResultTransportAction extends HandledTransportAction<PMMLResult
         PMMLResultRequest request,
         ActionListener<PMMLResultResponse> listener
     ) {
-        DataFrame inputData = loadDataFrame(request.getFeatureNames(), request.getFeatures());
-        mlClient.predict("pmml", null, inputData, request.getMlModelID(), ActionListener.wrap(response -> {
+        DataFrame inputData = loadDataFrame(request.getFeatureNames(), request.getFeatureValues());
+        mlClient.predict(PMML_FORMAT, null, inputData, request.getMlModelID(), ActionListener.wrap(response -> {
             Map<String, Object> output = unloadDataFrame(response);
             listener.onResponse(new PMMLResultResponse((boolean) output.get(OUTLIER_FIELD), (double) output.get(DECISION_FUNCTION_FIELD)));
         }, listener::onFailure));
@@ -119,6 +105,9 @@ public class PMMLResultTransportAction extends HandledTransportAction<PMMLResult
     }
 
     // unload data frame to a map of result names and result values
+    // PMML result data frame example:
+    // ColumnMeta[] = [ColumnMeta(boolean outlier), ColumnMeta(double decisionFunction)]
+    // Row[] = [Row(false, 0.3), Row(true, -0.1)]
     public Map<String, Object> unloadDataFrame(DataFrame results) throws AnomalyDetectionException {
         if (results == null || results.size() == 0) {
             throw new AnomalyDetectionException("null or empty response from the ML plugin");

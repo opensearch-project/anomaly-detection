@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import static org.opensearch.action.ValidateActions.addValidationError;
@@ -44,19 +29,19 @@ public class PMMLResultRequest extends ActionRequest implements ToXContentObject
     private String adID;
     private String mlModelID;
     private String[] featureNames;
-    private double[] features;
+    private double[] featureValues;
 
     // Messages used for validation error
     public static final String INVALID_FEATURE_NAME_MSG = "feature name vector is empty (in pmml result request)";
     public static final String INVALID_FEATURE_MSG = "feature vector is empty (in pmml result request)";
     public static final String INVALID_LENGTH_MSG = "feature name vector and feature vector have different lengths";
 
-    public PMMLResultRequest(String adID, String mlModelID, String[] featureNames, double[] features) {
+    public PMMLResultRequest(String adID, String mlModelID, String[] featureNames, double[] featureValues) {
         super();
         this.adID = adID;
         this.mlModelID = mlModelID;
         this.featureNames = featureNames;
-        this.features = features;
+        this.featureValues = featureValues;
     }
 
     public PMMLResultRequest(StreamInput in) throws IOException {
@@ -69,9 +54,9 @@ public class PMMLResultRequest extends ActionRequest implements ToXContentObject
             featureNames[i] = in.readString();
         }
         int size2 = in.readVInt();
-        features = new double[size2];
+        featureValues = new double[size2];
         for (int i = 0; i < size2; i++) {
-            features[i] = in.readDouble();
+            featureValues[i] = in.readDouble();
         }
     }
 
@@ -87,8 +72,8 @@ public class PMMLResultRequest extends ActionRequest implements ToXContentObject
         return featureNames;
     }
 
-    public double[] getFeatures() {
-        return features;
+    public double[] getFeatureValues() {
+        return featureValues;
     }
 
     @Override
@@ -100,9 +85,9 @@ public class PMMLResultRequest extends ActionRequest implements ToXContentObject
         for (String name : featureNames) {
             out.writeString(name);
         }
-        out.writeVInt(features.length);
-        for (double feature : features) {
-            out.writeDouble(feature);
+        out.writeVInt(featureValues.length);
+        for (double value : featureValues) {
+            out.writeDouble(value);
         }
     }
 
@@ -118,10 +103,10 @@ public class PMMLResultRequest extends ActionRequest implements ToXContentObject
         if (featureNames == null || featureNames.length == 0) {
             validationException = addValidationError(PMMLResultRequest.INVALID_FEATURE_NAME_MSG, validationException);
         }
-        if (features == null || features.length == 0) {
+        if (featureValues == null || featureValues.length == 0) {
             validationException = addValidationError(PMMLResultRequest.INVALID_FEATURE_MSG, validationException);
         }
-        if ((features != null && featureNames != null) && featureNames.length != features.length) {
+        if ((featureValues != null && featureNames != null) && featureNames.length != featureValues.length) {
             validationException = addValidationError(PMMLResultRequest.INVALID_LENGTH_MSG, validationException);
         }
         return validationException;
@@ -138,7 +123,7 @@ public class PMMLResultRequest extends ActionRequest implements ToXContentObject
         }
         builder.endArray();
         builder.startArray(CommonName.FEATURE_JSON_KEY);
-        for (double feature : features) {
+        for (double feature : featureValues) {
             builder.value(feature);
         }
         builder.endArray();

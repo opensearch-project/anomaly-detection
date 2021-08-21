@@ -309,11 +309,13 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             user = null;
         }
         detectorType = input.readOptionalString();
-        mlModelId = input.readOptionalString();
         if (input.readBoolean()) {
             this.uiMetadata = input.readMap();
         } else {
             this.uiMetadata = null;
+        }
+        if (input.available() > 0) {
+            mlModelId = input.readOptionalString();
         }
     }
 
@@ -344,13 +346,13 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             output.writeBoolean(false); // user does not exist
         }
         output.writeOptionalString(detectorType);
-        output.writeOptionalString(mlModelId);
         if (uiMetadata != null) {
             output.writeBoolean(true);
             output.writeMap(uiMetadata);
         } else {
             output.writeBoolean(false);
         }
+        output.writeOptionalString(mlModelId);
     }
 
     @Override
