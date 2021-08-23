@@ -97,12 +97,16 @@ public class ADHCBatchTaskCache {
         this.topEntityCount = topEntityCount;
     }
 
-    public Queue<String> getPendingEntities() {
-        return pendingEntities;
+    public String[] getPendingEntities() {
+        return pendingEntities.toArray(new String[0]);
     }
 
     public String[] getRunningEntities() {
         return runningEntities.toArray(new String[0]);
+    }
+
+    public String[] getTempEntities() {
+        return tempEntities.toArray(new String[0]);
     }
 
     public Integer getTopEntityCount() {

@@ -31,7 +31,6 @@ import static java.util.Collections.emptySet;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.test.ClusterServiceUtils.createClusterService;
 
@@ -46,6 +45,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
+import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
@@ -91,7 +91,6 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         super.setUpLog4jForJUnit(ADClusterEventListener.class);
         clusterService = createClusterService(threadPool);
         hashRing = mock(HashRing.class);
-        when(hashRing.build()).thenReturn(true);
         modelManager = mock(ModelManager.class);
 
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
@@ -162,6 +161,11 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         final CountDownLatch executionLatch = new CountDownLatch(1);
         doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(true);
+            return null;
+        }).when(hashRing).buildCirclesOnAdVersions(any(), any());
+        doAnswer(invocation -> {
             executionLatch.countDown();
             inProgressLatch.await();
             return emptySet();
@@ -176,12 +180,17 @@ public class ADClusterEventListenerTests extends AbstractADTest {
     public void testNodeAdded() {
         String modelId = "123-threshold";
         doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(true);
+            return null;
+        }).when(hashRing).buildCirclesOnAdVersions(any(), any());
+        doAnswer(invocation -> {
             Set<String> res = new HashSet<>();
             res.add(modelId);
             return res;
         }).when(modelManager).getAllModelIds();
 
-        doAnswer(invocation -> { return Optional.<DiscoveryNode>of(masterNode); }).when(hashRing).getOwningNode(any(String.class));
+        doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionDirectly(any(String.class));
 
         listener.clusterChanged(new ClusterChangedEvent("foo", newClusterState, oldClusterState));
         assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_ADDED_MSG));

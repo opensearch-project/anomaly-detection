@@ -544,12 +544,17 @@ public class ADTaskManager {
             logger.info("Can't acquire checking task slot semaphore for detector {}", detectorId);
             listener
                 .onFailure(
-                    new LimitExceededException(detectorId, "Too many historical analysis request in short time. Please retry later.")
+                    new OpenSearchStatusException(
+                        "Too many historical analysis requests in short time. Please retry later.",
+                        RestStatus.FORBIDDEN
+                    )
                 );
             return;
         }
-        ActionListener<AnomalyDetectorJobResponse> wrappedActionListener = ActionListener
-            .runAfter(listener, () -> { checkingTaskSlot.release(1); });
+        ActionListener<AnomalyDetectorJobResponse> wrappedActionListener = ActionListener.runAfter(listener, () -> {
+            checkingTaskSlot.release(1);
+            logger.debug("Release checking task slot semaphore on lead node for detector {}", detectorId);
+        });
         hashRing.getNodesWithSameLocalAdVersion(nodes -> {
             int maxAdTaskSlots = nodes.length * maxAdBatchTaskPerNode;
             ADStatsRequest adStatsRequest = new ADStatsRequest(nodes);
@@ -574,10 +579,10 @@ public class ADTaskManager {
                 // get detector task slots cached on it, so it's possible that totalAssignedTaskSlots < totalUsedTaskSlots.
                 int currentUsedTaskSlots = Math.max(totalUsedTaskSlots, totalAssignedTaskSlots);
                 if (currentUsedTaskSlots >= maxAdTaskSlots) {
-                    wrappedActionListener.onFailure(new LimitExceededException("Total used task slots is more than max task slots"));
+                    wrappedActionListener.onFailure(new OpenSearchStatusException("No available task slot", RestStatus.BAD_REQUEST));
                     return;
                 }
-                int availableAdTaskSlots = maxAdTaskSlots - totalUsedTaskSlots;
+                int availableAdTaskSlots = maxAdTaskSlots - currentUsedTaskSlots;
                 logger.info("Current available task slots is {} for historical analysis of detector {}", availableAdTaskSlots, detectorId);
 
                 if (ADTaskAction.SCALE_ENTITY_TASK_SLOTS == targetActionOfTaskSlotChecking) {
@@ -1428,7 +1433,6 @@ public class ADTaskManager {
      * @param detector anomaly detector
      * @param detectionDateRange detection date range
      * @param user user
-     * @param availableTaskSLots available task slots
      * @param transportService transport service
      * @param listener action listener
      */
@@ -1436,7 +1440,6 @@ public class ADTaskManager {
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
         User user,
-        Integer availableTaskSLots,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
@@ -2219,7 +2222,7 @@ public class ADTaskManager {
             this.removeDetectorFromCache(detectorId);
         }, e -> {
             logger.error("Failed to update task: " + taskId, e);
-            this.removeDetectorFromCache(detectorId);
+            this.removeDetectorFromCache(detectorId);// TODO: check why sometimes HC detector still show as RUNNING rather than FINISHED
         });
 
         if (state == ADTaskState.FINISHED) {
@@ -2378,23 +2381,28 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        String detectorId = adTask.getDetectorId();
         int scaleDelta = scaleTaskSlots(
             adTask,
             transportService,
             ActionListener
                 .wrap(
-                    r -> { logger.debug("Scale up task slots done for detector {}, task {}", adTask.getDetectorId(), adTask.getTaskId()); },
+                    r -> { logger.debug("Scale up task slots done for detector {}, task {}", detectorId, adTask.getTaskId()); },
                     e -> { logger.error("Failed to scale up task slots for task " + adTask.getTaskId(), e); }
                 )
         );
         if (scaleDelta < 0) {
             logger
                 .warn(
-                    "Need to scale down task slots. Stop current lane for detector {}, task {}",
-                    adTask.getDetectorId(),
-                    adTask.getTaskId()
+                    "Need to scale down task slots. Stop current lane for detector {}, task {}, task slots: {}",
+                    detectorId,
+                    adTask.getTaskId(),
+                    adTaskCacheManager.getDetectorTaskSlots(detectorId)
                 );
-            listener.onFailure(new AnomalyDetectionException(adTask.getDetectorId(), "need to scale down task slots"));
+            if (adTaskCacheManager.getDetectorTaskSlots(detectorId) > 1) {
+                // Keep at least 1 task lane to run entities
+                listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.ACCEPTED));
+            }
             return;
         }
         client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
@@ -2403,17 +2411,11 @@ public class ADTaskManager {
                 .info(
                     "AD entity task {} of detector {} dispatched to {} node {}",
                     adTask.getTaskId(),
-                    adTask.getDetectorId(),
+                    detectorId,
                     remoteOrLocal,
                     r.getNodeId()
                 );
-            AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
-                adTask.getDetectorId(),
-                0,
-                0,
-                0,
-                RestStatus.OK
-            );
+            AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK);
             listener.onResponse(anomalyDetectorJobResponse);
         }, e -> { listener.onFailure(e); }));
     }
@@ -2524,6 +2526,7 @@ public class ADTaskManager {
             .debug(
                 "Calculate task slot scale delta for detector {}, totalTaskSlots: {}, maxRunningEntitiesPerDetector: {}, "
                     + "unfinishedEntities: {}, taskLaneLimit: {}, assignedTaskSlots: {}, scaleDelta: {}",
+                detectorId,
                 totalTaskSlots,
                 maxRunningEntitiesPerDetector,
                 unfinishedEntities,

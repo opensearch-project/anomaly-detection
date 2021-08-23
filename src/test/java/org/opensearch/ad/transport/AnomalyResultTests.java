@@ -213,8 +213,8 @@ public class AnomalyResultTests extends AbstractADTest {
         }).when(stateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
 
         hashRing = mock(HashRing.class);
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(clusterService.state().nodes().getLocalNode()));
-        when(hashRing.build()).thenReturn(true);
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class)))
+            .thenReturn(Optional.of(clusterService.state().nodes().getLocalNode()));
         featureQuery = mock(FeatureManager.class);
 
         doAnswer(invocation -> {
@@ -442,7 +442,7 @@ public class AnomalyResultTests extends AbstractADTest {
         );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
         // register handler on testNodes[1]
         new RCFResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -657,7 +657,7 @@ public class AnomalyResultTests extends AbstractADTest {
         );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
         // register handlers on testNodes[1]
         ActionFilters actionFilters = new ActionFilters(Collections.emptySet());
         new RCFResultTransportAction(actionFilters, testNodes[1].transportService, normalModelManager, adCircuitBreakerService);
@@ -753,7 +753,7 @@ public class AnomalyResultTests extends AbstractADTest {
                 .when(exceptionTransportService)
                 .getConnection(same(rcfNode));
         } else {
-            when(hashRing.getOwningNode(eq(thresholdModelID))).thenReturn(Optional.of(thresholdNode));
+            when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(eq(thresholdModelID))).thenReturn(Optional.of(thresholdNode));
             doThrow(new NodeNotConnectedException(rcfNode, "rcf node not connected"))
                 .when(exceptionTransportService)
                 .getConnection(same(thresholdNode));
@@ -797,10 +797,10 @@ public class AnomalyResultTests extends AbstractADTest {
         assertException(listener, AnomalyDetectionException.class);
 
         if (!temporary) {
-            verify(hashRing, times(numberOfBuildCall)).build();
+            verify(hashRing, times(numberOfBuildCall)).buildCirclesOnAdVersionsDirectly();
             verify(stateManager, never()).addPressure(any(String.class), any(String.class));
         } else {
-            verify(hashRing, never()).build();
+            verify(hashRing, never()).buildCirclesOnAdVersionsDirectly();
             // expect 2 times since we have 2 RCF model partitions
             verify(stateManager, times(numberOfBuildCall)).addPressure(any(String.class), any(String.class));
         }

@@ -99,7 +99,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
         String rcfModelID = modelPartitioner.getRcfModelId(adID, 0);
 
-        Optional<DiscoveryNode> rcfNode = hashRing.getOwningNode(rcfModelID.toString());
+        Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionDirectly(rcfModelID);
         if (!rcfNode.isPresent()) {
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
             return;

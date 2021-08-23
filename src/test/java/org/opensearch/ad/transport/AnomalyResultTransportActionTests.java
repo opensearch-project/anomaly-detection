@@ -71,7 +71,8 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
         ingestTestData();
     }
 
-    private void ingestTestData() throws IOException {
+    private void ingestTestData() throws IOException, InterruptedException {
+        Thread.sleep(1000); // sleep some time to build AD version hash ring
         createTestDataIndex(testIndex);
         double value = randomDouble();
         String type = randomAlphaOfLength(5);

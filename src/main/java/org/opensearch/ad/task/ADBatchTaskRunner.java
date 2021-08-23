@@ -51,6 +51,7 @@ import static org.opensearch.ad.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -624,11 +625,11 @@ public class ADBatchTaskRunner {
             listener.onFailure(e);
             handleException(adTask, e);
 
-            if (adTask.isEntityTask()) {
+            if (adTask.getDetector().isMultientityDetector()) { // first task is not entity task, it's HC detector task
                 // When reach this line, it means entity task failed to start on worker node
                 // Sleep some time before polling next entity task.
                 adTaskManager.entityTaskDone(adTask, e, transportService);
-                if (adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
+                if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getDetectorId()) > 0) {
                     threadPool
                         .schedule(
                             () -> startNewEntityTaskLane(adTask, transportService),
@@ -675,8 +676,7 @@ public class ADBatchTaskRunner {
 
     // start new entity task lane
     private synchronized void startNewEntityTaskLane(ADTask adTask, TransportService transportService) {
-        if (ADTaskType.HISTORICAL_HC_ENTITY.name().equals(adTask.getTaskType())
-            && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
+        if (adTask.getDetector().isMultientityDetector() && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
             logger.debug("start new task lane for detector {}", adTask.getDetectorId());
             forwardOrExecuteADTask(adTask, transportService, getInternalHCDelegatedListener(adTask));
         }
@@ -688,6 +688,16 @@ public class ADBatchTaskRunner {
             adStatsRequest.addAll(ImmutableSet.of(AD_EXECUTING_BATCH_TASK_COUNT.getName(), JVM_HEAP_USAGE.getName()));
 
             client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
+                List<String> nodeExceedHeapLimit = adStatsResponse
+                    .getNodes()
+                    .stream()
+                    .filter(stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) >= DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
+                    .map(nodeResponse -> nodeResponse.getNode().getId())
+                    .collect(Collectors.toList());
+                if (nodeExceedHeapLimit.size() > 0) {
+                    logger.debug(" Nodes exceed heap limit {}: {}", Arrays.toString(nodeExceedHeapLimit.toArray(new String[0])));
+                }
+
                 List<ADStatsNodeResponse> candidateNodeResponse = adStatsResponse
                     .getNodes()
                     .stream()
@@ -710,7 +720,7 @@ public class ADBatchTaskRunner {
                     .filter(stat -> (Long) stat.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()) < maxAdBatchTaskPerNode)
                     .collect(Collectors.toList());
                 if (candidateNodeResponse.size() == 0) {
-                    StringBuilder errorMessageBuilder = new StringBuilder("All nodes' memory usage exceeds limitation ")
+                    StringBuilder errorMessageBuilder = new StringBuilder("All nodes' executing batch tasks exceeds limitation ")
                         .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
                         .append(adTask.getDetectorId());
                     String errorMessage = errorMessageBuilder.toString();

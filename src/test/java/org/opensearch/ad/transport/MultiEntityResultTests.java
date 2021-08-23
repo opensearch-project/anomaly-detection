@@ -697,7 +697,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -755,7 +755,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         ADCircuitBreakerService openBreaker = mock(ADCircuitBreakerService.class);
         when(openBreaker.isOpen()).thenReturn(true);
@@ -791,7 +791,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::unackEntityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -815,11 +815,14 @@ public class MultiEntityResultTests extends AbstractADTest {
         Entity entity3 = Entity.createEntityByReordering(attrs3);
 
         // we use ordered attributes values as the key to hashring
-        when(hashRing.getOwningNode(eq(entity1.toString()))).thenReturn(Optional.of(testNodes[2].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(eq(entity1.toString())))
+            .thenReturn(Optional.of(testNodes[2].discoveryNode()));
 
-        when(hashRing.getOwningNode(eq(entity2.toString()))).thenReturn(Optional.of(testNodes[3].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(eq(entity2.toString())))
+            .thenReturn(Optional.of(testNodes[3].discoveryNode()));
 
-        when(hashRing.getOwningNode(eq(entity3.toString()))).thenReturn(Optional.of(testNodes[4].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(eq(entity3.toString())))
+            .thenReturn(Optional.of(testNodes[4].discoveryNode()));
 
         for (int i = 2; i <= 4; i++) {
             setUpEntityResult(i);
@@ -842,7 +845,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         setUpEntityResult(1);
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         List<Entity> hotEntities = new ArrayList<>();
         Map<String, Object> attrs4 = new HashMap<>();
@@ -890,7 +893,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     public void testCacheSelection() throws IOException, InterruptedException {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         List<Entity> hotEntities = new ArrayList<>();
         Entity entity1 = Entity.createEntityByReordering(attrs1);
@@ -1059,7 +1062,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         }).when(client).search(any(), any());
 
         setUpTransportInterceptor(this::entityResultHandler);
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -1124,7 +1127,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         NodeStateManager modelNodeStateManager = mock(NodeStateManager.class);
         // make sure parameters are not null, otherwise this mock won't get invoked

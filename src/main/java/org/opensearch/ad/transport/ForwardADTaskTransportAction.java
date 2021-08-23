@@ -106,21 +106,13 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             case START:
                 // Start historical analysis for detector
                 logger.debug("Received START action for detector {}", detectorId);
-                adTaskManager
-                    .startHistoricalAnalysisTask(
-                        detector,
-                        detectionDateRange,
-                        user,
-                        availableTaskSlots,
-                        transportService,
-                        ActionListener.wrap(r -> {
-                            adTaskCacheManager.setDetectorTaskSlots(detector.getDetectorId(), availableTaskSlots);
-                            listener.onResponse(r);
-                        }, e -> listener.onFailure(e))
-                    );
+                adTaskManager.startHistoricalAnalysisTask(detector, detectionDateRange, user, transportService, ActionListener.wrap(r -> {
+                    adTaskCacheManager.setDetectorTaskSlots(detector.getDetectorId(), availableTaskSlots);
+                    listener.onResponse(r);
+                }, e -> listener.onFailure(e)));
                 break;
             case FINISHED:
-                logger.debug("Received START action for detector {}", detectorId);
+                logger.debug("Received FINISHED action for detector {}", detectorId);
                 // Historical analysis finished, so we need to remove detector cache. Only single entity detectors use this.
                 adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
@@ -177,14 +169,19 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     } else {
                         // If exception is not retryable or exceeds retry limit, will remove this entity.
                         adTaskCacheManager.removeEntity(adTask.getDetectorId(), entityValue);
-                        logger.warn("Entity task failed, task id: {}", adTask.getTaskId());
+                        logger.warn("Entity task failed, task id: {}, entity: {}", adTask.getTaskId(), adTask.getEntity().toString());
                     }
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
+                        adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
                         adTaskManager.setHCDetectorTaskDone(adTask, ADTaskState.FINISHED, listener);
                     } else {
                         logger.debug("scale task slots for PUSH_BACK_ENTITY, detector {} task {}", detectorId, adTask.getTaskId());
-                        adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId, 1);
+                        int taskSlots = adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId, 1);
+                        if (taskSlots == 1) {
+                            logger.debug("After scale down, only 1 task slot reserved for detector {}, run next entity", detectorId);
+                            adTaskManager.runNextEntityForHCADHistorical(adTask, transportService, listener);
+                        }
                         listener.onResponse(new AnomalyDetectorJobResponse(adTask.getTaskId(), 0, 0, 0, RestStatus.ACCEPTED));
                     }
                 } else {
