@@ -255,13 +255,13 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
 
                             if (adTasks.containsKey(ADTaskType.REALTIME_HC_DETECTOR.name())) {
                                 realtimeAdTask = Optional.ofNullable(adTasks.get(ADTaskType.REALTIME_HC_DETECTOR.name()));
-                            } else if (adTasks.containsKey(ADTaskType.REALTIME_SINGLE_FLOW.name())) {
-                                realtimeAdTask = Optional.ofNullable(adTasks.get(ADTaskType.REALTIME_SINGLE_FLOW.name()));
+                            } else if (adTasks.containsKey(ADTaskType.REALTIME_SINGLE_ENTITY.name())) {
+                                realtimeAdTask = Optional.ofNullable(adTasks.get(ADTaskType.REALTIME_SINGLE_ENTITY.name()));
                             }
                             if (adTasks.containsKey(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
                                 historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL_HC_DETECTOR.name()));
-                            } else if (adTasks.containsKey(ADTaskType.HISTORICAL_SINGLE_FLOW.name())) {
-                                historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL_SINGLE_FLOW.name()));
+                            } else if (adTasks.containsKey(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())) {
+                                historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL_SINGLE_ENTITY.name()));
                             } else if (adTasks.containsKey(ADTaskType.HISTORICAL.name())) {
                                 historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL.name()));
                             }

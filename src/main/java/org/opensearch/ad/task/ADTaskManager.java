@@ -819,9 +819,9 @@ public class ADTaskManager {
 
     private ADTaskType getADTaskType(AnomalyDetector detector, DetectionDateRange detectionDateRange) {
         if (detectionDateRange == null) {
-            return detector.isMultientityDetector() ? ADTaskType.REALTIME_HC_DETECTOR : ADTaskType.REALTIME_SINGLE_FLOW;
+            return detector.isMultientityDetector() ? ADTaskType.REALTIME_HC_DETECTOR : ADTaskType.REALTIME_SINGLE_ENTITY;
         } else {
-            return detector.isMultientityDetector() ? ADTaskType.HISTORICAL_HC_DETECTOR : ADTaskType.HISTORICAL_SINGLE_FLOW;
+            return detector.isMultientityDetector() ? ADTaskType.HISTORICAL_HC_DETECTOR : ADTaskType.HISTORICAL_SINGLE_ENTITY;
         }
     }
 

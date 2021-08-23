@@ -239,7 +239,7 @@ public class ADDataMigrator {
                     AnomalyDetector detector = AnomalyDetector.parse(parser, r.getId());
                     ADTaskType taskType = detector.isMultientityDetector()
                         ? ADTaskType.REALTIME_HC_DETECTOR
-                        : ADTaskType.REALTIME_SINGLE_FLOW;
+                        : ADTaskType.REALTIME_SINGLE_ENTITY;
                     Instant now = Instant.now();
                     String userName = job.getUser() != null ? job.getUser().getName() : null;
                     ADTask adTask = new ADTask.Builder()

@@ -72,7 +72,6 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
     }
 
     private void ingestTestData() throws IOException, InterruptedException {
-        Thread.sleep(1000); // sleep some time to build AD version hash ring
         createTestDataIndex(testIndex);
         double value = randomDouble();
         String type = randomAlphaOfLength(5);
@@ -261,6 +260,11 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
 
     private void assertErrorMessage(String adId, String errorMessage, boolean hcDetector) {
         AnomalyResultRequest resultRequest = new AnomalyResultRequest(adId, start, end);
+        try {
+            Thread.sleep(1000); // sleep some time to build AD version hash ring
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Fail to sleep before calling AD result action");
+        }
         // wait at most 20 seconds
         int numberofTries = 40;
         Exception e = null;
