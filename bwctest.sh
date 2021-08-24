@@ -28,4 +28,4 @@ while getopts ":h" arg; do
     esac
 done 
 
-./gradlew bwctest
+./gradlew bwcTestSuite -Dtests.security.manager=false
