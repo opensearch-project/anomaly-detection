@@ -300,7 +300,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     private void profileEntityStats(MultiResponsesDelegateActionListener<DetectorProfile> listener, AnomalyDetector detector) {
         List<String> categoryField = detector.getCategoryField();
-        if (categoryField == null || categoryField.size() == 0 || categoryField.size() > NumericSetting.maxCategoricalFields()) {
+        if (!detector.isMultientityDetector() || categoryField.size() > NumericSetting.maxCategoricalFields()) {
             listener.onResponse(new DetectorProfile.Builder().build());
         } else {
             if (categoryField.size() == 1) {
