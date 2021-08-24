@@ -28,7 +28,7 @@ package org.opensearch.ad.stats.suppliers;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SZIE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
 import static org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
 
 import java.time.Clock;
@@ -105,11 +105,11 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
 
     @Test
     public void testGet() {
-        Settings settings = Settings.builder().put(MAX_MODEL_SZIE.getKey(), 10).build();
+        Settings settings = Settings.builder().put(MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
         ClusterService clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SZIE)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 

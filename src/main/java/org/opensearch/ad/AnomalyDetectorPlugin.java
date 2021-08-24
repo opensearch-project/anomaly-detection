@@ -884,7 +884,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 // clean resource
                 AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
                 // stats/profile API
-                AnomalyDetectorSettings.MAX_MODEL_SZIE
+                AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE
             );
         return unmodifiableList(
             Stream

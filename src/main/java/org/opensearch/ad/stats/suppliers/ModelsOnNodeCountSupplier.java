@@ -18,7 +18,7 @@ import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.ModelManager;
 
 /**
- * ModelsOnNodeSupplier provides a List of ModelStates info for the models the nodes contains
+ * ModelsOnNodeCountSupplier provides the number of models a node contains
  */
 public class ModelsOnNodeCountSupplier implements Supplier<Long> {
     private ModelManager modelManager;

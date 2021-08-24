@@ -775,7 +775,7 @@ public final class AnomalyDetectorSettings {
     // ======================================
     // the max number of models to return per node.
     // the setting is used to limit resource usage due to showing models
-    public static final Setting<Integer> MAX_MODEL_SZIE = Setting
+    public static final Setting<Integer> MAX_MODEL_SIZE_PER_NODE = Setting
         .intSetting(
             "plugins.anomaly_detection.max_model_size_per_node",
             100,

@@ -26,13 +26,15 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SZIE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
@@ -52,12 +54,12 @@ import org.opensearch.transport.TransportService;
  *  This class contains the logic to extract the stats from the nodes
  */
 public class ProfileTransportAction extends TransportNodesAction<ProfileRequest, ProfileResponse, ProfileNodeRequest, ProfileNodeResponse> {
-
+    private static final Logger LOG = LogManager.getLogger(ProfileTransportAction.class);
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
     // the number of models to return. Defaults to 10.
-    private volatile int modelToReturn;
+    private volatile int numModelsToReturn;
 
     /**
      * Constructor
@@ -96,8 +98,8 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
-        this.modelToReturn = MAX_MODEL_SZIE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SZIE, it -> this.modelToReturn = it);
+        this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
     }
 
     @Override
@@ -139,8 +141,9 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
             if (profiles.contains(DetectorProfileName.MODELS)) {
                 modelProfiles = cacheProvider.get().getAllModelProfile(detectorId);
                 modelCount = modelProfiles.size();
-                int limit = Math.min(modelToReturn, modelCount);
+                int limit = Math.min(numModelsToReturn, modelCount);
                 if (limit != modelCount) {
+                    LOG.info("model number limit reached");
                     modelProfiles = modelProfiles.subList(0, limit);
                 }
             }

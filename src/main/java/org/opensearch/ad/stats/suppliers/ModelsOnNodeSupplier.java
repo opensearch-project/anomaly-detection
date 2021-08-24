@@ -29,7 +29,7 @@ package org.opensearch.ad.stats.suppliers;
 import static org.opensearch.ad.ml.ModelState.LAST_CHECKPOINT_TIME_KEY;
 import static org.opensearch.ad.ml.ModelState.LAST_USED_TIME_KEY;
 import static org.opensearch.ad.ml.ModelState.MODEL_TYPE_KEY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SZIE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,8 +53,8 @@ import org.opensearch.common.settings.Settings;
 public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>> {
     private ModelManager modelManager;
     private CacheProvider cache;
-    // the max number of models to return per node. Defaults to 10.
-    private volatile int modelToReturn;
+    // the max number of models to return per node. Defaults to 100.
+    private volatile int numModelsToReturn;
 
     /**
      * Set that contains the model stats that should be exposed.
@@ -82,8 +82,8 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
     public ModelsOnNodeSupplier(ModelManager modelManager, CacheProvider cache, Settings settings, ClusterService clusterService) {
         this.modelManager = modelManager;
         this.cache = cache;
-        this.modelToReturn = MAX_MODEL_SZIE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SZIE, it -> this.modelToReturn = it);
+        this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
     }
 
     @Override
@@ -91,7 +91,7 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
         List<Map<String, Object>> values = new ArrayList<>();
         Stream
             .concat(modelManager.getAllModels().stream(), cache.get().getAllModels().stream())
-            .limit(modelToReturn)
+            .limit(numModelsToReturn)
             .forEach(
                 modelState -> values
                     .add(
