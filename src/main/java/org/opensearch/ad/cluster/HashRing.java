@@ -60,6 +60,7 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.routing.Murmur3HashFunction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.PluginInfo;
 
@@ -166,6 +167,15 @@ public class HashRing {
         );
     }
 
+    /**
+     * Build AD version hash ring.
+     * 1. Delete removed nodes from AD version hash ring.
+     * 2. Add new nodes to AD version hash ring
+     *
+     * @param removedNodeIds removed node ids
+     * @param addedNodeIds added node ids
+     * @param actionListener action listener
+     */
     public void buildCirclesOnAdVersions(Set<String> removedNodeIds, Set<String> addedNodeIds, ActionListener<Boolean> actionListener) {
         if (!adVersionCircleInProgress.tryAcquire()) {
             LOG.info("AD version hash ring change in progress, return.");
@@ -386,6 +396,39 @@ public class HashRing {
      */
     public Version getAdVersion(String nodeId) {
         return nodeAdVersions.get(nodeId);
+    }
+
+    /**
+     * Get node by transport address.
+     * If transport address is null, return local node; otherwise, filter current eligible data nodes
+     * with IP address. If no node found, will return Optional.empty()
+     *
+     * @param address transport address
+     * @return discovery node
+     */
+    public Optional<DiscoveryNode> getNodeByAddress(TransportAddress address) {
+        if (address == null) {
+            // If remote address of transport request is null, that means remote node is local node.
+            return Optional.of(clusterService.localNode());
+        }
+        String ipAddress = getIpAddress(address);
+        DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
+        for (DiscoveryNode node : eligibleDataNodes) {
+            if (getIpAddress(node.getAddress()).equals(ipAddress)) {
+                return Optional.ofNullable(node);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Get IP address from transport address.
+     * TransportAddress.toString() example: 100.200.100.200:12345
+     * @param address transport address
+     * @return IP address
+     */
+    private String getIpAddress(TransportAddress address) {
+        return address.toString().split(":")[0];
     }
 
     /**

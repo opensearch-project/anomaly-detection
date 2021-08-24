@@ -288,7 +288,9 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
         String stackErrorMessage = ExceptionUtil.getErrorMessage(e);
         assertTrue(
             "Unexpected error: " + e.getMessage(),
-            stackErrorMessage.contains(errorMessage) || stackErrorMessage.contains("node is not available")
+            stackErrorMessage.contains(errorMessage)
+                || stackErrorMessage.contains("node is not available")
+                || stackErrorMessage.contains("AD memory circuit is broken")
         );
     }
 

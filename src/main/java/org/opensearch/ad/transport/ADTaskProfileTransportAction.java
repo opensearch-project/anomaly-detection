@@ -47,7 +47,6 @@ public class ADTaskProfileTransportAction extends
 
     private ADTaskManager adTaskManager;
     private HashRing hashRing;
-    private Version remoteAdVersion;
 
     @Inject
     public ADTaskProfileTransportAction(
@@ -95,7 +94,7 @@ public class ADTaskProfileTransportAction extends
     @Override
     protected ADTaskProfileNodeResponse nodeOperation(ADTaskProfileNodeRequest request) {
         String remoteNodeId = request.getParentTask().getNodeId();
-        this.remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
+        Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
         ADTaskProfile adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getDetectorId());
         return new ADTaskProfileNodeResponse(clusterService.localNode(), adTaskProfile, remoteAdVersion);
     }

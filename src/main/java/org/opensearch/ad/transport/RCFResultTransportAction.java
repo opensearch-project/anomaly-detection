@@ -26,15 +26,20 @@
 
 package org.opensearch.ad.transport;
 
+import java.util.Optional;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -44,26 +49,35 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
     private static final Logger LOG = LogManager.getLogger(RCFResultTransportAction.class);
     private ModelManager manager;
     private ADCircuitBreakerService adCircuitBreakerService;
+    private HashRing hashRing;
 
     @Inject
     public RCFResultTransportAction(
         ActionFilters actionFilters,
         TransportService transportService,
         ModelManager manager,
-        ADCircuitBreakerService adCircuitBreakerService
+        ADCircuitBreakerService adCircuitBreakerService,
+        HashRing hashRing
     ) {
         super(RCFResultAction.NAME, transportService, actionFilters, RCFResultRequest::new);
         this.manager = manager;
         this.adCircuitBreakerService = adCircuitBreakerService;
+        this.hashRing = hashRing;
     }
 
     @Override
     protected void doExecute(Task task, RCFResultRequest request, ActionListener<RCFResultResponse> listener) {
-
         if (adCircuitBreakerService.isOpen()) {
             listener.onFailure(new LimitExceededException(request.getAdID(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
             return;
         }
+        Optional<DiscoveryNode> remoteNode = hashRing.getNodeByAddress(request.remoteAddress());
+        if (!remoteNode.isPresent()) {
+            listener.onFailure(new IllegalArgumentException("Can't recognize remote address"));
+            return;
+        }
+        String remoteNodeId = remoteNode.get().getId();
+        Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
 
         try {
             LOG.info("Serve rcf request for {}", request.getModelID());
@@ -81,7 +95,8 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                         result.getConfidence(),
                                         result.getForestSize(),
                                         result.getAttribution(),
-                                        result.getTotalUpdates()
+                                        result.getTotalUpdates(),
+                                        remoteAdVersion
                                     )
                                 ),
                             exception -> {
