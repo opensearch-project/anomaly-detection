@@ -44,9 +44,6 @@ public class ADVersionUtil {
     }
 
     public static boolean compatibleWithCurrentVersion(Version adVersion) {
-        if (Version.CURRENT.equals(adVersion)) {
-            return true;
-        }
         return adVersion != null && adVersion.after(Version.V_1_0_0);
     }
 }
