@@ -655,13 +655,13 @@ public class ADTaskCacheManager {
      * @return new task slots
      */
     public synchronized int scaleDownHCDetectorTaskSlots(String detectorId, int delta) {
-        ADHCBatchTaskCache batchTaskCache = hcTaskCaches.get(detectorId);
+        ADTaskSlotLimit adTaskSlotLimit = this.detectorTaskSlotLimit.get(detectorId);
         int taskSlots = this.getDetectorTaskSlots(detectorId);
-        if (batchTaskCache != null && delta > 0) {
+        if (adTaskSlotLimit != null && delta > 0) {
             int newTaskSlots = taskSlots - delta;
             if (newTaskSlots > 0) {
                 logger.info("Scale down task slots of detector {} from {} to {}", detectorId, taskSlots, newTaskSlots);
-                this.detectorTaskSlotLimit.get(detectorId).setDetectorTaskSlots(newTaskSlots);
+                adTaskSlotLimit.setDetectorTaskSlots(newTaskSlots);
                 return newTaskSlots;
             }
         }
@@ -732,12 +732,6 @@ public class ADTaskCacheManager {
      */
     public int getTotalDetectorTaskSlots() {
         int totalTaskSLots = 0;
-        logger
-            .info(
-                "yyyyyyyyyyyyyyyyyyyyyyyyyyyy detectorTaskSlotLimit size: {}, {}",
-                detectorTaskSlotLimit.size(),
-                Arrays.toString(detectorTaskSlotLimit.keySet().toArray(new String[0]))
-            );
         for (Map.Entry<String, ADTaskSlotLimit> entry : detectorTaskSlotLimit.entrySet()) {
             totalTaskSLots += entry.getValue().getDetectorTaskSlots();
         }
@@ -799,6 +793,7 @@ public class ADTaskCacheManager {
         if (isHCTaskCoordinatingNode(detectorId)) {
             return true;
         }
+        // Only running tasks will be in cache.
         Optional<ADBatchTaskCache> entityTask = this.taskCaches
             .values()
             .stream()

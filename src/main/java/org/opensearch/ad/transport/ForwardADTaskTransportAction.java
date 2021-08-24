@@ -91,7 +91,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 adTaskManager.checkTaskSlots(adTask, detector, detectionDateRange, user, ADTaskAction.START, transportService, listener);
                 break;
             case CHECK_AVAILABLE_TASK_SLOTS:
-                logger.debug("Received SCALE_TASK_SLOTS action for detector {}", detectorId);
+                logger.debug("Received CHECK_AVAILABLE_TASK_SLOTS action for detector {}", detectorId);
                 adTaskManager
                     .checkTaskSlots(
                         adTask,

@@ -539,7 +539,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                     response.getDetectorIntervalInMinutes(),
                     response.getError()
                 );
-            }, e -> { log.error("Failed to get init progress profile for " + detectorId, e); }));
+            }, e -> { log.error("Failed to update latest realtime task for " + detectorId, e); }));
         } else {
             log.debug("Update latest realtime task for SINGLE detector {}, total updates: {}", detectorId, response.getRcfTotalUpdates());
             updateLatestRealtimeTask(

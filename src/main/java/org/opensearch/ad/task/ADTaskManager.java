@@ -605,6 +605,7 @@ public class ADTaskManager {
 
                 if (detector.isMultientityDetector()) {
                     if (detector.isMultiCategoryDetector()) {
+                        // Get top entities for multi-category HC detector. Check example query in getHighestCountEntities comments
                         searchFeatureDao
                             .getHighestCountEntities(
                                 detector,
@@ -636,6 +637,51 @@ public class ADTaskManager {
                                 })
                             );
                     } else {
+                        /* Get top entities for single-category HC detector
+                         * Sample query:
+                         *{
+                         *   "size": 0,
+                         *   "query": {
+                         *     "bool": {
+                         *       "filter": [
+                         *         {
+                         *           "range": {
+                         *             "timestamp": {
+                         *               "from": 1628450905000,
+                         *               "to": 1629055705000,
+                         *               "include_lower": true,
+                         *               "include_upper": true,
+                         *               "format": "epoch_millis",
+                         *               "boost": 1
+                         *             }
+                         *           }
+                         *         }
+                         *       ],
+                         *       "adjust_pure_negative": true,
+                         *       "boost": 1
+                         *     }
+                         *   },
+                         *   "aggregations": {
+                         *     "topEntities": {
+                         *       "terms": {
+                         *         "field": "type",
+                         *         "size": 6, # maxRunningEntitiesPerDetector
+                         *         "min_doc_count": 1,
+                         *         "shard_min_doc_count": 0,
+                         *         "show_term_doc_count_error": false,
+                         *         "order": [
+                         *           {
+                         *             "_count": "desc"
+                         *           },
+                         *           {
+                         *             "_key": "asc"
+                         *           }
+                         *         ]
+                         *       }
+                         *     }
+                         *   }
+                         * }
+                         */
                         RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(detector.getTimeField())
                             .gte(dataStartTime)
                             .lte(dataEndTime)
