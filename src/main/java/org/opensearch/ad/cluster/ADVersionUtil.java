@@ -43,7 +43,7 @@ public class ADVersionUtil {
         return normalizedVersion.toString();
     }
 
-    public static boolean versionCompatible(Version adVersion) {
+    public static boolean compatibleWithCurrentVersion(Version adVersion) {
         if (Version.CURRENT.equals(adVersion)) {
             return true;
         }

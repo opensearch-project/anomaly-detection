@@ -51,18 +51,8 @@ public class ForwardADTaskRequest extends ActionRequest {
     private DetectionDateRange detectionDateRange;
     private List<String> staleRunningEntities;
     private User user;
-    private Integer availableTaskSLots;
+    private Integer availableTaskSlots;
     private ADTaskAction adTaskAction;
-
-    public ForwardADTaskRequest(
-        AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
-        User user,
-        ADTaskAction adTaskAction,
-        Version remoteAdVersion
-    ) {
-        this(detector, detectionDateRange, user, adTaskAction, null, remoteAdVersion);
-    }
 
     public ForwardADTaskRequest(
         AnomalyDetector detector,
@@ -72,14 +62,21 @@ public class ForwardADTaskRequest extends ActionRequest {
         Integer availableTaskSLots,
         Version remoteAdVersion
     ) {
+        if (!ADVersionUtil.compatibleWithCurrentVersion(remoteAdVersion)) {
+            throw new ADVersionException("Can't forward AD task request to node running AD version " + remoteAdVersion);
+        }
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
         this.user = user;
-        this.availableTaskSLots = availableTaskSLots;
+        this.availableTaskSlots = availableTaskSLots;
         this.adTaskAction = adTaskAction;
-        if (!ADVersionUtil.versionCompatible(remoteAdVersion)) {
-            throw new ADVersionException("Can't forward AD task request to node running AD version " + remoteAdVersion);
-        }
+    }
+
+    public ForwardADTaskRequest(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ADTaskAction adTaskAction) {
+        this.detector = detector;
+        this.detectionDateRange = detectionDateRange;
+        this.user = user;
+        this.adTaskAction = adTaskAction;
     }
 
     public ForwardADTaskRequest(ADTask adTask, ADTaskAction adTaskAction) {
@@ -88,7 +85,7 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public ForwardADTaskRequest(ADTask adTask, Integer availableTaskSLots, ADTaskAction adTaskAction) {
         this(adTask, adTaskAction, null);
-        this.availableTaskSLots = availableTaskSLots;
+        this.availableTaskSlots = availableTaskSLots;
     }
 
     public ForwardADTaskRequest(ADTask adTask, ADTaskAction adTaskAction, List<String> staleRunningEntities) {
@@ -117,7 +114,7 @@ public class ForwardADTaskRequest extends ActionRequest {
             this.detectionDateRange = new DetectionDateRange(in);
         }
         this.staleRunningEntities = in.readOptionalStringList();
-        availableTaskSLots = in.readOptionalInt();
+        availableTaskSlots = in.readOptionalInt();
     }
 
     @Override
@@ -145,7 +142,7 @@ public class ForwardADTaskRequest extends ActionRequest {
             out.writeBoolean(false);
         }
         out.writeOptionalStringCollection(staleRunningEntities);
-        out.writeOptionalInt(availableTaskSLots);
+        out.writeOptionalInt(availableTaskSlots);
     }
 
     @Override
@@ -190,6 +187,6 @@ public class ForwardADTaskRequest extends ActionRequest {
     }
 
     public Integer getAvailableTaskSLots() {
-        return availableTaskSLots;
+        return availableTaskSlots;
     }
 }

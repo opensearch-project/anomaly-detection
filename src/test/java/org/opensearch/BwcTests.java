@@ -16,9 +16,6 @@ import static java.util.Collections.emptySet;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,8 +36,6 @@ import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.AnomalyResultResponse;
-import org.opensearch.ad.transport.CronNodeRequest;
-import org.opensearch.ad.transport.CronRequest;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileRequest;
 import org.opensearch.ad.transport.EntityProfileResponse;
@@ -87,11 +82,6 @@ public class BwcTests extends AbstractADTest {
     private ModelProfile1_0[] convertedModelProfile;
     private RCFResultResponse rcfResultResponse1_1;
     private RCFResultResponse1_0 rcfResultResponse1_0;
-    private CronRequest cronRequest1_1;
-    private CronRequest1_0 cronRequest1_0;
-    private DiscoveryNode node;
-    private CronNodeRequest cronNodeRequest1_1;
-    private CronNodeRequest1_0 cronNodeRequest1_0;
     private AnomalyResultResponse adResultResponse1_1;
     private AnomalyResultResponse1_0 adResultResponse1_0;
 
@@ -547,91 +537,6 @@ public class BwcTests extends AbstractADTest {
         assertThat(readResponse.getConfidence(), equalTo(rcfResultResponse1_0.getConfidence()));
         assertThat(readResponse.getForestSize(), equalTo(rcfResultResponse1_0.getForestSize()));
         assertThat(readResponse.getRCFScore(), equalTo(rcfResultResponse1_0.getRCFScore()));
-    }
-
-    private void setUpCronRequest() throws UnknownHostException {
-        node = new DiscoveryNode(
-            nodeId,
-            new TransportAddress(new InetSocketAddress(InetAddress.getByName("1.2.3.4"), 9300)),
-            Version.V_1_0_0.minimumCompatibilityVersion()
-        );
-        cronRequest1_1 = new CronRequest("foo", node);
-        cronRequest1_0 = new CronRequest1_0(node);
-    }
-
-    public void testDeserializeCronRequest1_1() throws IOException {
-        setUpCronRequest();
-
-        cronRequest1_1.writeTo(output1_1);
-
-        StreamInput streamInput = output1_1.bytes().streamInput();
-        streamInput.setVersion(V_1_1_0);
-        CronRequest readRequest = new CronRequest(streamInput);
-        assertEquals(readRequest.getRequestId(), cronRequest1_1.getRequestId());
-        assertEquals(1, readRequest.concreteNodes().length);
-        assertEquals(node, readRequest.concreteNodes()[0]);
-    }
-
-    public void testDeserializeCronRequest1_0() throws IOException {
-        setUpCronRequest();
-
-        cronRequest1_0.writeTo(output1_0);
-
-        StreamInput streamInput = output1_0.bytes().streamInput();
-        streamInput.setVersion(Version.V_1_0_0);
-        CronRequest readRequest = new CronRequest(streamInput);
-        assertEquals(1, readRequest.concreteNodes().length);
-        assertEquals(node, readRequest.concreteNodes()[0]);
-    }
-
-    public void testSerializeCronRequest1_0() throws IOException {
-        setUpCronRequest();
-
-        cronRequest1_1.writeTo(output1_0);
-
-        StreamInput streamInput = output1_0.bytes().streamInput();
-        streamInput.setVersion(Version.V_1_0_0);
-        CronRequest1_0 readRequest = new CronRequest1_0(streamInput);
-        assertEquals(1, readRequest.concreteNodes().length);
-        assertEquals(node, readRequest.concreteNodes()[0]);
-    }
-
-    private void setUpCronNodeRequest() {
-        cronNodeRequest1_1 = new CronNodeRequest("blah");
-        cronNodeRequest1_0 = new CronNodeRequest1_0();
-    }
-
-    public void testDeserializeCronNodeRequest1_1() throws IOException {
-        setUpCronNodeRequest();
-
-        cronNodeRequest1_1.writeTo(output1_1);
-
-        StreamInput streamInput = output1_1.bytes().streamInput();
-        streamInput.setVersion(V_1_1_0);
-        CronNodeRequest readRequest = new CronNodeRequest(streamInput);
-        assertEquals(readRequest.getRequestId(), cronNodeRequest1_1.getRequestId());
-    }
-
-    public void testDeserializeCronNodeRequest1_0() throws IOException {
-        setUpCronNodeRequest();
-
-        cronNodeRequest1_0.writeTo(output1_0);
-
-        StreamInput streamInput = output1_0.bytes().streamInput();
-        streamInput.setVersion(Version.V_1_0_0);
-        CronNodeRequest readRequest = new CronNodeRequest(streamInput);
-        assertTrue(readRequest != null);
-    }
-
-    public void testSerializeCronNodeRequest1_0() throws IOException {
-        setUpCronNodeRequest();
-
-        cronNodeRequest1_1.writeTo(output1_0);
-
-        StreamInput streamInput = output1_0.bytes().streamInput();
-        streamInput.setVersion(Version.V_1_0_0);
-        CronNodeRequest1_0 readRequest = new CronNodeRequest1_0(streamInput);
-        assertTrue(readRequest != null);
     }
 
     private void setUpAnomalyResultResponse() {

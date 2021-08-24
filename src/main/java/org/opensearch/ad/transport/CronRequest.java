@@ -38,26 +38,15 @@ import org.opensearch.common.io.stream.StreamInput;
  */
 public class CronRequest extends BaseNodesRequest<CronRequest> {
 
-    private String requestId;
+    public CronRequest() {
+        super((String[]) null);
+    }
 
     public CronRequest(StreamInput in) throws IOException {
         super(in);
-        // The requestId field is added since AD 1.1
-        if (in.available() > 0) {
-            requestId = in.readString();
-        }
     }
 
     public CronRequest(DiscoveryNode... nodes) {
-        this(null, nodes);
-    }
-
-    public CronRequest(String requestId, DiscoveryNode... nodes) {
         super(nodes);
-        this.requestId = requestId;
-    }
-
-    public String getRequestId() {
-        return this.requestId;
     }
 }

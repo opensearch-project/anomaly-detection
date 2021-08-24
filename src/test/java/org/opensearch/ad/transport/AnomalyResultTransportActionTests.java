@@ -285,7 +285,11 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
                 () -> client().execute(AnomalyResultAction.INSTANCE, resultRequest).actionGet(30_000)
             );
         }
-        assertTrue("Unexpected error: " + e.getMessage(), ExceptionUtil.getErrorMessage(e).contains(errorMessage));
+        String stackErrorMessage = ExceptionUtil.getErrorMessage(e);
+        assertTrue(
+            "Unexpected error: " + e.getMessage(),
+            stackErrorMessage.contains(errorMessage) || stackErrorMessage.contains("node is not available")
+        );
     }
 
     private void assertErrorMessage(String adId, String errorMessage) {

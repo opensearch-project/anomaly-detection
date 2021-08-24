@@ -30,35 +30,15 @@ import java.io.IOException;
 
 import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 
 /**
  *  Delete model represents the request to an individual node
  */
 public class CronNodeRequest extends BaseNodeRequest {
 
-    private String requestId;
-
     public CronNodeRequest() {}
-
-    public CronNodeRequest(String requestId) {
-        this.requestId = requestId;
-    }
 
     public CronNodeRequest(StreamInput in) throws IOException {
         super(in);
-        // The request id is added since AD 1.1
-        if (in.available() > 0) {
-            requestId = in.readString();
-        }
-    }
-
-    public String getRequestId() {
-        return this.requestId;
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
     }
 }

@@ -122,9 +122,11 @@ public class HashRing {
     /**
      * Build AD version based circles with discovery node delta change. Listen to master event in
      * {@link ADClusterEventListener#clusterChanged(ClusterChangedEvent)}.
-     * Will remove the removed nodes from cache and send request to newly added nodes to get their plugin information,and.
+     * Will remove the removed nodes from cache and send request to newly added nodes to get their
+     * plugin information; then add new nodes to AD version hash ring.
      *
      * @param delta discovery node delta change
+     * @param listener action listener
      */
     public void buildCirclesOnAdVersions(DiscoveryNodes.Delta delta, ActionListener<Boolean> listener) {
         Set<String> removedNodeIds = delta.removed()
@@ -216,7 +218,7 @@ public class HashRing {
                             if (AD_PLUGIN_NAME.equals(pluginInfo.getName()) || AD_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
                                 Version version = ADVersionUtil.fromString(pluginInfo.getVersion());
                                 circle = adVersionCircles.computeIfAbsent(version, key -> new TreeMap<>());
-                                nodeAdVersions.computeIfAbsent(curNode.getId(), key -> ADVersionUtil.fromString(pluginInfo.getVersion()));
+                                nodeAdVersions.put(curNode.getId(), ADVersionUtil.fromString(pluginInfo.getVersion()));
                                 break;
                             }
                         }
@@ -251,6 +253,7 @@ public class HashRing {
         } catch (Exception e) {
             LOG.error("Failed to build AD version circles", e);
             adVersionCircleInProgress.release();
+            actionListener.onFailure(e);
         }
     }
 
@@ -293,10 +296,6 @@ public class HashRing {
     /**
      * Get owning node with same AD version of local node.
      * @param modelId model id
-     */
-    /**
-     * Get owning node with same AD version of local node.
-     * @param modelId model id
      * @param function consumer function
      * @param listener action listener
      * @param <T> listener response type
@@ -334,8 +333,11 @@ public class HashRing {
     private Optional<DiscoveryNode> getOwningNodeWithSameAdVersion(String modelId, Version adVersion) {
         int modelHash = Murmur3HashFunction.hash(modelId);
         TreeMap<Integer, DiscoveryNode> adVersionCircle = adVersionCircles.get(adVersion);
-        Map.Entry<Integer, DiscoveryNode> entry = adVersionCircle.higherEntry(modelHash);
-        return Optional.ofNullable(Optional.ofNullable(entry).orElse(adVersionCircle.firstEntry())).map(x -> x.getValue());
+        if (adVersionCircle != null) {
+            Map.Entry<Integer, DiscoveryNode> entry = adVersionCircle.higherEntry(modelHash);
+            return Optional.ofNullable(Optional.ofNullable(entry).orElse(adVersionCircle.firstEntry())).map(x -> x.getValue());
+        }
+        return Optional.empty();
     }
 
     public <T> void getNodesWithSameLocalAdVersion(Consumer<DiscoveryNode[]> function, ActionListener<T> listener) {
@@ -387,7 +389,7 @@ public class HashRing {
     }
 
     /**
-     * Get all eligible data nodes which AD version known in AD version based hash ring.
+     * Get all eligible data nodes whose AD versions are known in AD version based hash ring.
      * @param function consumer function
      * @param listener action listener
      * @param <T> action listener response type

@@ -65,7 +65,7 @@ public class ADTaskProfileNodeResponse extends BaseNodeResponse {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        if (adTaskProfile != null && (ADVersionUtil.versionCompatible(remoteAdVersion) || adTaskProfile.getNodeId() != null)) {
+        if (adTaskProfile != null && (ADVersionUtil.compatibleWithCurrentVersion(remoteAdVersion) || adTaskProfile.getNodeId() != null)) {
             out.writeBoolean(true);
             adTaskProfile.writeTo(out, remoteAdVersion);
         } else {

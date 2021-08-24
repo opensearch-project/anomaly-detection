@@ -29,6 +29,7 @@ package org.opensearch.ad;
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.action.DocWriteResponse.Result.UPDATED;
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_THREAD_POOL_NAME;
+import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_LATEST_TASK;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -654,7 +655,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                         detectorIntervalInMinutes
                     );
             }, e -> {
-                if ((e instanceof ResourceNotFoundException) && e.getMessage().contains("can't find latest task")) {
+                if ((e instanceof ResourceNotFoundException) && e.getMessage().contains(CAN_NOT_FIND_LATEST_TASK)) {
                     adTaskManager.createRealtimeTask((AnomalyDetectorJob) job);
                 } else {
                     log.error("Failed to update latest realtime task for detector " + detectorId, e);

@@ -102,7 +102,7 @@ public class ADDataMigrator {
             if (detectionIndices.doesDetectorStateIndexExist()) {
                 migrateDetectorInternalStateToRealtimeTask();
             } else {
-                // If detection index doesn't exist, create index and execute historical detector.
+                // If detection index doesn't exist, create index and backfill realtime task.
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
                         logger.info("Created {} with mappings.", CommonName.DETECTION_STATE_INDEX);

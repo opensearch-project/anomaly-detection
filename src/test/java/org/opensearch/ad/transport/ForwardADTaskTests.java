@@ -72,6 +72,7 @@ public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
             TestHelpers.randomDetectionDateRange(),
             TestHelpers.randomUser(),
             ADTaskAction.START,
+            randomInt(),
             testVersion
         );
         testForwardADTaskRequest(request);
@@ -83,6 +84,7 @@ public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
             TestHelpers.randomDetectionDateRange(),
             null,
             ADTaskAction.START,
+            randomInt(),
             testVersion
         );
         testForwardADTaskRequest(request);
@@ -94,6 +96,7 @@ public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
             TestHelpers.randomDetectionDateRange(),
             TestHelpers.randomUser(),
             ADTaskAction.START,
+            randomInt(),
             testVersion
         );
 

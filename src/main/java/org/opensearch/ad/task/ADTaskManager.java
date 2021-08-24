@@ -28,6 +28,7 @@ package org.opensearch.ad.task;
 
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
+import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_LATEST_TASK;
 import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
@@ -197,6 +198,7 @@ import com.google.common.collect.ImmutableSet;
  */
 public class ADTaskManager {
     public static final String AD_TASK_LEAD_NODE_MODEL_ID = "ad_task_lead_node_model_id";
+    public static final String AD_TASK_MAINTAINENCE_NODE_MODEL_ID = "ad_task_maintainence_node_model_id";
     private final Logger logger = LogManager.getLogger(this.getClass());
     static final String STATE_INDEX_NOT_EXIST_MSG = "State index does not exist.";
     private final Set<String> retryableErrors = ImmutableSet.of(EXCEED_HISTORICAL_ANALYSIS_LIMIT, NO_ELIGIBLE_NODE_TO_RUN_DETECTOR);
@@ -347,8 +349,7 @@ public class ADTaskManager {
             detector,
             detectionDateRange,
             user,
-            ADTaskAction.APPLY_FOR_TASK_SLOTS,
-            hashRing.getAdVersion(clusterService.localNode().getId())
+            ADTaskAction.APPLY_FOR_TASK_SLOTS
         );
         forwardRequestToLeadNode(forwardADTaskRequest, transportService, listener);
     }
@@ -1976,7 +1977,7 @@ public class ADTaskManager {
             if (adTask.isPresent()) {
                 updateADTask(adTask.get().getTaskId(), updatedFields, listener);
             } else {
-                listener.onFailure(new ResourceNotFoundException(detectorId, "can't find latest task"));
+                listener.onFailure(new ResourceNotFoundException(detectorId, CAN_NOT_FIND_LATEST_TASK));
             }
         }, null, false, listener);
     }
@@ -2692,14 +2693,12 @@ public class ADTaskManager {
      *    clean up.
      *
      * @param transportService transport service
-     * @param requestId request id
      * @param size return how many tasks
      */
-    public void maintainRunningHistoricalTasks(TransportService transportService, String requestId, int size) {
-        // request id could be null, `+ ""` is for backward compatibility consideration
+    public void maintainRunningHistoricalTasks(TransportService transportService, int size) {
         // Find owning node with highest AD version to make sure we only have 1 node maintain running historical tasks
         // and we use the latest logic.
-        Optional<DiscoveryNode> owningNode = hashRing.getOwningNodeWithHighestAdVersion(requestId + "");
+        Optional<DiscoveryNode> owningNode = hashRing.getOwningNodeWithHighestAdVersion(AD_TASK_MAINTAINENCE_NODE_MODEL_ID);
         if (!owningNode.isPresent() || !clusterService.localNode().getId().equals(owningNode.get().getId())) {
             return;
         }
