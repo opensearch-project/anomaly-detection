@@ -14,6 +14,7 @@ package org.opensearch.ad.ratelimit;
 import static java.util.AbstractMap.SimpleImmutableEntry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -124,7 +125,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         checkpointWriteQueue = mock(CheckpointWriteWorker.class);
 
         modelManager = mock(ModelManager.class);
-        when(modelManager.processEntityCheckpoint(any(), any(), anyString(), anyString())).thenReturn(state);
+        when(modelManager.processEntityCheckpoint(any(), any(), anyString(), anyString(), anyInt())).thenReturn(state);
         when(modelManager.score(any(), anyString(), any())).thenReturn(new ThresholdingResult(0, 1, 0.7));
 
         coldstartQueue = mock(EntityColdStartWorker.class);
@@ -225,7 +226,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         when(entityCache.hostIfPossible(any(), any())).thenReturn(config.canHostModel);
 
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(config.fullModel).build());
-        when(modelManager.processEntityCheckpoint(any(), any(), anyString(), anyString())).thenReturn(state);
+        when(modelManager.processEntityCheckpoint(any(), any(), anyString(), anyString(), anyInt())).thenReturn(state);
 
         List<EntityFeatureRequest> requests = new ArrayList<>();
         requests.add(request);

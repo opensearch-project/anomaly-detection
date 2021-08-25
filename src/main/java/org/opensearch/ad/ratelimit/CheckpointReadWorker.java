@@ -270,21 +270,20 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                     return;
                 }
 
-                ModelState<EntityModel> modelState = modelManager.processEntityCheckpoint(checkpoint, entity, modelId, detectorId);
-
-                EntityModel entityModel = modelState.getModel();
-
-                ThresholdingResult result = null;
-                if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
-                    result = modelManager.score(origRequest.getCurrentFeature(), modelId, modelState);
-                } else {
-                    entityModel.addSample(origRequest.getCurrentFeature());
-                }
-
                 nodeStateManager
                     .getAnomalyDetector(
                         detectorId,
-                        onGetDetector(origRequest, i, detectorId, result, toProcess, successfulRequests, retryableRequests, modelState)
+                        onGetDetector(
+                            origRequest,
+                            i,
+                            detectorId,
+                            toProcess,
+                            successfulRequests,
+                            retryableRequests,
+                            checkpoint,
+                            entity,
+                            modelId
+                        )
                     );
                 processNextInCallBack = true;
             } else if (retryableRequests != null && retryableRequests.contains(modelId)) {
@@ -302,11 +301,12 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         EntityFeatureRequest origRequest,
         int index,
         String detectorId,
-        ThresholdingResult result,
         List<EntityFeatureRequest> toProcess,
         Map<String, MultiGetItemResponse> successfulRequests,
         Set<String> retryableRequests,
-        ModelState<EntityModel> modelState
+        Optional<Entry<EntityModel, Instant>> checkpoint,
+        Entity entity,
+        String modelId
     ) {
         return ActionListener.wrap(detectorOptional -> {
             if (false == detectorOptional.isPresent()) {
@@ -316,6 +316,18 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             }
 
             AnomalyDetector detector = detectorOptional.get();
+
+            ModelState<EntityModel> modelState = modelManager
+                .processEntityCheckpoint(checkpoint, entity, modelId, detectorId, detector.getShingleSize());
+
+            EntityModel entityModel = modelState.getModel();
+
+            ThresholdingResult result = null;
+            if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
+                result = modelManager.score(origRequest.getCurrentFeature(), modelId, modelState);
+            } else {
+                entityModel.addSample(origRequest.getCurrentFeature());
+            }
 
             if (result != null && result.getRcfScore() > 0) {
                 resultWriteQueue
@@ -356,7 +368,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
 
             processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
         }, exception -> {
-            LOG.error(new ParameterizedMessage("fail to get checkpoint [{}]", modelState.getModelId()), exception);
+            LOG.error(new ParameterizedMessage("fail to get checkpoint [{}]", modelId, exception));
             nodeStateManager.setException(detectorId, exception);
             processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
         });
