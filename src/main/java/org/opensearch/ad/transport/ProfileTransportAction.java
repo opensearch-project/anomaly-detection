@@ -26,11 +26,15 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
@@ -42,6 +46,7 @@ import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
@@ -49,10 +54,12 @@ import org.opensearch.transport.TransportService;
  *  This class contains the logic to extract the stats from the nodes
  */
 public class ProfileTransportAction extends TransportNodesAction<ProfileRequest, ProfileResponse, ProfileNodeRequest, ProfileNodeResponse> {
-
+    private static final Logger LOG = LogManager.getLogger(ProfileTransportAction.class);
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
+    // the number of models to return. Defaults to 10.
+    private volatile int numModelsToReturn;
 
     /**
      * Constructor
@@ -64,6 +71,7 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
      * @param modelManager model manager object
      * @param featureManager feature manager object
      * @param cacheProvider cache provider
+     * @param settings Node settings accessor
      */
     @Inject
     public ProfileTransportAction(
@@ -73,7 +81,8 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         ActionFilters actionFilters,
         ModelManager modelManager,
         FeatureManager featureManager,
-        CacheProvider cacheProvider
+        CacheProvider cacheProvider,
+        Settings settings
     ) {
         super(
             ProfileAction.NAME,
@@ -89,6 +98,8 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
+        this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
     }
 
     @Override
@@ -115,6 +126,7 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         long totalUpdates = 0;
         Map<String, Long> modelSize = null;
         List<ModelProfile> modelProfiles = null;
+        int modelCount = 0;
         if (request.isForMultiEntityDetector()) {
             if (profiles.contains(DetectorProfileName.ACTIVE_ENTITIES)) {
                 activeEntity = cacheProvider.get().getActiveEntities(detectorId);
@@ -128,6 +140,12 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
             // need to provide entity info for HCAD
             if (profiles.contains(DetectorProfileName.MODELS)) {
                 modelProfiles = cacheProvider.get().getAllModelProfile(detectorId);
+                modelCount = modelProfiles.size();
+                int limit = Math.min(numModelsToReturn, modelCount);
+                if (limit != modelCount) {
+                    LOG.info("model number limit reached");
+                    modelProfiles = modelProfiles.subList(0, limit);
+                }
             }
         } else {
             if (profiles.contains(DetectorProfileName.COORDINATING_NODE) || profiles.contains(DetectorProfileName.SHINGLE_SIZE)) {
@@ -139,6 +157,14 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
             }
         }
 
-        return new ProfileNodeResponse(clusterService.localNode(), modelSize, shingleSize, activeEntity, totalUpdates, modelProfiles);
+        return new ProfileNodeResponse(
+            clusterService.localNode(),
+            modelSize,
+            shingleSize,
+            activeEntity,
+            totalUpdates,
+            modelProfiles,
+            modelCount
+        );
     }
 }

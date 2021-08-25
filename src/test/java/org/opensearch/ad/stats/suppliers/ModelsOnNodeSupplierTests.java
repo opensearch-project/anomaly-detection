@@ -28,11 +28,14 @@ package org.opensearch.ad.stats.suppliers;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
 import static org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
 
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -48,6 +51,9 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
 
 import test.org.opensearch.ad.util.MLUtil;
@@ -99,7 +105,15 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
 
     @Test
     public void testGet() {
-        ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager, cacheProvider);
+        Settings settings = Settings.builder().put(MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService);
         List<Map<String, Object>> results = modelsOnNodeSupplier.get();
         assertEquals(
             "get fails to return correct result",
@@ -116,5 +130,11 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
                 .collect(Collectors.toList()),
             results
         );
+    }
+
+    @Test
+    public void testGetModelCount() {
+        ModelsOnNodeCountSupplier modelsOnNodeSupplier = new ModelsOnNodeCountSupplier(modelManager, cacheProvider);
+        assertEquals(6L, modelsOnNodeSupplier.get().longValue());
     }
 }

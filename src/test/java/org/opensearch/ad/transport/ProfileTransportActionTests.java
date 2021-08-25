@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +44,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.feature.FeatureManager;
@@ -50,7 +52,10 @@ import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.transport.TransportService;
 
@@ -67,14 +72,16 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
     private int activeEntities = 10;
     private long totalUpdates = 127;
     private long multiEntityModelSize = 712480L;
+    private ModelManager modelManager;
+    private FeatureManager featureManager;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
 
-        ModelManager modelManager = mock(ModelManager.class);
-        FeatureManager featureManager = mock(FeatureManager.class);
+        modelManager = mock(ModelManager.class);
+        featureManager = mock(FeatureManager.class);
 
         when(featureManager.getShingleSize(any(String.class))).thenReturn(shingleSize);
 
@@ -104,6 +111,8 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
         modelSizes.put(modelId, modelSize);
         when(modelManager.getModelSize(any(String.class))).thenReturn(modelSizes);
 
+        Settings settings = Settings.builder().put("plugins.anomaly_detection.max_model_size_per_node", 100).build();
+
         action = new ProfileTransportAction(
             client().threadPool(),
             clusterService(),
@@ -111,19 +120,31 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
             mock(ActionFilters.class),
             modelManager,
             featureManager,
-            cacheProvider
+            cacheProvider,
+            settings
         );
 
         profilesToRetrieve = new HashSet<DetectorProfileName>();
         profilesToRetrieve.add(DetectorProfileName.COORDINATING_NODE);
     }
 
+    private void setUpModelSize(int maxModel) {
+        Settings nodeSettings = Settings.builder().put(AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE.getKey(), maxModel).build();
+        internalCluster().startNode(nodeSettings);
+    }
+
+    @Override
+    protected Collection<Class<? extends Plugin>> nodePlugins() {
+        return Arrays.asList(AnomalyDetectorPlugin.class);
+    }
+
     @Test
     public void testNewResponse() {
+        setUpModelSize(100);
         DiscoveryNode node = clusterService().localNode();
         ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false, node);
 
-        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(node, new HashMap<>(), shingleSize, 0, 0, new ArrayList<>());
+        ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(node, new HashMap<>(), shingleSize, 0, 0, new ArrayList<>(), 0);
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1);
         List<FailedNodeException> failures = new ArrayList<>();
 
@@ -133,7 +154,7 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testNewNodeRequest() {
-
+        setUpModelSize(100);
         ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false);
 
         ProfileNodeRequest profileNodeRequest1 = new ProfileNodeRequest(profileRequest);
@@ -145,7 +166,7 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testNodeOperation() {
-
+        setUpModelSize(100);
         DiscoveryNode nodeId = clusterService().localNode();
         ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false, nodeId);
 
@@ -167,7 +188,7 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testMultiEntityNodeOperation() {
-
+        setUpModelSize(100);
         DiscoveryNode nodeId = clusterService().localNode();
         profilesToRetrieve = new HashSet<DetectorProfileName>();
         profilesToRetrieve.add(DetectorProfileName.ACTIVE_ENTITIES);
@@ -195,5 +216,32 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
         assertEquals(null, response.getModelSize());
         assertEquals(2, response.getModelProfiles().size());
         assertEquals(totalUpdates, response.getTotalUpdates());
+        assertEquals(2, response.getModelCount());
+    }
+
+    @Test
+    public void testModelCount() {
+        setUpModelSize(1);
+
+        Settings settings = Settings.builder().put("plugins.anomaly_detection.max_model_size_per_node", 1).build();
+
+        action = new ProfileTransportAction(
+            client().threadPool(),
+            clusterService(),
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            modelManager,
+            featureManager,
+            cacheProvider,
+            settings
+        );
+
+        DiscoveryNode nodeId = clusterService().localNode();
+        profilesToRetrieve = new HashSet<DetectorProfileName>();
+        profilesToRetrieve.add(DetectorProfileName.MODELS);
+        ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve, true, nodeId);
+        ProfileNodeResponse response = action.nodeOperation(new ProfileNodeRequest(profileRequest));
+        assertEquals(2, response.getModelCount());
+        assertEquals(1, response.getModelProfiles().size());
     }
 }

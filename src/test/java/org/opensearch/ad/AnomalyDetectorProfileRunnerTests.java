@@ -434,7 +434,8 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                 shingleSize,
                 0L,
                 0L,
-                new ArrayList<>()
+                new ArrayList<>(),
+                modelSizeMap1.size()
             );
             ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
                 discoveryNode2,
@@ -442,7 +443,8 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                 -1,
                 0L,
                 0L,
-                new ArrayList<>()
+                new ArrayList<>(),
+                modelSizeMap2.size()
             );
             List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
             List<FailedNodeException> failures = Collections.emptyList();

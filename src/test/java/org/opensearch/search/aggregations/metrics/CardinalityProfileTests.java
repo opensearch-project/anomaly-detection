@@ -203,7 +203,8 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
                 shingleSize,
                 0,
                 0,
-                new ArrayList<>()
+                new ArrayList<>(),
+                0
             );
             List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1);
             listener.onResponse(new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, Collections.emptyList()));
