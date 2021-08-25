@@ -241,10 +241,6 @@ public final class AnomalyDetectorSettings {
 
     public static final int DEFAULT_SHINGLE_SIZE = 8;
 
-    // Multi-entity detector model setting:
-    // TODO (kaituo): change to 4
-    public static final int DEFAULT_MULTI_ENTITY_SHINGLE = 1;
-
     // max shingle size we have seen from external users
     // the larger shingle size, the harder to fill in a complete shingle
     public static final int MAX_SHINGLE_SIZE = 60;
@@ -289,8 +285,6 @@ public final class AnomalyDetectorSettings {
     // At most, we have 10 multi-entity detector and each one can be hit by 1000 different entities each
     // minute. Since these states' life time is hour, we keep its size 10 * 1000 = 10000.
     public static final int MAX_SMALL_STATES = 10000;
-
-    public static final int MULTI_ENTITY_NUM_TREES = 30;
 
     // ======================================
     // cache related parameters

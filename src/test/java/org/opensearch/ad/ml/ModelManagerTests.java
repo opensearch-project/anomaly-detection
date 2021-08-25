@@ -81,8 +81,10 @@ import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
+import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.rcf.CombinedRcfResult;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -180,6 +182,8 @@ public class ModelManagerTests {
 
     @Mock
     private ADCircuitBreakerService adCircuitBreakerService;
+
+    private String modelId = "modelId";
 
     @Before
     public void setup() {
@@ -969,7 +973,7 @@ public class ModelManagerTests {
 
     @Test
     public void processEmptyCheckpoint() {
-        ModelState<EntityModel> modelState = modelManager.processEntityCheckpoint(Optional.empty(), null, "", "");
+        ModelState<EntityModel> modelState = modelManager.processEntityCheckpoint(Optional.empty(), null, "", "", shingleSize);
         assertEquals(Instant.MIN, modelState.getLastCheckpointTime());
     }
 
@@ -980,7 +984,13 @@ public class ModelManagerTests {
         EntityModel model = MLUtil.createNonEmptyModel(modelId);
         Instant checkpointTime = Instant.ofEpochMilli(1000);
         ModelState<EntityModel> modelState = modelManager
-            .processEntityCheckpoint(Optional.of(new SimpleImmutableEntry<>(model, checkpointTime)), null, modelId, detectorId);
+            .processEntityCheckpoint(
+                Optional.of(new SimpleImmutableEntry<>(model, checkpointTime)),
+                null,
+                modelId,
+                detectorId,
+                shingleSize
+            );
         assertEquals(checkpointTime, modelState.getLastCheckpointTime());
         assertEquals(model.getSamples().size(), modelState.getModel().getSamples().size());
         assertEquals(now, modelState.getLastUsedTime());
@@ -988,7 +998,7 @@ public class ModelManagerTests {
 
     @Test
     public void getNullState() {
-        assertEquals(new ThresholdingResult(0, 0, 0), modelManager.getAnomalyResultForEntity(new double[] {}, null, "", null));
+        assertEquals(new ThresholdingResult(0, 0, 0), modelManager.getAnomalyResultForEntity(new double[] {}, null, "", null, shingleSize));
     }
 
     @Test
@@ -1024,14 +1034,13 @@ public class ModelManagerTests {
             threadPool,
             stateManager,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
+            AnomalyDetectorSettings.NUM_TREES,
             AnomalyDetectorSettings.TIME_DECAY,
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             interpolator,
             searchFeatureDao,
-            AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
             AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
@@ -1072,7 +1081,7 @@ public class ModelManagerTests {
             .randomModelState(new RandomModelStateConfig.Builder().fullModel(false).sampleSize(numMinSamples).build());
         EntityModel model = state.getModel();
         assertTrue(model.getRcf() == null || model.getThreshold() == null);
-        ThresholdingResult result = modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null);
+        ThresholdingResult result = modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null, shingleSize);
         // model outputs scores
         assertTrue(result.getRcfScore() != 0);
         // added the sample to score since our model is empty
@@ -1080,17 +1089,37 @@ public class ModelManagerTests {
     }
 
     @Test
+    public void getAnomalyResultForEntityNoModel() {
+        ModelState<EntityModel> modelState = new ModelState<>(null, modelId, detectorId, ModelType.ENTITY.getName(), clock, 0);
+        ThresholdingResult result = modelManager
+            .getAnomalyResultForEntity(
+                new double[] { -1 },
+                modelState,
+                modelId,
+                Entity.createSingleAttributeEntity("field", "val"),
+                shingleSize
+            );
+        // model outputs scores
+        assertEquals(new ThresholdingResult(0, 0, 0), result);
+        // added the sample to score since our model is empty
+        assertEquals(1, modelState.getModel().getSamples().size());
+    }
+
+    @Test
     public void getEmptyStateNotFullSamples() {
         ModelState<EntityModel> state = MLUtil
             .randomModelState(new RandomModelStateConfig.Builder().fullModel(false).sampleSize(numMinSamples - 1).build());
-        assertEquals(new ThresholdingResult(0, 0, 0), modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null));
+        assertEquals(
+            new ThresholdingResult(0, 0, 0),
+            modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null, shingleSize)
+        );
         assertEquals(numMinSamples, state.getModel().getSamples().size());
     }
 
     @Test
     public void scoreSamples() {
         ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
-        modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null);
+        modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null, shingleSize);
         assertEquals(0, state.getModel().getSamples().size());
         assertEquals(now, state.getLastUsedTime());
     }
