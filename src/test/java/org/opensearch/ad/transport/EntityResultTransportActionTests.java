@@ -30,6 +30,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
@@ -237,7 +238,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             ModelState<EntityModel> modelState = invocation.getArgument(0);
             modelState.getModel().clear();
             return null;
-        }).when(coldStarter).trainModelFromExistingSamples(any());
+        }).when(coldStarter).trainModelFromExistingSamples(any(), anyInt());
 
         coldEntityQueue = mock(ColdEntityWorker.class);
 

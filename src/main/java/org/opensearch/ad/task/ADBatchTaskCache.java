@@ -26,7 +26,6 @@
 
 package org.opensearch.ad.task;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
@@ -80,8 +79,7 @@ public class ADBatchTaskCache {
         this.entity = adTask.getEntity();
 
         AnomalyDetector detector = adTask.getDetector();
-        boolean isHC = detector.isMultientityDetector();
-        int numberOfTrees = isHC ? MULTI_ENTITY_NUM_TREES : NUM_TREES;
+        int numberOfTrees = NUM_TREES;
         int shingleSize = detector.getShingleSize();
         this.shingle = new ArrayDeque<>(shingleSize);
         int dimensions = detector.getShingleSize() * detector.getEnabledFeatureIds().size();
