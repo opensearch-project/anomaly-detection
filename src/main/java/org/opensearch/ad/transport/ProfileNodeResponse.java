@@ -50,6 +50,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
     private long totalUpdates;
     // added after OpenSearch 1.0
     private List<ModelProfile> modelProfiles;
+    private long modelCount;
 
     /**
      * Constructor
@@ -68,6 +69,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         if (Bwc.supportMultiCategoryFields(in.getVersion()) && in.readBoolean()) {
             // added after OpenSearch 1.0
             modelProfiles = in.readList(ModelProfile::new);
+            modelCount = in.readVLong();
         }
     }
 
@@ -80,6 +82,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
      * @param activeEntity active entity count
      * @param totalUpdates RCF model total updates
      * @param modelProfiles a collection of model profiles like model size
+     * @param modelCount the number of models on the node
      */
     public ProfileNodeResponse(
         DiscoveryNode node,
@@ -87,7 +90,8 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         int shingleSize,
         long activeEntity,
         long totalUpdates,
-        List<ModelProfile> modelProfiles
+        List<ModelProfile> modelProfiles,
+        long modelCount
     ) {
         super(node);
         this.modelSize = modelSize;
@@ -95,6 +99,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         this.activeEntities = activeEntity;
         this.totalUpdates = totalUpdates;
         this.modelProfiles = modelProfiles;
+        this.modelCount = modelCount;
     }
 
     /**
@@ -126,6 +131,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
             if (modelProfiles != null) {
                 out.writeBoolean(true);
                 out.writeList(modelProfiles);
+                out.writeVLong(modelCount);
             } else {
                 out.writeBoolean(false);
             }
@@ -152,6 +158,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         builder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
         builder.field(CommonName.TOTAL_UPDATES, totalUpdates);
 
+        builder.field(CommonName.MODEL_COUNT, modelCount);
         builder.startArray(CommonName.MODELS);
         for (ModelProfile modelProfile : modelProfiles) {
             builder.startObject();
@@ -181,5 +188,9 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
 
     public List<ModelProfile> getModelProfiles() {
         return modelProfiles;
+    }
+
+    public long getModelCount() {
+        return modelCount;
     }
 }
