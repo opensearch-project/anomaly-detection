@@ -160,8 +160,8 @@ public class HybridThresholdingModelTests {
             new Object[] {
                 model,
                 new double[] {},
-                new double[] { 0.0, Math.exp(mu), Math.exp(mu + sigma), maxScore },
-                new double[] { 0.0, 0.5, 0.84134, 1.0 }, },
+                new double[] { 0.0, Math.exp(mu), Math.exp(mu + sigma), maxScore, HybridThresholdingModel.MIN_SCORE },
+                new double[] { 0.0, 0.5, 0.84134, 1.0, 0 }, },
             new Object[] {
                 model,
                 trainingAnomalyScores,
