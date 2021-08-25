@@ -154,7 +154,8 @@ public class ProfileTests extends OpenSearchTestCase {
             shingleSize,
             0,
             0,
-            new ArrayList<>()
+            new ArrayList<>(),
+            modelSizeMap1.size()
         );
         BytesStreamOutput output = new BytesStreamOutput();
         profileNodeResponse.writeTo(output);
@@ -208,9 +209,18 @@ public class ProfileTests extends OpenSearchTestCase {
             shingleSize,
             0,
             0,
-            new ArrayList<>()
+            new ArrayList<>(),
+            modelSizeMap1.size()
         );
-        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1, 0, 0, new ArrayList<>());
+        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
+            discoveryNode2,
+            modelSizeMap2,
+            -1,
+            0,
+            0,
+            new ArrayList<>(),
+            modelSizeMap2.size()
+        );
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
         List<FailedNodeException> failures = Collections.emptyList();
         ProfileResponse profileResponse = new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, failures);

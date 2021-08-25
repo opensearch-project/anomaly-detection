@@ -50,7 +50,8 @@ public enum StatNames {
     AD_EXECUTING_BATCH_TASK_COUNT("ad_executing_batch_task_count"),
     AD_CANCELED_BATCH_TASK_COUNT("ad_canceled_batch_task_count"),
     AD_TOTAL_BATCH_TASK_EXECUTION_COUNT("ad_total_batch_task_execution_count"),
-    AD_BATCH_TASK_FAILURE_COUNT("ad_batch_task_failure_count");
+    AD_BATCH_TASK_FAILURE_COUNT("ad_batch_task_failure_count"),
+    MODEL_COUNT("model_count");
 
     private String name;
 
