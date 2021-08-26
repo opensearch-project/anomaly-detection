@@ -56,6 +56,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -172,7 +173,7 @@ public final class RestHandlerUtils {
     public static <T> ActionListener wrapRestActionListener(ActionListener<T> actionListener, String generalErrorMessage) {
         return ActionListener.<T>wrap(r -> { actionListener.onResponse(r); }, e -> {
             logger.error("Wrap exception before sending back to user", e);
-            Throwable cause = e.getCause();
+            Throwable cause = Throwables.getRootCause(e);
             if (isProperExceptionToReturn(e)) {
                 actionListener.onFailure(e);
             } else if (isProperExceptionToReturn(cause)) {

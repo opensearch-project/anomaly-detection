@@ -81,8 +81,6 @@ public class ADClusterEventListener implements ClusterStateListener {
             return;
         }
 
-        hashRing.recordMembershipChange();
-
         if (event.state().blocks().hasGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK)) {
             LOG.info(NOT_RECOVERED_MSG);
             return;

@@ -382,17 +382,21 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      */
     public void removeDetector(String detectorId) {
-        if (hcTaskCaches.containsKey(detectorId)) {
+        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        if (taskCache != null) {
+            // this will happen only on coordinating node. When worker nodes left,
+            // we will reset task state as STOPPED and clean up cache, add this warning
+            // to make it easier to debug issue.
             if (hasEntity(detectorId)) {
                 logger
                     .warn(
                         "There are still entities for detector. pending: {}, running: {}, temp: {}",
-                        Arrays.toString(hcTaskCaches.get(detectorId).getPendingEntities()),
-                        Arrays.toString(hcTaskCaches.get(detectorId).getRunningEntities()),
-                        Arrays.toString(hcTaskCaches.get(detectorId).getTempEntities())
+                        Arrays.toString(taskCache.getPendingEntities()),
+                        Arrays.toString(taskCache.getRunningEntities()),
+                        Arrays.toString(taskCache.getTempEntities())
                     );
             }
-            hcTaskCaches.get(detectorId).clear();
+            taskCache.clear();
             hcTaskCaches.remove(detectorId);
         }
         if (detectorTasks.containsKey(detectorId)) {
@@ -445,6 +449,12 @@ public class ADTaskCacheManager {
                 cache.cancel(reason, userName);
             }
         }
+        ADHCBatchTaskCache hcTaskCache = hcTaskCaches.get(detectorId);
+        if (hcTaskCache != null) {
+            hcTaskCache.setHistoricalAnalysisCancelled(true);
+            hcTaskCache.clearPendingEntities();
+            hcTaskCache.setEntityTaskLanes(0);
+        }
         return cancellationState;
     }
 
@@ -456,7 +466,13 @@ public class ADTaskCacheManager {
      */
     public boolean isCancelled(String taskId) {
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
-        return taskCache.isCancelled();
+        String detectorId = taskCache.getDetectorId();
+        ADHCBatchTaskCache hcTaskCache = hcTaskCaches.get(detectorId);
+        boolean hcDetectorStopped = false;
+        if (hcTaskCache != null) {
+            hcDetectorStopped = hcTaskCache.getHistoricalAnalysisCancelled();
+        }
+        return taskCache.isCancelled() || hcDetectorStopped;
     }
 
     /**
@@ -639,7 +655,7 @@ public class ADTaskCacheManager {
     public synchronized void scaleUpDetectorTaskSlots(String detectorId, int delta) {
         ADTaskSlotLimit adTaskSlotLimit = detectorTaskSlotLimit.get(detectorId);
         int taskSlots = this.getDetectorTaskSlots(detectorId);
-        if (adTaskSlotLimit != null) {
+        if (adTaskSlotLimit != null && delta > 0) {
             int newTaskSlots = adTaskSlotLimit.getDetectorTaskSlots() + delta;
             logger.info("Scale up task slots of detector {} from {} to {}", detectorId, taskSlots, newTaskSlots);
             adTaskSlotLimit.setDetectorTaskSlots(newTaskSlots);
@@ -689,31 +705,6 @@ public class ADTaskCacheManager {
         ADTaskSlotLimit taskSlotLimit = detectorTaskSlotLimit.get(detectorId);
         if (taskSlotLimit != null) {
             return taskSlotLimit.getDetectorTaskSlots();
-        }
-        return 0;
-    }
-
-    /**
-     * Check if detector task slot is eligible to scale up.
-     * @param detectorId detector id
-     * @return true if detector task slot scale up delta is greater than 0
-     */
-    public boolean isEligibleToScaleUpTaskSlots(String detectorId) {
-        return detectorTaskSlotScaleUpDelta(detectorId) > 0;
-    }
-
-    /**
-     * Get how many task slots can be scaled up for detector.
-     * @param detectorId detector id
-     * @return how many task slots can be scaled up
-     */
-    public int detectorTaskSlotScaleUpDelta(String detectorId) {
-        ADTaskSlotLimit taskSlotLimit = detectorTaskSlotLimit.get(detectorId);
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
-        if (taskSlotLimit != null && taskCache != null) {
-            int taskLaneDelta = taskSlotLimit.getDetectorTaskLaneLimit() - taskSlotLimit.getDetectorTaskSlots();
-            int unfinishedEntityDelta = taskCache.getUnfinishedEntityCount() - taskSlotLimit.getDetectorTaskSlots();
-            return Math.min(taskLaneDelta, unfinishedEntityDelta);
         }
         return 0;
     }

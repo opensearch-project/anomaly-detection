@@ -145,7 +145,6 @@ public class HashRingTests extends AbstractADTest {
         assertTrue(id.equals("1") || id.equals("2"));
 
         when(clock.millis()).thenReturn(700001L);
-        ring.recordMembershipChange();
         Optional<DiscoveryNode> node2 = ring.getOwningNodeWithSameLocalAdVersionDirectly("http-latency-rcf-1");
         assertEquals(node, node2);
         assertTrue(testAppender.containsMessage(HashRing.COOLDOWN_MSG));

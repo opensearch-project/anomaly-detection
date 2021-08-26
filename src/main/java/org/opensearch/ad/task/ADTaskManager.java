@@ -171,7 +171,6 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.index.reindex.DeleteByQueryAction;
@@ -181,8 +180,6 @@ import org.opensearch.index.reindex.UpdateByQueryRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 import org.opensearch.search.SearchHit;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
-import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.threadpool.ThreadPool;
@@ -367,7 +364,7 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        hashRing.getOwningNodeWithSameLocalAdVersion(AD_TASK_LEAD_NODE_MODEL_ID, node -> {
+        hashRing.buildAndGetOwningNodeWithSameLocalAdVersion(AD_TASK_LEAD_NODE_MODEL_ID, node -> {
             if (!node.isPresent()) {
                 listener.onFailure(new ResourceNotFoundException("Can't find AD task lead node"));
                 return;
@@ -402,7 +399,7 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         String detectorId = detector.getDetectorId();
-        hashRing.getOwningNodeWithSameLocalAdVersion(detectorId, owningNode -> {
+        hashRing.buildAndGetOwningNodeWithSameLocalAdVersion(detectorId, owningNode -> {
             if (!owningNode.isPresent()) {
                 logger.debug("Can't find eligible node to run as AD task's coordinating node");
                 listener.onFailure(new OpenSearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
@@ -460,6 +457,8 @@ public class ADTaskManager {
             .sendRequest(
                 node,
                 ForwardADTaskAction.NAME,
+                // We need to check AD version of remote node as we may send clean detector cache request to old
+                // node, check ADTaskManager#cleanDetectorCache.
                 new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction, availableTaskSlots, adVersion),
                 transportRequestOptions,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
@@ -526,7 +525,7 @@ public class ADTaskManager {
      * @param detector detector
      * @param detectionDateRange detection date range
      * @param user user
-     * @param targetActionOfTaskSlotChecking target task action to run after task slot checking
+     * @param afterCheckAction target task action to run after task slot checking
      * @param transportService transport service
      * @param listener action listener
      */
@@ -535,12 +534,12 @@ public class ADTaskManager {
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
         User user,
-        ADTaskAction targetActionOfTaskSlotChecking,
+        ADTaskAction afterCheckAction,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         String detectorId = detector.getDetectorId();
-        logger.debug("Start checking task slots for detector: {}, task action: {}", detectorId, targetActionOfTaskSlotChecking);
+        logger.debug("Start checking task slots for detector: {}, task action: {}", detectorId, afterCheckAction);
         if (!checkingTaskSlot.tryAcquire()) {
             logger.info("Can't acquire checking task slot semaphore for detector {}", detectorId);
             listener
@@ -586,13 +585,13 @@ public class ADTaskManager {
                 int availableAdTaskSlots = maxAdTaskSlots - currentUsedTaskSlots;
                 logger.info("Current available task slots is {} for historical analysis of detector {}", availableAdTaskSlots, detectorId);
 
-                if (ADTaskAction.SCALE_ENTITY_TASK_SLOTS == targetActionOfTaskSlotChecking) {
+                if (ADTaskAction.SCALE_ENTITY_TASK_SLOTS == afterCheckAction) {
                     forwardToCoordinatingNode(
                         adTask,
                         detector,
                         detectionDateRange,
                         user,
-                        targetActionOfTaskSlotChecking,
+                        afterCheckAction,
                         transportService,
                         wrappedActionListener,
                         availableAdTaskSlots
@@ -604,122 +603,37 @@ public class ADTaskManager {
                 long dataEndTime = detectionDateRange.getEndTime().toEpochMilli();
 
                 if (detector.isMultientityDetector()) {
-                    if (detector.isMultiCategoryDetector()) {
-                        // Get top entities for multi-category HC detector. Check example query in getHighestCountEntities comments
-                        searchFeatureDao
-                            .getHighestCountEntities(
-                                detector,
-                                dataStartTime,
-                                dataEndTime,
-                                maxRunningEntitiesPerDetector,
-                                1,// Get entities with minimum doc count 1 here to make sure we reserve enough task slots for HC detector
-                                maxRunningEntitiesPerDetector,
-                                ActionListener.wrap(topEntities -> {
-                                    if (topEntities == null || topEntities.size() == 0) {
-                                        wrappedActionListener.onFailure(new ResourceNotFoundException("No category found"));
-                                        return;
-                                    }
-                                    int approvedTaskSlots = Math.min(availableAdTaskSlots, topEntities.size());
-                                    // Send task to run multi-category HC detector on coordinating node
-                                    forwardToCoordinatingNode(
-                                        adTask,
-                                        detector,
-                                        detectionDateRange,
-                                        user,
-                                        targetActionOfTaskSlotChecking,
-                                        transportService,
-                                        wrappedActionListener,
-                                        approvedTaskSlots
-                                    );
-                                }, e -> {
-                                    logger.error("Failed to get top entities for multi-category HC " + detector.getDetectorId(), e);
-                                    wrappedActionListener.onFailure(e);
-                                })
-                            );
-                    } else {
-                        /* Get top entities for single-category HC detector
-                         * Sample query:
-                         *{
-                         *   "size": 0,
-                         *   "query": {
-                         *     "bool": {
-                         *       "filter": [
-                         *         {
-                         *           "range": {
-                         *             "timestamp": {
-                         *               "from": 1628450905000,
-                         *               "to": 1629055705000,
-                         *               "include_lower": true,
-                         *               "include_upper": true,
-                         *               "format": "epoch_millis",
-                         *               "boost": 1
-                         *             }
-                         *           }
-                         *         }
-                         *       ],
-                         *       "adjust_pure_negative": true,
-                         *       "boost": 1
-                         *     }
-                         *   },
-                         *   "aggregations": {
-                         *     "topEntities": {
-                         *       "terms": {
-                         *         "field": "type",
-                         *         "size": 6, # maxRunningEntitiesPerDetector
-                         *         "min_doc_count": 1,
-                         *         "shard_min_doc_count": 0,
-                         *         "show_term_doc_count_error": false,
-                         *         "order": [
-                         *           {
-                         *             "_count": "desc"
-                         *           },
-                         *           {
-                         *             "_key": "asc"
-                         *           }
-                         *         ]
-                         *       }
-                         *     }
-                         *   }
-                         * }
-                         */
-                        RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(detector.getTimeField())
-                            .gte(dataStartTime)
-                            .lte(dataEndTime)
-                            .format("epoch_millis");
-                        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder().filter(rangeQueryBuilder);
-                        String topEntitiesAgg = "topEntities";
-                        TermsAggregationBuilder agg = new TermsAggregationBuilder(topEntitiesAgg)
-                            .field(detector.getCategoryField().get(0))
-                            .size(maxRunningEntitiesPerDetector);
-                        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).aggregation(agg).size(0);
-                        SearchRequest searchRequest = new SearchRequest()
-                            .source(sourceBuilder)
-                            .indices(detector.getIndices().toArray(new String[0]));
-                        client.search(searchRequest, ActionListener.wrap(res -> {
-                            StringTerms stringTerms = res.getAggregations().get(topEntitiesAgg);
-                            List<StringTerms.Bucket> buckets = stringTerms.getBuckets();
-                            int topEntitiesSize = buckets.size();
-                            if (topEntitiesSize == 0) {
-                                wrappedActionListener.onFailure(new ResourceNotFoundException("No category found"));
-                                return;
-                            }
-                            int approvedTaskSlots = Math.min(availableAdTaskSlots, topEntitiesSize);
-                            // Send task to run single-category HC detector on coordinating node
-                            forwardToCoordinatingNode(
-                                adTask,
-                                detector,
-                                detectionDateRange,
-                                user,
-                                targetActionOfTaskSlotChecking,
-                                transportService,
-                                wrappedActionListener,
-                                approvedTaskSlots
-                            );
-                        }, e -> {
-                            logger.error("Failed to get top entities for single-category HC " + detector.getDetectorId(), e);
-                            wrappedActionListener.onFailure(e);
-                        }));
-                    }
+                    // Get top entities for multi-category HC detector. Check example query in getHighestCountEntities comments
+                    searchFeatureDao
+                        .getHighestCountEntities(
+                            detector,
+                            dataStartTime,
+                            dataEndTime,
+                            maxRunningEntitiesPerDetector,
+                            1,// Get entities with minimum doc count 1 here to make sure we reserve enough task slots for HC detector
+                            maxRunningEntitiesPerDetector,
+                            ActionListener.wrap(topEntities -> {
+                                if (isNullOrEmpty(topEntities)) {
+                                    wrappedActionListener.onFailure(new ResourceNotFoundException("No category found"));
+                                    return;
+                                }
+                                int approvedTaskSlots = Math.min(availableAdTaskSlots, topEntities.size());
+                                // Send task to run multi-category HC detector on coordinating node
+                                forwardToCoordinatingNode(
+                                    adTask,
+                                    detector,
+                                    detectionDateRange,
+                                    user,
+                                    afterCheckAction,
+                                    transportService,
+                                    wrappedActionListener,
+                                    approvedTaskSlots
+                                );
+                            }, e -> {
+                                logger.error("Failed to get top entities for HC detector: " + detector.getDetectorId(), e);
+                                wrappedActionListener.onFailure(e);
+                            })
+                        );
                 } else {
                     // Send task to run single-flow detector on coordinating node
                     forwardToCoordinatingNode(
@@ -727,7 +641,7 @@ public class ADTaskManager {
                         detector,
                         detectionDateRange,
                         user,
-                        targetActionOfTaskSlotChecking,
+                        afterCheckAction,
                         transportService,
                         wrappedActionListener,
                         1
@@ -1249,7 +1163,9 @@ public class ADTaskManager {
     }
 
     private boolean lastUpdateTimeExpired(ADTask adTask) {
-        return adTask.getLastUpdateTime().plus(2 * pieceIntervalSeconds, ChronoUnit.SECONDS).isBefore(Instant.now());
+        // Wait at least 10 seconds. Piece interval seconds is dynamic setting, user could change it to a smaller value.
+        int waitingTime = Math.max(2 * pieceIntervalSeconds, 10);
+        return adTask.getLastUpdateTime().plus(waitingTime, ChronoUnit.SECONDS).isBefore(Instant.now());
     }
 
     /**
@@ -1328,7 +1244,7 @@ public class ADTaskManager {
      * @param transportService transport service
      * @param function will execute it when detector cache cleaned successfully or coordinating node left cluster
      */
-    protected void cleanDetectorCache(ADTask adTask, TransportService transportService, AnomalyDetectorFunction function) {
+    public void cleanDetectorCache(ADTask adTask, TransportService transportService, AnomalyDetectorFunction function) {
         String coordinatingNode = adTask.getCoordinatingNode();
         DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
         logger.debug("coordinatingNode is: " + coordinatingNode + " for task " + adTask.getTaskId());
@@ -1425,6 +1341,8 @@ public class ADTaskManager {
                     ADTaskProfile taskProfile = node.getAdTaskProfile();
                     if (taskProfile != null) {
                         if (taskProfile.getNodeId() != null) {
+                            // HC detector: task profile from coordinating node
+                            // Single entity detector: task profile from worker node
                             detectorTaskProfile.setTaskId(taskProfile.getTaskId());
                             detectorTaskProfile.setShingleSize(taskProfile.getShingleSize());
                             detectorTaskProfile.setRcfTotalUpdates(taskProfile.getRcfTotalUpdates());
@@ -2071,7 +1989,9 @@ public class ADTaskManager {
     }
 
     /**
-     * Update latest realtime task's state, init progress, estimated left minutes and error field.
+     * Update latest realtime task's state, init progress, estimated left minutes and error field
+     * on realtime detector's coordinating node.
+     *
      * @param detectorId detector id
      * @param newState new task state which will override state calculated with rcf total updates
      * @param rcfTotalUpdates total updates of RCF model
@@ -2099,6 +2019,16 @@ public class ADTaskManager {
         );
     }
 
+    /**
+     * Update realtime task cache on realtime detector's coordinating node.
+     *
+     * @param detectorId detector id
+     * @param newState new state
+     * @param rcfTotalUpdates rcf total updates
+     * @param detectorIntervalInMinutes detector interval in minutes
+     * @param error error
+     * @param listener action listener
+     */
     public void updateLatestRealtimeTask(
         String detectorId,
         String newState,
@@ -2398,17 +2328,8 @@ public class ADTaskManager {
                 adTaskCacheManager.releaseTaskUpdatingSemaphore(detectorId);
             }
         } else {
-            boolean taskDone = Objects.equals(ADTaskState.FAILED.name(), updatedFields.get(STATE_FIELD))
-                || Objects.equals(ADTaskState.FINISHED.name(), updatedFields.get(STATE_FIELD));
-            if (taskDone) {
-                // make sure we set correct task state when task finished/failed.
-                logger.info("Update HC detector as done, detectorId: {}, taskId:{}", detectorId, taskId);
-                updateADTask(taskId, updatedFields, listener);
-            } else {
-                logger.info("HC detector task is updating, detectorId:{}, taskId:{}", detectorId, taskId);
-                listener.onFailure(new AnomalyDetectionException("HC detector task is updating"));
-            }
-
+            logger.info("HC detector task is updating, detectorId:{}, taskId:{}", detectorId, taskId);
+            listener.onFailure(new AnomalyDetectionException("HC detector task is updating"));
         }
     }
 
@@ -2441,15 +2362,12 @@ public class ADTaskManager {
         if (scaleDelta < 0) {
             logger
                 .warn(
-                    "Need to scale down task slots. Stop current lane for detector {}, task {}, task slots: {}",
+                    "Have scaled down task slots. Will not poll next entity for detector {}, task {}, task slots: {}",
                     detectorId,
                     adTask.getTaskId(),
                     adTaskCacheManager.getDetectorTaskSlots(detectorId)
                 );
-            if (adTaskCacheManager.getDetectorTaskSlots(detectorId) > 1) {
-                // Keep at least 1 task lane to run entities
-                listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.ACCEPTED));
-            }
+            listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.ACCEPTED));
             return;
         }
         client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {

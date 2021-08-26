@@ -72,6 +72,10 @@ public class ADHCBatchTaskCache {
     // record last time when HC detector scales entity task slots
     private Instant lastScaleEntityTaskSlotsTime;
 
+    // record if HC detector historical analysis cancelled/stopped. Every entity task should
+    // recheck this field and stop if it's true.
+    private boolean isHistoricalAnalysisCancelled;
+
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
         this.runningEntities = new ConcurrentLinkedQueue<>();
@@ -221,6 +225,14 @@ public class ADHCBatchTaskCache {
 
     public void setLastScaleEntityTaskSlotsTime(Instant lastScaleEntityTaskSlotsTime) {
         this.lastScaleEntityTaskSlotsTime = lastScaleEntityTaskSlotsTime;
+    }
+
+    public boolean getHistoricalAnalysisCancelled() {
+        return isHistoricalAnalysisCancelled;
+    }
+
+    public void setHistoricalAnalysisCancelled(boolean historicalAnalysisCancelled) {
+        isHistoricalAnalysisCancelled = historicalAnalysisCancelled;
     }
 
     public boolean hasEntity() {

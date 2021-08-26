@@ -118,7 +118,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;
             case NEXT_ENTITY:
-                logger.debug("Received NEXT_ENTITY action for detector {}", detectorId);
+                logger.debug("Received NEXT_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Run next entity for HC detector historical analysis.
                 if (detector.isMultientityDetector()) { // AD task could be HC detector level task or entity task
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
@@ -158,7 +158,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 }
                 break;
             case PUSH_BACK_ENTITY:
-                logger.debug("Received PUSH_BACK_ENTITY action for detector {}", detectorId);
+                logger.debug("Received PUSH_BACK_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Push back entity to pending entities queue and run next entity.
                 if (adTask.isEntityTask()) { // AD task must be entity level task.
                     if (adTaskManager.isRetryableError(adTask.getError())

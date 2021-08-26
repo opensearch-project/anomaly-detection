@@ -82,7 +82,6 @@ public class HashRing {
     private long lastUpdate;
     private final TimeValue coolDownPeriod;
     private final Clock clock;
-    private AtomicBoolean membershipChangeRequied;
     private final Client client;
     private Map<String, Version> nodeAdVersions;
     private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> adVersionCircles;
@@ -103,7 +102,6 @@ public class HashRing {
         this.clock = clock;
         this.coolDownPeriod = COOLDOWN_MINUTES.get(settings);
         this.lastUpdate = 0;
-        this.membershipChangeRequied = new AtomicBoolean(false);
         this.client = client;
         this.clusterService = clusterService;
         this.dataMigrator = dataMigrator;
@@ -114,10 +112,6 @@ public class HashRing {
 
     public boolean isAdVersionHashRingInited() {
         return adVersionHashRingInited.get();
-    }
-
-    public void recordMembershipChange() {
-        membershipChangeRequied.set(true);
     }
 
     /**
@@ -172,6 +166,8 @@ public class HashRing {
      * 1. Delete removed nodes from AD version hash ring.
      * 2. Add new nodes to AD version hash ring
      *
+     * If fail to acquire semaphore to update AD version hash ring, will return false to
+     * action listener; otherwise will return true.
      * @param removedNodeIds removed node ids
      * @param addedNodeIds added node ids
      * @param actionListener action listener
@@ -310,7 +306,7 @@ public class HashRing {
      * @param listener action listener
      * @param <T> listener response type
      */
-    public <T> void getOwningNodeWithSameLocalAdVersion(
+    public <T> void buildAndGetOwningNodeWithSameLocalAdVersion(
         String modelId,
         Consumer<Optional<DiscoveryNode>> function,
         ActionListener<T> listener
@@ -358,6 +354,7 @@ public class HashRing {
             if (!nodeAdVersions.containsKey(localNode.getId())) {
                 nodes.add(localNode);
             }
+            // Make sure listener return in function
             function.accept(nodes.toArray(new DiscoveryNode[0]));
         }, e -> listener.onFailure(e)));
     }
@@ -446,6 +443,7 @@ public class HashRing {
                     allNodes.add(node);
                 }
             }
+            // Make sure listener return in function
             function.accept(allNodes.toArray(new DiscoveryNode[0]));
         }, e -> listener.onFailure(e)));
     }

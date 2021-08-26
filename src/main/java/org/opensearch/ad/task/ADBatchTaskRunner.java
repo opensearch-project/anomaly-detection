@@ -51,7 +51,6 @@ import static org.opensearch.ad.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -625,11 +624,13 @@ public class ADBatchTaskRunner {
             listener.onFailure(e);
             handleException(adTask, e);
 
-            if (adTask.getDetector().isMultientityDetector()) { // first task is not entity task, it's HC detector task
-                // When reach this line, it means entity task failed to start on worker node
-                // Sleep some time before polling next entity task.
+            if (adTask.getDetector().isMultientityDetector()) {
+                // For HC detector, the first task is not entity task, it's HC detector task. But no matter it's entity
+                // or detector level task, we should always send back entity task done message for HC detector.
                 adTaskManager.entityTaskDone(adTask, e, transportService);
                 if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getDetectorId()) > 0) {
+                    // When reach this line, it means entity task failed to start on worker node
+                    // Sleep some time before starting new task lane.
                     threadPool
                         .schedule(
                             () -> startNewEntityTaskLane(adTask, transportService),
@@ -688,16 +689,6 @@ public class ADBatchTaskRunner {
             adStatsRequest.addAll(ImmutableSet.of(AD_EXECUTING_BATCH_TASK_COUNT.getName(), JVM_HEAP_USAGE.getName()));
 
             client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
-                List<String> nodeExceedHeapLimit = adStatsResponse
-                    .getNodes()
-                    .stream()
-                    .filter(stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) >= DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
-                    .map(nodeResponse -> nodeResponse.getNode().getId())
-                    .collect(Collectors.toList());
-                if (nodeExceedHeapLimit.size() > 0) {
-                    logger.debug(" Nodes exceed heap limit {}: {}", Arrays.toString(nodeExceedHeapLimit.toArray(new String[0])));
-                }
-
                 List<ADStatsNodeResponse> candidateNodeResponse = adStatsResponse
                     .getNodes()
                     .stream()

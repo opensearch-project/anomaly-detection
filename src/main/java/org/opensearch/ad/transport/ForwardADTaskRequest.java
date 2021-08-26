@@ -41,9 +41,11 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
+import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.transport.TransportService;
 
 public class ForwardADTaskRequest extends ActionRequest {
     private AnomalyDetector detector;
@@ -54,12 +56,26 @@ public class ForwardADTaskRequest extends ActionRequest {
     private Integer availableTaskSlots;
     private ADTaskAction adTaskAction;
 
+    /**
+     * Constructor function.
+     * For most task actions, we only send ForwardADTaskRequest to node with same local AD version.
+     * But it's possible that we need to clean up detector cache by sending FINISHED task action to
+     * an old coordinating node when no task running for the detector.
+     * Check {@link org.opensearch.ad.task.ADTaskManager#cleanDetectorCache(ADTask, TransportService, AnomalyDetectorFunction)}.
+     *
+     * @param detector detector
+     * @param detectionDateRange detection date range
+     * @param user user
+     * @param adTaskAction AD task action
+     * @param availableTaskSlots available task slots
+     * @param remoteAdVersion AD version of remote node
+     */
     public ForwardADTaskRequest(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
         User user,
         ADTaskAction adTaskAction,
-        Integer availableTaskSLots,
+        Integer availableTaskSlots,
         Version remoteAdVersion
     ) {
         if (!ADVersionUtil.compatibleWithCurrentVersion(remoteAdVersion)) {
@@ -68,7 +84,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
         this.user = user;
-        this.availableTaskSlots = availableTaskSLots;
+        this.availableTaskSlots = availableTaskSlots;
         this.adTaskAction = adTaskAction;
     }
 
