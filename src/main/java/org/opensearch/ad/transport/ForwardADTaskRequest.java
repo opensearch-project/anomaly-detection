@@ -78,7 +78,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         Integer availableTaskSlots,
         Version remoteAdVersion
     ) {
-        if (!ADVersionUtil.compatibleWithCurrentVersion(remoteAdVersion)) {
+        if (!ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
             throw new ADVersionException("Can't forward AD task request to node running AD version " + remoteAdVersion);
         }
         this.detector = detector;

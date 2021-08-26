@@ -331,6 +331,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             .getResults()
                             .entrySet()
                             .stream()
+                            .filter(e -> hashRing.getOwningNodeWithSameLocalAdVersionDirectly(e.getKey().toString()).isPresent())
                             .collect(
                                 Collectors
                                     .groupingBy(

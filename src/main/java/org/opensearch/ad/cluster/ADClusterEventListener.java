@@ -132,6 +132,8 @@ public class ADClusterEventListener implements ClusterStateListener {
                     if (updated) {
                         LOG.info("Build AD version hash ring successfully");
                         if (finalDataNodeAdded) {
+                            // Once hash ring rebuilt done, the removed node is not in hash ring, so we just stop model
+                            // for data node added case.
                             String localNodeId = event.state().nodes().getLocalNode().getId();
                             Set<String> modelIds = modelManager.getAllModelIds();
                             for (String modelId : modelIds) {

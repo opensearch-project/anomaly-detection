@@ -186,7 +186,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         out.writeOptionalInt(thresholdModelTrainingDataSize);
         out.writeOptionalLong(modelSizeInBytes);
         out.writeOptionalString(nodeId);
-        if (ADVersionUtil.compatibleWithCurrentVersion(adVersion)) {
+        if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(adVersion)) {
             out.writeOptionalString(taskId);
             out.writeOptionalString(adTaskType);
             out.writeOptionalInt(detectorTaskSlots);

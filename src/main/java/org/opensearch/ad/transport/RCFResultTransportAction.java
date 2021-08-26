@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.transport;
 
+import java.net.ConnectException;
 import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
@@ -37,7 +38,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -74,7 +74,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
         }
         Optional<DiscoveryNode> remoteNode = hashRing.getNodeByAddress(request.remoteAddress());
         if (!remoteNode.isPresent()) {
-            listener.onFailure(new ResourceNotFoundException("Can't find remote node by address"));
+            listener.onFailure(new ConnectException("Can't find remote node by address"));
             return;
         }
         String remoteNodeId = remoteNode.get().getId();

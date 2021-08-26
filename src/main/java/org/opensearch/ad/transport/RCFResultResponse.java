@@ -111,7 +111,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         out.writeDouble(confidence);
         out.writeVInt(forestSize);
         out.writeDoubleArray(attribution);
-        if (ADVersionUtil.compatibleWithCurrentVersion(remoteAdVersion)) {
+        if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
             out.writeLong(totalUpdates);
         }
     }

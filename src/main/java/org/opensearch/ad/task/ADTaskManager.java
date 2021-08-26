@@ -2644,7 +2644,6 @@ public class ADTaskManager {
     public boolean skipUpdateHCRealtimeTask(String detectorId, String error) {
         ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
         return realtimeTaskCache != null
-            && realtimeTaskCache.getInitProgress() != null
             && realtimeTaskCache.getInitProgress() == 1.0
             && Objects.equals(error, realtimeTaskCache.getError());
     }
@@ -2941,6 +2940,28 @@ public class ADTaskManager {
         return adTaskCacheManager.getTotalBatchTaskCount();
     }
 
+    /**
+     * In normal case "assigned_task_slots" should always greater than or equals to "used_task_slots". One
+     * example may help understand.
+     *
+     * If a cluster has 3 data nodes, HC detector was assigned 3 task slots. It will start task lane one by one,
+     * so the timeline looks like:
+     *
+     * t1 -- node1: 1 entity running
+     * t2 -- node1: 1 entity running ,
+     *       node2: 1 entity running
+     * t3 -- node1: 1 entity running ,
+     *       node2: 1 entity running,
+     *       node3: 1 entity running
+     *
+     * So if we check between t2 and t3, we can see assigned task slots (3) is greater than used task slots (2).
+     *
+     * Assume node1 is coordinating node, the assigned task slots will be cached on node1. If node1 left cluster,
+     * then we don't know how many task slots was assigned to the detector. But the detector will not send out
+     * more entity tasks as well due to coordinating node left. So we can calculate how many task slots used on
+     * node2 and node3 to calculate how many task slots available for new detector.
+     * @return assigned batch task slots
+     */
     public int getLocalAdAssignedBatchTaskSlot() {
         return adTaskCacheManager.getTotalDetectorTaskSlots();
     }
