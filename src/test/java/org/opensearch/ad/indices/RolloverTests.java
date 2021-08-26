@@ -48,6 +48,7 @@ import org.opensearch.action.admin.indices.rollover.Condition;
 import org.opensearch.action.admin.indices.rollover.MaxDocsCondition;
 import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverResponse;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -162,7 +163,7 @@ public class RolloverTests extends AbstractADTest {
         verify(indicesClient, times(1)).rolloverIndex(any(), any());
     }
 
-    public void testRolledOverButNotDeleted() {
+    private void setUpRolloverSuccess() {
         doAnswer(invocation -> {
             RolloverRequest request = invocation.getArgument(0);
             @SuppressWarnings("unchecked")
@@ -180,6 +181,10 @@ public class RolloverTests extends AbstractADTest {
             listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
             return null;
         }).when(indicesClient).rolloverIndex(any(), any());
+    }
+
+    public void testRolledOverButNotDeleted() {
+        setUpRolloverSuccess();
 
         Metadata.Builder metaBuilder = Metadata
             .builder()
@@ -201,25 +206,7 @@ public class RolloverTests extends AbstractADTest {
         verify(indicesClient, never()).delete(any(), any());
     }
 
-    public void testRolledOverDeleted() {
-        doAnswer(invocation -> {
-            RolloverRequest request = invocation.getArgument(0);
-            @SuppressWarnings("unchecked")
-            ActionListener<RolloverResponse> listener = (ActionListener<RolloverResponse>) invocation.getArgument(1);
-
-            assertEquals(CommonName.ANOMALY_RESULT_INDEX_ALIAS, request.indices()[0]);
-
-            Map<String, Condition<?>> conditions = request.getConditions();
-            assertEquals(1, conditions.size());
-            assertEquals(new MaxDocsCondition(defaultMaxDocs * numberOfNodes), conditions.get(MaxDocsCondition.NAME));
-
-            CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
-            assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
-            assertTrue(createIndexRequest.mappings().get(CommonName.MAPPING_TYPE).contains("data_start_time"));
-            listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
-            return null;
-        }).when(indicesClient).rolloverIndex(any(), any());
-
+    private void setUpTriggerDelete() {
         Metadata.Builder metaBuilder = Metadata
             .builder()
             .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000002", 1L, CommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
@@ -234,10 +221,36 @@ public class RolloverTests extends AbstractADTest {
             );
         clusterState = ClusterState.builder(clusterName).metadata(metaBuilder.build()).build();
         when(clusterService.state()).thenReturn(clusterState);
+    }
+
+    public void testRolledOverDeleted() {
+        setUpRolloverSuccess();
+        setUpTriggerDelete();
 
         adIndices.rolloverAndDeleteHistoryIndex();
         verify(clusterAdminClient, times(1)).state(any(), any());
         verify(indicesClient, times(1)).rolloverIndex(any(), any());
         verify(indicesClient, times(1)).delete(any(), any());
+    }
+
+    public void testRetryingDelete() {
+        setUpRolloverSuccess();
+        setUpTriggerDelete();
+
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            ActionListener<AcknowledgedResponse> listener = (ActionListener<AcknowledgedResponse>) invocation.getArgument(1);
+
+            // group delete not acked, trigger retry. But retry also failed.
+            listener.onResponse(new AcknowledgedResponse(false));
+
+            return null;
+        }).when(indicesClient).delete(any(), any());
+
+        adIndices.rolloverAndDeleteHistoryIndex();
+        verify(clusterAdminClient, times(1)).state(any(), any());
+        verify(indicesClient, times(1)).rolloverIndex(any(), any());
+        // 1 group delete, 1 separate retry for each index to delete
+        verify(indicesClient, times(2)).delete(any(), any());
     }
 }

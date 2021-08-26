@@ -2644,6 +2644,7 @@ public class ADTaskManager {
     public boolean skipUpdateHCRealtimeTask(String detectorId, String error) {
         ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
         return realtimeTaskCache != null
+            && realtimeTaskCache.getInitProgress() != null
             && realtimeTaskCache.getInitProgress() == 1.0
             && Objects.equals(error, realtimeTaskCache.getError());
     }

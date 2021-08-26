@@ -362,9 +362,18 @@ public class BwcTests extends AbstractADTest {
             shingleSize,
             0,
             0,
-            Arrays.asList(modelProfile, modelProfile2)
+            Arrays.asList(modelProfile, modelProfile2),
+            modelSizeMap1.size()
         );
-        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(discoveryNode2, modelSizeMap2, -1, 0, 0, new ArrayList<>());
+        ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
+            discoveryNode2,
+            modelSizeMap2,
+            -1,
+            0,
+            0,
+            new ArrayList<>(),
+            modelSizeMap2.size()
+        );
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
         List<FailedNodeException> failures = Collections.emptyList();
 
@@ -406,6 +415,7 @@ public class BwcTests extends AbstractADTest {
         assertThat(readResponse.getTotalUpdates(), equalTo(profileResponse1_1.getTotalUpdates()));
         assertThat(readResponse.getCoordinatingNode(), equalTo(profileResponse1_1.getCoordinatingNode()));
         assertThat(readResponse.getTotalSizeInBytes(), equalTo(profileResponse1_1.getTotalSizeInBytes()));
+        assertThat(readResponse.getModelCount(), equalTo(profileResponse1_1.getModelCount()));
     }
 
     /**
@@ -438,6 +448,7 @@ public class BwcTests extends AbstractADTest {
         assertThat(readResponse.getTotalUpdates(), equalTo(profileResponse1_1.getTotalUpdates()));
         assertThat(readResponse.getCoordinatingNode(), equalTo(profileResponse1_1.getCoordinatingNode()));
         assertThat(readResponse.getTotalSizeInBytes(), equalTo(profileResponse1_1.getTotalSizeInBytes()));
+        assertThat(readResponse.getModelCount(), equalTo(0L));
     }
 
     /**

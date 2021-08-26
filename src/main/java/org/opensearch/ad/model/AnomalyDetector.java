@@ -26,7 +26,6 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
@@ -613,7 +612,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     }
 
     public Integer getShingleSize() {
-        return isMultientityDetector() ? DEFAULT_MULTI_ENTITY_SHINGLE : shingleSize;
+        return shingleSize;
     }
 
     /**
@@ -628,9 +627,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @return Shingle size
      */
     private static Integer getShingleSize(Integer customShingleSize, List<String> categoryField) {
-        return customShingleSize == null
-            ? (categoryField != null && categoryField.size() > 0 ? DEFAULT_MULTI_ENTITY_SHINGLE : DEFAULT_SHINGLE_SIZE)
-            : customShingleSize;
+        return customShingleSize == null ? DEFAULT_SHINGLE_SIZE : customShingleSize;
     }
 
     public Map<String, Object> getUiMetadata() {

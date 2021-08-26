@@ -57,6 +57,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
     static final String ACTIVE_ENTITY = CommonName.ACTIVE_ENTITIES;
     static final String MODELS = CommonName.MODELS;
     static final String TOTAL_UPDATES = CommonName.TOTAL_UPDATES;
+    static final String MODEL_COUNT = CommonName.MODEL_COUNT;
 
     // changed from ModelProfile to ModelProfileOnNode since Opensearch 1.1
     private ModelProfileOnNode[] modelProfile;
@@ -65,6 +66,8 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
     private long totalSizeInBytes;
     private long activeEntities;
     private long totalUpdates;
+    // added since 1.1
+    private long modelCount;
 
     /**
      * Constructor
@@ -91,6 +94,9 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         totalSizeInBytes = in.readVLong();
         activeEntities = in.readVLong();
         totalUpdates = in.readVLong();
+        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+            modelCount = in.readVLong();
+        }
     }
 
     /**
@@ -106,6 +112,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         activeEntities = 0L;
         totalUpdates = 0L;
         shingleSize = -1;
+        modelCount = 0;
         List<ModelProfileOnNode> modelProfileList = new ArrayList<>();
         for (ProfileNodeResponse response : nodes) {
             String curNodeId = response.getNode().getId();
@@ -119,6 +126,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
                 }
             }
             if (response.getModelProfiles() != null && response.getModelProfiles().size() > 0) {
+                modelCount += response.getModelCount();
                 for (ModelProfile profile : response.getModelProfiles()) {
                     modelProfileList.add(new ModelProfileOnNode(curNodeId, profile));
                 }
@@ -163,6 +171,9 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         out.writeVLong(totalSizeInBytes);
         out.writeVLong(activeEntities);
         out.writeVLong(totalUpdates);
+        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+            out.writeVLong(modelCount);
+        }
     }
 
     @Override
@@ -182,6 +193,9 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         builder.field(TOTAL_SIZE, totalSizeInBytes);
         builder.field(ACTIVE_ENTITY, activeEntities);
         builder.field(TOTAL_UPDATES, totalUpdates);
+        if (modelCount > 0) {
+            builder.field(MODEL_COUNT, modelCount);
+        }
         builder.startArray(MODELS);
         for (ModelProfileOnNode profile : modelProfile) {
             profile.toXContent(builder, params);
@@ -212,5 +226,9 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
 
     public long getTotalSizeInBytes() {
         return totalSizeInBytes;
+    }
+
+    public long getModelCount() {
+        return modelCount;
     }
 }

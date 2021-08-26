@@ -35,6 +35,7 @@ import java.util.Random;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
+import org.apache.commons.lang3.tuple.Triple;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
@@ -105,7 +106,7 @@ public class MLUtil {
             .builder()
             .dimensions(1)
             .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
-            .numberOfTrees(AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES)
+            .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
             .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
             .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
             .parallelExecutionEnabled(false)
@@ -182,5 +183,43 @@ public class MLUtil {
         }
 
         return data;
+    }
+
+    /**
+     * Prepare models and return training samples
+     * @param inputDimension Input dimension
+     * @param rcfConfig RCF config
+     * @return models and return training samples
+     */
+    public static Triple<Queue<double[]>, RandomCutForest, ThresholdingModel> prepareModel(
+        int inputDimension,
+        RandomCutForest.Builder<?> rcfConfig
+    ) {
+        Queue<double[]> samples = new ArrayDeque<>();
+
+        Random r = new Random();
+        RandomCutForest rcf = rcfConfig.build();
+        ThresholdingModel threshold = new HybridThresholdingModel(
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
+            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
+            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
+        );
+
+        int trainDataNum = 1000;
+        double[] scores = new double[trainDataNum];
+
+        for (int i = 0; i < trainDataNum; i++) {
+            double[] point = r.ints(inputDimension, 0, 50).asDoubleStream().toArray();
+            samples.add(point);
+            scores[i] = rcf.getAnomalyScore(point);
+            rcf.update(point);
+        }
+        // train using non-zero scores
+        threshold.train(DoubleStream.of(scores).filter(score -> score > 0).toArray());
+
+        return Triple.of(samples, rcf, threshold);
     }
 }

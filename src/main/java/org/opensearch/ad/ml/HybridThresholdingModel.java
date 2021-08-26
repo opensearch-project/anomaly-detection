@@ -49,6 +49,12 @@ import com.yahoo.sketches.kll.KllFloatsSketch;
  */
 public class HybridThresholdingModel implements ThresholdingModel {
 
+    /**
+     * The minimum anomaly score for labeling anomalies.
+     * Scores below this value result into anomaly grade 0.
+     */
+    public static final double MIN_SCORE = 0.4;
+
     private static final boolean USE_DOUBLE_SIDED_ERROR = true;
     private static final double CONFIDENCE = 0.99;
 
@@ -316,11 +322,14 @@ public class HybridThresholdingModel implements ThresholdingModel {
      */
     @Override
     public double grade(double anomalyScore) {
-        final double scale = 1.0 / (1.0 - minPvalueThreshold);
-        final double pvalue = quantileSketch.getRank((float) anomalyScore);
-        double anomalyGrade = scale * (pvalue - minPvalueThreshold);
-        anomalyGrade = Double.isNaN(anomalyGrade) ? 0. : anomalyGrade;
-        return Math.max(0.0, anomalyGrade);
+        double anomalyGrade = 0.;
+        if (anomalyScore > MIN_SCORE) {
+            final double scale = 1.0 / (1.0 - minPvalueThreshold);
+            final double pvalue = quantileSketch.getRank((float) anomalyScore);
+            anomalyGrade = scale * (pvalue - minPvalueThreshold);
+            anomalyGrade = Double.isNaN(anomalyGrade) ? 0. : Math.max(0., anomalyGrade);
+        }
+        return anomalyGrade;
     }
 
     /**

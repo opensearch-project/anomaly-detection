@@ -50,6 +50,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
     private Long totalEntities;
     private Long activeEntities;
     private ADTaskProfile adTaskProfile;
+    private long modelCount;
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -73,6 +74,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         if (in.readBoolean()) {
             this.adTaskProfile = new ADTaskProfile(in);
         }
+        this.modelCount = in.readVLong();
     }
 
     private DetectorProfile() {}
@@ -88,6 +90,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         private Long totalEntities;
         private Long activeEntities;
         private ADTaskProfile adTaskProfile;
+        private long modelCount = 0;
 
         public Builder() {}
 
@@ -103,6 +106,11 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
 
         public Builder modelProfile(ModelProfileOnNode[] modelProfile) {
             this.modelProfile = modelProfile;
+            return this;
+        }
+
+        public Builder modelCount(long modelCount) {
+            this.modelCount = modelCount;
             return this;
         }
 
@@ -146,6 +154,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             profile.state = this.state;
             profile.error = this.error;
             profile.modelProfile = modelProfile;
+            profile.modelCount = modelCount;
             profile.shingleSize = shingleSize;
             profile.coordinatingNode = coordinatingNode;
             profile.totalSizeInBytes = totalSizeInBytes;
@@ -186,6 +195,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             out.writeBoolean(true);
             adTaskProfile.writeTo(out);
         }
+        out.writeVLong(modelCount);
     }
 
     @Override
@@ -225,6 +235,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
         if (adTaskProfile != null) {
             xContentBuilder.field(CommonName.AD_TASK, adTaskProfile);
+        }
+        if (modelCount > 0) {
+            xContentBuilder.field(CommonName.MODEL_COUNT, modelCount);
         }
         return xContentBuilder.endObject();
     }
@@ -309,6 +322,14 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         this.adTaskProfile = adTaskProfile;
     }
 
+    public long getModelCount() {
+        return modelCount;
+    }
+
+    public void setModelCount(long modelCount) {
+        this.modelCount = modelCount;
+    }
+
     @Override
     public void merge(Mergeable other) {
         if (this == other || other == null || getClass() != other.getClass()) {
@@ -344,6 +365,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
         if (otherProfile.getAdTaskProfile() != null) {
             this.adTaskProfile = otherProfile.getAdTaskProfile();
+        }
+        if (otherProfile.getModelCount() > 0) {
+            this.modelCount = otherProfile.getModelCount();
         }
     }
 
@@ -389,6 +413,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             if (adTaskProfile != null) {
                 equalsBuilder.append(adTaskProfile, other.adTaskProfile);
             }
+            if (modelCount > 0) {
+                equalsBuilder.append(modelCount, other.modelCount);
+            }
             return equalsBuilder.isEquals();
         }
         return false;
@@ -407,6 +434,7 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
             .append(totalEntities)
             .append(activeEntities)
             .append(adTaskProfile)
+            .append(modelCount)
             .toHashCode();
     }
 
@@ -443,6 +471,9 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         }
         if (adTaskProfile != null) {
             toStringBuilder.append(CommonName.AD_TASK, adTaskProfile);
+        }
+        if (modelCount > 0) {
+            toStringBuilder.append(CommonName.MODEL_COUNT, modelCount);
         }
         return toStringBuilder.toString();
     }

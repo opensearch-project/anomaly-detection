@@ -28,6 +28,7 @@ package org.opensearch.ad.transport;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.argThat;
@@ -407,7 +408,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             threadPool
         );
 
-        when(normalModelManager.getAnomalyResultForEntity(any(), any(), any(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
+        when(normalModelManager.getAnomalyResultForEntity(any(), any(), any(), any(), anyInt()))
+            .thenReturn(new ThresholdingResult(0, 1, 1));
     }
 
     private void setUpEntityResult(int nodeIndex) {

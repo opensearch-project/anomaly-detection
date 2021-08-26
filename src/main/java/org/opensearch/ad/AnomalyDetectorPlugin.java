@@ -100,6 +100,7 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
+import org.opensearch.ad.stats.suppliers.ModelsOnNodeCountSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADBatchTaskRunner;
@@ -486,7 +487,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.CHECKPOINT_TTL,
             AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
             memoryTracker,
-            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
+            AnomalyDetectorSettings.NUM_TREES,
             getClock(),
             clusterService,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
@@ -502,14 +503,13 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             threadPool,
             stateManager,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.MULTI_ENTITY_NUM_TREES,
+            AnomalyDetectorSettings.NUM_TREES,
             AnomalyDetectorSettings.TIME_DECAY,
             AnomalyDetectorSettings.NUM_MIN_SAMPLES,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             interpolator,
             searchFeatureDao,
-            AnomalyDetectorSettings.DEFAULT_MULTI_ENTITY_SHINGLE,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
             AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
@@ -651,7 +651,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .put(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
-            .put(StatNames.MODEL_INFORMATION.getName(), new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider)))
+            .put(
+                StatNames.MODEL_INFORMATION.getName(),
+                new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService))
+            )
             .put(
                 StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(),
                 new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX))
@@ -679,6 +682,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .put(StatNames.AD_CANCELED_BATCH_TASK_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .put(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .put(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.MODEL_COUNT.getName(), new ADStat<>(false, new ModelsOnNodeCountSupplier(modelManager, cacheProvider)))
             .build();
 
         adStats = new ADStats(stats);
@@ -881,7 +885,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW,
                 AnomalyDetectorSettings.PAGE_SIZE,
                 // clean resource
-                AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR
+                AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
+                // stats/profile API
+                AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE
             );
         return unmodifiableList(
             Stream

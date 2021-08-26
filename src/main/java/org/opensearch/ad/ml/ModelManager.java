@@ -737,7 +737,7 @@ public class ModelManager implements DetectorModelSize {
     /**
      * Computes the probabilities of non-coldstart points in the current forest.
      */
-    private double computeRcfConfidence(RandomCutForest forest) {
+    double computeRcfConfidence(RandomCutForest forest) {
         long total = forest.getTotalUpdates();
         double lambda = forest.getTimeDecay();
         double totalExponent = total * lambda;
@@ -796,6 +796,7 @@ public class ModelManager implements DetectorModelSize {
      * @param modelState the state associated with the entity
      * @param modelId the model Id
      * @param entity entity accessor
+     * @param shingleSize Shingle size
      *
      * @return anomaly result, confidence, and the corresponding RCF score.
      */
@@ -803,7 +804,8 @@ public class ModelManager implements DetectorModelSize {
         double[] datapoint,
         ModelState<EntityModel> modelState,
         String modelId,
-        Entity entity
+        Entity entity,
+        int shingleSize
     ) {
         if (modelState != null) {
             EntityModel entityModel = modelState.getModel();
@@ -814,7 +816,7 @@ public class ModelManager implements DetectorModelSize {
             }
             // trainModelFromExistingSamples may be able to make models not null
             if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
-                entityColdStarter.trainModelFromExistingSamples(modelState);
+                entityColdStarter.trainModelFromExistingSamples(modelState, shingleSize);
             }
             if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
                 return score(datapoint, modelId, modelState);
@@ -846,14 +848,17 @@ public class ModelManager implements DetectorModelSize {
             rcf.update(recordedFeature);
             threshold.update(rcfScore);
         }
-
         double rcfScore = rcf.getAnomalyScore(feature);
-        rcf.update(feature);
-        threshold.update(rcfScore);
 
         double anomalyGrade = threshold.grade(rcfScore);
+
         double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
         ThresholdingResult result = new ThresholdingResult(anomalyGrade, anomalyConfidence, rcfScore);
+
+        rcf.update(feature);
+        if (rcfScore > 0) {
+            threshold.update(rcfScore);
+        }
 
         modelState.setLastUsedTime(clock.instant());
         return result;
@@ -866,6 +871,7 @@ public class ModelManager implements DetectorModelSize {
      * @param entity objects to access Entity attributes
      * @param modelId Model Id
      * @param detectorId Detector Id
+     * @param shingleSize Shingle size
      *
      * @return updated model state
      *
@@ -874,7 +880,8 @@ public class ModelManager implements DetectorModelSize {
         Optional<Entry<EntityModel, Instant>> checkpoint,
         Entity entity,
         String modelId,
-        String detectorId
+        String detectorId,
+        int shingleSize
     ) {
         // entity state to instantiate
         ModelState<EntityModel> modelState = new ModelState<>(
@@ -902,7 +909,7 @@ public class ModelManager implements DetectorModelSize {
         if ((model.getRcf() == null || model.getThreshold() == null)
             && model.getSamples() != null
             && model.getSamples().size() >= rcfNumMinSamples) {
-            entityColdStarter.trainModelFromExistingSamples(modelState);
+            entityColdStarter.trainModelFromExistingSamples(modelState, shingleSize);
         }
         return modelState;
     }
