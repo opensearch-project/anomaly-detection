@@ -190,7 +190,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             return res;
         }).when(modelManager).getAllModelIds();
 
-        doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionDirectly(any(String.class));
+        doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class));
 
         listener.clusterChanged(new ClusterChangedEvent("foo", newClusterState, oldClusterState));
         assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_ADDED_MSG));

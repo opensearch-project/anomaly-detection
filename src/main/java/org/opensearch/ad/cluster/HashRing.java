@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -80,14 +81,24 @@ public class HashRing {
     private Semaphore adVersionCircleInProgress;
     // the UTC epoch milliseconds of the most recent successful update
     private long lastUpdate;
-    private final TimeValue coolDownPeriod;
+    private volatile TimeValue coolDownPeriod;
     private final Clock clock;
     private final Client client;
+    // This field is to track AD version of data node. Historical analysis will use this hash ring.
+    // Key: node id; Value: AD version
     private Map<String, Version> nodeAdVersions;
+    // This field records AD version hash ring in realtime way.
+    // Key: AD version; Value: hash ring
     private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> adVersionCircles;
+    // This field records AD version hash ring with cooldown period. Realtime job will use this hash ring.
+    // Key: AD version; Value: hash ring
+    private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> adVersionCirclesWithCooldown;
     private ClusterService clusterService;
     private ADDataMigrator dataMigrator;
     private AtomicBoolean adVersionHashRingInited;
+    // Record node change event. Will check if there is node change event when rebuild AD hash ring with
+    // cooldown for realtime job.
+    private ConcurrentLinkedQueue<Boolean> nodeChangeEvents;
 
     public HashRing(
         DiscoveryNodeFilterer nodeFilter,
@@ -101,13 +112,17 @@ public class HashRing {
         this.adVersionCircleInProgress = new Semaphore(1);
         this.clock = clock;
         this.coolDownPeriod = COOLDOWN_MINUTES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownPeriod = it);
+
         this.lastUpdate = 0;
         this.client = client;
         this.clusterService = clusterService;
         this.dataMigrator = dataMigrator;
         this.nodeAdVersions = new ConcurrentHashMap<>();
         this.adVersionCircles = new TreeMap<>();
+        this.adVersionCirclesWithCooldown = new TreeMap<>();
         this.adVersionHashRingInited = new AtomicBoolean(false);
+        this.nodeChangeEvents = new ConcurrentLinkedQueue<>();
     }
 
     public boolean isAdVersionHashRingInited() {
@@ -168,6 +183,20 @@ public class HashRing {
      *
      * If fail to acquire semaphore to update AD version hash ring, will return false to
      * action listener; otherwise will return true.
+     *
+     * We use different way to build hash ring for realtime job and historical analysis
+     * 1. For historical analysis,if node removed, we remove it immediately from adVersionCircles
+     *    to avoid new AD task routes to it. If new node added, we add it immediately to adVersionCircles
+     *    to make load more balanced and speed up AD task running.
+     * 2. For realtime job, we don't record which node running detector's model partition. We just
+     *    use hash ring to get owning node. If we rebuild hash ring frequently, realtime job may get
+     *    different owning node and need to restore model on new owning node. If that happens a lot,
+     *    it may bring heavy load to cluster. So we prefer to wait for some time before next hash ring
+     *    rebuild, we call it cooldown period. The cons is we may have stale hash ring during cooldown
+     *    period. Some node may already been removed from hash ring, then realtime job won't know this
+     *    and still send RCF request to it. If new node added during cooldown period, realtime job won't
+     *    choose it as model partition owning node, thus we may have skewed load on data nodes.
+     *
      * @param removedNodeIds removed node ids
      * @param addedNodeIds added node ids
      * @param actionListener action listener
@@ -197,6 +226,8 @@ public class HashRing {
             if (allAddedNodes.size() == 0) {
                 actionListener.onResponse(true);
                 LOG.info("No newly added nodes, return");
+                // rebuild AD version hash ring with cooldown.
+                rebuildAdVersionCirclesWithCooldown();
                 adVersionCircleInProgress.release();
                 return;
             }
@@ -237,7 +268,10 @@ public class HashRing {
                 }
                 LOG.info("All nodes in AD version hash ring: {}", nodeAdVersions);
 
-                if (adVersionCircles.size() > 0 && adVersionCircles.lastEntry().getKey().after(Version.V_1_0_0)) {
+                // rebuild AD version hash ring with cooldown after all new node added.
+                rebuildAdVersionCirclesWithCooldown();
+
+                if (adVersionCircles.size() > 0 && adVersionCircles.lastEntry().getKey().onOrAfter(Version.V_1_1_0)) {
                     // Find owning node with highest AD version to make sure the data migration logic be compatible to
                     // latest AD version when upgrade.
                     Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
@@ -261,6 +295,50 @@ public class HashRing {
             adVersionCircleInProgress.release();
             actionListener.onFailure(e);
         }
+    }
+
+    private void rebuildAdVersionCirclesWithCooldown() {
+        // Check if it's eligible to rebuild hash ring with cooldown
+        if (eligibleToRebuildHashRingWithCooldown()) {
+            LOG.info("Rebuild AD version hash ring with cooldown");
+            adVersionCirclesWithCooldown = new TreeMap<>(adVersionCircles);
+            nodeChangeEvents.poll();
+            lastUpdate = clock.millis();
+        }
+    }
+
+    /**
+     * Check if it's eligible to rebuilt hash ring now.
+     * It's eligible if:
+     * 1. There is node change event not consumed, and
+     * 2. Have passed cool down period from last hash ring update time.
+     *
+     * Check {@link org.opensearch.ad.settings.AnomalyDetectorSettings#COOLDOWN_MINUTES} about
+     * cool down settings.
+     *
+     * Why we need to wait for some cooldown period before rebuilding hash ring?
+     *    This is for realtime detection. In realtime detection, we rely on hash ring to get
+     *    owning node for RCF model partitions. It's stateless, that means we don't record
+     *    which node is running RCF partition for the detector. That requires a stable hash
+     *    ring. If hash ring changes, it's possible that the next job run will use a different
+     *    node to run RCF partition. Then we need to restore model on the new node and clean up
+     *    old model partitions on old node. That model migration between nodes may bring heavy
+     *    load to cluster.
+     *
+     * @return true if it's eligible to rebuild hash ring
+     */
+    private boolean eligibleToRebuildHashRingWithCooldown() {
+        // Check if there is any node change event
+        if (nodeChangeEvents.isEmpty() && !adVersionCirclesWithCooldown.isEmpty()) {
+            return false;
+        }
+
+        // Check cooldown period
+        if (clock.millis() - lastUpdate <= coolDownPeriod.getMillis()) {
+            LOG.debug(COOLDOWN_MSG);
+            return false;
+        }
+        return true;
     }
 
     private void removeNodeFromAdVersionCircles(String nodeId) {
@@ -314,21 +392,18 @@ public class HashRing {
         buildCirclesOnAdVersions(ActionListener.wrap(r -> {
             DiscoveryNode localNode = clusterService.localNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
-            Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersion(modelId, adVersion);
+            Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersionDirectly(modelId, adVersion, false);
             function.accept(owningNode);
         }, e -> listener.onFailure(e)));
     }
 
-    public Optional<DiscoveryNode> getOwningNodeWithSameLocalAdVersionDirectly(String modelId) {
+    public Optional<DiscoveryNode> getOwningNodeWithSameLocalAdVersionForRealtimeJob(String modelId) {
         try {
             DiscoveryNode localNode = clusterService.localNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
-
-            Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersion(modelId, adVersion);
-
-            if (clock.millis() - lastUpdate <= coolDownPeriod.getMillis()) {
-                buildCirclesOnAdVersionsDirectly();
-            }
+            Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersionDirectly(modelId, adVersion, true);
+            // rebuild hash ring
+            buildCirclesOnAdVersionsDirectly();
             return owningNode;
         } catch (Exception e) {
             LOG.error("Failed to get owning node with same local AD version", e);
@@ -336,9 +411,11 @@ public class HashRing {
         }
     }
 
-    private Optional<DiscoveryNode> getOwningNodeWithSameAdVersion(String modelId, Version adVersion) {
+    private Optional<DiscoveryNode> getOwningNodeWithSameAdVersionDirectly(String modelId, Version adVersion, boolean forRealtime) {
         int modelHash = Murmur3HashFunction.hash(modelId);
-        TreeMap<Integer, DiscoveryNode> adVersionCircle = adVersionCircles.get(adVersion);
+        TreeMap<Integer, DiscoveryNode> adVersionCircle = forRealtime
+            ? adVersionCirclesWithCooldown.get(adVersion)
+            : adVersionCircles.get(adVersion);
         if (adVersionCircle != null) {
             Map.Entry<Integer, DiscoveryNode> entry = adVersionCircle.higherEntry(modelHash);
             return Optional.ofNullable(Optional.ofNullable(entry).orElse(adVersionCircle.firstEntry())).map(x -> x.getValue());
@@ -363,9 +440,8 @@ public class HashRing {
         DiscoveryNode localNode = clusterService.localNode();
         Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
         Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion);
-        if (clock.millis() - lastUpdate <= coolDownPeriod.getMillis()) {
-            buildCirclesOnAdVersionsDirectly();
-        }
+        // rebuild hash ring
+        buildCirclesOnAdVersionsDirectly();
         return nodes.toArray(new DiscoveryNode[0]);
     }
 
@@ -446,5 +522,15 @@ public class HashRing {
             // Make sure listener return in function
             function.accept(allNodes.toArray(new DiscoveryNode[0]));
         }, e -> listener.onFailure(e)));
+    }
+
+    /**
+     * Put node change events in node change event queue. Will poll event from this queue when rebuild hash ring
+     * for realtime task.
+     * We track all node change events in case some race condition happen and we miss adding some node to hash
+     * ring.
+     */
+    public void addNodeChangeEvent() {
+        this.nodeChangeEvents.add(true);
     }
 }

@@ -217,7 +217,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         hashRing = mock(HashRing.class);
         Optional<DiscoveryNode> localNode = Optional.of(clusterService.state().nodes().getLocalNode());
-        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(localNode);
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class))).thenReturn(localNode);
         doReturn(localNode).when(hashRing).getNodeByAddress(any());
         featureQuery = mock(FeatureManager.class);
 
@@ -448,7 +448,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         Optional<DiscoveryNode> discoveryNode = Optional.of(testNodes[1].discoveryNode());
-        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(discoveryNode);
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class))).thenReturn(discoveryNode);
         when(hashRing.getNodeByAddress(any(TransportAddress.class))).thenReturn(discoveryNode);
         // register handler on testNodes[1]
         new RCFResultTransportAction(
@@ -678,7 +678,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         Optional<DiscoveryNode> discoveryNode = Optional.of(testNodes[1].discoveryNode());
-        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(discoveryNode);
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class))).thenReturn(discoveryNode);
         when(hashRing.getNodeByAddress(any(TransportAddress.class))).thenReturn(discoveryNode);
         // register handlers on testNodes[1]
         ActionFilters actionFilters = new ActionFilters(Collections.emptySet());
@@ -781,7 +781,7 @@ public class AnomalyResultTests extends AbstractADTest {
                 .when(exceptionTransportService)
                 .getConnection(same(rcfNode));
         } else {
-            when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(eq(thresholdModelID))).thenReturn(Optional.of(thresholdNode));
+            when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(eq(thresholdModelID))).thenReturn(Optional.of(thresholdNode));
             when(hashRing.getNodeByAddress(any())).thenReturn(Optional.of(thresholdNode));
             doThrow(new NodeNotConnectedException(rcfNode, "rcf node not connected"))
                 .when(exceptionTransportService)
@@ -906,7 +906,7 @@ public class AnomalyResultTests extends AbstractADTest {
         );
         Optional<DiscoveryNode> localNode = Optional.of(clusterService.state().nodes().getLocalNode());
 
-        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class))).thenReturn(localNode);
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class))).thenReturn(localNode);
         doReturn(localNode).when(hashRing).getNodeByAddress(any());
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 

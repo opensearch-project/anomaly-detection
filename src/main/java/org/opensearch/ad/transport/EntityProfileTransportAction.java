@@ -106,7 +106,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         }
         // we use entity's toString (e.g., app_0) to find its node
         // This should be consistent with how we land a model node in AnomalyResultTransportAction
-        Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionDirectly(entityValue.toString());
+        Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(entityValue.toString());
         if (false == node.isPresent()) {
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
             return;

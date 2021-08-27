@@ -139,13 +139,13 @@ public class HashRingTests extends AbstractADTest {
         setNodeState();
 
         HashRing ring = new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator);
-        Optional<DiscoveryNode> node = ring.getOwningNodeWithSameLocalAdVersionDirectly("http-latency-rcf-1");
+        Optional<DiscoveryNode> node = ring.getOwningNodeWithSameLocalAdVersionForRealtimeJob("http-latency-rcf-1");
         assertTrue(node.isPresent());
         String id = node.get().getId();
         assertTrue(id.equals("1") || id.equals("2"));
 
         when(clock.millis()).thenReturn(700001L);
-        Optional<DiscoveryNode> node2 = ring.getOwningNodeWithSameLocalAdVersionDirectly("http-latency-rcf-1");
+        Optional<DiscoveryNode> node2 = ring.getOwningNodeWithSameLocalAdVersionForRealtimeJob("http-latency-rcf-1");
         assertEquals(node, node2);
         assertTrue(testAppender.containsMessage(HashRing.COOLDOWN_MSG));
     }
@@ -157,7 +157,7 @@ public class HashRingTests extends AbstractADTest {
         setNodeState(attributesForNode1);
 
         HashRing ring = new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator);
-        Optional<DiscoveryNode> node = ring.getOwningNodeWithSameLocalAdVersionDirectly("http-latency-rcf-1");
+        Optional<DiscoveryNode> node = ring.getOwningNodeWithSameLocalAdVersionForRealtimeJob("http-latency-rcf-1");
         assertTrue(node.isPresent());
         String id = node.get().getId();
         assertTrue(id.equals("2"));

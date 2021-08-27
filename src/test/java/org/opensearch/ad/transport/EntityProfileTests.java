@@ -278,7 +278,7 @@ public class EntityProfileTests extends AbstractADTest {
     }
 
     public void testInvalidRequest() {
-        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(anyString())).thenReturn(Optional.empty());
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(anyString())).thenReturn(Optional.empty());
         action.doExecute(task, request, future);
 
         assertException(future, AnomalyDetectionException.class, EntityProfileTransportAction.NO_NODE_FOUND_MSG);
@@ -286,7 +286,7 @@ public class EntityProfileTests extends AbstractADTest {
 
     public void testLocalNodeHit() {
         DiscoveryNode localNode = new DiscoveryNode(nodeId, transportAddress1, Version.CURRENT.minimumCompatibilityVersion());
-        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(anyString())).thenReturn(Optional.of(localNode));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(anyString())).thenReturn(Optional.of(localNode));
         when(clusterService.localNode()).thenReturn(localNode);
 
         action.doExecute(task, request, future);
@@ -296,7 +296,7 @@ public class EntityProfileTests extends AbstractADTest {
 
     public void testAllHit() {
         DiscoveryNode localNode = new DiscoveryNode(nodeId, transportAddress1, Version.CURRENT.minimumCompatibilityVersion());
-        when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(anyString())).thenReturn(Optional.of(localNode));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(anyString())).thenReturn(Optional.of(localNode));
         when(clusterService.localNode()).thenReturn(localNode);
 
         request = new EntityProfileRequest(detectorId, entity, all);
@@ -322,7 +322,7 @@ public class EntityProfileTests extends AbstractADTest {
                 cacheProvider
             );
 
-            when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class)))
+            when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
                 .thenReturn(Optional.of(testNodes[1].discoveryNode()));
             registerHandler(testNodes[1]);
 
@@ -352,7 +352,7 @@ public class EntityProfileTests extends AbstractADTest {
                 cacheProvider
             );
 
-            when(hashRing.getOwningNodeWithSameLocalAdVersionDirectly(any(String.class)))
+            when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
                 .thenReturn(Optional.of(testNodes[1].discoveryNode()));
             registerHandler(testNodes[1]);
 

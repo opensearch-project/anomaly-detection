@@ -127,6 +127,7 @@ public class ADClusterEventListener implements ClusterStateListener {
             }
 
             if (dataNodeAdded || dataNodeRemoved) {
+                hashRing.addNodeChangeEvent();
                 boolean finalDataNodeAdded = dataNodeAdded;
                 hashRing.buildCirclesOnAdVersions(delta, ActionListener.wrap(updated -> {
                     if (updated) {
@@ -137,7 +138,7 @@ public class ADClusterEventListener implements ClusterStateListener {
                             String localNodeId = event.state().nodes().getLocalNode().getId();
                             Set<String> modelIds = modelManager.getAllModelIds();
                             for (String modelId : modelIds) {
-                                Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionDirectly(modelId);
+                                Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(modelId);
                                 if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
                                     LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
                                     modelManager
