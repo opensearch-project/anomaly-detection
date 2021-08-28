@@ -129,8 +129,8 @@ public class ADClusterEventListener implements ClusterStateListener {
             if (dataNodeAdded || dataNodeRemoved) {
                 hashRing.addNodeChangeEvent();
                 boolean finalDataNodeAdded = dataNodeAdded;
-                hashRing.buildCirclesOnAdVersions(delta, ActionListener.wrap(updated -> {
-                    if (updated) {
+                hashRing.buildCirclesOnAdVersions(delta, ActionListener.wrap(hasRingBuildDone -> {
+                    if (hasRingBuildDone) {
                         LOG.info("Build AD version hash ring successfully");
                         if (finalDataNodeAdded) {
                             // Once hash ring rebuilt done, the removed node is not in hash ring, so we just stop model

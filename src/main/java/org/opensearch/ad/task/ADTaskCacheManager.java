@@ -465,13 +465,18 @@ public class ADTaskCacheManager {
      * @return true if task is cancelled; otherwise return false
      */
     public boolean isCancelled(String taskId) {
+        // For HC detector, ADBatchTaskCache is entity task.
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
         String detectorId = taskCache.getDetectorId();
+
         ADHCBatchTaskCache hcTaskCache = hcTaskCaches.get(detectorId);
         boolean hcDetectorStopped = false;
         if (hcTaskCache != null) {
             hcDetectorStopped = hcTaskCache.getHistoricalAnalysisCancelled();
         }
+        // If a new entity task comes after cancel event, then we have no chance to set it as cancelled.
+        // So we need to check hcDetectorStopped for HC detector to know if it's cancelled or not.
+        // For single entity detector, it has just 1 task, just need to check taskCache.isCancelled.
         return taskCache.isCancelled() || hcDetectorStopped;
     }
 

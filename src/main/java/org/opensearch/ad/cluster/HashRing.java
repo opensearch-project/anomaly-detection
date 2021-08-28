@@ -139,6 +139,11 @@ public class HashRing {
      * @param listener action listener
      */
     public void buildCirclesOnAdVersions(DiscoveryNodes.Delta delta, ActionListener<Boolean> listener) {
+        if (!adVersionCircleInProgress.tryAcquire()) {
+            LOG.info("AD version hash ring change in progress, return.");
+            listener.onResponse(false);
+            return;
+        }
         Set<String> removedNodeIds = delta.removed()
             ? delta.removedNodes().stream().filter(nodeFilter::isEligibleDataNode).map(DiscoveryNode::getId).collect(Collectors.toSet())
             : null;
@@ -155,6 +160,11 @@ public class HashRing {
      * @param actionListener action listener
      */
     public void buildCirclesOnAdVersions(ActionListener<Boolean> actionListener) {
+        if (!adVersionCircleInProgress.tryAcquire()) {
+            LOG.info("AD version hash ring change in progress, return.");
+            actionListener.onResponse(false);
+            return;
+        }
         DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
         Set<String> eligibleNodeIds = new HashSet<>();
         for (DiscoveryNode node : eligibleDataNodes) {
@@ -167,6 +177,9 @@ public class HashRing {
     }
 
     public void buildCirclesOnAdVersionsDirectly() {
+        if (nodeChangeEvents.isEmpty()) {
+            return;
+        }
         buildCirclesOnAdVersions(
             ActionListener
                 .wrap(
@@ -182,7 +195,9 @@ public class HashRing {
      * 2. Add new nodes to AD version hash ring
      *
      * If fail to acquire semaphore to update AD version hash ring, will return false to
-     * action listener; otherwise will return true.
+     * action listener; otherwise will return true. The "true" response just mean we got
+     * semaphore and finished rebuilding hash ring, but the hash ring may stay the same.
+     * Hash ring changed or not depends on if "removedNodeIds" or "addedNodeIds" is empty.
      *
      * We use different way to build hash ring for realtime job and historical analysis
      * 1. For historical analysis,if node removed, we remove it immediately from adVersionCircles
@@ -197,16 +212,15 @@ public class HashRing {
      *    and still send RCF request to it. If new node added during cooldown period, realtime job won't
      *    choose it as model partition owning node, thus we may have skewed load on data nodes.
      *
+     * [Important!]: When you call this function, make sure you TRY ACQUIRE adVersionCircleInProgress first.
+     *               Check {@link HashRing#buildCirclesOnAdVersions(ActionListener)} and
+     *               {@link HashRing#buildCirclesOnAdVersions(DiscoveryNodes.Delta, ActionListener)}
+     *
      * @param removedNodeIds removed node ids
      * @param addedNodeIds added node ids
      * @param actionListener action listener
      */
-    public void buildCirclesOnAdVersions(Set<String> removedNodeIds, Set<String> addedNodeIds, ActionListener<Boolean> actionListener) {
-        if (!adVersionCircleInProgress.tryAcquire()) {
-            LOG.info("AD version hash ring change in progress, return.");
-            actionListener.onResponse(false);
-            return;
-        }
+    private void buildCirclesOnAdVersions(Set<String> removedNodeIds, Set<String> addedNodeIds, ActionListener<Boolean> actionListener) {
         try {
             DiscoveryNode localNode = clusterService.localNode();
             if (removedNodeIds != null && removedNodeIds.size() > 0) {
@@ -271,7 +285,9 @@ public class HashRing {
                 // rebuild AD version hash ring with cooldown after all new node added.
                 rebuildAdVersionCirclesWithCooldown();
 
-                if (adVersionCircles.size() > 0 && adVersionCircles.lastEntry().getKey().onOrAfter(Version.V_1_1_0)) {
+                if (!dataMigrator.isMigrated()
+                    && adVersionCircles.size() > 0
+                    && adVersionCircles.lastEntry().getKey().after(Version.V_1_0_0)) {
                     // Find owning node with highest AD version to make sure the data migration logic be compatible to
                     // latest AD version when upgrade.
                     Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
@@ -300,9 +316,19 @@ public class HashRing {
     private void rebuildAdVersionCirclesWithCooldown() {
         // Check if it's eligible to rebuild hash ring with cooldown
         if (eligibleToRebuildHashRingWithCooldown()) {
-            LOG.info("Rebuild AD version hash ring with cooldown");
+            LOG.info("Rebuild AD version hash ring with cooldown, nodeChangeEvents size {}", nodeChangeEvents.size());
+            int size = nodeChangeEvents.size();
             adVersionCirclesWithCooldown = new TreeMap<>(adVersionCircles);
-            nodeChangeEvents.poll();
+            // It's possible that multiple threads add new event to nodeChangeEvents,
+            // but this is the only place to consume/poll the event and there is only
+            // one thread poll it as we are using adVersionCircleInProgress semaphore(1)
+            // to control only 1 thread build hash ring.
+            while (size-- > 0) {
+                Boolean poll = nodeChangeEvents.poll();
+                if (poll == null) {
+                    break;
+                }
+            }
             lastUpdate = clock.millis();
         }
     }

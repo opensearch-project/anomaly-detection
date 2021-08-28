@@ -285,4 +285,8 @@ public class ADDataMigrator {
     public void skipMigration() {
         this.dataMigrated.set(true);
     }
+
+    public boolean isMigrated() {
+        return this.dataMigrated.get();
+    }
 }
