@@ -879,36 +879,8 @@ public class ADTaskManager {
         }, exception -> listener.onFailure(exception)));
     }
 
-    // TODO: delete this one later
-    public <T> void getDetector(
-        String detectorId,
-        Consumer<AnomalyDetector> realTimeDetectorConsumer,
-        Consumer<AnomalyDetector> historicalDetectorConsumer,
-        ActionListener<T> listener
-    ) {
-        GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-        client.get(getRequest, ActionListener.wrap(response -> {
-            if (!response.isExists()) {
-                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
-                return;
-            }
-            try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
-
-                if (detector.isRealTimeDetector()) {
-                    // run realtime detector
-                    realTimeDetectorConsumer.accept(detector);
-                } else {
-                    // run historical detector
-                    historicalDetectorConsumer.accept(detector);
-                }
-            } catch (Exception e) {
-                String message = "Failed to start anomaly detector " + detectorId;
-                logger.error(message, e);
-                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
-            }
-        }, exception -> listener.onFailure(exception)));
+    private List<String> taskTypeToString(List<ADTaskType> adTaskTypes) {
+        return adTaskTypes.stream().map(type -> type.name()).collect(Collectors.toList());
     }
 
     /**
