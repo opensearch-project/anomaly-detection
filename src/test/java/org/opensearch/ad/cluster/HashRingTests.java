@@ -257,6 +257,7 @@ public class HashRingTests extends ADUnitTestCase {
                     Version.CURRENT,
                     "1.8",
                     randomAlphaOfLengthBetween(3, 10),
+                    randomAlphaOfLengthBetween(3, 10),
                     ImmutableList.of(),
                     randomBoolean()
                 )
