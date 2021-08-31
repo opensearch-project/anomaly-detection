@@ -47,6 +47,7 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -79,25 +80,50 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         String detectorId = detector.getDetectorId();
         ADTask adTask = request.getAdTask();
+        User user = request.getUser();
+        Integer availableTaskSlots = request.getAvailableTaskSLots();
 
         String entityValue = adTaskManager.convertEntityToString(adTask);
 
         switch (adTaskAction) {
+            case APPLY_FOR_TASK_SLOTS:
+                logger.debug("Received APPLY_FOR_TASK_SLOTS action for detector {}", detectorId);
+                adTaskManager.checkTaskSlots(adTask, detector, detectionDateRange, user, ADTaskAction.START, transportService, listener);
+                break;
+            case CHECK_AVAILABLE_TASK_SLOTS:
+                logger.debug("Received CHECK_AVAILABLE_TASK_SLOTS action for detector {}", detectorId);
+                adTaskManager
+                    .checkTaskSlots(
+                        adTask,
+                        detector,
+                        detectionDateRange,
+                        user,
+                        ADTaskAction.SCALE_ENTITY_TASK_SLOTS,
+                        transportService,
+                        listener
+                    );
+                break;
             case START:
                 // Start historical analysis for detector
-                adTaskManager.startHistoricalAnalysisTask(detector, detectionDateRange, request.getUser(), transportService, listener);
+                logger.debug("Received START action for detector {}", detectorId);
+                adTaskManager.startHistoricalAnalysisTask(detector, detectionDateRange, user, transportService, ActionListener.wrap(r -> {
+                    adTaskCacheManager.setDetectorTaskSlots(detector.getDetectorId(), availableTaskSlots);
+                    listener.onResponse(r);
+                }, e -> listener.onFailure(e)));
                 break;
             case FINISHED:
+                logger.debug("Received FINISHED action for detector {}", detectorId);
                 // Historical analysis finished, so we need to remove detector cache. Only single entity detectors use this.
                 adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;
             case NEXT_ENTITY:
+                logger.debug("Received NEXT_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Run next entity for HC detector historical analysis.
-                logger.debug("Received task for NEXT_ENTITY action: {}", adTask.getTaskId());
                 if (detector.isMultientityDetector()) { // AD task could be HC detector level task or entity task
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
+                        adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
                         logger.info("Historical HC detector done, will remove from cache, detector id:{}", detectorId);
                         listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
                         // TODO: reset task state when get task
@@ -105,7 +131,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskManager.setHCDetectorTaskDone(adTask, state, listener);
                     } else {
                         logger.debug("Run next entity for detector " + detectorId);
-                        adTaskManager.runNextEntityForHCADHistorical(adTask, listener);
+                        adTaskManager.runNextEntityForHCADHistorical(adTask, transportService, listener);
                         adTaskManager
                             .updateADHCDetectorTask(
                                 detectorId,
@@ -132,6 +158,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 }
                 break;
             case PUSH_BACK_ENTITY:
+                logger.debug("Received PUSH_BACK_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Push back entity to pending entities queue and run next entity.
                 if (adTask.isEntityTask()) { // AD task must be entity level task.
                     if (adTaskManager.isRetryableError(adTask.getError())
@@ -142,20 +169,40 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     } else {
                         // If exception is not retryable or exceeds retry limit, will remove this entity.
                         adTaskCacheManager.removeEntity(adTask.getDetectorId(), entityValue);
-                        logger.warn("Entity task failed, task id: {}", adTask.getTaskId());
+                        logger.warn("Entity task failed, task id: {}, entity: {}", adTask.getTaskId(), adTask.getEntity().toString());
                     }
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
+                        adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
                         adTaskManager.setHCDetectorTaskDone(adTask, ADTaskState.FINISHED, listener);
                     } else {
-                        adTaskManager.runNextEntityForHCADHistorical(adTask, listener);
+                        logger.debug("scale task slots for PUSH_BACK_ENTITY, detector {} task {}", detectorId, adTask.getTaskId());
+                        int taskSlots = adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId, 1);
+                        if (taskSlots == 1) {
+                            logger.debug("After scale down, only 1 task slot reserved for detector {}, run next entity", detectorId);
+                            adTaskManager.runNextEntityForHCADHistorical(adTask, transportService, listener);
+                        }
+                        listener.onResponse(new AnomalyDetectorJobResponse(adTask.getTaskId(), 0, 0, 0, RestStatus.ACCEPTED));
                     }
                 } else {
                     logger.warn("Can only push back entity task");
                     listener.onFailure(new IllegalArgumentException("Can only push back entity task"));
                 }
                 break;
+            case SCALE_ENTITY_TASK_SLOTS:
+                logger.debug("Received SCALE_ENTITY_TASK_LANE action for detector {}", detectorId);
+                // Check current available task slots and scale entity task lane.
+                if (availableTaskSlots != null && availableTaskSlots > 0) {
+                    int newSlots = Math.min(availableTaskSlots, adTaskManager.detectorTaskSlotScaleDelta(detectorId));
+                    if (newSlots > 0) {
+                        adTaskCacheManager.setAllowedRunningEntities(detectorId, newSlots);
+                        adTaskCacheManager.scaleUpDetectorTaskSlots(detectorId, newSlots);
+                    }
+                }
+                listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
+                break;
             case CANCEL:
+                logger.debug("Received CANCEL action for detector {}", detectorId);
                 // Cancel HC detector's historical analysis.
                 // Don't support single detector for this action as single entity task will be cancelled directly
                 // on worker node.
@@ -171,6 +218,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 }
                 break;
             case CLEAN_STALE_RUNNING_ENTITIES:
+                logger.debug("Received CLEAN_STALE_RUNNING_ENTITIES action for detector {}", detectorId);
                 // Clean stale running entities of HC detector. For example, some worker node crashed or failed to send
                 // entity task done message to coordinating node, then coordinating node can't remove running entity
                 // from cache. We will check task profile when get task. If some entities exist in coordinating cache but
@@ -183,7 +231,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         Arrays.toString(staleRunningEntities.toArray(new String[0]))
                     );
                 for (String entity : staleRunningEntities) {
-                    adTaskManager.removeStaleRunningEntity(adTask, entity, listener);
+                    adTaskManager.removeStaleRunningEntity(adTask, entity, transportService, listener);
                 }
                 listener.onResponse(new AnomalyDetectorJobResponse(adTask.getTaskId(), 0, 0, 0, RestStatus.OK));
                 break;

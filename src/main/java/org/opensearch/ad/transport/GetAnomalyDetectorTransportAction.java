@@ -38,14 +38,15 @@ import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -232,9 +233,26 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         Optional<ADTask> historicalAdTask = Optional.empty();
 
                         if (taskList != null && taskList.size() > 0) {
-                            Map<String, ADTask> adTasks = taskList
-                                .stream()
-                                .collect(Collectors.toMap(ADTask::getTaskType, Function.identity()));
+                            Map<String, ADTask> adTasks = new HashMap<>();
+                            List<ADTask> duplicateAdTasks = new ArrayList<>();
+                            for (ADTask task : taskList) {
+                                if (adTasks.containsKey(task.getTaskType())) {
+                                    LOG
+                                        .info(
+                                            "Found duplicate latest task of detector {}, task id: {}, task type: {}",
+                                            detectorID,
+                                            task.getTaskType(),
+                                            task.getTaskId()
+                                        );
+                                    duplicateAdTasks.add(task);
+                                    continue;
+                                }
+                                adTasks.put(task.getTaskType(), task);
+                            }
+                            if (duplicateAdTasks.size() > 0) {
+                                adTaskManager.resetLatestFlagAsFalse(duplicateAdTasks);
+                            }
+
                             if (adTasks.containsKey(ADTaskType.REALTIME_HC_DETECTOR.name())) {
                                 realtimeAdTask = Optional.ofNullable(adTasks.get(ADTaskType.REALTIME_HC_DETECTOR.name()));
                             } else if (adTasks.containsKey(ADTaskType.REALTIME_SINGLE_ENTITY.name())) {
@@ -244,6 +262,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                 historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL_HC_DETECTOR.name()));
                             } else if (adTasks.containsKey(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())) {
                                 historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL_SINGLE_ENTITY.name()));
+                            } else if (adTasks.containsKey(ADTaskType.HISTORICAL.name())) {
+                                historicalAdTask = Optional.ofNullable(adTasks.get(ADTaskType.HISTORICAL.name()));
                             }
                         }
                         getDetectorAndJob(detectorID, returnJob, returnTask, realtimeAdTask, historicalAdTask, listener);

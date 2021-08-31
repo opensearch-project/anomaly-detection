@@ -308,7 +308,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         assertFalse(testAppender.containsMessage("Failed to disable AD job for"));
         assertTrue(testAppender.containsMessage("AD Job was not found for"));
         verify(anomalyResultHandler).index(any(), any());
-        verify(adTaskManager).updateLatestRealtimeTask(any(), any(), any(), any(), any());
+        verify(adTaskManager).updateLatestRealtimeTask(any(), any(), any(), any(), any(), any());
     }
 
     @Test

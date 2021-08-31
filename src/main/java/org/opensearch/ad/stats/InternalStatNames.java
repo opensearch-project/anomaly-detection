@@ -31,7 +31,9 @@ package org.opensearch.ad.stats;
  * in AD stats REST API.
  */
 public enum InternalStatNames {
-    JVM_HEAP_USAGE("jvm_heap_usage");
+    JVM_HEAP_USAGE("jvm_heap_usage"),
+    AD_USED_BATCH_TASK_SLOT_COUNT("ad_used_batch_task_slot_count"),
+    AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT("ad_detector_assigned_batch_task_slot_count");
 
     private String name;
 

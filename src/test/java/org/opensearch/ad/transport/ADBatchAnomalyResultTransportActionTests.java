@@ -130,7 +130,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
             new DetectionDateRange(startTime, endTime),
             randomAlphaOfLength(5)
         );
-        client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
+        client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(10_000);
     }
 
     @Ignore

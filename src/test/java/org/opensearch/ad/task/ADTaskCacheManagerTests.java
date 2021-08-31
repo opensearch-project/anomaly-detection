@@ -137,11 +137,11 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(DETECTOR_IS_RUNNING, e2.getMessage());
     }
 
-    public void testAddDetector() {
+    public void testAddDetector() throws IOException {
         String detectorId = randomAlphaOfLength(10);
-        String taskType = ADTaskType.HISTORICAL_HC_DETECTOR.name();
-        adTaskCacheManager.add(detectorId, taskType);
-        DuplicateTaskException e1 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.add(detectorId, taskType));
+        ADTask adTask = TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR);
+        adTaskCacheManager.add(detectorId, adTask);
+        DuplicateTaskException e1 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.add(detectorId, adTask));
         assertEquals(DETECTOR_IS_RUNNING, e1.getMessage());
     }
 
@@ -243,21 +243,21 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals("Wrong task cancellation state", ADTaskCancellationState.ALREADY_CANCELLED, state);
     }
 
-    public void testTopEntityInited() {
+    public void testTopEntityInited() throws IOException {
         String detectorId = randomAlphaOfLength(10);
         assertFalse(adTaskCacheManager.topEntityInited(detectorId));
-        adTaskCacheManager.add(detectorId, ADTaskType.HISTORICAL_HC_DETECTOR.name());
+        adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         assertFalse(adTaskCacheManager.topEntityInited(detectorId));
         adTaskCacheManager.setTopEntityInited(detectorId);
         assertTrue(adTaskCacheManager.topEntityInited(detectorId));
     }
 
-    public void testEntityCache() {
+    public void testEntityCache() throws IOException {
         String detectorId = randomAlphaOfLength(10);
         assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
         assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
         assertEquals(0, adTaskCacheManager.getTopEntityCount(detectorId).intValue());
-        adTaskCacheManager.add(detectorId, ADTaskType.HISTORICAL_HC_DETECTOR.name());
+        adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         String entity1 = randomAlphaOfLength(5);
         String entity2 = randomAlphaOfLength(5);
         String entity3 = randomAlphaOfLength(5);
@@ -272,7 +272,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(3, adTaskCacheManager.getTopEntityCount(detectorId).intValue());
         assertEquals(2, adTaskCacheManager.getPendingEntityCount(detectorId));
         assertEquals(1, adTaskCacheManager.getRunningEntityCount(detectorId));
-        assertArrayEquals(new String[] { entity1 }, adTaskCacheManager.getRunningEntities(detectorId));
+        assertArrayEquals(new String[] { entity1 }, adTaskCacheManager.getRunningEntities(detectorId).toArray(new String[0]));
 
         assertFalse(adTaskCacheManager.removeRunningEntity(randomAlphaOfLength(10), entity1));
         assertFalse(adTaskCacheManager.removeRunningEntity(detectorId, randomAlphaOfLength(5)));
@@ -289,12 +289,12 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
         assertNull(adTaskCacheManager.pollEntity(detectorId));
 
-        assertArrayEquals(new String[] {}, adTaskCacheManager.getRunningEntities(randomAlphaOfLength(10)));
+        assertNull(adTaskCacheManager.getRunningEntities(randomAlphaOfLength(10)));
     }
 
-    public void testPushBackEntity() {
+    public void testPushBackEntity() throws IOException {
         String detectorId = randomAlphaOfLength(10);
-        adTaskCacheManager.add(detectorId, ADTaskType.HISTORICAL_HC_DETECTOR.name());
+        adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         String entity1 = randomAlphaOfLength(5);
         String taskId = randomAlphaOfLength(5);
         adTaskCacheManager.pushBackEntity(taskId, detectorId, entity1);
@@ -345,9 +345,9 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
     }
 
-    public void testGetAndDecreaseEntityTaskLanes() {
+    public void testGetAndDecreaseEntityTaskLanes() throws IOException {
         String detectorId = randomAlphaOfLength(10);
-        adTaskCacheManager.add(detectorId, ADTaskType.HISTORICAL_HC_DETECTOR.name());
+        adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         adTaskCacheManager.setAllowedRunningEntities(detectorId, 1);
         assertEquals(1, adTaskCacheManager.getAndDecreaseEntityTaskLanes(detectorId));
         assertEquals(0, adTaskCacheManager.getAndDecreaseEntityTaskLanes(detectorId));
@@ -361,16 +361,11 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertFalse(adTaskCacheManager.hasDeletedDetectorTask());
     }
 
-    public void testIsDetectorTaskUpdating() {
+    public void testAcquireTaskUpdatingSemaphore() throws IOException {
         String detectorId = randomAlphaOfLength(10);
-        adTaskCacheManager.add(detectorId, ADTaskType.HISTORICAL_HC_DETECTOR.name());
-        adTaskCacheManager.setDetectorTaskUpdating(detectorId, true);
-        assertTrue(adTaskCacheManager.isDetectorTaskUpdating(detectorId));
-
-        String detectorId2 = randomAlphaOfLength(10);
-        assertNull(adTaskCacheManager.isDetectorTaskUpdating(detectorId2));
-
-        adTaskCacheManager.setDetectorTaskUpdating(detectorId2, true);
-        assertNull(adTaskCacheManager.isDetectorTaskUpdating(detectorId2));
+        ADTask adTask = TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR);
+        adTaskCacheManager.add(detectorId, adTask);
+        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
     }
 }

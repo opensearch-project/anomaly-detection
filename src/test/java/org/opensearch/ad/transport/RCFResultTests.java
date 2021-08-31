@@ -30,6 +30,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,19 +39,23 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 
 import org.hamcrest.Matchers;
+import org.junit.Before;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.RcfResult;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
@@ -71,6 +76,16 @@ public class RCFResultTests extends OpenSearchTestCase {
     Gson gson = new GsonBuilder().create();
 
     private double[] attribution = new double[] { 1. };
+    private HashRing hashRing;
+    private DiscoveryNode node;
+
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        hashRing = mock(HashRing.class);
+        node = mock(DiscoveryNode.class);
+        doReturn(Optional.of(node)).when(hashRing).getNodeByAddress(any());
+    }
 
     @SuppressWarnings("unchecked")
     public void testNormal() {
@@ -90,7 +105,8 @@ public class RCFResultTests extends OpenSearchTestCase {
             mock(ActionFilters.class),
             transportService,
             manager,
-            adCircuitBreakerService
+            adCircuitBreakerService,
+            hashRing
         );
         doAnswer(invocation -> {
             ActionListener<RcfResult> listener = invocation.getArgument(3);
@@ -128,7 +144,8 @@ public class RCFResultTests extends OpenSearchTestCase {
             mock(ActionFilters.class),
             transportService,
             manager,
-            adCircuitBreakerService
+            adCircuitBreakerService,
+            hashRing
         );
         doThrow(NullPointerException.class)
             .when(manager)
@@ -216,7 +233,8 @@ public class RCFResultTests extends OpenSearchTestCase {
             mock(ActionFilters.class),
             transportService,
             manager,
-            breakerService
+            breakerService,
+            hashRing
         );
         doAnswer(invocation -> {
             ActionListener<RcfResult> listener = invocation.getArgument(3);

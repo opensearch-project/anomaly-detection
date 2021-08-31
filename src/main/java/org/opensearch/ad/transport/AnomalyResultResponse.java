@@ -34,7 +34,6 @@ import java.util.List;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.io.stream.InputStreamStreamInput;
 import org.opensearch.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
@@ -119,15 +118,11 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             features.add(new FeatureData(in));
         }
         error = in.readOptionalString();
-        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
-            rcfTotalUpdates = in.readOptionalLong();
-            detectorIntervalInMinutes = in.readOptionalLong();
-            isHCDetector = in.readOptionalBoolean();
-        } else {
-            rcfTotalUpdates = 0L;
-            detectorIntervalInMinutes = 0L;
-            isHCDetector = false;
-        }
+        // new field added since AD 1.1
+        // Only send AnomalyResultRequest to local node, no need to change this part for BWC
+        rcfTotalUpdates = in.readOptionalLong();
+        detectorIntervalInMinutes = in.readOptionalLong();
+        isHCDetector = in.readOptionalBoolean();
     }
 
     public double getAnomalyGrade() {
@@ -172,11 +167,9 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             feature.writeTo(out);
         }
         out.writeOptionalString(error);
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-            out.writeOptionalLong(rcfTotalUpdates);
-            out.writeOptionalLong(detectorIntervalInMinutes);
-            out.writeOptionalBoolean(isHCDetector);
-        }
+        out.writeOptionalLong(rcfTotalUpdates);
+        out.writeOptionalLong(detectorIntervalInMinutes);
+        out.writeOptionalBoolean(isHCDetector);
     }
 
     @Override
