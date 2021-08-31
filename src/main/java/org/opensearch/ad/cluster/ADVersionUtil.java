@@ -28,7 +28,7 @@ public class ADVersionUtil {
 
     public static String normalizeVersion(String adVersion) {
         if (adVersion == null) {
-            throw new IllegalArgumentException("Wrong AD version " + adVersion);
+            throw new IllegalArgumentException("AD version is null");
         }
         String[] versions = adVersion.split("\\.");
         if (versions.length < VERSION_SEGMENTS) {

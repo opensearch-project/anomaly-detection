@@ -113,6 +113,8 @@ public class ADDataMigrator {
                     }
                 }, e -> {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
+                        // When migrate data, it's possible that user run some historical analysis and it will create detection
+                        // state index. Then we will see ResourceAlreadyExistsException.
                         migrateDetectorInternalStateToRealtimeTask();
                     } else {
                         logger.error("Failed to init anomaly detection state index", e);
