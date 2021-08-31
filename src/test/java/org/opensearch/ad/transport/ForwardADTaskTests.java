@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
 
+import org.junit.Before;
+import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
@@ -45,6 +47,14 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import com.google.common.collect.ImmutableMap;
 
 public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
+    private Version testVersion;
+
+    @Before
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        testVersion = Version.fromString("1.1.0");
+    }
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
@@ -61,7 +71,9 @@ public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
             TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()),
             TestHelpers.randomDetectionDateRange(),
             TestHelpers.randomUser(),
-            ADTaskAction.START
+            ADTaskAction.START,
+            randomInt(),
+            testVersion
         );
         testForwardADTaskRequest(request);
     }
@@ -71,7 +83,9 @@ public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
             TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now()),
             TestHelpers.randomDetectionDateRange(),
             null,
-            ADTaskAction.START
+            ADTaskAction.START,
+            randomInt(),
+            testVersion
         );
         testForwardADTaskRequest(request);
     }
@@ -81,7 +95,9 @@ public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
             null,
             TestHelpers.randomDetectionDateRange(),
             TestHelpers.randomUser(),
-            ADTaskAction.START
+            ADTaskAction.START,
+            randomInt(),
+            testVersion
         );
 
         ActionRequestValidationException exception = request.validate();

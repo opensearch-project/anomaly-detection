@@ -124,21 +124,24 @@ public class ADTask implements ToXContentObject, Writeable {
         this.coordinatingNode = input.readOptionalString();
         this.workerNode = input.readOptionalString();
         if (input.readBoolean()) {
-            this.detectionDateRange = new DetectionDateRange(input);
-        } else {
-            this.detectionDateRange = null;
-        }
-        if (input.readBoolean()) {
-            this.entity = new Entity(input);
-        } else {
-            this.entity = null;
-        }
-        this.parentTaskId = input.readOptionalString();
-        this.estimatedMinutesLeft = input.readOptionalInt();
-        if (input.readBoolean()) {
             this.user = new User(input);
         } else {
             user = null;
+        }
+        // Below are new fields added since AD 1.1
+        if (input.available() > 0) {
+            if (input.readBoolean()) {
+                this.detectionDateRange = new DetectionDateRange(input);
+            } else {
+                this.detectionDateRange = null;
+            }
+            if (input.readBoolean()) {
+                this.entity = new Entity(input);
+            } else {
+                this.entity = null;
+            }
+            this.parentTaskId = input.readOptionalString();
+            this.estimatedMinutesLeft = input.readOptionalInt();
         }
     }
 
@@ -167,6 +170,13 @@ public class ADTask implements ToXContentObject, Writeable {
         out.writeOptionalString(stoppedBy);
         out.writeOptionalString(coordinatingNode);
         out.writeOptionalString(workerNode);
+        if (user != null) {
+            out.writeBoolean(true); // user exists
+            user.writeTo(out);
+        } else {
+            out.writeBoolean(false); // user does not exist
+        }
+        // Only forward AD task to nodes with same version, so it's ok to write these new fields.
         if (detectionDateRange != null) {
             out.writeBoolean(true);
             detectionDateRange.writeTo(out);
@@ -181,12 +191,6 @@ public class ADTask implements ToXContentObject, Writeable {
         }
         out.writeOptionalString(parentTaskId);
         out.writeOptionalInt(estimatedMinutesLeft);
-        if (user != null) {
-            out.writeBoolean(true); // user exists
-            user.writeTo(out);
-        } else {
-            out.writeBoolean(false); // user does not exist
-        }
     }
 
     public static Builder builder() {
@@ -784,5 +788,17 @@ public class ADTask implements ToXContentObject, Writeable {
 
     public User getUser() {
         return user;
+    }
+
+    public void setDetectionDateRange(DetectionDateRange detectionDateRange) {
+        this.detectionDateRange = detectionDateRange;
+    }
+
+    public void setLatest(Boolean latest) {
+        isLatest = latest;
+    }
+
+    public void setLastUpdateTime(Instant lastUpdateTime) {
+        this.lastUpdateTime = lastUpdateTime;
     }
 }

@@ -517,9 +517,18 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.GetAnomalyDetectorResponse',
         'org.opensearch.ad.transport.ADBatchAnomalyResultRequest',
         'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction',
+        'org.opensearch.ad.common.exception.ADVersionException',
+        'org.opensearch.ad.cluster.ADVersionUtil',
+        'org.opensearch.ad.cluster.ADDataMigrator',
+        'org.opensearch.ad.transport.RCFResultResponse',
+        'org.opensearch.ad.transport.ADTaskProfileResponse',
+        'org.opensearch.ad.feature.SearchFeatureDao',
+        'org.opensearch.ad.common.exception.ResourceNotFoundException',
+        'org.opensearch.ad.task.ADTaskSlotLimit',
+        'org.opensearch.ad.task.ADTaskCacheManager',
 
         // TODO: to be fixed by kaituo
-        'org.opensearch.ad.indices.AnomalyDetectionIndices',
+        'org.opensearch.ad.indices.AnomalyDetectionIndices'
 ]
 
 jacocoTestCoverageVerification {

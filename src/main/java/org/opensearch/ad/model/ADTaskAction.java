@@ -26,7 +26,15 @@
 
 package org.opensearch.ad.model;
 
+/**
+ * AD task action enum. Have 2 classes of task actions:
+ * 1. AD task actions which execute on coordinating node.
+ * 2. Task slot actions which execute on lead node.
+ */
 public enum ADTaskAction {
+    // ======================================
+    // Actions execute on coordinating node
+    // ======================================
     // Start historical analysis for detector
     START,
     // Historical analysis finished
@@ -38,5 +46,15 @@ public enum ADTaskAction {
     // Push back entity to pending entities queue and run next entity.
     PUSH_BACK_ENTITY,
     // Clean stale entities in running entity queue, for example the work node crashed and fail to remove entity
-    CLEAN_STALE_RUNNING_ENTITIES
+    CLEAN_STALE_RUNNING_ENTITIES,
+    // Scale entity task lane
+    SCALE_ENTITY_TASK_SLOTS,
+
+    // ======================================
+    // Actions execute on lead node
+    // ======================================
+    // Check if there is available task slot
+    APPLY_FOR_TASK_SLOTS,
+    // Check current task slot state and scale
+    CHECK_AVAILABLE_TASK_SLOTS,
 }

@@ -67,11 +67,12 @@ public class ADBatchAnomalyResultRequest extends ActionRequest {
         if (Strings.isEmpty(adTask.getTaskId())) {
             validationException = addValidationError("Task id can't be null", validationException);
         }
+        if (adTask.getDetectionDateRange() == null) {
+            validationException = addValidationError("Detection date range can't be null for batch task", validationException);
+        }
         AnomalyDetector detector = adTask.getDetector();
         if (detector == null) {
             validationException = addValidationError("Detector can't be null", validationException);
-        } else if (detector.isRealTimeDetector()) {
-            validationException = addValidationError("Can't run batch task for realtime detector", validationException);
         }
         return validationException;
     }

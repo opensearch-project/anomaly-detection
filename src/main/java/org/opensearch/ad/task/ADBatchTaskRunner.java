@@ -67,6 +67,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.PriorityTracker;
+import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.ADTaskCancelledException;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
@@ -99,7 +100,6 @@ import org.opensearch.ad.transport.ADStatsNodeResponse;
 import org.opensearch.ad.transport.ADStatsNodesAction;
 import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
@@ -132,7 +132,6 @@ public class ADBatchTaskRunner {
     private final ThreadPool threadPool;
     private final Client client;
     private final ADStats adStats;
-    private final DiscoveryNodeFilterer nodeFilter;
     private final ClusterService clusterService;
     private final FeatureManager featureManager;
     private final ADCircuitBreakerService adCircuitBreakerService;
@@ -143,6 +142,7 @@ public class ADBatchTaskRunner {
 
     private final ADTaskCacheManager adTaskCacheManager;
     private final TransportRequestOptions option;
+    private final HashRing hashRing;
 
     private volatile Integer maxAdBatchTaskPerNode;
     private volatile Integer pieceSize;
@@ -158,7 +158,6 @@ public class ADBatchTaskRunner {
         ThreadPool threadPool,
         ClusterService clusterService,
         Client client,
-        DiscoveryNodeFilterer nodeFilter,
         ADCircuitBreakerService adCircuitBreakerService,
         FeatureManager featureManager,
         ADTaskManager adTaskManager,
@@ -166,13 +165,13 @@ public class ADBatchTaskRunner {
         ADStats adStats,
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler,
         ADTaskCacheManager adTaskCacheManager,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        HashRing hashRing
     ) {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.client = client;
         this.anomalyResultBulkIndexHandler = anomalyResultBulkIndexHandler;
-        this.nodeFilter = nodeFilter;
         this.adStats = adStats;
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.adTaskManager = adTaskManager;
@@ -187,6 +186,7 @@ public class ADBatchTaskRunner {
 
         this.adTaskCacheManager = adTaskCacheManager;
         this.searchFeatureDao = searchFeatureDao;
+        this.hashRing = hashRing;
 
         this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
@@ -221,7 +221,6 @@ public class ADBatchTaskRunner {
         boolean isHCDetector = adTask.getDetector().isMultientityDetector();
         if (isHCDetector && !adTaskCacheManager.topEntityInited(adTask.getDetectorId())) {
             // Initialize top entities for HC detector
-            adTaskCacheManager.add(adTask);
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
                 ActionListener<ADBatchAnomalyResultResponse> hcDelegatedListener = getInternalHCDelegatedListener(adTask);
                 ActionListener<String> topEntitiesListener = getTopEntitiesListener(adTask, transportService, hcDelegatedListener);
@@ -265,20 +264,36 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.setTopEntityInited(adTask.getDetectorId());
             int totalEntities = adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId());
             logger.info("total top entities: {}", totalEntities);
-            int numberOfEligibleDataNodes = nodeFilter.getNumberOfEligibleDataNodes();
-
-            // maxAdBatchTaskPerNode means how many task can run on per data node, which is hard limitation per node.
-            // maxRunningEntitiesPerDetector means how many entities can run per detector on whole cluster, which is
-            // soft limit to control how many entities to run in parallel per HC detector.
-            int maxRunningEntities = Math
-                .min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
-            forwardOrExecuteADTask(adTask, transportService, listener);
-            // As we have started one entity task, need to minus 1 for max allowed running entities.
-            adTaskCacheManager.setAllowedRunningEntities(adTask.getDetectorId(), maxRunningEntities - 1);
+            hashRing.getNodesWithSameLocalAdVersion(dataNodes -> {
+                int numberOfEligibleDataNodes = dataNodes.length;
+                String detectorId = adTask.getDetectorId();
+                // maxAdBatchTaskPerNode means how many task can run on per data node, which is hard limitation per node.
+                // maxRunningEntitiesPerDetector means how many entities can run per detector on whole cluster, which is
+                // soft limit to control how many entities to run in parallel per HC detector.
+                int maxRunningEntitiesLimit = Math
+                    .min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
+                adTaskCacheManager.setDetectorTaskLaneLimit(detectorId, maxRunningEntitiesLimit);
+                // scale down HC detector task slots in case there is less top entities in detection date range
+                int maxRunningEntities = Math.min(maxRunningEntitiesLimit, adTaskCacheManager.getDetectorTaskSlots(detectorId));
+                logger
+                    .debug(
+                        "Calculate task lane for detector {}: totalEntities: {}, numberOfEligibleDataNodes: {}, maxAdBatchTaskPerNode: {}, "
+                            + "maxRunningEntitiesPerDetector: {}, maxRunningEntities: {}, detectorTaskSlots: {}",
+                        detectorId,
+                        totalEntities,
+                        numberOfEligibleDataNodes,
+                        maxAdBatchTaskPerNode,
+                        maxRunningEntitiesPerDetector,
+                        maxRunningEntities,
+                        adTaskCacheManager.getDetectorTaskSlots(detectorId)
+                    );
+                forwardOrExecuteADTask(adTask, transportService, listener);
+                // As we have started one entity task, need to minus 1 for max allowed running entities.
+                adTaskCacheManager.setAllowedRunningEntities(adTask.getDetectorId(), maxRunningEntities - 1);
+            }, listener);
         }, e -> {
             logger.debug("Failed to run task " + adTask.getTaskId(), e);
             if (adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
-                adTaskCacheManager.remove(adTask.getTaskId());
                 adTaskManager.entityTaskDone(adTask, e, transportService);
             }
         });
@@ -370,8 +385,6 @@ public class ADBatchTaskRunner {
                 );
             } else {
                 logger.debug("finish searching top entities at " + System.currentTimeMillis());
-                // remove HC detector level task from cache
-                adTaskCacheManager.remove(adTask.getTaskId());
                 List<String> topNEntities = priorityTracker.getTopNEntities(maxTopEntitiesPerHcDetector);
                 if (topNEntities.size() == 0) {
                     logger.error("There is no entity found for detector " + adTask.getDetectorId());
@@ -386,7 +399,6 @@ public class ADBatchTaskRunner {
             logger.error("Failed to get top entities for detector " + adTask.getDetectorId(), e);
             internalHCListener.onFailure(e);
         });
-
         int minimumDocCount = Math.max((int) (bucketInterval / adTask.getDetector().getDetectorIntervalInMilliseconds()) / 2, 1);
         searchFeatureDao
             .getHighestCountEntities(
@@ -450,8 +462,6 @@ public class ADBatchTaskRunner {
                 );
             } else {
                 logger.debug("finish searching top entities at " + System.currentTimeMillis());
-                // remove HC detector level task from cache
-                adTaskCacheManager.remove(adTask.getTaskId());
                 List<String> topNEntities = priorityTracker.getTopNEntities(maxTopEntitiesPerHcDetector);
                 if (topNEntities.size() == 0) {
                     logger.error("There is no entity found for detector " + adTask.getDetectorId());
@@ -610,19 +620,24 @@ public class ADBatchTaskRunner {
             }
             startNewEntityTaskLane(adTask, transportService);
         }, e -> {
+            logger.error("Failed to dispatch task to worker node, task id: " + adTask.getTaskId(), e);
             listener.onFailure(e);
             handleException(adTask, e);
 
-            if (adTask.isEntityTask()) {
-                // When reach this line, it means entity task failed to start on worker node
-                // Sleep some time before polling next entity task.
+            if (adTask.getDetector().isMultientityDetector()) {
+                // For HC detector, the first task is not entity task, it's HC detector task. But no matter it's entity
+                // or detector level task, we should always send back entity task done message for HC detector.
                 adTaskManager.entityTaskDone(adTask, e, transportService);
-                threadPool
-                    .schedule(
-                        () -> startNewEntityTaskLane(adTask, transportService),
-                        TimeValue.timeValueSeconds(SLEEP_TIME_FOR_NEXT_ENTITY_TASK_IN_MILLIS),
-                        AD_BATCH_TASK_THREAD_POOL_NAME
-                    );
+                if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getDetectorId()) > 0) {
+                    // When reach this line, it means entity task failed to start on worker node
+                    // Sleep some time before starting new task lane.
+                    threadPool
+                        .schedule(
+                            () -> startNewEntityTaskLane(adTask, transportService),
+                            TimeValue.timeValueSeconds(SLEEP_TIME_FOR_NEXT_ENTITY_TASK_IN_MILLIS),
+                            AD_BATCH_TASK_THREAD_POOL_NAME
+                        );
+                }
             }
         });
 
@@ -634,14 +649,6 @@ public class ADBatchTaskRunner {
             false
         );
         return threadedActionListener;
-    }
-
-    private void waitBeforeNextEntity(long time) {
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException interruptedException) {
-            logger.warn("Exception while waiting", interruptedException);
-        }
     }
 
     private void forwardOrExecuteEntityTask(
@@ -669,68 +676,69 @@ public class ADBatchTaskRunner {
     }
 
     // start new entity task lane
-    private void startNewEntityTaskLane(ADTask adTask, TransportService transportService) {
-        if (ADTaskType.HISTORICAL_HC_ENTITY.name().equals(adTask.getTaskType())
-            && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
+    private synchronized void startNewEntityTaskLane(ADTask adTask, TransportService transportService) {
+        if (adTask.getDetector().isMultientityDetector() && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
+            logger.debug("start new task lane for detector {}", adTask.getDetectorId());
             forwardOrExecuteADTask(adTask, transportService, getInternalHCDelegatedListener(adTask));
         }
     }
 
     private void dispatchTask(ADTask adTask, ActionListener<DiscoveryNode> listener) {
-        DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
-        ADStatsRequest adStatsRequest = new ADStatsRequest(dataNodes);
-        adStatsRequest.addAll(ImmutableSet.of(AD_EXECUTING_BATCH_TASK_COUNT.getName(), JVM_HEAP_USAGE.getName()));
+        hashRing.getNodesWithSameLocalAdVersion(dataNodes -> {
+            ADStatsRequest adStatsRequest = new ADStatsRequest(dataNodes);
+            adStatsRequest.addAll(ImmutableSet.of(AD_EXECUTING_BATCH_TASK_COUNT.getName(), JVM_HEAP_USAGE.getName()));
 
-        client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
-            List<ADStatsNodeResponse> candidateNodeResponse = adStatsResponse
-                .getNodes()
-                .stream()
-                .filter(stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) < DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
-                .collect(Collectors.toList());
+            client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
+                List<ADStatsNodeResponse> candidateNodeResponse = adStatsResponse
+                    .getNodes()
+                    .stream()
+                    .filter(stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) < DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
+                    .collect(Collectors.toList());
 
-            if (candidateNodeResponse.size() == 0) {
-                StringBuilder errorMessageBuilder = new StringBuilder("All nodes' memory usage exceeds limitation ")
-                    .append(DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
-                    .append("%. ")
-                    .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
-                    .append(adTask.getDetectorId());
-                String errorMessage = errorMessageBuilder.toString();
-                logger.warn(errorMessage + ", task id " + adTask.getTaskId() + ", " + adTask.getTaskType());
-                listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
-                return;
-            }
-            candidateNodeResponse = candidateNodeResponse
-                .stream()
-                .filter(stat -> (Long) stat.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()) < maxAdBatchTaskPerNode)
-                .collect(Collectors.toList());
-            if (candidateNodeResponse.size() == 0) {
-                StringBuilder errorMessageBuilder = new StringBuilder("All nodes' memory usage exceeds limitation ")
-                    .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
-                    .append(adTask.getDetectorId());
-                String errorMessage = errorMessageBuilder.toString();
-                logger.warn(errorMessage + ", task id " + adTask.getTaskId() + ", " + adTask.getTaskType());
-                listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
-                return;
-            }
-            Optional<ADStatsNodeResponse> targetNode = candidateNodeResponse
-                .stream()
-                .sorted((ADStatsNodeResponse r1, ADStatsNodeResponse r2) -> {
-                    int result = ((Long) r1.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()))
-                        .compareTo((Long) r2.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()));
-                    if (result == 0) {
-                        // if multiple nodes have same running task count, choose the one with least
-                        // JVM heap usage.
-                        return ((Long) r1.getStatsMap().get(JVM_HEAP_USAGE.getName()))
-                            .compareTo((Long) r2.getStatsMap().get(JVM_HEAP_USAGE.getName()));
-                    }
-                    return result;
-                })
-                .findFirst();
-            listener.onResponse(targetNode.get().getNode());
-        }, exception -> {
-            logger.error("Failed to get node's task stats", exception);
-            listener.onFailure(exception);
-        }));
+                if (candidateNodeResponse.size() == 0) {
+                    StringBuilder errorMessageBuilder = new StringBuilder("All nodes' memory usage exceeds limitation ")
+                        .append(DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
+                        .append("%. ")
+                        .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
+                        .append(adTask.getDetectorId());
+                    String errorMessage = errorMessageBuilder.toString();
+                    logger.warn(errorMessage + ", task id " + adTask.getTaskId() + ", " + adTask.getTaskType());
+                    listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
+                    return;
+                }
+                candidateNodeResponse = candidateNodeResponse
+                    .stream()
+                    .filter(stat -> (Long) stat.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()) < maxAdBatchTaskPerNode)
+                    .collect(Collectors.toList());
+                if (candidateNodeResponse.size() == 0) {
+                    StringBuilder errorMessageBuilder = new StringBuilder("All nodes' executing batch tasks exceeds limitation ")
+                        .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
+                        .append(adTask.getDetectorId());
+                    String errorMessage = errorMessageBuilder.toString();
+                    logger.warn(errorMessage + ", task id " + adTask.getTaskId() + ", " + adTask.getTaskType());
+                    listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
+                    return;
+                }
+                Optional<ADStatsNodeResponse> targetNode = candidateNodeResponse
+                    .stream()
+                    .sorted((ADStatsNodeResponse r1, ADStatsNodeResponse r2) -> {
+                        int result = ((Long) r1.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()))
+                            .compareTo((Long) r2.getStatsMap().get(AD_EXECUTING_BATCH_TASK_COUNT.getName()));
+                        if (result == 0) {
+                            // if multiple nodes have same running task count, choose the one with least
+                            // JVM heap usage.
+                            return ((Long) r1.getStatsMap().get(JVM_HEAP_USAGE.getName()))
+                                .compareTo((Long) r2.getStatsMap().get(JVM_HEAP_USAGE.getName()));
+                        }
+                        return result;
+                    })
+                    .findFirst();
+                listener.onResponse(targetNode.get().getNode());
+            }, exception -> {
+                logger.error("Failed to get node's task stats", exception);
+                listener.onFailure(exception);
+            }));
+        }, listener);
     }
 
     /**
@@ -773,7 +781,7 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
             if (!adTask.getDetector().isMultientityDetector()) {
-                // TODO: check if it's necessary to set task as FINISHED here
+                // Set single-entity detector task as FINISHED here
                 adTaskManager
                     .cleanDetectorCache(
                         adTask,
@@ -781,7 +789,7 @@ public class ADBatchTaskRunner {
                         () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()))
                     );
             } else {
-                // TODO: check if it's necessary to set task as FINISHED here
+                // Set entity task as FINISHED here
                 adTaskManager.updateADTask(adTask.getTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
                 adTaskManager.entityTaskDone(adTask, null, transportService);
             }

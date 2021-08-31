@@ -95,7 +95,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
 
     @Override
     protected CronNodeRequest newNodeRequest(CronRequest request) {
-        return new CronNodeRequest(request.getRequestId());
+        return new CronNodeRequest();
     }
 
     @Override
@@ -112,7 +112,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
      */
     @Override
     protected CronNodeResponse nodeOperation(CronNodeRequest request) {
-
+        LOG.debug("Start running AD hourly cron. ");
         // makes checkpoints for hosted models and stop hosting models not actively
         // used.
         // for single-entity detector
@@ -135,7 +135,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         adTaskManager.cleanADResultOfDeletedDetector();
 
         // maintain running historical tasks: reset task state as stopped if not running and clean stale running entities
-        adTaskManager.maintainRunningHistoricalTasks(transportService, request.getRequestId(), 100);
+        adTaskManager.maintainRunningHistoricalTasks(transportService, 100);
 
         // maintain running realtime tasks: clean stale running realtime task cache
         adTaskManager.maintainRunningRealtimeTasks();

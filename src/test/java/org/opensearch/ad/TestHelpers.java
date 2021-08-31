@@ -225,8 +225,14 @@ public class TestHelpers {
     }
 
     public static XContentParser parser(String xc) throws IOException {
+        return parser(xc, true);
+    }
+
+    public static XContentParser parser(String xc, boolean skipFirstToken) throws IOException {
         XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc);
-        parser.nextToken();
+        if (skipFirstToken) {
+            parser.nextToken();
+        }
         return parser;
     }
 
@@ -895,6 +901,17 @@ public class TestHelpers {
         );
     }
 
+    public static ADTask randomAdTask(ADTaskType adTaskType) throws IOException {
+        return randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.RUNNING,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            randomAlphaOfLength(5),
+            true,
+            adTaskType
+        );
+    }
+
     public static ADTask randomAdTask(
         String taskId,
         ADTaskState state,
@@ -928,6 +945,17 @@ public class TestHelpers {
 
     public static ADTask randomAdTask(String taskId, ADTaskState state, Instant executionEndTime, String stoppedBy, boolean withDetector)
         throws IOException {
+        return randomAdTask(taskId, state, executionEndTime, stoppedBy, withDetector, ADTaskType.HISTORICAL_SINGLE_ENTITY);
+    }
+
+    public static ADTask randomAdTask(
+        String taskId,
+        ADTaskState state,
+        Instant executionEndTime,
+        String stoppedBy,
+        boolean withDetector,
+        ADTaskType adTaskType
+    ) throws IOException {
         AnomalyDetector detector = withDetector
             ? randomAnomalyDetector(ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS), true)
             : null;
@@ -935,7 +963,7 @@ public class TestHelpers {
         ADTask task = ADTask
             .builder()
             .taskId(taskId)
-            .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
+            .taskType(adTaskType.name())
             .detectorId(randomAlphaOfLength(5))
             .detector(detector)
             .state(state.name())

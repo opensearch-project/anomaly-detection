@@ -46,13 +46,13 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
     public AnomalyDetectorJobRequest(StreamInput in) throws IOException {
         super(in);
         detectorID = in.readString();
+        seqNo = in.readLong();
+        primaryTerm = in.readLong();
+        rawPath = in.readString();
         if (in.readBoolean()) {
             detectionDateRange = new DetectionDateRange(in);
         }
         historical = in.readBoolean();
-        seqNo = in.readLong();
-        primaryTerm = in.readLong();
-        rawPath = in.readString();
     }
 
     public AnomalyDetectorJobRequest(String detectorID, long seqNo, long primaryTerm, String rawPath) {
@@ -119,6 +119,9 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(detectorID);
+        out.writeLong(seqNo);
+        out.writeLong(primaryTerm);
+        out.writeString(rawPath);
         if (detectionDateRange != null) {
             out.writeBoolean(true);
             detectionDateRange.writeTo(out);
@@ -126,9 +129,6 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
             out.writeBoolean(false);
         }
         out.writeBoolean(historical);
-        out.writeLong(seqNo);
-        out.writeLong(primaryTerm);
-        out.writeString(rawPath);
     }
 
     @Override
