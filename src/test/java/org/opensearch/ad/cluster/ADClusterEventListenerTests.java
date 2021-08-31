@@ -164,7 +164,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             ActionListener<Boolean> listener = invocation.getArgument(1);
             listener.onResponse(true);
             return null;
-        }).when(hashRing).buildCirclesOnAdVersions(any(), any());
+        }).when(hashRing).buildCircles(any(), any());
         doAnswer(invocation -> {
             executionLatch.countDown();
             inProgressLatch.await();
@@ -183,14 +183,14 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             ActionListener<Boolean> listener = invocation.getArgument(1);
             listener.onResponse(true);
             return null;
-        }).when(hashRing).buildCirclesOnAdVersions(any(), any());
+        }).when(hashRing).buildCircles(any(), any());
         doAnswer(invocation -> {
             Set<String> res = new HashSet<>();
             res.add(modelId);
             return res;
         }).when(modelManager).getAllModelIds();
 
-        doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class));
+        doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class));
 
         listener.clusterChanged(new ClusterChangedEvent("foo", newClusterState, oldClusterState));
         assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_ADDED_MSG));

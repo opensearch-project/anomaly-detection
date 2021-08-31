@@ -26,140 +26,259 @@
 
 package org.opensearch.ad.cluster;
 
+import static java.util.Arrays.asList;
 import static java.util.Collections.emptyMap;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
-import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
-import static org.opensearch.test.ClusterServiceUtils.createClusterService;
-import static org.opensearch.test.ClusterServiceUtils.setState;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
 
+import java.net.UnknownHostException;
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
-import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
+import org.opensearch.Build;
 import org.opensearch.Version;
-import org.opensearch.ad.AbstractADTest;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.cluster.node.info.NodeInfo;
+import org.opensearch.action.admin.cluster.node.info.NodesInfoResponse;
+import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
+import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterState;
+import org.opensearch.client.ClusterAdminClient;
+import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.plugins.PluginInfo;
 
-public class HashRingTests extends AbstractADTest {
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+public class HashRingTests extends ADUnitTestCase {
 
     private ClusterService clusterService;
     private DiscoveryNodeFilterer nodeFilter;
     private Settings settings;
     private Clock clock;
     private Client client;
+    private ClusterAdminClient clusterAdminClient;
+    private AdminClient adminClient;
     private ADDataMigrator dataMigrator;
-
-    private DiscoveryNode createNode(String nodeId, Map<String, String> attributes) {
-        return new DiscoveryNode(nodeId, buildNewFakeTransportAddress(), attributes, BUILT_IN_ROLES, Version.CURRENT);
-    }
-
-    private void setNodeState() {
-        setNodeState(emptyMap());
-    }
-
-    private void setNodeState(Map<String, String> attributesForNode1) {
-        DiscoveryNodes.Builder discoBuilder = DiscoveryNodes.builder();
-        List<DiscoveryNode> discoveryNodes = new ArrayList<>();
-        for (int i = 0; i < 3; i++) {
-            DiscoveryNode node = null;
-            if (i != 1) {
-                node = createNode(Integer.toString(i), emptyMap());
-            } else {
-                node = createNode(Integer.toString(i), attributesForNode1);
-            }
-
-            discoBuilder = discoBuilder.add(node);
-            discoveryNodes.add(node);
-        }
-        discoBuilder.localNodeId("1");
-        discoBuilder.masterNodeId("0");
-        ClusterState.Builder stateBuilder = ClusterState.builder(clusterService.getClusterName());
-        stateBuilder.nodes(discoBuilder);
-        ClusterState clusterState = stateBuilder.build();
-        setState(clusterService.getClusterApplierService(), clusterState);
-    }
-
-    @BeforeClass
-    public static void setUpBeforeClass() {
-        setUpThreadPool(HashRingTests.class.getSimpleName());
-    }
-
-    @AfterClass
-    public static void tearDownAfterClass() {
-        tearDownThreadPool();
-    }
+    private HashRing hashRing;
+    private DiscoveryNodes.Delta delta;
+    private String localNodeId;
+    private String newNodeId;
+    private String warmNodeId;
+    private DiscoveryNode localNode;
+    private DiscoveryNode newNode;
+    private DiscoveryNode warmNode;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        super.setUpLog4jForJUnit(HashRing.class);
-        clusterService = createClusterService(threadPool);
-        HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
-        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
-        nodeFilter = new DiscoveryNodeFilterer(clusterService);
+
+        localNodeId = "localNode";
+        localNode = createNode(localNodeId, "127.0.0.1", 9200, emptyMap());
+        newNodeId = "newNode";
+        newNode = createNode(newNodeId, "127.0.0.2", 9201, emptyMap());
+        warmNodeId = "warmNode";
+        warmNode = createNode(warmNodeId, "127.0.0.3", 9202, ImmutableMap.of(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE));
+
+        settings = Settings.builder().put(COOLDOWN_MINUTES.getKey(), TimeValue.timeValueSeconds(5)).build();
+        ClusterSettings clusterSettings = clusterSetting(settings, COOLDOWN_MINUTES);
+        clusterService = spy(new ClusterService(settings, clusterSettings, null));
+
+        nodeFilter = spy(new DiscoveryNodeFilterer(clusterService));
         client = mock(Client.class);
         dataMigrator = mock(ADDataMigrator.class);
 
-        settings = Settings
-            .builder()
-            .put("plugins.anomaly_detection.cluster_state_change_cooldown_minutes", TimeValue.timeValueMinutes(5))
-            .build();
         clock = mock(Clock.class);
         when(clock.millis()).thenReturn(700000L);
+
+        delta = mock(DiscoveryNodes.Delta.class);
+
+        adminClient = mock(AdminClient.class);
+        when(client.admin()).thenReturn(adminClient);
+        clusterAdminClient = mock(ClusterAdminClient.class);
+        when(adminClient.cluster()).thenReturn(clusterAdminClient);
+
+        hashRing = spy(new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator));
     }
 
-    @Override
-    @After
-    public void tearDown() throws Exception {
-        super.tearDown();
-        super.tearDownLog4jForJUnit();
-        clusterService.close();
+    public void testGetOwningNodeWithEmptyResult() throws UnknownHostException {
+        DiscoveryNode node1 = createNode(Integer.toString(1), "127.0.0.4", 9204, emptyMap());
+        doReturn(node1).when(clusterService).localNode();
+
+        Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD("http-latency-rcf-1");
+        assertFalse(node.isPresent());
     }
 
-    @Ignore
-    public void testGetOwningNode() {
-        setNodeState();
+    public void testGetOwningNode() throws UnknownHostException {
+        List<DiscoveryNode> addedNodes = setupNodeDelta();
 
-        HashRing ring = new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator);
-        Optional<DiscoveryNode> node = ring.getOwningNodeWithSameLocalAdVersionForRealtimeJob("http-latency-rcf-1");
-        assertTrue(node.isPresent());
-        String id = node.get().getId();
-        assertTrue(id.equals("1") || id.equals("2"));
+        // Add first node,
+        hashRing.buildCircles(delta, ActionListener.wrap(r -> {
+            Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD("http-latency-rcf-1");
+            assertTrue(node.isPresent());
+            assertTrue(asList(newNodeId, localNodeId).contains(node.get().getId()));
+            DiscoveryNode[] nodesWithSameLocalAdVersion = hashRing.getNodesWithSameLocalAdVersion();
+            Set<String> nodesWithSameLocalAdVersionIds = new HashSet<>();
+            for (DiscoveryNode n : nodesWithSameLocalAdVersion) {
+                nodesWithSameLocalAdVersionIds.add(n.getId());
+            }
+            assertFalse("Should not build warm node into hash ring", nodesWithSameLocalAdVersionIds.contains(warmNodeId));
+            assertEquals("Wrong hash ring size", 2, nodesWithSameLocalAdVersion.length);
+            assertEquals(
+                "Wrong hash ring size for historical analysis",
+                2,
+                hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, false).size()
+            );
+            // Circles for realtime AD will change as it's eligible to build for when its empty
+            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, true).size());
+        }, e -> {
+            e.printStackTrace();
+            assertFalse("Build hash ring failed", true);
+        }));
 
-        when(clock.millis()).thenReturn(700001L);
-        Optional<DiscoveryNode> node2 = ring.getOwningNodeWithSameLocalAdVersionForRealtimeJob("http-latency-rcf-1");
-        assertEquals(node, node2);
-        assertTrue(testAppender.containsMessage(HashRing.COOLDOWN_MSG));
+        // Second new node joins cluster, test realtime circles will not update.
+        String newNodeId2 = "newNode2";
+        DiscoveryNode newNode2 = createNode(newNodeId2, "127.0.0.4", 9200, emptyMap());
+        addedNodes.add(newNode2);
+        when(delta.addedNodes()).thenReturn(addedNodes);
+        setupClusterAdminClient(localNode, newNode, newNode2);
+        hashRing.buildCircles(delta, ActionListener.wrap(r -> {
+            assertEquals(
+                "Wrong hash ring size for historical analysis",
+                3,
+                hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, false).size()
+            );
+            // Circles for realtime AD will not change as it's eligible to rebuild
+            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, true).size());
+        }, e -> {
+            e.printStackTrace();
+            assertFalse("Build hash ring failed", true);
+        }));
+
+        // Mock it's eligible to rebuild circles for realtime AD, then add new node. Realtime circles should change.
+        when(hashRing.eligibleToRebuildCirclesForRealtimeAD()).thenReturn(true);
+        String newNodeId3 = "newNode3";
+        DiscoveryNode newNode3 = createNode(newNodeId3, "127.0.0.5", 9200, emptyMap());
+        addedNodes.add(newNode3);
+        when(delta.addedNodes()).thenReturn(addedNodes);
+        setupClusterAdminClient(localNode, newNode, newNode2, newNode3);
+        hashRing.buildCircles(delta, ActionListener.wrap(r -> {
+            assertEquals(
+                "Wrong hash ring size for historical analysis",
+                4,
+                hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, false).size()
+            );
+            assertEquals("Wrong hash ring size for realtime AD", 4, hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, true).size());
+        }, e -> {
+            e.printStackTrace();
+            assertFalse("Failed to build hash ring", true);
+        }));
     }
 
-    @Ignore
-    public void testWarmNodeExcluded() {
-        HashMap<String, String> attributesForNode1 = new HashMap<>();
-        attributesForNode1.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
-        setNodeState(attributesForNode1);
+    public void testGetAllEligibleDataNodesWithKnownAdVersionAndGetNodeByAddress() {
+        setupNodeDelta();
+        hashRing.getAllEligibleDataNodesWithKnownAdVersion(nodes -> {
+            assertEquals("Wrong hash ring size for historical analysis", 2, nodes.length);
+            Optional<DiscoveryNode> node = hashRing.getNodeByAddress(newNode.getAddress());
+            assertTrue(node.isPresent());
+            assertEquals(newNodeId, node.get().getId());
+        }, ActionListener.wrap(r -> {}, e -> { assertFalse("Failed to build hash ring", true); }));
+    }
 
-        HashRing ring = new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator);
-        Optional<DiscoveryNode> node = ring.getOwningNodeWithSameLocalAdVersionForRealtimeJob("http-latency-rcf-1");
-        assertTrue(node.isPresent());
-        String id = node.get().getId();
-        assertTrue(id.equals("2"));
+    public void testBuildAndGetOwningNodeWithSameLocalAdVersion() {
+        setupNodeDelta();
+        hashRing
+            .buildAndGetOwningNodeWithSameLocalAdVersion(
+                "testModelId",
+                node -> { assertTrue(node.isPresent()); },
+                ActionListener.wrap(r -> {}, e -> { assertFalse("Failed to build hash ring", true); })
+            );
+    }
+
+    private List<DiscoveryNode> setupNodeDelta() {
+        List<DiscoveryNode> addedNodes = new ArrayList<>();
+        addedNodes.add(newNode);
+
+        List<DiscoveryNode> removedNodes = asList();
+
+        when(delta.removed()).thenReturn(false);
+        when(delta.added()).thenReturn(true);
+        when(delta.removedNodes()).thenReturn(removedNodes);
+        when(delta.addedNodes()).thenReturn(addedNodes);
+
+        doReturn(localNode).when(clusterService).localNode();
+        setupClusterAdminClient(localNode, newNode, warmNode);
+
+        doReturn(new DiscoveryNode[] { localNode, newNode }).when(nodeFilter).getEligibleDataNodes();
+        return addedNodes;
+    }
+
+    private void setupClusterAdminClient(DiscoveryNode... nodes) {
+        doAnswer(invocation -> {
+            ActionListener<NodesInfoResponse> listener = invocation.getArgument(1);
+            List<NodeInfo> nodeInfos = new ArrayList<>();
+            for (DiscoveryNode node : nodes) {
+                nodeInfos.add(createNodeInfo(node, "1.1.0.0"));
+            }
+            NodesInfoResponse nodesInfoResponse = new NodesInfoResponse(ClusterName.DEFAULT, nodeInfos, ImmutableList.of());
+            listener.onResponse(nodesInfoResponse);
+            return null;
+        }).when(clusterAdminClient).nodesInfo(any(), any());
+    }
+
+    private NodeInfo createNodeInfo(DiscoveryNode node, String version) {
+        List<PluginInfo> plugins = new ArrayList<>();
+        plugins
+            .add(
+                new PluginInfo(
+                    CommonName.AD_PLUGIN_NAME,
+                    randomAlphaOfLengthBetween(3, 10),
+                    version,
+                    Version.CURRENT,
+                    "1.8",
+                    randomAlphaOfLengthBetween(3, 10),
+                    ImmutableList.of(),
+                    randomBoolean()
+                )
+            );
+        List<PluginInfo> modules = new ArrayList<>();
+        modules.addAll(plugins);
+        PluginsAndModules pluginsAndModules = new PluginsAndModules(plugins, modules);
+        return new NodeInfo(
+            Version.CURRENT,
+            Build.CURRENT,
+            node,
+            settings,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            pluginsAndModules,
+            null,
+            null,
+            null
+        );
     }
 }

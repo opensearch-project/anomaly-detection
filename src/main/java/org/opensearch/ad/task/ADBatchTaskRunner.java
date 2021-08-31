@@ -781,7 +781,7 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.remove(taskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
             if (!adTask.getDetector().isMultientityDetector()) {
-                // TODO: check if it's necessary to set task as FINISHED here
+                // Set single-entity detector task as FINISHED here
                 adTaskManager
                     .cleanDetectorCache(
                         adTask,
@@ -789,7 +789,7 @@ public class ADBatchTaskRunner {
                         () -> adTaskManager.updateADTask(taskId, ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()))
                     );
             } else {
-                // TODO: check if it's necessary to set task as FINISHED here
+                // Set entity task as FINISHED here
                 adTaskManager.updateADTask(adTask.getTaskId(), ImmutableMap.of(STATE_FIELD, ADTaskState.FINISHED.name()));
                 adTaskManager.entityTaskDone(adTask, null, transportService);
             }

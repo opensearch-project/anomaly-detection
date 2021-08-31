@@ -699,7 +699,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
 
@@ -758,7 +758,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         ADCircuitBreakerService openBreaker = mock(ADCircuitBreakerService.class);
@@ -795,7 +795,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::unackEntityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
 
@@ -820,13 +820,13 @@ public class MultiEntityResultTests extends AbstractADTest {
         Entity entity3 = Entity.createEntityByReordering(attrs3);
 
         // we use ordered attributes values as the key to hashring
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(eq(entity1.toString())))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(eq(entity1.toString())))
             .thenReturn(Optional.of(testNodes[2].discoveryNode()));
 
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(eq(entity2.toString())))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(eq(entity2.toString())))
             .thenReturn(Optional.of(testNodes[3].discoveryNode()));
 
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(eq(entity3.toString())))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(eq(entity3.toString())))
             .thenReturn(Optional.of(testNodes[4].discoveryNode()));
 
         for (int i = 2; i <= 4; i++) {
@@ -850,7 +850,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         setUpEntityResult(1);
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         List<Entity> hotEntities = new ArrayList<>();
@@ -899,7 +899,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     public void testCacheSelection() throws IOException, InterruptedException {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         List<Entity> hotEntities = new ArrayList<>();
@@ -1069,7 +1069,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         }).when(client).search(any(), any());
 
         setUpTransportInterceptor(this::entityResultHandler);
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
 
@@ -1135,7 +1135,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         CountDownLatch inProgress = setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
-        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(any(String.class)))
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         NodeStateManager modelNodeStateManager = mock(NodeStateManager.class);

@@ -94,9 +94,9 @@ public class ADClusterEventListener implements ClusterStateListener {
         try {
             // Init AD version hash ring as early as possible. Some test case may fail as AD
             // version hash ring not initialized when test run.
-            if (!hashRing.isAdVersionHashRingInited()) {
+            if (!hashRing.isHashRingInited()) {
                 hashRing
-                    .buildCirclesOnAdVersions(
+                    .buildCircles(
                         ActionListener
                             .wrap(
                                 r -> LOG.info("Init AD version hash ring successfully"),
@@ -129,7 +129,7 @@ public class ADClusterEventListener implements ClusterStateListener {
             if (dataNodeAdded || dataNodeRemoved) {
                 hashRing.addNodeChangeEvent();
                 boolean finalDataNodeAdded = dataNodeAdded;
-                hashRing.buildCirclesOnAdVersions(delta, ActionListener.wrap(hasRingBuildDone -> {
+                hashRing.buildCircles(delta, ActionListener.wrap(hasRingBuildDone -> {
                     if (hasRingBuildDone) {
                         LOG.info("Build AD version hash ring successfully");
                         if (finalDataNodeAdded) {
@@ -138,7 +138,7 @@ public class ADClusterEventListener implements ClusterStateListener {
                             String localNodeId = event.state().nodes().getLocalNode().getId();
                             Set<String> modelIds = modelManager.getAllModelIds();
                             for (String modelId : modelIds) {
-                                Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeJob(modelId);
+                                Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(modelId);
                                 if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
                                     LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
                                     modelManager

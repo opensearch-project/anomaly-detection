@@ -53,8 +53,11 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.node.info.NodeInfo;
 import org.opensearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
+import org.opensearch.client.ClusterAdminClient;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
@@ -77,28 +80,35 @@ public class HashRing {
     private static final String DEFAULT_HASH_RING_MODEL_ID = "DEFAULT_HASHRING_MODEL_ID";
 
     private final int VIRTUAL_NODE_COUNT = 100;
-    private final DiscoveryNodeFilterer nodeFilter;
-    private Semaphore adVersionCircleInProgress;
-    // the UTC epoch milliseconds of the most recent successful update
-    private long lastUpdate;
-    private volatile TimeValue coolDownPeriod;
-    private final Clock clock;
-    private final Client client;
+
+    // Semaphore to control only 1 thread can build AD hash ring.
+    private Semaphore buildHashRingSemaphore;
     // This field is to track AD version of data node. Historical analysis will use this hash ring.
     // Key: node id; Value: AD version
     private Map<String, Version> nodeAdVersions;
-    // This field records AD version hash ring in realtime way.
+    // This field records AD version hash ring in realtime way. Historical detection will use this hash ring.
     // Key: AD version; Value: hash ring
-    private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> adVersionCircles;
+    private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> circles;
+    // Track if hash ring inited or not. If not inited, the first master event will try to init it.
+    private AtomicBoolean hashRingInited;
+
+    // the UTC epoch milliseconds of the most recent successful update of AD circles for realtime AD.
+    private long lastUpdateForRealtimeAD;
+    // Cool down period before next hash ring rebuild. We need this as realtime AD needs stable hash ring.
+    private volatile TimeValue coolDownPeriodForRealtimeAD;
     // This field records AD version hash ring with cooldown period. Realtime job will use this hash ring.
     // Key: AD version; Value: hash ring
-    private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> adVersionCirclesWithCooldown;
-    private ClusterService clusterService;
-    private ADDataMigrator dataMigrator;
-    private AtomicBoolean adVersionHashRingInited;
+    private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> circlesForRealtimeAD;
+
     // Record node change event. Will check if there is node change event when rebuild AD hash ring with
     // cooldown for realtime job.
     private ConcurrentLinkedQueue<Boolean> nodeChangeEvents;
+
+    private final DiscoveryNodeFilterer nodeFilter;
+    private final ClusterService clusterService;
+    private final ADDataMigrator dataMigrator;
+    private final Clock clock;
+    private final Client client;
 
     public HashRing(
         DiscoveryNodeFilterer nodeFilter,
@@ -109,24 +119,24 @@ public class HashRing {
         ADDataMigrator dataMigrator
     ) {
         this.nodeFilter = nodeFilter;
-        this.adVersionCircleInProgress = new Semaphore(1);
+        this.buildHashRingSemaphore = new Semaphore(1);
         this.clock = clock;
-        this.coolDownPeriod = COOLDOWN_MINUTES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownPeriod = it);
+        this.coolDownPeriodForRealtimeAD = COOLDOWN_MINUTES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownPeriodForRealtimeAD = it);
 
-        this.lastUpdate = 0;
+        this.lastUpdateForRealtimeAD = 0;
         this.client = client;
         this.clusterService = clusterService;
         this.dataMigrator = dataMigrator;
         this.nodeAdVersions = new ConcurrentHashMap<>();
-        this.adVersionCircles = new TreeMap<>();
-        this.adVersionCirclesWithCooldown = new TreeMap<>();
-        this.adVersionHashRingInited = new AtomicBoolean(false);
+        this.circles = new TreeMap<>();
+        this.circlesForRealtimeAD = new TreeMap<>();
+        this.hashRingInited = new AtomicBoolean(false);
         this.nodeChangeEvents = new ConcurrentLinkedQueue<>();
     }
 
-    public boolean isAdVersionHashRingInited() {
-        return adVersionHashRingInited.get();
+    public boolean isHashRingInited() {
+        return hashRingInited.get();
     }
 
     /**
@@ -138,9 +148,9 @@ public class HashRing {
      * @param delta discovery node delta change
      * @param listener action listener
      */
-    public void buildCirclesOnAdVersions(DiscoveryNodes.Delta delta, ActionListener<Boolean> listener) {
-        if (!adVersionCircleInProgress.tryAcquire()) {
-            LOG.info("AD version hash ring change in progress, return.");
+    public void buildCircles(DiscoveryNodes.Delta delta, ActionListener<Boolean> listener) {
+        if (!buildHashRingSemaphore.tryAcquire()) {
+            LOG.info("AD version hash ring change is in progress. Can't build hash ring for node delta event.");
             listener.onResponse(false);
             return;
         }
@@ -150,7 +160,7 @@ public class HashRing {
         Set<String> addedNodeIds = delta.added()
             ? delta.addedNodes().stream().filter(nodeFilter::isEligibleDataNode).map(DiscoveryNode::getId).collect(Collectors.toSet())
             : null;
-        buildCirclesOnAdVersions(removedNodeIds, addedNodeIds, listener);
+        buildCircles(removedNodeIds, addedNodeIds, listener);
     }
 
     /**
@@ -159,9 +169,9 @@ public class HashRing {
      * 2. Add nodes which are not in AD version circles.
      * @param actionListener action listener
      */
-    public void buildCirclesOnAdVersions(ActionListener<Boolean> actionListener) {
-        if (!adVersionCircleInProgress.tryAcquire()) {
-            LOG.info("AD version hash ring change in progress, return.");
+    public void buildCircles(ActionListener<Boolean> actionListener) {
+        if (!buildHashRingSemaphore.tryAcquire()) {
+            LOG.info("AD version hash ring change is in progress. Can't rebuild hash ring.");
             actionListener.onResponse(false);
             return;
         }
@@ -173,14 +183,14 @@ public class HashRing {
         Set<String> currentNodeIds = nodeAdVersions.keySet();
         Set<String> removedNodeIds = Sets.difference(currentNodeIds, eligibleNodeIds);
         Set<String> addedNodeIds = Sets.difference(eligibleNodeIds, currentNodeIds);
-        buildCirclesOnAdVersions(removedNodeIds, addedNodeIds, actionListener);
+        buildCircles(removedNodeIds, addedNodeIds, actionListener);
     }
 
-    public void buildCirclesOnAdVersionsDirectly() {
+    public void buildCirclesForRealtimeAD() {
         if (nodeChangeEvents.isEmpty()) {
             return;
         }
-        buildCirclesOnAdVersions(
+        buildCircles(
             ActionListener
                 .wrap(
                     r -> { LOG.debug("build circles on AD versions successfully"); },
@@ -213,20 +223,23 @@ public class HashRing {
      *    choose it as model partition owning node, thus we may have skewed load on data nodes.
      *
      * [Important!]: When you call this function, make sure you TRY ACQUIRE adVersionCircleInProgress first.
-     *               Check {@link HashRing#buildCirclesOnAdVersions(ActionListener)} and
-     *               {@link HashRing#buildCirclesOnAdVersions(DiscoveryNodes.Delta, ActionListener)}
+     *               Check {@link HashRing#buildCircles(ActionListener)} and
+     *               {@link HashRing#buildCircles(DiscoveryNodes.Delta, ActionListener)}
      *
      * @param removedNodeIds removed node ids
      * @param addedNodeIds added node ids
      * @param actionListener action listener
      */
-    private void buildCirclesOnAdVersions(Set<String> removedNodeIds, Set<String> addedNodeIds, ActionListener<Boolean> actionListener) {
+    private void buildCircles(Set<String> removedNodeIds, Set<String> addedNodeIds, ActionListener<Boolean> actionListener) {
+        if (buildHashRingSemaphore.availablePermits() != 0) {
+            throw new AnomalyDetectionException("Must get update hash ring semaphore before building AD hash ring");
+        }
         try {
             DiscoveryNode localNode = clusterService.localNode();
             if (removedNodeIds != null && removedNodeIds.size() > 0) {
                 LOG.info("Remove nodes from AD version hash ring: {}", Arrays.toString(removedNodeIds.toArray(new String[0])));
                 for (String nodeId : removedNodeIds) {
-                    removeNodeFromAdVersionCircles(nodeId);
+                    removeNodeFromCircles(nodeId);
                 }
             }
             Set<String> allAddedNodes = new HashSet<>();
@@ -241,8 +254,8 @@ public class HashRing {
                 actionListener.onResponse(true);
                 LOG.info("No newly added nodes, return");
                 // rebuild AD version hash ring with cooldown.
-                rebuildAdVersionCirclesWithCooldown();
-                adVersionCircleInProgress.release();
+                rebuildCirclesForRealtimeAD();
+                buildHashRingSemaphore.release();
                 return;
             }
 
@@ -251,7 +264,9 @@ public class HashRing {
             nodesInfoRequest.nodesIds(allAddedNodes.toArray(new String[0]));
             nodesInfoRequest.clear().addMetric(NodesInfoRequest.Metric.PLUGINS.metricName());
 
-            client.admin().cluster().nodesInfo(nodesInfoRequest, ActionListener.wrap(r -> {
+            AdminClient admin = client.admin();
+            ClusterAdminClient cluster = admin.cluster();
+            cluster.nodesInfo(nodesInfoRequest, ActionListener.wrap(r -> {
                 Map<String, NodeInfo> nodesMap = r.getNodesMap();
                 if (nodesMap != null && nodesMap.size() > 0) {
                     for (Map.Entry<String, NodeInfo> entry : nodesMap.entrySet()) {
@@ -268,7 +283,7 @@ public class HashRing {
                         for (PluginInfo pluginInfo : plugins.getPluginInfos()) {
                             if (AD_PLUGIN_NAME.equals(pluginInfo.getName()) || AD_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
                                 Version version = ADVersionUtil.fromString(pluginInfo.getVersion());
-                                circle = adVersionCircles.computeIfAbsent(version, key -> new TreeMap<>());
+                                circle = circles.computeIfAbsent(version, key -> new TreeMap<>());
                                 nodeAdVersions.put(curNode.getId(), ADVersionUtil.fromString(pluginInfo.getVersion()));
                                 break;
                             }
@@ -283,11 +298,9 @@ public class HashRing {
                 LOG.info("All nodes in AD version hash ring: {}", nodeAdVersions);
 
                 // rebuild AD version hash ring with cooldown after all new node added.
-                rebuildAdVersionCirclesWithCooldown();
+                rebuildCirclesForRealtimeAD();
 
-                if (!dataMigrator.isMigrated()
-                    && adVersionCircles.size() > 0
-                    && adVersionCircles.lastEntry().getKey().after(Version.V_1_0_0)) {
+                if (!dataMigrator.isMigrated() && circles.size() > 0 && circles.lastEntry().getKey().after(Version.V_1_0_0)) {
                     // Find owning node with highest AD version to make sure the data migration logic be compatible to
                     // latest AD version when upgrade.
                     Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
@@ -298,27 +311,52 @@ public class HashRing {
                         dataMigrator.skipMigration();
                     }
                 }
-                adVersionCircleInProgress.release();
-                adVersionHashRingInited.set(true);
+                buildHashRingSemaphore.release();
+                hashRingInited.set(true);
                 actionListener.onResponse(true);
             }, e -> {
-                adVersionCircleInProgress.release();
+                buildHashRingSemaphore.release();
                 actionListener.onFailure(e);
                 LOG.error("Fail to get node info to build AD version hash ring", e);
             }));
         } catch (Exception e) {
             LOG.error("Failed to build AD version circles", e);
-            adVersionCircleInProgress.release();
+            buildHashRingSemaphore.release();
             actionListener.onFailure(e);
         }
     }
 
-    private void rebuildAdVersionCirclesWithCooldown() {
+    private void removeNodeFromCircles(String nodeId) {
+        Version adVersion = this.nodeAdVersions.remove(nodeId);
+        if (adVersion != null) {
+            TreeMap<Integer, DiscoveryNode> circle = this.circles.get(adVersion);
+            List<Integer> deleted = new ArrayList<>();
+            for (Map.Entry<Integer, DiscoveryNode> entry : circle.entrySet()) {
+                if (entry.getValue().getId().equals(nodeId)) {
+                    deleted.add(entry.getKey());
+                }
+            }
+            if (deleted.size() == circle.size()) {
+                circles.remove(adVersion);
+            } else {
+                for (Integer key : deleted) {
+                    circle.remove(key);
+                }
+            }
+        }
+    }
+
+    private void rebuildCirclesForRealtimeAD() {
         // Check if it's eligible to rebuild hash ring with cooldown
-        if (eligibleToRebuildHashRingWithCooldown()) {
-            LOG.info("Rebuild AD version hash ring with cooldown, nodeChangeEvents size {}", nodeChangeEvents.size());
+        if (eligibleToRebuildCirclesForRealtimeAD()) {
+            LOG.info("Rebuild AD hash ring for realtime AD with cooldown, nodeChangeEvents size {}", nodeChangeEvents.size());
             int size = nodeChangeEvents.size();
-            adVersionCirclesWithCooldown = new TreeMap<>(adVersionCircles);
+            TreeMap<Version, TreeMap<Integer, DiscoveryNode>> newCircles = new TreeMap<>();
+            for (Map.Entry<Version, TreeMap<Integer, DiscoveryNode>> entry : circles.entrySet()) {
+                newCircles.put(entry.getKey(), new TreeMap<>(entry.getValue()));
+            }
+            circlesForRealtimeAD = newCircles;
+            lastUpdateForRealtimeAD = clock.millis();
             // It's possible that multiple threads add new event to nodeChangeEvents,
             // but this is the only place to consume/poll the event and there is only
             // one thread poll it as we are using adVersionCircleInProgress semaphore(1)
@@ -329,7 +367,6 @@ public class HashRing {
                     break;
                 }
             }
-            lastUpdate = clock.millis();
         }
     }
 
@@ -353,38 +390,18 @@ public class HashRing {
      *
      * @return true if it's eligible to rebuild hash ring
      */
-    private boolean eligibleToRebuildHashRingWithCooldown() {
+    protected boolean eligibleToRebuildCirclesForRealtimeAD() {
         // Check if there is any node change event
-        if (nodeChangeEvents.isEmpty() && !adVersionCirclesWithCooldown.isEmpty()) {
+        if (nodeChangeEvents.isEmpty() && !circlesForRealtimeAD.isEmpty()) {
             return false;
         }
 
         // Check cooldown period
-        if (clock.millis() - lastUpdate <= coolDownPeriod.getMillis()) {
+        if (clock.millis() - lastUpdateForRealtimeAD <= coolDownPeriodForRealtimeAD.getMillis()) {
             LOG.debug(COOLDOWN_MSG);
             return false;
         }
         return true;
-    }
-
-    private void removeNodeFromAdVersionCircles(String nodeId) {
-        Version adVersion = this.nodeAdVersions.remove(nodeId);
-        if (adVersion != null) {
-            TreeMap<Integer, DiscoveryNode> circle = this.adVersionCircles.get(adVersion);
-            List<Integer> deleted = new ArrayList<>();
-            for (Map.Entry<Integer, DiscoveryNode> entry : circle.entrySet()) {
-                if (entry.getValue().getId().equals(nodeId)) {
-                    deleted.add(entry.getKey());
-                }
-            }
-            if (deleted.size() == circle.size()) {
-                adVersionCircles.remove(adVersion);
-            } else {
-                for (Integer key : deleted) {
-                    circle.remove(key);
-                }
-            }
-        }
     }
 
     /**
@@ -394,7 +411,7 @@ public class HashRing {
      */
     public Optional<DiscoveryNode> getOwningNodeWithHighestAdVersion(String modelId) {
         int modelHash = Murmur3HashFunction.hash(modelId);
-        Map.Entry<Version, TreeMap<Integer, DiscoveryNode>> versionTreeMapEntry = adVersionCircles.lastEntry();
+        Map.Entry<Version, TreeMap<Integer, DiscoveryNode>> versionTreeMapEntry = circles.lastEntry();
         if (versionTreeMapEntry == null) {
             return Optional.empty();
         }
@@ -415,7 +432,7 @@ public class HashRing {
         Consumer<Optional<DiscoveryNode>> function,
         ActionListener<T> listener
     ) {
-        buildCirclesOnAdVersions(ActionListener.wrap(r -> {
+        buildCircles(ActionListener.wrap(r -> {
             DiscoveryNode localNode = clusterService.localNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
             Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersionDirectly(modelId, adVersion, false);
@@ -423,13 +440,13 @@ public class HashRing {
         }, e -> listener.onFailure(e)));
     }
 
-    public Optional<DiscoveryNode> getOwningNodeWithSameLocalAdVersionForRealtimeJob(String modelId) {
+    public Optional<DiscoveryNode> getOwningNodeWithSameLocalAdVersionForRealtimeAD(String modelId) {
         try {
             DiscoveryNode localNode = clusterService.localNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
             Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersionDirectly(modelId, adVersion, true);
             // rebuild hash ring
-            buildCirclesOnAdVersionsDirectly();
+            buildCirclesForRealtimeAD();
             return owningNode;
         } catch (Exception e) {
             LOG.error("Failed to get owning node with same local AD version", e);
@@ -439,9 +456,7 @@ public class HashRing {
 
     private Optional<DiscoveryNode> getOwningNodeWithSameAdVersionDirectly(String modelId, Version adVersion, boolean forRealtime) {
         int modelHash = Murmur3HashFunction.hash(modelId);
-        TreeMap<Integer, DiscoveryNode> adVersionCircle = forRealtime
-            ? adVersionCirclesWithCooldown.get(adVersion)
-            : adVersionCircles.get(adVersion);
+        TreeMap<Integer, DiscoveryNode> adVersionCircle = forRealtime ? circlesForRealtimeAD.get(adVersion) : circles.get(adVersion);
         if (adVersionCircle != null) {
             Map.Entry<Integer, DiscoveryNode> entry = adVersionCircle.higherEntry(modelHash);
             return Optional.ofNullable(Optional.ofNullable(entry).orElse(adVersionCircle.firstEntry())).map(x -> x.getValue());
@@ -450,10 +465,10 @@ public class HashRing {
     }
 
     public <T> void getNodesWithSameLocalAdVersion(Consumer<DiscoveryNode[]> function, ActionListener<T> listener) {
-        buildCirclesOnAdVersions(ActionListener.wrap(updated -> {
+        buildCircles(ActionListener.wrap(updated -> {
             DiscoveryNode localNode = clusterService.localNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
-            Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion);
+            Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion, false);
             if (!nodeAdVersions.containsKey(localNode.getId())) {
                 nodes.add(localNode);
             }
@@ -462,17 +477,17 @@ public class HashRing {
         }, e -> listener.onFailure(e)));
     }
 
-    public DiscoveryNode[] getNodesWithSameLocalAdVersionDirectly() {
+    public DiscoveryNode[] getNodesWithSameLocalAdVersion() {
         DiscoveryNode localNode = clusterService.localNode();
         Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
-        Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion);
+        Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion, false);
         // rebuild hash ring
-        buildCirclesOnAdVersionsDirectly();
+        buildCirclesForRealtimeAD();
         return nodes.toArray(new DiscoveryNode[0]);
     }
 
-    private Set<DiscoveryNode> getNodesWithSameAdVersion(Version adVersion) {
-        TreeMap<Integer, DiscoveryNode> circle = adVersionCircles.get(adVersion);
+    protected Set<DiscoveryNode> getNodesWithSameAdVersion(Version adVersion, boolean forRealtime) {
+        TreeMap<Integer, DiscoveryNode> circle = forRealtime ? circlesForRealtimeAD.get(adVersion) : circles.get(adVersion);
         Set<String> nodeIds = new HashSet<>();
         Set<DiscoveryNode> nodes = new HashSet<>();
         if (circle == null) {
@@ -537,7 +552,7 @@ public class HashRing {
      * @param <T> action listener response type
      */
     public <T> void getAllEligibleDataNodesWithKnownAdVersion(Consumer<DiscoveryNode[]> function, ActionListener<T> listener) {
-        buildCirclesOnAdVersions(ActionListener.wrap(r -> {
+        buildCircles(ActionListener.wrap(r -> {
             DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
             List<DiscoveryNode> allNodes = new ArrayList<>();
             for (DiscoveryNode node : eligibleDataNodes) {

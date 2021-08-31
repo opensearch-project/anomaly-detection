@@ -2479,7 +2479,7 @@ public class ADTaskManager {
      * @return detector task slots scale delta
      */
     public int detectorTaskSlotScaleDelta(String detectorId) {
-        DiscoveryNode[] eligibleDataNodes = hashRing.getNodesWithSameLocalAdVersionDirectly();
+        DiscoveryNode[] eligibleDataNodes = hashRing.getNodesWithSameLocalAdVersion();
         int unfinishedEntities = adTaskCacheManager.getUnfinishedEntityCount(detectorId);
         int totalTaskSlots = eligibleDataNodes.length * maxAdBatchTaskPerNode;
         int taskLaneLimit = Math.min(unfinishedEntities, Math.min(totalTaskSlots, maxRunningEntitiesPerDetector));

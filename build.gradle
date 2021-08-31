@@ -519,7 +519,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction',
         'org.opensearch.ad.common.exception.ADVersionException',
         'org.opensearch.ad.cluster.ADVersionUtil',
-        'org.opensearch.ad.cluster.HashRing',
         'org.opensearch.ad.cluster.ADDataMigrator',
         'org.opensearch.ad.transport.RCFResultResponse',
         'org.opensearch.ad.transport.ADTaskProfileResponse',

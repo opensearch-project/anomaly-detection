@@ -225,8 +225,14 @@ public class TestHelpers {
     }
 
     public static XContentParser parser(String xc) throws IOException {
+        return parser(xc, true);
+    }
+
+    public static XContentParser parser(String xc, boolean skipFirstToken) throws IOException {
         XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc);
-        parser.nextToken();
+        if (skipFirstToken) {
+            parser.nextToken();
+        }
         return parser;
     }
 
