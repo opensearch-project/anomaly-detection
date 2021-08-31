@@ -191,7 +191,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
         System.out.println(id);
-        // long version = (long) responseMap.get("_version");
         AnomalyDetector newDetector = new AnomalyDetector(
             id,
             null,
