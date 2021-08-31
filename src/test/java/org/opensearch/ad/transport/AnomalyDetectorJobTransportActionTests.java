@@ -335,7 +335,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         ADTask adTask = startHistoricalAnalysis(startTime, endTime);
         GetAnomalyDetectorRequest request = taskProfileRequest(adTask.getDetectorId());
         GetAnomalyDetectorResponse response = client().execute(GetAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
-        assertTrue(response.getDetectorProfile().getAdTaskProfiles().size() > 0);
+        assertTrue(response.getDetectorProfile().getAdTaskProfile() != null);
 
         ADTask finishedTask = getADTask(adTask.getTaskId());
         int i = 0;
@@ -347,9 +347,6 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertEquals(ADTaskState.FINISHED.name(), finishedTask.getState());
 
         response = client().execute(GetAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
-        System.out.println("------------------------------");
-        System.out.println(response.getDetectorProfile().getAdTaskProfiles().keySet());
-        System.out.println("------------------------------");
         // assertNull(response.getDetectorProfile().getAdTaskProfile().getNodeId());
         // ADTask profileAdTask = response.getDetectorProfile().getAdTaskProfile().getAdTask();
         // assertEquals(finishedTask.getTaskId(), profileAdTask.getTaskId());

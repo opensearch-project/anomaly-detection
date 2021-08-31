@@ -39,7 +39,9 @@ import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
 import java.io.IOException;
@@ -51,8 +53,10 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.cluster.ADDataMigrator;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
@@ -85,6 +89,8 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private TransportService transportService;
     private ADTaskManager adTaskManager;
     private ThreadPool threadPool;
+    private ADDataMigrator dataMigrator;
+    private SearchFeatureDao searchFeatureDao;
 
     private Instant startTime;
     private Instant endTime;
@@ -109,7 +115,9 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
             BATCH_TASK_PIECE_INTERVAL_SECONDS,
             REQUEST_TIMEOUT,
-            DELETE_AD_RESULT_WHEN_DELETE_DETECTOR
+            DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
+            MAX_BATCH_TASK_PER_NODE,
+            MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS
         );
 
         clusterService = new ClusterService(settings, clusterSettings, null);
@@ -121,6 +129,8 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         hashRing = mock(HashRing.class);
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
+        dataMigrator = mock(ADDataMigrator.class);
+        searchFeatureDao = mock(SearchFeatureDao.class);
         adTaskManager = new ADTaskManager(
             settings,
             clusterService,
@@ -130,7 +140,9 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             nodeFilter,
             hashRing,
             adTaskCacheManager,
-            threadPool
+            threadPool,
+            dataMigrator,
+            searchFeatureDao
         );
 
         listener = spy(new ActionListener<AnomalyDetectorJobResponse>() {

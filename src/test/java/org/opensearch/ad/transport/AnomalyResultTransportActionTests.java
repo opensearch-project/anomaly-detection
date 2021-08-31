@@ -44,6 +44,7 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
@@ -70,7 +71,7 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
         ingestTestData();
     }
 
-    private void ingestTestData() throws IOException {
+    private void ingestTestData() throws IOException, InterruptedException {
         createTestDataIndex(testIndex);
         double value = randomDouble();
         String type = randomAlphaOfLength(5);
@@ -259,6 +260,11 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
 
     private void assertErrorMessage(String adId, String errorMessage, boolean hcDetector) {
         AnomalyResultRequest resultRequest = new AnomalyResultRequest(adId, start, end);
+        try {
+            Thread.sleep(1000); // sleep some time to build AD version hash ring
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Fail to sleep before calling AD result action");
+        }
         // wait at most 20 seconds
         int numberofTries = 40;
         Exception e = null;
@@ -279,8 +285,13 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
                 () -> client().execute(AnomalyResultAction.INSTANCE, resultRequest).actionGet(30_000)
             );
         }
-
-        assertTrue("Unexpected error: " + e.getMessage(), e.getMessage().contains(errorMessage));
+        String stackErrorMessage = ExceptionUtil.getErrorMessage(e);
+        assertTrue(
+            "Unexpected error: " + e.getMessage(),
+            stackErrorMessage.contains(errorMessage)
+                || stackErrorMessage.contains("node is not available")
+                || stackErrorMessage.contains("AD memory circuit is broken")
+        );
     }
 
     private void assertErrorMessage(String adId, String errorMessage) {

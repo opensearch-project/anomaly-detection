@@ -81,8 +81,6 @@ public class ADClusterEventListener implements ClusterStateListener {
             return;
         }
 
-        hashRing.recordMembershipChange();
-
         if (event.state().blocks().hasGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK)) {
             LOG.info(NOT_RECOVERED_MSG);
             return;
@@ -94,6 +92,18 @@ public class ADClusterEventListener implements ClusterStateListener {
         }
 
         try {
+            // Init AD version hash ring as early as possible. Some test case may fail as AD
+            // version hash ring not initialized when test run.
+            if (!hashRing.isHashRingInited()) {
+                hashRing
+                    .buildCircles(
+                        ActionListener
+                            .wrap(
+                                r -> LOG.info("Init AD version hash ring successfully"),
+                                e -> LOG.error("Failed to init AD version hash ring")
+                            )
+                    );
+            }
             Delta delta = event.nodesDelta();
 
             // Check whether it was a data node that was removed
@@ -116,31 +126,36 @@ public class ADClusterEventListener implements ClusterStateListener {
                 }
             }
 
-            boolean rebuiltDone = false;
-
             if (dataNodeAdded || dataNodeRemoved) {
-                rebuiltDone = hashRing.build();
-            }
-
-            if (dataNodeAdded && rebuiltDone) {
-                String localNodeId = event.state().nodes().getLocalNode().getId();
-                Set<String> modelIds = modelManager.getAllModelIds();
-                for (String modelId : modelIds) {
-                    Optional<DiscoveryNode> node = hashRing.getOwningNode(modelId);
-                    if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
-                        LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
-                        modelManager
-                            .stopModel(
-                                modelManager.getDetectorIdForModelId(modelId),
-                                modelId,
-                                ActionListener
-                                    .wrap(
-                                        r -> LOG.info("Stopped model [{}] with response [{}]", modelId, r),
-                                        e -> LOG.error("Fail to stop model " + modelId, e)
-                                    )
-                            );
+                hashRing.addNodeChangeEvent();
+                boolean finalDataNodeAdded = dataNodeAdded;
+                hashRing.buildCircles(delta, ActionListener.wrap(hasRingBuildDone -> {
+                    if (hasRingBuildDone) {
+                        LOG.info("Build AD version hash ring successfully");
+                        if (finalDataNodeAdded) {
+                            // Once hash ring rebuilt done, the removed node is not in hash ring, so we just stop model
+                            // for data node added case.
+                            String localNodeId = event.state().nodes().getLocalNode().getId();
+                            Set<String> modelIds = modelManager.getAllModelIds();
+                            for (String modelId : modelIds) {
+                                Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(modelId);
+                                if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
+                                    LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
+                                    modelManager
+                                        .stopModel(
+                                            modelManager.getDetectorIdForModelId(modelId),
+                                            modelId,
+                                            ActionListener
+                                                .wrap(
+                                                    r -> LOG.info("Stopped model [{}] with response [{}]", modelId, r),
+                                                    e -> LOG.error("Fail to stop model " + modelId, e)
+                                                )
+                                        );
+                                }
+                            }
+                        }
                     }
-                }
+                }, e -> { LOG.error("Failed updating AD version hash ring", e); }));
             }
         } catch (Exception ex) {
             // One possible exception is OpenSearchTimeoutException thrown when we fail

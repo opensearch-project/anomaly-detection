@@ -27,42 +27,48 @@
 package org.opensearch.ad.transport;
 
 import java.io.IOException;
-import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.opensearch.Version;
 import org.opensearch.action.support.nodes.BaseNodeResponse;
+import org.opensearch.ad.cluster.ADVersionUtil;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 
 public class ADTaskProfileNodeResponse extends BaseNodeResponse {
+    private static final Logger logger = LogManager.getLogger(ADTaskProfileNodeResponse.class);
+    private ADTaskProfile adTaskProfile;
+    private Version remoteAdVersion;
 
-    private List<ADTaskProfile> adTaskProfiles;
-
-    public ADTaskProfileNodeResponse(DiscoveryNode node, List<ADTaskProfile> adTaskProfile) {
+    public ADTaskProfileNodeResponse(DiscoveryNode node, ADTaskProfile adTaskProfile, Version remoteAdVersion) {
         super(node);
-        this.adTaskProfiles = adTaskProfile;
+        this.adTaskProfile = adTaskProfile;
+        this.remoteAdVersion = remoteAdVersion;
     }
 
     public ADTaskProfileNodeResponse(StreamInput in) throws IOException {
         super(in);
         if (in.readBoolean()) {
-            this.adTaskProfiles = in.readList(ADTaskProfile::new);
+            adTaskProfile = new ADTaskProfile(in);
         } else {
-            this.adTaskProfiles = null;
+            adTaskProfile = null;
         }
     }
 
-    public List<ADTaskProfile> getAdTaskProfiles() {
-        return adTaskProfiles;
+    public ADTaskProfile getAdTaskProfile() {
+        return adTaskProfile;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        if (adTaskProfiles != null) {
+        if (adTaskProfile != null
+            && (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion) || adTaskProfile.getNodeId() != null)) {
             out.writeBoolean(true);
-            out.writeList(adTaskProfiles);
+            adTaskProfile.writeTo(out, remoteAdVersion);
         } else {
             out.writeBoolean(false);
         }

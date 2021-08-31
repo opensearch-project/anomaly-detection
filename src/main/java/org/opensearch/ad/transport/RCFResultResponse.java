@@ -28,8 +28,9 @@ package org.opensearch.ad.transport;
 
 import java.io.IOException;
 
+import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.ad.util.Bwc;
+import org.opensearch.ad.cluster.ADVersionUtil;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
@@ -46,17 +47,26 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     private int forestSize;
     private double[] attribution;
     private long totalUpdates = 0;
+    private Version remoteAdVersion;
 
     public RCFResultResponse(double rcfScore, double confidence, int forestSize, double[] attribution) {
-        this(rcfScore, confidence, forestSize, attribution, 0);
+        this(rcfScore, confidence, forestSize, attribution, 0, Version.CURRENT);
     }
 
-    public RCFResultResponse(double rcfScore, double confidence, int forestSize, double[] attribution, long totalUpdates) {
+    public RCFResultResponse(
+        double rcfScore,
+        double confidence,
+        int forestSize,
+        double[] attribution,
+        long totalUpdates,
+        Version remoteAdVersion
+    ) {
         this.rcfScore = rcfScore;
         this.confidence = confidence;
         this.forestSize = forestSize;
         this.attribution = attribution;
         this.totalUpdates = totalUpdates;
+        this.remoteAdVersion = remoteAdVersion;
     }
 
     public RCFResultResponse(StreamInput in) throws IOException {
@@ -65,7 +75,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         confidence = in.readDouble();
         forestSize = in.readVInt();
         attribution = in.readDoubleArray();
-        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
+        if (in.available() > 0) {
             totalUpdates = in.readLong();
         }
     }
@@ -101,7 +111,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         out.writeDouble(confidence);
         out.writeVInt(forestSize);
         out.writeDoubleArray(attribution);
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
+        if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
             out.writeLong(totalUpdates);
         }
     }

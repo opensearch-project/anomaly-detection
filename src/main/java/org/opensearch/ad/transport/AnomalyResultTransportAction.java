@@ -331,11 +331,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             .getResults()
                             .entrySet()
                             .stream()
+                            .filter(e -> hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(e.getKey().toString()).isPresent())
                             .collect(
                                 Collectors
                                     .groupingBy(
                                         // from entity name to its node
-                                        e -> hashRing.getOwningNode(e.getKey().toString()).get(),
+                                        e -> hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(e.getKey().toString()).get(),
                                         Collectors.toMap(Entry::getKey, Entry::getValue)
                                     )
                             )
@@ -511,7 +512,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             // HC logic ends and single entity logic starts here
             String thresholdModelID = modelPartitioner.getThresholdModelId(adID);
-            Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNode(thresholdModelID);
+            Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(thresholdModelID);
             if (!asThresholdNode.isPresent()) {
                 listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
                 return;
@@ -616,7 +617,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             for (int i = 0; i < rcfPartitionNum; i++) {
                 String rcfModelID = modelPartitioner.getRcfModelId(adID, i);
 
-                Optional<DiscoveryNode> rcfNode = hashRing.getOwningNode(rcfModelID.toString());
+                Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID.toString());
                 if (!rcfNode.isPresent()) {
                     continue;
                 }
@@ -1103,7 +1104,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     private void handleConnectionException(String node, String detectorId) {
         final DiscoveryNodes nodes = clusterService.state().nodes();
-        if (!nodes.nodeExists(node) && hashRing.build()) {
+        if (!nodes.nodeExists(node)) {
+            hashRing.buildCirclesForRealtimeAD();
             return;
         }
         // rebuilding is not done or node is unresponsive

@@ -208,7 +208,7 @@ public class RCFPollingTests extends AbstractADTest {
 
     public void testNormal() {
         DiscoveryNode localNode = new DiscoveryNode(nodeId, transportAddress1, Version.CURRENT.minimumCompatibilityVersion());
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(localNode));
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class))).thenReturn(Optional.of(localNode));
 
         when(clusterService.localNode()).thenReturn(localNode);
 
@@ -229,7 +229,7 @@ public class RCFPollingTests extends AbstractADTest {
 
     public void testNoNodeFoundForModel() {
         when(modelPartitioner.getRcfModelId(any(String.class), anyInt())).thenReturn(model0Id);
-        when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.empty());
+        when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class))).thenReturn(Optional.empty());
         action = new RCFPollingTransportAction(
             mock(ActionFilters.class),
             transportService,
@@ -328,7 +328,8 @@ public class RCFPollingTests extends AbstractADTest {
                 clusterService
             );
 
-            when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+            when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
+                .thenReturn(Optional.of(testNodes[1].discoveryNode()));
             registerHandler(testNodes[1]);
 
             action.doExecute(null, request, future);
@@ -356,7 +357,8 @@ public class RCFPollingTests extends AbstractADTest {
                 clusterService
             );
 
-            when(hashRing.getOwningNode(any(String.class))).thenReturn(Optional.of(testNodes[1].discoveryNode()));
+            when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
+                .thenReturn(Optional.of(testNodes[1].discoveryNode()));
             registerHandler(testNodes[1]);
 
             action.doExecute(null, request, future);

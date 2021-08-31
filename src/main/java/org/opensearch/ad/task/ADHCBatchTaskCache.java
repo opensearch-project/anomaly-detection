@@ -11,13 +11,16 @@
 
 package org.opensearch.ad.task;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.lucene.util.SetOnce;
 import org.opensearch.ad.model.ADTaskState;
 
 /**
@@ -53,9 +56,8 @@ public class ADHCBatchTaskCache {
     // Will calculate HC task progress with it and profile API needs this.
     private Integer topEntityCount;
 
-    // HC detector level task updating or not.
     // This is to control only one entity task updating detector level task.
-    private Boolean detectorTaskUpdating;
+    private Semaphore detectorTaskUpdatingSemaphore;
 
     // Top entities inited or not.
     private Boolean topEntitiesInited;
@@ -66,38 +68,61 @@ public class ADHCBatchTaskCache {
     // detector level task state
     private String detectorTaskState;
 
+    private SetOnce<Boolean> isCoordinatingNode;
+    // record last time when HC detector scales entity task slots
+    private Instant lastScaleEntityTaskSlotsTime;
+
+    // record if HC detector historical analysis cancelled/stopped. Every entity task should
+    // recheck this field and stop if it's true.
+    private boolean isHistoricalAnalysisCancelled;
+
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
         this.runningEntities = new ConcurrentLinkedQueue<>();
         this.tempEntities = new ConcurrentLinkedQueue<>();
         this.taskRetryTimes = new ConcurrentHashMap<>();
-        this.detectorTaskUpdating = false;
+        this.detectorTaskUpdatingSemaphore = new Semaphore(1);
         this.topEntitiesInited = false;
         this.detectorTaskState = ADTaskState.INIT.name();
+        this.isCoordinatingNode = new SetOnce<>();
+        this.lastScaleEntityTaskSlotsTime = Instant.now();
+    }
+
+    public void setIsCoordinatingNode(boolean isCoordinatingNode) {
+        this.isCoordinatingNode.set(isCoordinatingNode);
+    }
+
+    public boolean isCoordinatingNode() {
+        Boolean isCoordinating = this.isCoordinatingNode.get();
+        return isCoordinating != null && isCoordinating.booleanValue();
     }
 
     public void setTopEntityCount(Integer topEntityCount) {
         this.topEntityCount = topEntityCount;
     }
 
-    public Queue<String> getPendingEntities() {
-        return pendingEntities;
+    public String[] getPendingEntities() {
+        return pendingEntities.toArray(new String[0]);
     }
 
     public String[] getRunningEntities() {
         return runningEntities.toArray(new String[0]);
     }
 
+    public String[] getTempEntities() {
+        return tempEntities.toArray(new String[0]);
+    }
+
     public Integer getTopEntityCount() {
         return topEntityCount;
     }
 
-    public Boolean getDetectorTaskUpdating() {
-        return detectorTaskUpdating;
+    public boolean tryAcquireTaskUpdatingSemaphore() {
+        return detectorTaskUpdatingSemaphore.tryAcquire();
     }
 
-    public void setDetectorTaskUpdating(boolean detectorTaskUpdating) {
-        this.detectorTaskUpdating = detectorTaskUpdating;
+    public void releaseTaskUpdatingSemaphore() {
+        detectorTaskUpdatingSemaphore.release();
     }
 
     public boolean getTopEntitiesInited() {
@@ -110,6 +135,10 @@ public class ADHCBatchTaskCache {
 
     public int getAndDecreaseEntityTaskLanes() {
         return this.entityTaskLanes.getAndDecrement();
+    }
+
+    public int getEntityTaskLanes() {
+        return this.entityTaskLanes.get();
     }
 
     public void setTopEntitiesInited(boolean inited) {
@@ -182,8 +211,28 @@ public class ADHCBatchTaskCache {
         return this.runningEntities.size();
     }
 
+    public int getUnfinishedEntityCount() {
+        return this.runningEntities.size() + this.tempEntities.size() + this.pendingEntities.size();
+    }
+
     public int getTempEntityCount() {
         return this.tempEntities.size();
+    }
+
+    public Instant getLastScaleEntityTaskSlotsTime() {
+        return this.lastScaleEntityTaskSlotsTime;
+    }
+
+    public void setLastScaleEntityTaskSlotsTime(Instant lastScaleEntityTaskSlotsTime) {
+        this.lastScaleEntityTaskSlotsTime = lastScaleEntityTaskSlotsTime;
+    }
+
+    public boolean getHistoricalAnalysisCancelled() {
+        return isHistoricalAnalysisCancelled;
+    }
+
+    public void setHistoricalAnalysisCancelled(boolean historicalAnalysisCancelled) {
+        isHistoricalAnalysisCancelled = historicalAnalysisCancelled;
     }
 
     public boolean hasEntity() {
