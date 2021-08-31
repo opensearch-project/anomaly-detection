@@ -175,7 +175,11 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
             }
 
             Settings settings = request.settings();
-            assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(numberOfHotNodes)));
+            if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
+                assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(1)));
+            } else {
+                assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(numberOfHotNodes)));
+            }
 
             ActionListener<CreateIndexResponse> listener = (ActionListener<CreateIndexResponse>) invocation.getArgument(1);
 

@@ -406,7 +406,22 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         try {
             CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
                 .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
-            choosePrimaryShards(request);
+            request
+                .settings(
+                    Settings
+                        .builder()
+                        // AD job index is small. 1 primary shard is enough
+                        .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+                        // Job scheduler puts both primary and replica shards in the
+                        // hash ring. Auto-expand the number of replicas based on the
+                        // number of data nodes (up to 20) in the cluster so that each node can
+                        // become a coordinating node. This is useful when customers
+                        // scale out their cluster so that we can do adaptive scaling
+                        // accordingly.
+                        // At least 1 replica for fail-over.
+                        .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, "1-20")
+                        .put("index.hidden", true)
+                );
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
         } catch (IOException e) {
             logger.error("Fail to init AD job index", e);
