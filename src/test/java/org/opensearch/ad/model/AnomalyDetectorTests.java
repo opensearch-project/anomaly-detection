@@ -106,8 +106,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 ImmutableList.of(TestHelpers.randomFeature()),
                 TestHelpers.randomUiMetadata(),
                 Instant.now(),
-                AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name(),
-                false
+                false,
+                null
             );
         String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         LOG.info(detectorString);
@@ -390,7 +390,6 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 randomInt(),
                 Instant.now(),
                 null,
-                null,
                 null
             )
         );
@@ -415,7 +414,6 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 null,
                 randomInt(),
                 Instant.now(),
-                null,
                 null,
                 null
             )

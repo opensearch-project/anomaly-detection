@@ -29,13 +29,16 @@ package org.opensearch.ad.rest;
 import static org.opensearch.ad.TestHelpers.AD_BASE_STATS_URI;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
+import static org.opensearch.ad.stats.StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT;
+import static org.opensearch.ad.stats.StatNames.MULTI_ENTITY_DETECTOR_COUNT;
+import static org.opensearch.ad.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.http.util.EntityUtils;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisRestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.ADTask;
@@ -48,7 +51,9 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.rest.RestStatus;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase {
 
@@ -60,11 +65,37 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         updateClusterSettings(MAX_BATCH_TASK_PER_NODE.getKey(), 10);
     }
 
-    @Ignore
+    public void testHistoricalAnalysisForSingleEntityDetector() throws Exception {
+        List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(0);
+        String detectorId = startHistoricalAnalysisResult.get(0);
+        String taskId = startHistoricalAnalysisResult.get(1);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
+    }
+
+    public void testHistoricalAnalysisForSingleCategoryHC() throws Exception {
+        List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(1);
+        String detectorId = startHistoricalAnalysisResult.get(0);
+        String taskId = startHistoricalAnalysisResult.get(1);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
+    }
+
+    public void testHistoricalAnalysisForMultiCategoryHC() throws Exception {
+        List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(2);
+        String detectorId = startHistoricalAnalysisResult.get(0);
+        String taskId = startHistoricalAnalysisResult.get(1);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
+    }
+
+    private void checkIfTaskCanFinishCorrectly(String detectorId, String taskId, ADTaskState finished) throws InterruptedException {
+        ADTaskProfile endTaskProfile = waitUntilTaskDone(detectorId);
+        ADTask stoppedAdTask = endTaskProfile.getAdTask();
+        assertEquals(taskId, stoppedAdTask.getTaskId());
+        assertEquals(finished.name(), stoppedAdTask.getState());
+    }
+
     @SuppressWarnings("unchecked")
-    public void testHistoricalAnalysisWorkflow() throws Exception {
-        // create historical detector
-        AnomalyDetector detector = createAnomalyDetector();
+    private List<String> startHistoricalAnalysis(int categoryFieldSize) throws Exception {
+        AnomalyDetector detector = createAnomalyDetector(categoryFieldSize);
         String detectorId = detector.getDetectorId();
 
         // start historical detector
@@ -72,25 +103,33 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
 
         // get task profile
         ADTaskProfile adTaskProfile = waitUntilGetTaskProfile(detectorId);
-
+        if (categoryFieldSize > 0) {
+            if (!ADTaskState.RUNNING.name().equals(adTaskProfile.getAdTask().getState())) {
+                adTaskProfile = waitUntilTaskReachState(detectorId, ImmutableSet.of(ADTaskState.RUNNING.name()));
+            }
+            assertEquals(categoryFieldSize * categoryFieldDocCount, adTaskProfile.getTotalEntitiesCount().intValue());
+            assertTrue(adTaskProfile.getPendingEntitiesCount() > 0);
+            assertTrue(adTaskProfile.getRunningEntitiesCount() > 0);
+        }
         ADTask adTask = adTaskProfile.getAdTask();
         assertEquals(taskId, adTask.getTaskId());
-        assertTrue(TestHelpers.historicalAnalysisRunningStats.contains(adTask.getState()));
+        assertTrue(TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(adTask.getState()));
 
         // get task stats
         Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
         String statsResult = EntityUtils.toString(statsResponse.getEntity());
         Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
-        assertTrue((long) stringObjectMap.get("single_entity_detector_count") > 0);
+        String detectorCountState = categoryFieldSize > 0 ? MULTI_ENTITY_DETECTOR_COUNT.getName() : SINGLE_ENTITY_DETECTOR_COUNT.getName();
+        assertTrue((long) stringObjectMap.get(detectorCountState) > 0);
         Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
         long totalBatchTaskExecution = 0;
         for (String key : nodes.keySet()) {
             Map<String, Object> nodeStats = (Map<String, Object>) nodes.get(key);
-            totalBatchTaskExecution += (long) nodeStats.get("ad_total_batch_task_execution_count");
+            totalBatchTaskExecution += (long) nodeStats.get(AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName());
         }
         assertTrue(totalBatchTaskExecution > 0);
 
-        // get historical detector with AD task
+        // get detector with AD task
         ToXContentObject[] result = getHistoricalAnomalyDetector(detectorId, true, client());
         AnomalyDetector parsedDetector = (AnomalyDetector) result[0];
         AnomalyDetectorJob parsedJob = (AnomalyDetectorJob) result[1];
@@ -100,14 +139,9 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertNotNull(parsedADTask);
         assertEquals(taskId, parsedADTask.getTaskId());
 
-        // get task profile
-        ADTaskProfile endTaskProfile = waitUntilTaskFinished(detectorId);
-        ADTask stoppedAdTask = endTaskProfile.getAdTask();
-        assertEquals(taskId, stoppedAdTask.getTaskId());
-        assertEquals(ADTaskState.FINISHED.name(), stoppedAdTask.getState());
+        return ImmutableList.of(detectorId, taskId);
     }
 
-    @Ignore
     @SuppressWarnings("unchecked")
     public void testStopHistoricalAnalysis() throws Exception {
         // create historical detector
@@ -120,23 +154,20 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         waitUntilGetTaskProfile(detectorId);
 
         // stop historical detector
-        Response stopDetectorResponse = stopAnomalyDetector(detectorId, client());
+        Response stopDetectorResponse = stopAnomalyDetector(detectorId, client(), false);
         assertEquals(RestStatus.OK, TestHelpers.restStatus(stopDetectorResponse));
 
         // get task profile
-        ADTaskProfile stoppedAdTaskProfile = waitUntilTaskFinished(detectorId);
-        ADTask stoppedAdTask = stoppedAdTaskProfile.getAdTask();
-        assertEquals(taskId, stoppedAdTask.getTaskId());
-        assertEquals(ADTaskState.STOPPED.name(), stoppedAdTask.getState());
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.STOPPED);
         updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1);
 
-        waitUntilTaskFinished(detectorId);
+        waitUntilTaskDone(detectorId);
 
         // get AD stats
         Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
         String statsResult = EntityUtils.toString(statsResponse.getEntity());
         Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
-        assertTrue((long) stringObjectMap.get("historical_single_entity_detector_count") > 0);
+        assertTrue((long) stringObjectMap.get("single_entity_detector_count") > 0);
         Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
         long cancelledTaskCount = 0;
         for (String key : nodes.keySet()) {
@@ -146,7 +177,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertTrue(cancelledTaskCount >= 1);
     }
 
-    public void testUpdateHistoricalAnalysis() throws IOException {
+    public void testUpdateHistoricalAnalysis() throws IOException, IllegalAccessException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
         String detectorId = detector.getDetectorId();
@@ -173,7 +204,6 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertEquals(newDetector.getDescription(), updatedDetector.getDescription());
     }
 
-    @Ignore
     public void testUpdateRunningHistoricalAnalysis() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
@@ -199,11 +229,11 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
                     )
             );
 
-        waitUntilTaskFinished(detectorId);
+        waitUntilTaskDone(detectorId);
     }
 
     // TODO: fix delete
-    public void testDeleteHistoricalAnalysis() throws IOException {
+    public void testDeleteHistoricalAnalysis() throws IOException, IllegalAccessException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
         String detectorId = detector.getDetectorId();
@@ -214,8 +244,6 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
     }
 
-    // TODO: fix delete
-    @Ignore
     public void testDeleteRunningHistoricalDetector() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
@@ -233,11 +261,10 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
                     .makeRequest(client(), "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null)
             );
 
-        waitUntilTaskFinished(detectorId);
+        waitUntilTaskDone(detectorId);
     }
 
-    @Ignore
-    public void testSearchTasks() throws IOException, InterruptedException {
+    public void testSearchTasks() throws IOException, InterruptedException, IllegalAccessException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
         String detectorId = detector.getDetectorId();
@@ -245,7 +272,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         // start historical detector
         String taskId = startHistoricalAnalysis(detectorId);
 
-        waitUntilTaskFinished(detectorId);
+        waitUntilTaskDone(detectorId);
 
         String query = String.format("{\"query\":{\"term\":{\"detector_id\":{\"value\":\"%s\"}}}}", detectorId);
         Response response = TestHelpers
@@ -272,8 +299,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
-            detector.getUser(),
-            detector.getDetectorType()
+            detector.getUser()
         );
     }
 

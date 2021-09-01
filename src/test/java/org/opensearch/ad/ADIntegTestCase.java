@@ -68,6 +68,7 @@ import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -80,6 +81,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     private long timeout = 5_000;
     protected String timeField = "timestamp";
     protected String categoryField = "type";
+    protected String ipField = "ip";
     protected String valueField = "value";
 
     @Override
@@ -117,6 +119,9 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public String createADTask(ADTask adTask) throws IOException {
+        if (adTask.getTaskId() != null) {
+            return indexDoc(CommonName.DETECTION_STATE_INDEX, adTask.getTaskId(), adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        }
         return indexDoc(CommonName.DETECTION_STATE_INDEX, adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
     }
 
@@ -138,7 +143,9 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
             + "\":{\"type\":\"date\",\"format\":\"strict_date_time||epoch_millis\"},"
             + "\"value\":{\"type\":\"double\"}, \""
             + categoryField
-            + "\":{\"type\":\"keyword\"},"
+            + "\":{\"type\":\"keyword\"},\""
+            + ipField
+            + "\":{\"type\":\"ip\"},"
             + "\"is_error\":{\"type\":\"boolean\"}, \"message\":{\"type\":\"text\"}}}";
         createIndex(indexName, mappings);
     }
@@ -166,6 +173,16 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public String indexDoc(String indexName, XContentBuilder source) {
         IndexRequest indexRequest = new IndexRequest(indexName).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE).source(source);
+        IndexResponse indexResponse = client().index(indexRequest).actionGet(timeout);
+        assertEquals(RestStatus.CREATED, indexResponse.status());
+        return indexResponse.getId();
+    }
+
+    public String indexDoc(String indexName, String id, XContentBuilder source) {
+        IndexRequest indexRequest = new IndexRequest(indexName)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .source(source)
+            .id(id);
         IndexResponse indexResponse = client().index(indexRequest).actionGet(timeout);
         assertEquals(RestStatus.CREATED, indexResponse.status());
         return indexResponse.getId();
@@ -210,6 +227,15 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(new MatchAllQueryBuilder()).size(0);
         request.indices(indexName).source(searchSourceBuilder);
+        SearchResponse searchResponse = client().search(request).actionGet(timeout);
+        return searchResponse.getHits().getTotalHits().value;
+    }
+
+    public long countDetectorDocs(String detectorId) {
+        SearchRequest request = new SearchRequest();
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(new TermQueryBuilder("detector_id", detectorId)).size(10);
+        request.indices(CommonName.DETECTION_STATE_INDEX).source(searchSourceBuilder);
         SearchResponse searchResponse = client().search(request).actionGet(timeout);
         return searchResponse.getHits().getTotalHits().value;
     }

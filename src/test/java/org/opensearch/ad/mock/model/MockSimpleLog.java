@@ -38,6 +38,7 @@ public class MockSimpleLog implements ToXContentObject, Writeable {
 
     public static final String TIME_FIELD = "timestamp";
     public static final String VALUE_FIELD = "value";
+    public static final String IP_FIELD = "ip";
     public static final String CATEGORY_FIELD = "category";
     public static final String IS_ERROR_FIELD = "is_error";
     public static final String MESSAGE_FIELD = "message";
@@ -50,6 +51,9 @@ public class MockSimpleLog implements ToXContentObject, Writeable {
         + VALUE_FIELD
         + "\":{\"type\":\"double\"},"
         + "\""
+        + IP_FIELD
+        + "\":{\"type\":\"ip\"},"
+        + "\""
         + CATEGORY_FIELD
         + "\":{\"type\":\"keyword\"},"
         + "\""
@@ -61,13 +65,15 @@ public class MockSimpleLog implements ToXContentObject, Writeable {
 
     private Instant timestamp;
     private Double value;
+    private String ip;
     private String category;
     private Boolean isError;
     private String message;
 
-    public MockSimpleLog(Instant timestamp, Double value, String category, Boolean isError, String message) {
+    public MockSimpleLog(Instant timestamp, Double value, String ip, String category, Boolean isError, String message) {
         this.timestamp = timestamp;
         this.value = value;
+        this.ip = ip;
         this.category = category;
         this.isError = isError;
         this.message = message;
@@ -77,6 +83,7 @@ public class MockSimpleLog implements ToXContentObject, Writeable {
     public void writeTo(StreamOutput out) throws IOException {
         out.writeOptionalInstant(timestamp);
         out.writeOptionalDouble(value);
+        out.writeOptionalString(ip);
         out.writeOptionalString(category);
         out.writeOptionalBoolean(isError);
         out.writeOptionalString(message);
@@ -90,6 +97,9 @@ public class MockSimpleLog implements ToXContentObject, Writeable {
         }
         if (value != null) {
             xContentBuilder.field(VALUE_FIELD, value);
+        }
+        if (ip != null) {
+            xContentBuilder.field(IP_FIELD, ip);
         }
         if (category != null) {
             xContentBuilder.field(CATEGORY_FIELD, category);
@@ -117,6 +127,14 @@ public class MockSimpleLog implements ToXContentObject, Writeable {
 
     public void setValue(Double value) {
         this.value = value;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
     }
 
     public String getCategory() {

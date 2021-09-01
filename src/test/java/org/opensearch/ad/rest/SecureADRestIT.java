@@ -206,8 +206,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
                 ImmutableList.of("odfe", randomAlphaOfLength(5)),
                 ImmutableList.of(randomAlphaOfLength(5)),
                 ImmutableList.of(randomAlphaOfLength(5))
-            ),
-            aliceDetector.getDetectorType()
+            )
         );
         enableFilterBy();
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
@@ -249,7 +248,10 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         enableFilterBy();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
-        Exception exception = expectThrows(IOException.class, () -> { stopAnomalyDetector(aliceDetector.getDetectorId(), catClient); });
+        Exception exception = expectThrows(
+            IOException.class,
+            () -> { stopAnomalyDetector(aliceDetector.getDetectorId(), catClient, true); }
+        );
         Assert
             .assertTrue(
                 exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
