@@ -280,4 +280,19 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         );
         assertEquals("No enabled feature configured", exception.getMessage());
     }
+
+    public void testListEqualsWithoutConsideringOrder() {
+        assertTrue(ParseUtils.listEqualsWithoutConsideringOrder(null, null));
+        assertTrue(ParseUtils.listEqualsWithoutConsideringOrder(null, ImmutableList.of()));
+        assertTrue(ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of(), null));
+        assertTrue(ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of(), ImmutableList.of()));
+
+        assertTrue(ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of("a"), ImmutableList.of("a")));
+        assertTrue(ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of("a", "b"), ImmutableList.of("a", "b")));
+        assertTrue(ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of("b", "a"), ImmutableList.of("a", "b")));
+        assertFalse(ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of("a"), ImmutableList.of("a", "b")));
+        assertFalse(
+            ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5)))
+        );
+    }
 }
