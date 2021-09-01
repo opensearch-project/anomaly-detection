@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.model;
 
+import java.util.Collections;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import org.opensearch.ad.AbstractADTest;
@@ -30,5 +32,15 @@ public class EntityTests extends AbstractADTest {
         String detectorId = "detectorId";
         Entity entity = Entity.createEntityFromOrderedMap(attributes);
         assertEquals("host=server_2,service=app_4", entity.toString());
+    }
+
+    public void test_getModelId_returnId_withNoAttributes() {
+        String detectorId = "id";
+        Entity entity = Entity.createEntityByReordering(detectorId, Collections.emptyMap());
+
+        Optional<String> modelId = entity.getModelId(detectorId);
+
+        assertTrue(modelId.isPresent());
+        assertEquals(detectorId, modelId.get());
     }
 }

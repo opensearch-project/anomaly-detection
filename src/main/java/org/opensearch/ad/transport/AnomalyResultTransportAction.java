@@ -32,6 +32,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -558,114 +559,51 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
             if (featureOptional.getUnprocessedFeatures().isPresent()) {
                 featureInResponse = ParseUtils.getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector);
-            }
-
-            if (!featureOptional.getProcessedFeatures().isPresent()) {
-                Optional<Exception> exception = coldStartIfNoCheckPoint(detector);
-                if (exception.isPresent()) {
-                    listener.onFailure(exception.get());
-                    return;
-                }
-
-                if (!featureOptional.getUnprocessedFeatures().isPresent()) {
-                    // Feature not available is common when we have data holes. Respond empty response
-                    // so that alerting will not print stack trace to avoid bloating our logs.
-                    LOG.info("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
-                    listener
-                        .onResponse(
-                            new AnomalyResultResponse(
-                                Double.NaN,
-                                Double.NaN,
-                                Double.NaN,
-                                new ArrayList<FeatureData>(),
-                                "No data in current detection window",
-                                null,
-                                null
-                            )
-                        );
-                } else {
-                    LOG.info("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
-                    listener
-                        .onResponse(
-                            new AnomalyResultResponse(
-                                Double.NaN,
-                                Double.NaN,
-                                Double.NaN,
-                                featureInResponse,
-                                "No full shingle in current detection window",
-                                null,
-                                null
-                            )
-                        );
-                }
-                return;
-            }
-
-            // Can throw LimitExceededException when a single partition is more than X% of heap memory.
-            // Compute this number once and the value won't change unless the coordinating AD node for an
-            // detector changes or the cluster size changes.
-            int rcfPartitionNum = stateManager.getPartitionNumber(adID, detector);
-
-            List<RCFResultResponse> rcfResults = new ArrayList<>();
-
-            final AtomicReference<Exception> failure = new AtomicReference<Exception>();
-
-            final AtomicInteger responseCount = new AtomicInteger();
-
-            Map<String, Pair<String, DiscoveryNode>> modelIdToNodeId = new HashMap<>();
-
-            for (int i = 0; i < rcfPartitionNum; i++) {
-                String rcfModelID = modelPartitioner.getRcfModelId(adID, i);
-
-                Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID.toString());
-                if (!rcfNode.isPresent()) {
-                    continue;
-                }
-
-                DiscoveryNode node = rcfNode.get();
-                String rcfNodeId = node.getId();
-                if (stateManager.isMuted(rcfNodeId, adID)) {
-                    LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for model %s", rcfNodeId, rcfModelID));
-                    continue;
-                }
-                modelIdToNodeId.put(rcfModelID, Pair.of(rcfNodeId, node));
-            }
-
-            int responsesToCollect = modelIdToNodeId.size();
-            for (Map.Entry<String, Pair<String, DiscoveryNode>> entry : modelIdToNodeId.entrySet()) {
-
-                String rcfModelId = entry.getKey();
-                Pair<String, DiscoveryNode> rcfNodePair = entry.getValue();
-                String rcfNodeId = rcfNodePair.getLeft();
-                DiscoveryNode rcfNode = rcfNodePair.getRight();
-
-                LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelId);
-
-                RCFActionListener rcfListener = new RCFActionListener(
-                    rcfResults,
-                    rcfModelId.toString(),
-                    failure,
-                    rcfNodeId,
-                    detector,
-                    listener,
-                    thresholdModelID,
-                    thresholdNode,
-                    featureInResponse,
-                    responsesToCollect,
-                    responseCount,
-                    adID,
-                    detector.getEnabledFeatureIds().size()
-                );
-
+                AtomicReference<Exception> failure = new AtomicReference<>();
+                AtomicInteger responseCount = new AtomicInteger();
                 transportService
                     .sendRequest(
-                        rcfNode,
-                        RCFResultAction.NAME,
-                        new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
+                        thresholdNode,
+                        EntityResultAction.NAME,
+                        new EntityResultRequest(
+                            detector.getDetectorId(),
+                            Collections
+                                .singletonMap(
+                                    Entity.createEntityByReordering(Collections.emptyMap()),
+                                    featureOptional.getUnprocessedFeatures().get()
+                                ),
+                            dataStartTime,
+                            dataEndTime
+                        ),
                         option,
-                        new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
+                        new ActionListenerResponseHandler<>(
+                            new EntityResultListener(
+                                thresholdNode.getId(),
+                                detector.getDetectorId(),
+                                failure,
+                                1,
+                                null,
+                                null,
+                                responseCount
+                            ),
+                            AcknowledgedResponse::new,
+                            ThreadPool.Names.SAME
+                        )
                     );
             }
+            listener
+                .onResponse(
+                    new AnomalyResultResponse(
+                        Double.NaN,
+                        Double.NaN,
+                        Double.NaN,
+                        Collections.emptyList(),
+                        null,
+                        null,
+                        detector.getDetectorIntervalInMinutes(),
+                        true
+                    )
+                );
         }, exception -> { handleQueryFailure(exception, listener, adID); });
     }
 
@@ -1342,7 +1280,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
                 handleException(ex);
             } finally {
-                if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
+                if (nodeCount == responseCount.incrementAndGet() && pageIterator != null && pageIterator.hasNext()) {
                     pageIterator.next(pageListener);
                 }
             }
@@ -1360,7 +1298,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
                 handleException(ex);
             } finally {
-                if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
+                if (nodeCount == responseCount.incrementAndGet() && pageIterator != null && pageIterator.hasNext()) {
                     pageIterator.next(pageListener);
                 }
             }

@@ -61,6 +61,8 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
+import com.amazon.randomcutforest.ERCF.AnomalyDescriptor;
+import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.returntypes.DiVector;
@@ -807,6 +809,7 @@ public class ModelManager implements DetectorModelSize {
         Entity entity,
         int shingleSize
     ) {
+        ThresholdingResult result = new ThresholdingResult(0, 0, 0);
         if (modelState != null) {
             EntityModel entityModel = modelState.getModel();
 
@@ -814,52 +817,61 @@ public class ModelManager implements DetectorModelSize {
                 entityModel = new EntityModel(entity, new ArrayDeque<>(), null, null);
                 modelState.setModel(entityModel);
             }
-            // trainModelFromExistingSamples may be able to make models not null
-            if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
-                entityColdStarter.trainModelFromExistingSamples(modelState, shingleSize);
-            }
-            if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
-                return score(datapoint, modelId, modelState);
+
+            if (entityModel.getErcf().isPresent()) {
+                result = toResult(entityModel.getErcf().get().process(datapoint));
             } else {
-                entityModel.addSample(datapoint);
-                return new ThresholdingResult(0, 0, 0);
+                // trainModelFromExistingSamples may be able to make models not null
+                if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
+                    entityColdStarter.trainModelFromExistingSamples(modelState, shingleSize);
+                }
+
+                if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
+                    return score(datapoint, modelId, modelState);
+                } else {
+                    entityModel.addSample(datapoint);
+                }
             }
-        } else {
-            return new ThresholdingResult(0, 0, 0);
         }
+        return result;
     }
 
     public ThresholdingResult score(double[] feature, String modelId, ModelState<EntityModel> modelState) {
+        ThresholdingResult result = null;
         EntityModel model = modelState.getModel();
         if (model == null) {
-            return new ThresholdingResult(0, 0, 0);
-        }
-        RandomCutForest rcf = model.getRcf();
-        ThresholdingModel threshold = model.getThreshold();
-        if (rcf == null || threshold == null) {
-            return new ThresholdingResult(0, 0, 0);
-        }
+            result = new ThresholdingResult(0, 0, 0);
+        } else if (model.getErcf().isPresent()) {
+            ExtendedRandomCutForest ercf = model.getErcf().get();
+            Optional.ofNullable(model.getSamples()).ifPresent(q -> {
+                q.stream().forEach(s -> ercf.process(s));
+                q.clear();
+            });
+            result = toResult(ercf.process(feature));
+        } else {
+            RandomCutForest rcf = model.getRcf();
+            ThresholdingModel threshold = model.getThreshold();
+            if (rcf == null || threshold == null) {
+                return new ThresholdingResult(0, 0, 0);
+            }
 
-        // clear feature not scored yet
-        Queue<double[]> samples = model.getSamples();
-        while (samples != null && samples.peek() != null) {
-            double[] recordedFeature = samples.poll();
-            double rcfScore = rcf.getAnomalyScore(recordedFeature);
-            rcf.update(recordedFeature);
+            // clear feature not scored yet
+            Queue<double[]> samples = model.getSamples();
+            while (samples != null && samples.peek() != null) {
+                double[] recordedFeature = samples.poll();
+                double rcfScore = rcf.getAnomalyScore(recordedFeature);
+                rcf.update(recordedFeature);
+                threshold.update(rcfScore);
+            }
+
+            double rcfScore = rcf.getAnomalyScore(feature);
+            rcf.update(feature);
             threshold.update(rcfScore);
+
+            double anomalyGrade = threshold.grade(rcfScore);
+            double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
+            result = new ThresholdingResult(anomalyGrade, anomalyConfidence, rcfScore);
         }
-        double rcfScore = rcf.getAnomalyScore(feature);
-
-        double anomalyGrade = threshold.grade(rcfScore);
-
-        double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
-        ThresholdingResult result = new ThresholdingResult(anomalyGrade, anomalyConfidence, rcfScore);
-
-        rcf.update(feature);
-        if (rcfScore > 0) {
-            threshold.update(rcfScore);
-        }
-
         modelState.setLastUsedTime(clock.instant());
         return result;
     }
@@ -919,5 +931,9 @@ public class ModelManager implements DetectorModelSize {
         while (samples.peek() != null) {
             toModel.addSample(samples.poll());
         }
+    }
+
+    private ThresholdingResult toResult(AnomalyDescriptor anomalyDescriptor) {
+        return new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), /*TODO: pending ercf*/1.0, anomalyDescriptor.getRcfScore());
     }
 }

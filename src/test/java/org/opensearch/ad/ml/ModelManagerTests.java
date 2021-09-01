@@ -48,6 +48,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
@@ -99,9 +101,14 @@ import org.opensearch.threadpool.ThreadPool;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
+<<<<<<< HEAD
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
+=======
+import com.amazon.randomcutforest.ERCF.AnomalyDescriptor;
+import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
+>>>>>>> singleentityworkflow
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
 import com.google.common.collect.Sets;
@@ -136,6 +143,15 @@ public class ModelManagerTests {
 
     @Mock
     private EntityCache cache;
+
+    @Mock
+    private ModelState<EntityModel> modelState;
+
+    @Mock
+    private EntityModel entityModel;
+
+    @Mock
+    private ExtendedRandomCutForest ercf;
 
     private double modelDesiredSizePercentage;
     private double modelMaxSizePercentage;
@@ -278,6 +294,9 @@ public class ModelManagerTests {
         detectorId = "detectorId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
+
+        when(this.modelState.getModel()).thenReturn(this.entityModel);
+        when(this.entityModel.getErcf()).thenReturn(Optional.of(this.ercf));
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -972,6 +991,7 @@ public class ModelManagerTests {
     }
 
     @Test
+<<<<<<< HEAD
     public void processEmptyCheckpoint() {
         ModelState<EntityModel> modelState = modelManager.processEntityCheckpoint(Optional.empty(), null, "", "", shingleSize);
         assertEquals(Instant.MIN, modelState.getLastCheckpointTime());
@@ -1122,5 +1142,34 @@ public class ModelManagerTests {
         modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null, shingleSize);
         assertEquals(0, state.getModel().getSamples().size());
         assertEquals(now, state.getLastUsedTime());
+=======
+    public void getAnomalyResultForEntity_withercf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.ercf.process(this.point)).thenReturn(anomalyDescriptor);
+
+        ThresholdingResult result = modelManager
+            .getAnomalyResultForEntity(this.point, this.modelState, this.detectorId, this.anomalyDetector, null);
+        assertEquals(
+            new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), /*TODO: pending ercf*/1.0, anomalyDescriptor.getRcfScore()),
+            result
+        );
+    }
+
+    @Test
+    public void score_with_ercf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.ercf.process(this.point)).thenReturn(anomalyDescriptor);
+        when(this.entityModel.getSamples()).thenReturn(new ArrayDeque<>(Arrays.asList(this.point)));
+
+        ThresholdingResult result = modelManager.score(this.point, this.detectorId, this.modelState);
+        assertEquals(
+            new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), /*TODO: pending ercf*/1.0, anomalyDescriptor.getRcfScore()),
+            result
+        );
+>>>>>>> singleentityworkflow
     }
 }

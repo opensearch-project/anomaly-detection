@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
@@ -70,6 +70,7 @@ import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 
+import com.amazon.randomcutforest.ERCF.ExtendedRandomCutForest;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 
@@ -385,66 +386,23 @@ public class EntityColdStarter implements MaintenanceState {
         if (rcfSeed > 0) {
             rcfBuilder.randomSeed(rcfSeed);
         }
-        RandomCutForest rcf = rcfBuilder.build();
-        List<double[]> allScores = new ArrayList<>();
-        int totalLength = 0;
-        // get continuous data points and send for training
-        for (double[][] continuousDataPoints : dataPoints) {
-            double[] scores = trainRCFModel(continuousDataPoints, rcf);
-            allScores.add(scores);
-            totalLength += scores.length;
-        }
+        ExtendedRandomCutForest ercf = new ExtendedRandomCutForest(
+            rcfBuilder,
+            1 - this.thresholdMinPvalue
+        );
+
+        dataPoints.stream().flatMap(d -> Arrays.stream(d)).forEach(s -> ercf.process(s));
 
         EntityModel model = entityState.getModel();
         if (model == null) {
             model = new EntityModel(entity, new ArrayDeque<>(), null, null);
         }
-        model.setRcf(rcf);
-        double[] joinedScores = new double[totalLength];
-
-        int destStart = 0;
-        for (double[] scores : allScores) {
-            System.arraycopy(scores, 0, joinedScores, destStart, scores.length);
-            destStart += scores.length;
-        }
-
-        // Train thresholding model
-        ThresholdingModel threshold = new HybridThresholdingModel(
-            thresholdMinPvalue,
-            thresholdMaxRankError,
-            thresholdMaxScore,
-            thresholdNumLogNormalQuantiles,
-            thresholdDownsamples,
-            thresholdMaxSamples
-        );
-        threshold.train(joinedScores);
-        model.setThreshold(threshold);
+        model.setErcf(ercf);
 
         entityState.setLastUsedTime(clock.instant());
 
         // save to checkpoint
         checkpointWriteQueue.write(entityState, true, RequestPriority.MEDIUM);
-    }
-
-    /**
-     * Train the RCF model using given data points
-     * @param dataPoints Data points
-     * @param rcf RCF model to be trained
-     * @return scores returned by RCF models
-     */
-    private double[] trainRCFModel(double[][] dataPoints, RandomCutForest rcf) {
-        if (dataPoints.length == 0 || dataPoints[0].length == 0) {
-            throw new IllegalArgumentException("Data points must not be empty.");
-        }
-
-        double[] scores = new double[dataPoints.length];
-
-        for (int j = 0; j < dataPoints.length; j++) {
-            scores[j] = rcf.getAnomalyScore(dataPoints[j]);
-            rcf.update(dataPoints[j]);
-        }
-
-        return DoubleStream.of(scores).filter(score -> score > 0).toArray();
     }
 
     /**
