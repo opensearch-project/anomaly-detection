@@ -31,9 +31,10 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIEC
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.ToDoubleFunction;
-import java.util.function.ToIntFunction;
 
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
@@ -58,6 +59,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
 
     protected String historicalAnalysisTestIndex = "test_historical_analysis_data";
     protected int detectionIntervalInMinutes = 1;
+    protected int categoryFieldDocCount = 2;
 
     @Before
     @Override
@@ -92,7 +94,8 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         int totalDoc,
         long intervalInMinutes,
         ToDoubleFunction<Integer> valueFunc,
-        ToIntFunction<Integer> categoryFunc
+        int ipSize,
+        int categorySize
     ) throws IOException {
         TestHelpers
             .makeRequest(
@@ -112,16 +115,24 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         StringBuilder bulkRequestBuilder = new StringBuilder();
         Instant startTime = Instant.now().minus(startDays, ChronoUnit.DAYS);
         for (int i = 0; i < totalDoc; i++) {
-            bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + indexName + "\", \"_id\" : \"" + i + "\" } }\n");
-            MockSimpleLog simpleLog = new MockSimpleLog(
-                startTime,
-                valueFunc.applyAsDouble(i),
-                "category" + categoryFunc.applyAsInt(i),
-                randomBoolean(),
-                randomAlphaOfLength(5)
-            );
-            bulkRequestBuilder.append(TestHelpers.toJsonString(simpleLog));
-            bulkRequestBuilder.append("\n");
+            for (int m = 0; m < ipSize; m++) {
+                String ip = "192.168.1." + m;
+                for (int n = 0; n < categorySize; n++) {
+                    String category = "category" + n;
+                    String docId = randomAlphaOfLength(10);
+                    bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + indexName + "\", \"_id\" : \"" + docId + "\" } }\n");
+                    MockSimpleLog simpleLog1 = new MockSimpleLog(
+                        startTime,
+                        valueFunc.applyAsDouble(i),
+                        ip,
+                        category,
+                        randomBoolean(),
+                        randomAlphaOfLength(5)
+                    );
+                    bulkRequestBuilder.append(TestHelpers.toJsonString(simpleLog1));
+                    bulkRequestBuilder.append("\n");
+                }
+            }
             startTime = startTime.plus(intervalInMinutes, ChronoUnit.MINUTES);
         }
         Response bulkResponse = TestHelpers
@@ -159,15 +170,38 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
             } else {
                 return randomDoubleBetween(1, 10, true);
             }
-        }, (i) -> 1);
+        }, categoryFieldDocCount, categoryFieldDocCount);
     }
 
-    protected AnomalyDetector createAnomalyDetector() throws IOException {
+    protected AnomalyDetector createAnomalyDetector() throws IOException, IllegalAccessException {
+        return createAnomalyDetector(0);
+    }
+
+    protected AnomalyDetector createAnomalyDetector(int categoryFieldSize) throws IOException, IllegalAccessException {
         AggregationBuilder aggregationBuilder = TestHelpers
             .parseAggregation("{\"test\":{\"max\":{\"field\":\"" + MockSimpleLog.VALUE_FIELD + "\"}}}");
         Feature feature = new Feature(randomAlphaOfLength(5), randomAlphaOfLength(10), true, aggregationBuilder);
+        List<String> categoryField = null;
+        switch (categoryFieldSize) {
+            case 0:
+                break;
+            case 1:
+                categoryField = ImmutableList.of(MockSimpleLog.CATEGORY_FIELD);
+                break;
+            case 2:
+                categoryField = ImmutableList.of(MockSimpleLog.IP_FIELD, MockSimpleLog.CATEGORY_FIELD);
+                break;
+            default:
+                throw new IllegalAccessException("Wrong category field size");
+        }
         AnomalyDetector detector = TestHelpers
-            .randomDetector(ImmutableList.of(feature), historicalAnalysisTestIndex, detectionIntervalInMinutes, MockSimpleLog.TIME_FIELD);
+            .randomDetector(
+                ImmutableList.of(feature),
+                historicalAnalysisTestIndex,
+                detectionIntervalInMinutes,
+                MockSimpleLog.TIME_FIELD,
+                categoryField
+            );
         return createAnomalyDetector(detector, true, client());
     }
 
@@ -197,11 +231,14 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return adTaskProfile;
     }
 
-    protected ADTaskProfile waitUntilTaskFinished(String detectorId) throws InterruptedException {
+    protected ADTaskProfile waitUntilTaskDone(String detectorId) throws InterruptedException {
+        return waitUntilTaskReachState(detectorId, TestHelpers.HISTORICAL_ANALYSIS_DONE_STATS);
+    }
+
+    protected ADTaskProfile waitUntilTaskReachState(String detectorId, Set<String> targetStates) throws InterruptedException {
         int i = 0;
         ADTaskProfile adTaskProfile = null;
-        while ((adTaskProfile == null || TestHelpers.historicalAnalysisRunningStats.contains(adTaskProfile.getAdTask().getState()))
-            && i < 30) {
+        while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getAdTask().getState())) && i < 60) {
             try {
                 adTaskProfile = getADTaskProfile(detectorId);
             } catch (Exception e) {

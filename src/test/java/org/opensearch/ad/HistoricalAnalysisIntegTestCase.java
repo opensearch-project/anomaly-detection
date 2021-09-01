@@ -39,6 +39,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -70,13 +71,13 @@ import org.opensearch.search.sort.SortOrder;
 import org.opensearch.test.transport.MockTransportService;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
 
     protected String testIndex = "test_historical_data";
     protected int detectionIntervalInMinutes = 1;
     protected int DEFAULT_TEST_DATA_DOCS = 3000;
+    protected String DEFAULT_IP = "127.0.0.1";
 
     @Override
     protected Collection<Class<? extends Plugin>> getMockPlugins() {
@@ -88,10 +89,14 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type) {
-        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_TEST_DATA_DOCS);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, DEFAULT_TEST_DATA_DOCS);
     }
 
     public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, int totalDocs) {
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, totalDocs);
+    }
+
+    public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, String ip, int totalDocs) {
         createTestDataIndex(testIndex);
         List<Map<String, ?>> docs = new ArrayList<>();
         Instant currentInterval = Instant.from(startTime);
@@ -99,22 +104,14 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         for (int i = 0; i < totalDocs; i++) {
             currentInterval = currentInterval.plus(detectionIntervalInMinutes, ChronoUnit.MINUTES);
             double value = i % 500 == 0 ? randomDoubleBetween(1000, 2000, true) : randomDoubleBetween(10, 100, true);
-            docs
-                .add(
-                    ImmutableMap
-                        .of(
-                            timeField,
-                            currentInterval.toEpochMilli(),
-                            "value",
-                            value,
-                            "type",
-                            type,
-                            "is_error",
-                            randomBoolean(),
-                            "message",
-                            randomAlphaOfLength(5)
-                        )
-                );
+            Map<String, Object> doc = new HashMap<>();
+            doc.put(timeField, currentInterval.toEpochMilli());
+            doc.put("value", value);
+            doc.put("ip", ip);
+            doc.put("type", type);
+            doc.put("is_error", randomBoolean());
+            doc.put("message", randomAlphaOfLength(5));
+            docs.add(doc);
         }
         BulkResponse bulkResponse = bulkIndexDocs(testIndex, docs, 30_000);
         assertEquals(RestStatus.OK, bulkResponse.status());
@@ -184,7 +181,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         if (isLatest != null) {
-            query.filter(new TermQueryBuilder(IS_LATEST_FIELD, false));
+            query.filter(new TermQueryBuilder(IS_LATEST_FIELD, isLatest));
         }
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();

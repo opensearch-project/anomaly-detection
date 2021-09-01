@@ -158,10 +158,14 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
                 long totalSingleEntityDetectors = 0;
                 long totalMultiEntityDetectors = 0;
                 for (StringTerms.Bucket b : buckets) {
-                    if (AnomalyDetectorType.SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
+                    if (AnomalyDetectorType.SINGLE_ENTITY.name().equals(b.getKeyAsString())
+                        || AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name().equals(b.getKeyAsString())
+                        || AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
                         totalSingleEntityDetectors += b.getDocCount();
                     }
-                    if (AnomalyDetectorType.MULTI_ENTITY.name().equals(b.getKeyAsString())) {
+                    if (AnomalyDetectorType.MULTI_ENTITY.name().equals(b.getKeyAsString())
+                        || AnomalyDetectorType.REALTIME_MULTI_ENTITY.name().equals(b.getKeyAsString())
+                        || AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name().equals(b.getKeyAsString())) {
                         totalMultiEntityDetectors += b.getDocCount();
                     }
                 }

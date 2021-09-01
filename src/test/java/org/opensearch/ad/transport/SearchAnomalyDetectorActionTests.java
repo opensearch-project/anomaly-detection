@@ -59,9 +59,9 @@ public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTes
                 ImmutableList.of(TestHelpers.randomFeature(true)),
                 null,
                 Instant.now(),
-                detectorType,
                 1,
-                false
+                false,
+                null
             );
         createDetectorIndex();
         String detectorId = createDetector(detector);
