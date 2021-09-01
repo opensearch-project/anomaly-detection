@@ -35,7 +35,6 @@ import java.time.temporal.ChronoUnit;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -196,15 +195,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         Feature feature1 = TestHelpers.randomFeature(true);
         Feature feature2 = TestHelpers.randomFeature(false);
         AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetector(
-                ImmutableList.of(index),
-                ImmutableList.of(feature1, feature2),
-                null,
-                now,
-                AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name(),
-                1,
-                false
-            );
+            .randomAnomalyDetector(ImmutableList.of(index), ImmutableList.of(feature1, feature2), null, now, 1, false, null);
 
         long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
         long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
@@ -238,15 +229,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         String index = randomAlphaOfLength(5);
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetector(
-                ImmutableList.of(index),
-                ImmutableList.of(TestHelpers.randomFeature(false)),
-                null,
-                now,
-                AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name(),
-                1,
-                false
-            );
+            .randomAnomalyDetector(ImmutableList.of(index), ImmutableList.of(TestHelpers.randomFeature(false)), null, now, 1, false, null);
 
         long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
         long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
@@ -262,15 +245,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         String index = randomAlphaOfLength(5);
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetector(
-                ImmutableList.of(index),
-                ImmutableList.of(),
-                null,
-                now,
-                AnomalyDetectorType.HISTORICAL_MULTI_ENTITY.name(),
-                1,
-                false
-            );
+            .randomAnomalyDetector(ImmutableList.of(index), ImmutableList.of(), null, now, 1, false, null);
 
         long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
         long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();

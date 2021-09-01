@@ -26,6 +26,8 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.model.AnomalyDetectorType.MULTI_ENTITY;
+import static org.opensearch.ad.model.AnomalyDetectorType.SINGLE_ENTITY;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
@@ -161,46 +163,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         List<String> categoryFields,
         User user
     ) {
-        this(
-            detectorId,
-            version,
-            name,
-            description,
-            timeField,
-            indices,
-            features,
-            filterQuery,
-            detectionInterval,
-            windowDelay,
-            shingleSize,
-            uiMetadata,
-            schemaVersion,
-            lastUpdateTime,
-            categoryFields,
-            user,
-            null
-        );
-    }
-
-    public AnomalyDetector(
-        String detectorId,
-        Long version,
-        String name,
-        String description,
-        String timeField,
-        List<String> indices,
-        List<Feature> features,
-        QueryBuilder filterQuery,
-        TimeConfiguration detectionInterval,
-        TimeConfiguration windowDelay,
-        Integer shingleSize,
-        Map<String, Object> uiMetadata,
-        Integer schemaVersion,
-        Instant lastUpdateTime,
-        List<String> categoryFields,
-        User user,
-        String detectorType
-    ) {
         if (Strings.isBlank(name)) {
             throw new IllegalArgumentException("Detector name should be set");
         }
@@ -244,7 +206,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.lastUpdateTime = lastUpdateTime;
         this.categoryFields = categoryFields;
         this.user = user;
-        this.detectorType = detectorType;
+        this.detectorType = isMultientityDetector(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {

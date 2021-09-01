@@ -29,10 +29,12 @@ package org.opensearch.ad.task;
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_LATEST_TASK;
+import static org.opensearch.ad.constant.CommonErrorMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
+import static org.opensearch.ad.constant.CommonErrorMessages.NO_ENTITY_FOUND;
 import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.ADTask.COORDINATING_NODE_FIELD;
@@ -614,7 +616,7 @@ public class ADTaskManager {
                             maxRunningEntitiesPerDetector,
                             ActionListener.wrap(topEntities -> {
                                 if (isNullOrEmpty(topEntities)) {
-                                    wrappedActionListener.onFailure(new ResourceNotFoundException("No category found"));
+                                    wrappedActionListener.onFailure(new ResourceNotFoundException(NO_ENTITY_FOUND));
                                     return;
                                 }
                                 int approvedTaskSlots = Math.min(availableAdTaskSlots, topEntities.size());
@@ -689,7 +691,7 @@ public class ADTaskManager {
         }
     }
 
-    private void scaleTaskLaneOnCoordinatingNode(
+    protected void scaleTaskLaneOnCoordinatingNode(
         ADTask adTask,
         int approvedTaskSlot,
         TransportService transportService,
@@ -759,7 +761,7 @@ public class ADTaskManager {
                         logger.info("Created {} with mappings.", DETECTION_STATE_INDEX);
                         executeAnomalyDetector(detector, detectionDateRange, user, listener);
                     } else {
-                        String error = "Create index " + DETECTION_STATE_INDEX + " with mappings not acknowledged";
+                        String error = String.format(Locale.ROOT, CREATE_INDEX_NOT_ACKNOWLEDGED, DETECTION_STATE_INDEX);
                         logger.warn(error);
                         listener.onFailure(new OpenSearchStatusException(error, RestStatus.INTERNAL_SERVER_ERROR));
                     }
@@ -877,10 +879,6 @@ public class ADTaskManager {
                 listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, exception -> listener.onFailure(exception)));
-    }
-
-    private List<String> taskTypeToString(List<ADTaskType> adTaskTypes) {
-        return adTaskTypes.stream().map(type -> type.name()).collect(Collectors.toList());
     }
 
     /**

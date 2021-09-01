@@ -190,7 +190,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
-        System.out.println(id);
         AnomalyDetector newDetector = new AnomalyDetector(
             id,
             null,

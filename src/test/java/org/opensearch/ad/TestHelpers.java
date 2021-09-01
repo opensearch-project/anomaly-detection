@@ -86,7 +86,6 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -161,8 +160,10 @@ public class TestHelpers {
     public static final String AD_BASE_RESULT_URI = AD_BASE_DETECTORS_URI + "/results";
     public static final String AD_BASE_PREVIEW_URI = AD_BASE_DETECTORS_URI + "/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
-    public static ImmutableSet<String> historicalAnalysisRunningStats = ImmutableSet
+    public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
         .of(ADTaskState.CREATED.name(), ADTaskState.INIT.name(), ADTaskState.RUNNING.name());
+    public static ImmutableSet<String> HISTORICAL_ANALYSIS_DONE_STATS = ImmutableSet
+        .of(ADTaskState.FAILED.name(), ADTaskState.FINISHED.name(), ADTaskState.STOPPED.name());
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
     public static final Random random = new Random(42);
 
@@ -265,24 +266,24 @@ public class TestHelpers {
         Instant lastUpdateTime,
         String detectorType
     ) throws IOException {
-        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, detectorType, true);
+        return randomAnomalyDetector(features, uiMetadata, lastUpdateTime, true, null);
     }
 
     public static AnomalyDetector randomAnomalyDetector(
         List<Feature> features,
         Map<String, Object> uiMetadata,
         Instant lastUpdateTime,
-        String detectorType,
-        boolean withUser
+        boolean withUser,
+        List<String> categoryFields
     ) throws IOException {
         return randomAnomalyDetector(
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
             features,
             uiMetadata,
             lastUpdateTime,
-            detectorType,
             OpenSearchRestTestCase.randomLongBetween(1, 1000),
-            withUser
+            withUser,
+            categoryFields
         );
     }
 
@@ -291,9 +292,9 @@ public class TestHelpers {
         List<Feature> features,
         Map<String, Object> uiMetadata,
         Instant lastUpdateTime,
-        String detectorType,
         long detectionIntervalInMinutes,
-        boolean withUser
+        boolean withUser,
+        List<String> categoryFields
     ) throws IOException {
         User user = withUser ? randomUser() : null;
         return new AnomalyDetector(
@@ -313,15 +314,23 @@ public class TestHelpers {
             uiMetadata,
             randomInt(),
             lastUpdateTime,
-            null,
-            user,
-            detectorType
+            categoryFields,
+            user
         );
     }
 
     public static AnomalyDetector randomDetector(List<Feature> features, String indexName, int detectionIntervalInMinutes, String timeField)
         throws IOException {
-        String detectorType = AnomalyDetectorType.SINGLE_ENTITY.name();
+        return randomDetector(features, indexName, detectionIntervalInMinutes, timeField, null);
+    }
+
+    public static AnomalyDetector randomDetector(
+        List<Feature> features,
+        String indexName,
+        int detectionIntervalInMinutes,
+        String timeField,
+        List<String> categoryFields
+    ) throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -337,9 +346,8 @@ public class TestHelpers {
             null,
             randomInt(),
             Instant.now(),
-            null,
-            null,
-            detectorType
+            categoryFields,
+            null
         );
     }
 
@@ -989,7 +997,7 @@ public class TestHelpers {
         Instant executionEndTime,
         String stoppedBy,
         AnomalyDetector detector
-    ) throws IOException {
+    ) {
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
         Entity entity = null;
         if (detector != null) {
