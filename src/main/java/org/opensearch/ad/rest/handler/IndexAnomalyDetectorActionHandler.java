@@ -29,6 +29,7 @@ package org.opensearch.ad.rest.handler;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
+import static org.opensearch.ad.util.ParseUtils.listEqualsWithoutConsideringOrder;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -236,32 +237,26 @@ public class IndexAnomalyDetectorActionHandler {
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             AnomalyDetector existingDetector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
-            // We have separate flows for realtime and historical detector currently. User
-            // can't change detector from realtime to historical, vice versa.
-            if (existingDetector.isRealTimeDetector() != anomalyDetector.isRealTimeDetector()) {
+            // If detector category field changed, frontend may not be able to render AD result for different detector types correctly.
+            // For example, if detector changed from HC to single entity detector, AD result page may show multiple anomaly
+            // result points on the same time point if there are multiple entities have anomaly results.
+            // If single-category HC changed category field from IP to error type, the AD result page may show both IP and error type
+            // in top N entities list. That's confusing.
+            // So we decide to block updating detector category field.
+            if (!listEqualsWithoutConsideringOrder(existingDetector.getCategoryField(), anomalyDetector.getCategoryField())) {
                 listener
-                    .onFailure(
-                        new OpenSearchStatusException(
-                            "Can't change detector type between realtime and historical detector",
-                            RestStatus.BAD_REQUEST
-                        )
-                    );
+                    .onFailure(new OpenSearchStatusException(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
                 return;
             }
 
-            if (existingDetector.isRealTimeDetector()) {
-                validateDetector(existingDetector);
-            } else {
-                adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
-                    if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
-                        // can't update detector if there is AD task running
-                        listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-                    } else {
-                        // TODO: change to validateDetector method when we support HC historical detector
-                        searchAdInputIndices(detectorId);
-                    }
-                }, transportService, true, listener);
-            }
+            adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
+                if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+                    // can't update detector if there is AD task running
+                    listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                } else {
+                    validateDetector(existingDetector);
+                }
+            }, transportService, true, listener);
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;
             logger.error(message, e);
