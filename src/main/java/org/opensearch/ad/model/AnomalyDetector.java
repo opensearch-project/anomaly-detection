@@ -694,11 +694,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return categoryFields != null && categoryFields.size() > 0;
     }
 
-    // TODO: remove this
-    public boolean isRealTimeDetector() {
-        return false;
-    }
-
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
         return shingleSizeToTest != null && (shingleSizeToTest < 1 || shingleSizeToTest > AnomalyDetectorSettings.MAX_SHINGLE_SIZE);
     }

@@ -43,10 +43,13 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
@@ -701,5 +704,25 @@ public final class ParseUtils {
 
     public static <T> boolean isNullOrEmpty(Collection<T> collection) {
         return collection == null || collection.size() == 0;
+    }
+
+    /**
+     * Check if two lists of string equals or not without considering the order.
+     * If the list is null, will consider it equals to empty list.
+     *
+     * @param list1 first list
+     * @param list2 second list
+     * @return true if two list of string equals
+     */
+    public static boolean listEqualsWithoutConsideringOrder(List<String> list1, List<String> list2) {
+        Set<String> set1 = new HashSet<>();
+        Set<String> set2 = new HashSet<>();
+        if (list1 != null) {
+            set1.addAll(list1);
+        }
+        if (list2 != null) {
+            set2.addAll(list2);
+        }
+        return Objects.equals(set1, set2);
     }
 }
