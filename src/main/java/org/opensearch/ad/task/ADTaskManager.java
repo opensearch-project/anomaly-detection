@@ -311,13 +311,17 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         getDetector(detectorId, (detector) -> {
-            if (validateDetector(detector, listener)) { // validate if detector is ready to start
+            if (!detector.isPresent()) {
+                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
+                return;
+            }
+            if (validateDetector(detector.get(), listener)) { // validate if detector is ready to start
                 if (detectionDateRange == null) {
                     // start realtime job
-                    handler.startAnomalyDetectorJob(detector);
+                    handler.startAnomalyDetectorJob(detector.get());
                 } else {
                     // start historical analysis task
-                    forwardApplyForTaskSlotsRequestToLeadNode(detector, detectionDateRange, user, transportService, listener);
+                    forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
                 }
             }
         }, listener);
@@ -836,6 +840,10 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         getDetector(detectorId, (detector) -> {
+            if (!detector.isPresent()) {
+                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
+                return;
+            }
             if (historical) {
                 // stop historical analyis
                 getAndExecuteOnLatestDetectorLevelTask(
@@ -861,24 +869,27 @@ public class ADTaskManager {
      * @param listener action listener
      * @param <T> action listener response type
      */
-    public <T> void getDetector(String detectorId, Consumer<AnomalyDetector> consumer, ActionListener<T> listener) {
+    public <T> void getDetector(String detectorId, Consumer<Optional<AnomalyDetector>> consumer, ActionListener<T> listener) {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(response -> {
             if (!response.isExists()) {
-                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
+                consumer.accept(Optional.empty());
                 return;
             }
             try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
-                consumer.accept(detector);
+                consumer.accept(Optional.of(detector));
             } catch (Exception e) {
-                String message = "Failed to start anomaly detector " + detectorId;
+                String message = "Failed to parse anomaly detector " + detectorId;
                 logger.error(message, e);
                 listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
-        }, exception -> listener.onFailure(exception)));
+        }, exception -> {
+            logger.error("Failed to get detector " + detectorId, exception);
+            listener.onFailure(exception);
+        }));
     }
 
     /**
@@ -1838,7 +1849,9 @@ public class ADTaskManager {
                 listener.onFailure(new OpenSearchStatusException("Failed to delete all AD tasks", RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, e -> {
+            logger.info("Failed to delete AD tasks for " + detectorId, e);
             if (e instanceof IndexNotFoundException) {
+                deleteADResultOfDetector(detectorId);
                 function.execute();
             } else {
                 listener.onFailure(e);
@@ -1848,8 +1861,10 @@ public class ADTaskManager {
 
     private void deleteADResultOfDetector(String detectorId) {
         if (!deleteADResultWhenDeleteDetector) {
+            logger.info("Won't delete ad result for {} as delete AD result setting is disabled", detectorId);
             return;
         }
+        logger.info("Start to delete AD results of detector {}", detectorId);
         DeleteByQueryRequest deleteADResultsRequest = new DeleteByQueryRequest(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteADResultsRequest.setQuery(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         client
@@ -1858,7 +1873,7 @@ public class ADTaskManager {
                 deleteADResultsRequest,
                 ActionListener
                     .wrap(response -> { logger.debug("Successfully deleted AD results of detector " + detectorId); }, exception -> {
-                        logger.error("Failed to delete AD results for detector " + detectorId, exception);
+                        logger.error("Failed to delete AD results of detector " + detectorId, exception);
                         adTaskCacheManager.addDeletedDetector(detectorId);
                     })
             );
