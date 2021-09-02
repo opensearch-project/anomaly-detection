@@ -32,7 +32,6 @@ import java.util.Map;
 import org.junit.Before;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.stats.StatNames;
 
@@ -54,8 +53,8 @@ public class StatsAnomalyDetectorTransportActionTests extends ADIntegTestCase {
                             ImmutableList.of(TestHelpers.randomFeature()),
                             ImmutableMap.of(),
                             Instant.now(),
-                            AnomalyDetectorType.SINGLE_ENTITY.name(),
-                            true
+                            true,
+                            ImmutableList.of(randomAlphaOfLength(5))
                         )
                 ),
             true

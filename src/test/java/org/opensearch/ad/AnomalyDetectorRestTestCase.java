@@ -122,9 +122,9 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                     ImmutableList.of(TestHelpers.randomFeature(featureEnabled)),
                     uiMetadata,
                     Instant.now(),
-                    null,
                     OpenSearchRestTestCase.randomLongBetween(1, 1000),
-                    true
+                    true,
+                    null
                 );
         }
 
@@ -160,8 +160,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
-            detector.getUser(),
-            detector.getDetectorType()
+            detector.getUser()
         );
     }
 
@@ -177,9 +176,17 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    protected Response stopAnomalyDetector(String detectorId, RestClient client) throws IOException {
+    protected Response stopAnomalyDetector(String detectorId, RestClient client, boolean realtime) throws IOException {
+        String jobType = realtime ? "" : "?historical";
         return TestHelpers
-            .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_stop", ImmutableMap.of(), "", null);
+            .makeRequest(
+                client,
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_stop" + jobType,
+                ImmutableMap.of(),
+                "",
+                null
+            );
     }
 
     protected Response deleteAnomalyDetector(String detectorId, RestClient client) throws IOException {
@@ -250,7 +257,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         Long version = null;
         AnomalyDetector detector = null;
         AnomalyDetectorJob detectorJob = null;
-        ADTask adTask = null;
+        ADTask realtimeAdTask = null;
+        ADTask historicalAdTask = null;
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
@@ -267,8 +275,18 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 case "anomaly_detector_job":
                     detectorJob = AnomalyDetectorJob.parse(parser);
                     break;
-                case "anomaly_detection_task":
-                    adTask = ADTask.parse(parser);
+                case "realtime_detection_task":
+                    if (parser.currentToken() != XContentParser.Token.VALUE_NULL) {
+                        realtimeAdTask = ADTask.parse(parser);
+                    }
+                    break;
+                case "historical_analysis_task":
+                    if (parser.currentToken() != XContentParser.Token.VALUE_NULL) {
+                        historicalAdTask = ADTask.parse(parser);
+                    }
+                    break;
+                default:
+                    parser.skipChildren();
                     break;
             }
         }
@@ -290,11 +308,11 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getSchemaVersion(),
                 detector.getLastUpdateTime(),
                 null,
-                detector.getUser(),
-                detector.getDetectorType()
+                detector.getUser()
             ),
             detectorJob,
-            adTask };
+            historicalAdTask,
+            realtimeAdTask };
     }
 
     protected final XContentParser createAdParser(XContent xContent, InputStream data) throws IOException {
