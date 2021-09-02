@@ -98,6 +98,7 @@ public class IndexAnomalyDetectorJobActionHandler {
      * @param primaryTerm             primary term of last modification
      * @param requestTimeout          request time out configuration
      * @param xContentRegistry        Registry which is used for XContentParser
+     * @param transportService        transport service
      * @param adTaskManager           AD task manager
      */
     public IndexAnomalyDetectorJobActionHandler(

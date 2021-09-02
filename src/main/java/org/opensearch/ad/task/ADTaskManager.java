@@ -1016,7 +1016,7 @@ public class ADTaskManager {
                 }
             }
             if (resetTaskState) {
-                resetLatestHistoricalDetectorTaskState(adTasks, function, transportService, listener);
+                resetLatestDetectorTaskState(adTasks, function, transportService, listener);
             } else {
                 function.accept(adTasks);
             }
@@ -1030,7 +1030,7 @@ public class ADTaskManager {
         }));
     }
 
-    private <T> void resetLatestHistoricalDetectorTaskState(
+    private <T> void resetLatestDetectorTaskState(
         List<ADTask> adTasks,
         Consumer<List<ADTask>> function,
         TransportService transportService,
@@ -1169,7 +1169,7 @@ public class ADTaskManager {
             // If no node is running this task, reset it as STOPPED.
             taskStopped = true;
         } else if (!detector.isMultientityDetector() && taskProfile.getNodeId() == null) {
-            logger.debug("AD task not running for single flow detector {}, task {}", detectorId, taskId);
+            logger.debug("AD task not running for single entity detector {}, task {}", detectorId, taskId);
             taskStopped = true;
         } else if (detector.isMultientityDetector() && isNullOrEmpty(taskProfile.getRunningEntities())) {
             logger.debug("AD task not running for HC detector {}, task {}", detectorId, taskId);
@@ -1231,6 +1231,7 @@ public class ADTaskManager {
                 if (function != null) {
                     function.execute();
                 }
+                // For realtime anomaly detection, we only create detector level task, no entity level realtime task.
                 if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(adTask.getTaskType())) {
                     // Reset running entity tasks as STOPPED
                     resetEntityTasksAsStopped(taskId);
@@ -1275,6 +1276,8 @@ public class ADTaskManager {
      * @param adTask AD task
      * @param transportService transport service
      * @param function will execute it when detector cache cleaned successfully or coordinating node left cluster
+     * @param listener action listener
+     * @param <T> response type of listener
      */
     public <T> void cleanDetectorCache(
         ADTask adTask,
