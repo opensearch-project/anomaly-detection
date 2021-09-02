@@ -30,8 +30,11 @@ import org.opensearch.ad.model.ADTaskState;
  * 3. temp entities queue
  * 4. task retry times
  * 5. task rate limiters
- *
- * TODO: some methods in this class are not being used currently. Just add them here to save some effort in later PRs.
+ * 6. top entities inited or not
+ * 7. top entities count
+ * 8. is current node coordinating node
+ * 9. is historical analysis cancelled for this HC detector
+ * 10. detector task update semaphore to control only 1 thread update detector level task
  */
 public class ADHCBatchTaskCache {
 

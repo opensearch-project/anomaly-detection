@@ -149,6 +149,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
             primaryTerm,
             requestTimeout,
             xContentRegistry,
+            transportService,
             adTaskManager
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {

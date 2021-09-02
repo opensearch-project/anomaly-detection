@@ -116,7 +116,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                 // can delete the detector.
                 (anomalyDetector) -> adTaskManager.getDetector(detectorId, detector -> getDetectorJob(detectorId, listener, () -> {
                     adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
-                        if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
+                        if (adTask.isPresent() && !adTask.get().isDone()) {
                             listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
                         } else {
                             adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);

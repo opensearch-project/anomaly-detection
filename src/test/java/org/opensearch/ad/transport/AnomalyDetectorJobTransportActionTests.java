@@ -278,6 +278,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
 
         AtomicReference<AnomalyDetectorJobResponse> response = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
+        Thread.sleep(2000);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request, ActionListener.wrap(r -> {
             latch.countDown();
             response.set(r);

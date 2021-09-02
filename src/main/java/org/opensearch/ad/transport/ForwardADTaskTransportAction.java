@@ -106,7 +106,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             case START:
                 // Start historical analysis for detector
                 logger.debug("Received START action for detector {}", detectorId);
-                adTaskManager.startHistoricalAnalysisTask(detector, detectionDateRange, user, transportService, ActionListener.wrap(r -> {
+                adTaskManager.startDetector(detector, detectionDateRange, user, transportService, ActionListener.wrap(r -> {
                     adTaskCacheManager.setDetectorTaskSlots(detector.getDetectorId(), availableTaskSlots);
                     listener.onResponse(r);
                 }, e -> listener.onFailure(e)));
@@ -114,7 +114,8 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             case FINISHED:
                 logger.debug("Received FINISHED action for detector {}", detectorId);
                 // Historical analysis finished, so we need to remove detector cache. Only single entity detectors use this.
-                adTaskManager.removeDetectorFromCache(request.getDetector().getDetectorId());
+                adTaskCacheManager.removeHistoricalTaskCache(detectorId);
+                adTaskCacheManager.removeRealtimeTaskCache(detectorId);
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;
             case NEXT_ENTITY:
@@ -126,7 +127,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
                         logger.info("Historical HC detector done, will remove from cache, detector id:{}", detectorId);
                         listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
-                        // TODO: reset task state when get task
                         ADTaskState state = !adTask.isEntityTask() && adTask.getError() != null ? ADTaskState.FAILED : ADTaskState.FINISHED;
                         adTaskManager.setHCDetectorTaskDone(adTask, state, listener);
                     } else {

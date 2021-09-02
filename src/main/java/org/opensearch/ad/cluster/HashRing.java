@@ -252,7 +252,6 @@ public class HashRing {
             }
             if (allAddedNodes.size() == 0) {
                 actionListener.onResponse(true);
-                LOG.info("No newly added nodes, return");
                 // rebuild AD version hash ring with cooldown.
                 rebuildCirclesForRealtimeAD();
                 buildHashRingSemaphore.release();
@@ -527,6 +526,12 @@ public class HashRing {
         }
         String ipAddress = getIpAddress(address);
         DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
+
+        // Can't handle this edge case for BWC of AD1.0: mixed cluster with AD1.0 and Version after 1.1.
+        // Start multiple OpenSearch processes on same IP, some run AD 1.0, some run new AD
+        // on or after 1.1. As we ignore port number in transport address, just look for node
+        // with IP like "127.0.0.1", so it's possible that we get wrong node as all nodes have
+        // same IP.
         for (DiscoveryNode node : eligibleDataNodes) {
             if (getIpAddress(node.getAddress()).equals(ipAddress)) {
                 return Optional.ofNullable(node);
@@ -542,6 +547,7 @@ public class HashRing {
      * @return IP address
      */
     private String getIpAddress(TransportAddress address) {
+        // Ignore port number as it may change, just use ip to look for node
         return address.toString().split(":")[0];
     }
 

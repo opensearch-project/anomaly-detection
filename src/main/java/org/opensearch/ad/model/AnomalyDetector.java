@@ -200,7 +200,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.filterQuery = filterQuery;
         this.detectionInterval = detectionInterval;
         this.windowDelay = windowDelay;
-        this.shingleSize = getShingleSize(shingleSize, categoryFields);
+        this.shingleSize = getShingleSize(shingleSize);
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
@@ -466,7 +466,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             filterQuery,
             detectionInterval,
             windowDelay,
-            getShingleSize(shingleSize, categoryField),
+            getShingleSize(shingleSize),
             uiMetadata,
             schemaVersion,
             lastUpdateTime,
@@ -585,10 +585,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * then cx update it to multi-entity detector, we would still use 8 in this case.  Kibana needs to change to
      * give the correct shingle size.
      * @param customShingleSize Given shingle size
-     * @param categoryField Used to verify if this is a multi-entity or single-entity detector
      * @return Shingle size
      */
-    private static Integer getShingleSize(Integer customShingleSize, List<String> categoryField) {
+    private static Integer getShingleSize(Integer customShingleSize) {
         return customShingleSize == null ? DEFAULT_SHINGLE_SIZE : customShingleSize;
     }
 
