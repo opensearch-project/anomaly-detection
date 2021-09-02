@@ -45,6 +45,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
 
 /**
  * Cannot use TestUtil inside ML tests since it uses com.carrotsearch.randomizedtesting.RandomizedRunner
@@ -129,7 +130,22 @@ public class MLUtil {
             AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
         );
         threshold.train(nonZeroScores);
-        return new EntityModel(Entity.createSingleAttributeEntity("", ""), samples, rcf, threshold);
+        ThresholdedRandomCutForest ercf = new ThresholdedRandomCutForest(
+           ThresholdedRandomCutForest 
+                .builder()
+                .dimensions(1)
+                .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
+                .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
+                .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
+                .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
+                .parallelExecutionEnabled(false)
+                .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE));
+        for (int i = 0; i < numDataPoints; i++) {
+            ercf.process(new double[] { random.nextDouble() }, i);
+        }
+        EntityModel entityModel = new EntityModel(Entity.createSingleAttributeEntity("", ""), samples, rcf, threshold);
+        entityModel.setErcf(ercf);
+        return entityModel;
     }
 
     public static EntityModel createNonEmptyModel(String detectorId) {

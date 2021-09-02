@@ -38,6 +38,7 @@ import java.util.Collections;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.junit.After;
 import org.junit.Before;
+import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
@@ -50,6 +51,8 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.ScrollableHitSource;
 
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.amazon.randomcutforest.state.RandomCutForestState;
@@ -81,6 +84,12 @@ public class CheckpointDeleteTests extends AbstractADTest {
     private int maxCheckpointBytes;
     private GenericObjectPool<LinkedBuffer> objectPool;
 
+    @Mock
+    private ThresholdedRandomCutForestMapper ercfMapper;
+
+    @Mock
+    private Schema<ThresholdedRandomCutForestState> ercfSchema;
+
     @SuppressWarnings("unchecked")
     @Override
     @Before
@@ -109,6 +118,8 @@ public class CheckpointDeleteTests extends AbstractADTest {
             mapper,
             schema,
             converter,
+            ercfMapper,
+            ercfSchema,
             HybridThresholdingModel.class,
             indexUtil,
             maxCheckpointBytes,

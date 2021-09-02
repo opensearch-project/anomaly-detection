@@ -33,6 +33,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_U
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -53,6 +54,7 @@ import org.opensearch.ad.ODFERestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
 import org.opensearch.common.Strings;
@@ -61,6 +63,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -71,7 +74,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
             disableResourceNotFoundFaultTolerence();
-            verifyAnomaly("synthetic", 1, 1500, 8, .9, .9, 10);
+            verifyAnomaly("synthetic", 1, 1500, 8, .5, .9, 10);
         }
     }
 
@@ -107,7 +110,6 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         double minRecall,
         double maxError
     ) {
-
         double positives = testResults[0];
         double truePositives = testResults[1];
         double positiveAnomalies = testResults[2];
@@ -152,20 +154,38 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
                 Map<String, Object> response = getDetectionResult(detectorId, begin, end, client);
-                double anomalyGrade = (double) response.get("anomalyGrade");
-                if (anomalyGrade > 0) {
-                    positives++;
-                    int result = isAnomaly(begin, anomalies);
-                    if (result != -1) {
-                        truePositives++;
-                        positiveAnomalies.add(result);
-                    }
-                }
             } catch (Exception e) {
                 errors++;
                 e.printStackTrace();
             }
         }
+
+        Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/results/_search");
+        request
+            .setJsonEntity(
+                String
+                    .format(
+                        Locale.ROOT,
+                        "{ \"query\": { \"bool\": { \"filter\": [ { \"term\": { \"detector_id\": \"%s\"} },"
+                            + "{ \"range\": { \"anomaly_grade\": { \"gt\": 0} } } ] } }, \"size\": 10000 }",
+                        detectorId
+                    )
+            );
+        Response response = client.performRequest(request);
+        JsonObject json = new JsonParser().parse(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
+        for (JsonElement e : json.getAsJsonObject("hits").getAsJsonArray("hits")) {
+            JsonObject object = e.getAsJsonObject();
+            positives++;
+            int result = isAnomaly(
+                Instant.ofEpochMilli(e.getAsJsonObject().getAsJsonObject("_source").getAsJsonPrimitive("data_start_time").getAsLong()),
+                anomalies
+            );
+            if (result != -1) {
+                truePositives++;
+                positiveAnomalies.add(result);
+            }
+        }
+
         return new double[] { positives, truePositives, positiveAnomalies.size(), errors };
     }
 
