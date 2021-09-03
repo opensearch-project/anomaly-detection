@@ -926,13 +926,28 @@ public class TestHelpers {
         Instant executionEndTime,
         String stoppedBy,
         String detectorId,
-        AnomalyDetector detector
+        AnomalyDetector detector,
+        ADTaskType adTaskType
     ) {
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
+        Entity entity = null;
+        if (ADTaskType.HISTORICAL_HC_ENTITY == adTaskType) {
+            List<String> categoryField = detector.getCategoryField();
+            if (categoryField != null) {
+                if (categoryField.size() == 1) {
+                    entity = Entity.createSingleAttributeEntity(categoryField.get(0), randomAlphaOfLength(5));
+                } else if (categoryField.size() == 2) {
+                    entity = Entity
+                        .createEntityByReordering(
+                            ImmutableMap.of(categoryField.get(0), randomAlphaOfLength(5), categoryField.get(1), randomAlphaOfLength(5))
+                        );
+                }
+            }
+        }
         ADTask task = ADTask
             .builder()
             .taskId(taskId)
-            .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
+            .taskType(adTaskType.name())
             .detectorId(detectorId)
             .detector(detector)
             .state(state.name())
@@ -947,6 +962,7 @@ public class TestHelpers {
             .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
             .startedBy(randomAlphaOfLength(5))
             .stoppedBy(stoppedBy)
+            .entity(entity)
             .build();
         return task;
     }

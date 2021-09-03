@@ -66,12 +66,17 @@ import com.google.common.collect.ImmutableList;
 
 public class ADTaskCacheManager {
     private final Logger logger = LogManager.getLogger(ADTaskCacheManager.class);
-    private final Map<String, ADBatchTaskCache> taskCaches;
+
     private volatile Integer maxAdBatchTaskPerNode;
     private volatile Integer maxCachedDeletedTask;
     private final MemoryTracker memoryTracker;
     private final int numberSize = 8;
     public static final int TASK_RETRY_LIMIT = 3;
+
+    // This field is to record all batch tasks. Both single entity detector task
+    // and HC entity task will be cached in this field.
+    // Key: task id
+    private final Map<String, ADBatchTaskCache> taskCaches;
 
     // We use this field to record all detector level tasks which running on the
     // coordinating node to resolve race condition. We will check if
@@ -80,6 +85,7 @@ public class ADTaskCacheManager {
     // task in cache. For other tasks, we find the detector id exists,
     // that means there is already one task running for this detector,
     // so we will reject the task.
+    // Key: detector id; Value: detector level task id
     private Map<String, String> detectorTasks;
 
     // Use this field to cache all HC tasks. Key is detector id
@@ -91,7 +97,7 @@ public class ADTaskCacheManager {
 
     // This field is to cache all realtime tasks. Key is detector id
     private Map<String, ADRealtimeTaskCache> realtimeTaskCaches;
-    // This field is to cache all detectors' task slot and task lane limit
+    // This field is to cache all detectors' task slot and task lane limit. Key is detector id
     private Map<String, ADTaskSlotLimit> detectorTaskSlotLimit;
 
     /**
@@ -399,6 +405,18 @@ public class ADTaskCacheManager {
             taskCache.clear();
             hcTaskCaches.remove(detectorId);
         }
+        List<String> tasksOfDetector = getTasksOfDetector(detectorId);
+        for (String taskId : tasksOfDetector) {
+            remove(taskId);
+        }
+        if (tasksOfDetector.size() > 0) {
+            logger
+                .warn(
+                    "Removed historical AD task from cache for detector {}, taskId: {}",
+                    detectorId,
+                    Arrays.toString(tasksOfDetector.toArray(new String[0]))
+                );
+        }
         if (detectorTasks.containsKey(detectorId)) {
             detectorTasks.remove(detectorId);
             logger.info("Removed detector from AD task coordinating node cache, detectorId: " + detectorId);
@@ -681,6 +699,7 @@ public class ADTaskCacheManager {
         if (adTaskSlotLimit != null && delta > 0) {
             int newTaskSlots = taskSlots - delta;
             if (newTaskSlots > 0) {
+                taskSlots = newTaskSlots;
                 logger.info("Scale down task slots of detector {} from {} to {}", detectorId, taskSlots, newTaskSlots);
                 adTaskSlotLimit.setDetectorTaskSlots(newTaskSlots);
                 return newTaskSlots;
