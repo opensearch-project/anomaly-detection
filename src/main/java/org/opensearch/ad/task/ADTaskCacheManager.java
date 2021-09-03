@@ -73,8 +73,8 @@ public class ADTaskCacheManager {
     private final int numberSize = 8;
     public static final int TASK_RETRY_LIMIT = 3;
 
-    // This field is to record all batch tasks. Both single entity detector task
-    // and HC entity task will be cached in this field.
+    // This field is to record all batch tasks running on worker node. Both single
+    // entity detector task and HC entity task will be cached in this field.
     // Key: task id
     private final Map<String, ADBatchTaskCache> batchTaskCaches;
 
@@ -88,7 +88,9 @@ public class ADTaskCacheManager {
     // Key: detector id; Value: detector level task id
     private Map<String, String> detectorTasks;
 
-    // Use this field to cache all HC tasks. Key is detector id
+    // This field is to cache all HC detector level data on coordinating node, like
+    // pending/running entities, check more details in comments of ADHCBatchTaskCache.
+    // Key is detector id
     private Map<String, ADHCBatchTaskCache> hcBatchTaskCaches;
     // cache deleted detector level tasks
     private Queue<String> deletedDetectorTasks;
