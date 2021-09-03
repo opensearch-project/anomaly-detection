@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.model.ADTaskState.NOT_ENDED_STATES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -211,6 +212,10 @@ public class ADTask implements ToXContentObject, Writeable {
      */
     public String getDetectorLevelTaskId() {
         return getParentTaskId() != null ? getParentTaskId() : getTaskId();
+    }
+
+    public boolean isDone() {
+        return !NOT_ENDED_STATES.contains(this.getState());
     }
 
     public static class Builder {
