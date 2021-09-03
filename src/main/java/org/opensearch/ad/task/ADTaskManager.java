@@ -863,24 +863,25 @@ public class ADTaskManager {
 
     /**
      * Get anomaly detector and execute consumer function.
+     * [Important!] Make sure listener returns in function
      *
      * @param detectorId detector id
-     * @param consumer consumer function
+     * @param function consumer function
      * @param listener action listener
      * @param <T> action listener response type
      */
-    public <T> void getDetector(String detectorId, Consumer<Optional<AnomalyDetector>> consumer, ActionListener<T> listener) {
+    public <T> void getDetector(String detectorId, Consumer<Optional<AnomalyDetector>> function, ActionListener<T> listener) {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(response -> {
             if (!response.isExists()) {
-                consumer.accept(Optional.empty());
+                function.accept(Optional.empty());
                 return;
             }
             try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
-                consumer.accept(Optional.of(detector));
+                function.accept(Optional.of(detector));
             } catch (Exception e) {
                 String message = "Failed to parse anomaly detector " + detectorId;
                 logger.error(message, e);
@@ -894,6 +895,7 @@ public class ADTaskManager {
 
     /**
      * Get latest AD task and execute consumer function.
+     * [Important!] Make sure listener returns in function
      *
      * @param detectorId detector id
      * @param adTaskTypes AD task types
@@ -916,6 +918,7 @@ public class ADTaskManager {
 
     /**
      * Get one latest AD task and execute consumer function.
+     * [Important!] Make sure listener returns in function
      *
      * @param detectorId detector id
      * @param entityValue entity value
@@ -950,6 +953,7 @@ public class ADTaskManager {
      * node running the latest task, will reset the task state as STOPPED; otherwise, check if there is
      * any stale running entities(entity exists in coordinating node cache but no task running on worker
      * node) and clean up.
+     * [Important!] Make sure listener returns in function
      *
      * @param detectorId detector id
      * @param entityValue entity value
@@ -1030,6 +1034,16 @@ public class ADTaskManager {
         }));
     }
 
+    /**
+     * Reset latest detector task state. Will reset both historical and realtime tasks.
+     * [Important!] Make sure listener returns in function
+     *
+     * @param adTasks ad tasks
+     * @param function consumer function
+     * @param transportService transport service
+     * @param listener action listener
+     * @param <T> response type of action listener
+     */
     private <T> void resetLatestDetectorTaskState(
         List<ADTask> adTasks,
         Consumer<List<ADTask>> function,
@@ -1272,6 +1286,7 @@ public class ADTaskManager {
      * remove detector from cache.
      * If task's coordinating node is not in cluster, we don't need to
      * forward stop task request to coordinating node.
+     * [Important!] Make sure listener returns in function
      *
      * @param adTask AD task
      * @param transportService transport service
@@ -1502,6 +1517,7 @@ public class ADTaskManager {
 
     /**
      * Create AD task directly without checking index exists of not.
+     * [Important!] Make sure listener returns in function
      *
      * @param adTask AD task
      * @param function consumer function
@@ -1831,6 +1847,7 @@ public class ADTaskManager {
 
     /**
      * Delete AD tasks docs.
+     * [Important!] Make sure listener returns in function
      *
      * @param detectorId detector id
      * @param function AD function
