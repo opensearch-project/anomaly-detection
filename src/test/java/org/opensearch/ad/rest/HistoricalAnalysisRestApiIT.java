@@ -29,6 +29,7 @@ package org.opensearch.ad.rest;
 import static org.opensearch.ad.TestHelpers.AD_BASE_STATS_URI;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.stats.StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT;
 import static org.opensearch.ad.stats.StatNames.MULTI_ENTITY_DETECTOR_COUNT;
 import static org.opensearch.ad.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
@@ -60,7 +61,9 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     @Before
     @Override
     public void setUp() throws Exception {
+        super.categoryFieldDocCount = 3;
         super.setUp();
+        updateClusterSettings(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.getKey(), 2);
         updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5);
         updateClusterSettings(MAX_BATCH_TASK_PER_NODE.getKey(), 10);
     }
@@ -86,11 +89,11 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
     }
 
-    private void checkIfTaskCanFinishCorrectly(String detectorId, String taskId, ADTaskState finished) throws InterruptedException {
+    private void checkIfTaskCanFinishCorrectly(String detectorId, String taskId, ADTaskState state) throws InterruptedException {
         ADTaskProfile endTaskProfile = waitUntilTaskDone(detectorId);
         ADTask stoppedAdTask = endTaskProfile.getAdTask();
         assertEquals(taskId, stoppedAdTask.getTaskId());
-        assertEquals(finished.name(), stoppedAdTask.getState());
+        assertEquals(state.name(), stoppedAdTask.getState());
     }
 
     @SuppressWarnings("unchecked")
@@ -107,7 +110,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             if (!ADTaskState.RUNNING.name().equals(adTaskProfile.getAdTask().getState())) {
                 adTaskProfile = waitUntilTaskReachState(detectorId, ImmutableSet.of(ADTaskState.RUNNING.name()));
             }
-            assertEquals(categoryFieldSize * categoryFieldDocCount, adTaskProfile.getTotalEntitiesCount().intValue());
+            assertEquals((int) Math.pow(categoryFieldDocCount, categoryFieldSize), adTaskProfile.getTotalEntitiesCount().intValue());
             assertTrue(adTaskProfile.getPendingEntitiesCount() > 0);
             assertTrue(adTaskProfile.getRunningEntitiesCount() > 0);
         }

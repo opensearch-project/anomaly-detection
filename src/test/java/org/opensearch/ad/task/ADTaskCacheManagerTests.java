@@ -39,6 +39,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING
 import static org.opensearch.ad.task.ADTaskCacheManager.TASK_RETRY_LIMIT;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -53,6 +54,7 @@ import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -131,10 +133,47 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
                 adTask1.getExecutionEndTime(),
                 adTask1.getStoppedBy(),
                 adTask1.getDetectorId(),
-                adTask1.getDetector()
+                adTask1.getDetector(),
+                ADTaskType.HISTORICAL_SINGLE_ENTITY
             );
         DuplicateTaskException e2 = expectThrows(DuplicateTaskException.class, () -> adTaskCacheManager.add(adTask2));
         assertEquals(DETECTOR_IS_RUNNING, e2.getMessage());
+    }
+
+    public void testPutMultipleEntityTasks() throws IOException {
+        when(memoryTracker.canAllocateReserved(anyLong())).thenReturn(true);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(TestHelpers.randomFeature(true)),
+                null,
+                Instant.now(),
+                true,
+                ImmutableList.of(randomAlphaOfLength(5))
+            );
+        ADTask adTask1 = TestHelpers
+            .randomAdTask(
+                randomAlphaOfLength(5),
+                ADTaskState.CREATED,
+                Instant.now(),
+                null,
+                detector.getDetectorId(),
+                detector,
+                ADTaskType.HISTORICAL_HC_ENTITY
+            );
+        ADTask adTask2 = TestHelpers
+            .randomAdTask(
+                randomAlphaOfLength(5),
+                ADTaskState.CREATED,
+                Instant.now(),
+                null,
+                detector.getDetectorId(),
+                detector,
+                ADTaskType.HISTORICAL_HC_ENTITY
+            );
+        adTaskCacheManager.add(adTask1);
+        adTaskCacheManager.add(adTask2);
+        List<String> tasks = adTaskCacheManager.getTasksOfDetector(detector.getDetectorId());
+        assertEquals(2, tasks.size());
     }
 
     public void testAddDetector() throws IOException {
@@ -367,5 +406,125 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         adTaskCacheManager.add(detectorId, adTask);
         assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
         assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+    }
+
+    public void testGetTasksOfDetectorWithNonExistingDetectorId() throws IOException {
+        List<String> tasksOfDetector = adTaskCacheManager.getTasksOfDetector(randomAlphaOfLength(10));
+        assertEquals(0, tasksOfDetector.size());
+    }
+
+    public void testHistoricalTaskCache() throws IOException, InterruptedException {
+        List<String> result = addHCDetectorCache();
+        String detectorId = result.get(0);
+        String detectorTaskId = result.get(1);
+        assertTrue(adTaskCacheManager.containsTaskOfDetector(detectorId));
+        assertTrue(adTaskCacheManager.isHCTaskCoordinatingNode(detectorId));
+        assertTrue(adTaskCacheManager.isHCTaskRunning(detectorId));
+        assertEquals(detectorTaskId, adTaskCacheManager.getDetectorTaskId(detectorId));
+        Instant lastScaleEntityTaskLaneTime = adTaskCacheManager.getLastScaleEntityTaskLaneTime(detectorId);
+        assertNotNull(lastScaleEntityTaskLaneTime);
+        Thread.sleep(500);
+        adTaskCacheManager.refreshLastScaleEntityTaskLaneTime(detectorId);
+        assertTrue(lastScaleEntityTaskLaneTime.isBefore(adTaskCacheManager.getLastScaleEntityTaskLaneTime(detectorId)));
+
+        adTaskCacheManager.removeHistoricalTaskCache(detectorId);
+        assertFalse(adTaskCacheManager.containsTaskOfDetector(detectorId));
+        assertFalse(adTaskCacheManager.isHCTaskCoordinatingNode(detectorId));
+        assertFalse(adTaskCacheManager.isHCTaskRunning(detectorId));
+        assertNull(adTaskCacheManager.getDetectorTaskId(detectorId));
+        assertNull(adTaskCacheManager.getLastScaleEntityTaskLaneTime(detectorId));
+    }
+
+    private List<String> addHCDetectorCache() throws IOException {
+        when(memoryTracker.canAllocateReserved(anyLong())).thenReturn(true);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(TestHelpers.randomFeature(true)),
+                null,
+                Instant.now(),
+                true,
+                ImmutableList.of(randomAlphaOfLength(5))
+            );
+        String detectorId = detector.getDetectorId();
+        ADTask adDetectorTask = TestHelpers
+            .randomAdTask(
+                randomAlphaOfLength(5),
+                ADTaskState.CREATED,
+                Instant.now(),
+                null,
+                detectorId,
+                detector,
+                ADTaskType.HISTORICAL_HC_DETECTOR
+            );
+        ADTask adEntityTask = TestHelpers
+            .randomAdTask(
+                randomAlphaOfLength(5),
+                ADTaskState.CREATED,
+                Instant.now(),
+                null,
+                detectorId,
+                detector,
+                ADTaskType.HISTORICAL_HC_ENTITY
+            );
+        adTaskCacheManager.add(detectorId, adDetectorTask);
+        adTaskCacheManager.add(adEntityTask);
+        assertEquals(adEntityTask.getEntity(), adTaskCacheManager.getEntity(adEntityTask.getTaskId()));
+        String entityValue = randomAlphaOfLength(5);
+        adTaskCacheManager.addPendingEntities(detectorId, ImmutableList.of(entityValue));
+        assertEquals(1, adTaskCacheManager.getUnfinishedEntityCount(detectorId));
+        return ImmutableList.of(detectorId, adDetectorTask.getTaskId(), adEntityTask.getTaskId(), entityValue);
+    }
+
+    public void testCancelHCDetector() throws IOException {
+        List<String> result = addHCDetectorCache();
+        String detectorId = result.get(0);
+        String entityTaskId = result.get(2);
+        assertFalse(adTaskCacheManager.isCancelled(entityTaskId));
+        adTaskCacheManager.cancelByDetectorId(detectorId, "testReason", "testUser");
+        assertTrue(adTaskCacheManager.isCancelled(entityTaskId));
+    }
+
+    public void testTempEntity() throws IOException {
+        List<String> result = addHCDetectorCache();
+        String detectorId = result.get(0);
+        String entityValue = result.get(3);
+        assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
+        adTaskCacheManager.pollEntity(detectorId);
+        assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(1, adTaskCacheManager.getTempEntityCount(detectorId));
+        adTaskCacheManager.addPendingEntity(detectorId, entityValue);
+        assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
+        assertNotNull(adTaskCacheManager.pollEntity(detectorId));
+        assertNull(adTaskCacheManager.pollEntity(detectorId));
+    }
+
+    public void testScaleTaskSlots() throws IOException {
+        List<String> result = addHCDetectorCache();
+        String detectorId = result.get(0);
+        int taskSlots = randomIntBetween(6, 10);
+        int taskLaneLimit = randomIntBetween(1, 10);
+        adTaskCacheManager.setDetectorTaskLaneLimit(detectorId, taskLaneLimit);
+        adTaskCacheManager.setDetectorTaskSlots(detectorId, taskSlots);
+        assertEquals(taskSlots, adTaskCacheManager.getDetectorTaskSlots(detectorId));
+        int scaleUpDelta = randomIntBetween(1, 5);
+        adTaskCacheManager.scaleUpDetectorTaskSlots(detectorId, scaleUpDelta);
+        assertEquals(taskSlots + scaleUpDelta, adTaskCacheManager.getDetectorTaskSlots(detectorId));
+        int scaleDownDelta = randomIntBetween(1, 5);
+        int newTaskSlots = adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId, scaleDownDelta);
+        assertEquals(taskSlots + scaleUpDelta - scaleDownDelta, newTaskSlots);
+        assertEquals(taskSlots + scaleUpDelta - scaleDownDelta, adTaskCacheManager.getDetectorTaskSlots(detectorId));
+        int newTaskSlots2 = adTaskCacheManager.scaleDownHCDetectorTaskSlots(detectorId, taskSlots * 10);
+        assertEquals(newTaskSlots, adTaskCacheManager.getDetectorTaskSlots(detectorId));
+        assertEquals(newTaskSlots, newTaskSlots2);
+    }
+
+    public void testTaskLanes() throws IOException {
+        List<String> result = addHCDetectorCache();
+        String detectorId = result.get(0);
+        int maxTaskLanes = randomIntBetween(1, 10);
+        adTaskCacheManager.setAllowedRunningEntities(detectorId, maxTaskLanes);
+        assertEquals(maxTaskLanes, adTaskCacheManager.getAvailableNewEntityTaskLanes(detectorId));
     }
 }
