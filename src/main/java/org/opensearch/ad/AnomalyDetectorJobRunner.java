@@ -230,7 +230,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             );
             return;
         }
-        indexUtil.updateMappingIfNecessary();
+        indexUtil.update();
         /*
          * We need to handle 3 cases:
          * 1. Detectors created by older versions and never updated. These detectors wont have User details in the

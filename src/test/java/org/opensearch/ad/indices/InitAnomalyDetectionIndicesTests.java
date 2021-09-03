@@ -113,7 +113,14 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
-        adIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, nodeFilter);
+        adIndices = new AnomalyDetectionIndices(
+            client,
+            clusterService,
+            threadPool,
+            settings,
+            nodeFilter,
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        );
     }
 
     @SuppressWarnings("unchecked")

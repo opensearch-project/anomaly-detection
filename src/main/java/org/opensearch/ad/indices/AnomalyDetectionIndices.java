@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,6 +61,10 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverRequest;
+import org.opensearch.action.admin.indices.settings.get.GetSettingsAction;
+import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
+import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
+import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.common.exception.EndRunException;
@@ -103,11 +108,17 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     // The index name pattern to query all AD result, history and current AD result
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
 
+    // minimum shards of the job index
+    public static int minJobIndexReplicas = 1;
+    // maximum shards of the job index
+    public static int maxJobIndexReplicas = 20;
+
     // package private for testing
     static final String META = "_meta";
     private static final String SCHEMA_VERSION = "schema_version";
 
     private ClusterService clusterService;
+    private final Client client;
     private final AdminClient adminClient;
     private final ThreadPool threadPool;
 
@@ -122,20 +133,29 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     // keep track of whether the mapping version is up-to-date
     private EnumMap<ADIndex, IndexState> indexStates;
     // whether all index have the correct mappings
-    private boolean allUpdated;
+    private boolean allMappingUpdated;
+    // whether all index settings are updated
+    private boolean allSettingUpdated;
     // we only want one update at a time
     private final AtomicBoolean updateRunning;
+    // don't retry updating endlessly. Can be annoying if there are too many exception logs.
+    private final int maxUpdateRunningTimes;
+    // the number of times updates run
+    private int updateRunningTimes;
     // AD index settings
     private final Settings setting;
 
     class IndexState {
         // keep track of whether the mapping version is up-to-date
-        private Boolean updated;
+        private Boolean mappingUpToDate;
+        // keep track of whether the setting needs to change
+        private Boolean settingUpToDate;
         // record schema version reading from the mapping file
         private Integer schemaVersion;
 
         IndexState(ADIndex index) {
-            this.updated = false;
+            this.mappingUpToDate = false;
+            settingUpToDate = false;
             this.schemaVersion = parseSchemaVersion(index.getMapping());
         }
     }
@@ -148,14 +168,17 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param threadPool     ES thread pool
      * @param settings       ES cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
+     * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
      */
     public AnomalyDetectionIndices(
         Client client,
         ClusterService clusterService,
         ThreadPool threadPool,
         Settings settings,
-        DiscoveryNodeFilterer nodeFilter
+        DiscoveryNodeFilterer nodeFilter,
+        int maxUpdateRunningTimes
     ) {
+        this.client = client;
         this.adminClient = client.admin();
         this.clusterService = clusterService;
         this.threadPool = threadPool;
@@ -169,7 +192,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
         this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);
 
-        this.allUpdated = false;
+        this.allMappingUpdated = false;
+        this.allSettingUpdated = false;
         this.updateRunning = new AtomicBoolean(false);
 
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = it);
@@ -185,6 +209,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
 
         this.setting = Settings.builder().put("index.hidden", true).build();
+
+        this.maxUpdateRunningTimes = maxUpdateRunningTimes;
+        this.updateRunningTimes = 0;
     }
 
     /**
@@ -315,8 +342,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         return ActionListener.wrap(createdResponse -> {
             if (createdResponse.isAcknowledged()) {
                 IndexState indexStatetate = indexStates.computeIfAbsent(index, IndexState::new);
-                if (Boolean.FALSE.equals(indexStatetate.updated)) {
-                    indexStatetate.updated = Boolean.TRUE;
+                if (Boolean.FALSE.equals(indexStatetate.mappingUpToDate)) {
+                    indexStatetate.mappingUpToDate = Boolean.TRUE;
                     logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", index.getIndexName()));
                 }
             }
@@ -419,7 +446,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                         // scale out their cluster so that we can do adaptive scaling
                         // accordingly.
                         // At least 1 replica for fail-over.
-                        .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, "1-20")
+                        .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
                         .put("index.hidden", true)
                 );
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
@@ -528,7 +555,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
             } else {
                 IndexState indexStatetate = indexStates.computeIfAbsent(ADIndex.RESULT, IndexState::new);
-                indexStatetate.updated = true;
+                indexStatetate.mappingUpToDate = true;
                 logger.info("{} rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
                 deleteOldHistoryIndices();
             }
@@ -603,34 +630,99 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
     }
 
-    /**
-     * Update mapping if schema version changes.
-     */
-    public void updateMappingIfNecessary() {
-        if (allUpdated || updateRunning.get()) {
+    public void update() {
+        if ((allMappingUpdated && allSettingUpdated) || updateRunningTimes >= maxUpdateRunningTimes || updateRunning.get()) {
+            return;
+        }
+        updateRunning.set(true);
+        updateRunningTimes++;
+
+        // set updateRunning to false when both updateMappingIfNecessary and updateSettingIfNecessary
+        // stop running
+        final GroupedActionListener<Void> groupListeneer = new GroupedActionListener<>(
+            ActionListener.wrap(r -> updateRunning.set(false), exception -> {
+                updateRunning.set(false);
+                logger.error("Fail to update AD indices", exception);
+            }),
+            // 2 since we need both updateMappingIfNecessary and updateSettingIfNecessary to return
+            // before setting updateRunning to false
+            2
+        );
+
+        updateMappingIfNecessary(groupListeneer);
+        updateSettingIfNecessary(groupListeneer);
+    }
+
+    private void updateSettingIfNecessary(GroupedActionListener<Void> delegateListeneer) {
+        if (allSettingUpdated) {
+            delegateListeneer.onResponse(null);
             return;
         }
 
-        updateRunning.set(true);
-
         List<ADIndex> updates = new ArrayList<>();
         for (ADIndex index : ADIndex.values()) {
-            Boolean updated = indexStates.computeIfAbsent(index, IndexState::new).updated;
+            Boolean updated = indexStates.computeIfAbsent(index, IndexState::new).settingUpToDate;
             if (Boolean.FALSE.equals(updated)) {
                 updates.add(index);
             }
         }
         if (updates.size() == 0) {
-            allUpdated = true;
-            updateRunning.set(false);
+            allSettingUpdated = true;
+            delegateListeneer.onResponse(null);
             return;
         }
 
         final GroupedActionListener<Void> conglomerateListeneer = new GroupedActionListener<>(
-            ActionListener.wrap(r -> updateRunning.set(false), exception -> {
-                // TODO: don't retry endlessly. Can be annoying if there are too many exception logs.
-                updateRunning.set(false);
-                logger.error("Fail to update AD indices' mappings");
+            ActionListener.wrap(r -> delegateListeneer.onResponse(null), exception -> {
+                delegateListeneer.onResponse(null);
+                logger.error("Fail to update AD indices' mappings", exception);
+            }),
+            updates.size()
+        );
+        for (ADIndex adIndex : updates) {
+            logger.info(new ParameterizedMessage("Check [{}]'s setting", adIndex.getIndexName()));
+            switch (adIndex) {
+                case JOB:
+                    updateJobIndexSettingIfNecessary(indexStates.computeIfAbsent(adIndex, IndexState::new), conglomerateListeneer);
+                    break;
+                default:
+                    // we don't have settings to update for other indices
+                    IndexState indexState = indexStates.computeIfAbsent(adIndex, IndexState::new);
+                    indexState.settingUpToDate = true;
+                    logger.info(new ParameterizedMessage("Mark [{}]'s setting up-to-date", adIndex.getIndexName()));
+                    conglomerateListeneer.onResponse(null);
+                    break;
+            }
+
+        }
+    }
+
+    /**
+     * Update mapping if schema version changes.
+     */
+    private void updateMappingIfNecessary(GroupedActionListener<Void> delegateListeneer) {
+        if (allMappingUpdated) {
+            delegateListeneer.onResponse(null);
+            return;
+        }
+
+        List<ADIndex> updates = new ArrayList<>();
+        for (ADIndex index : ADIndex.values()) {
+            Boolean updated = indexStates.computeIfAbsent(index, IndexState::new).mappingUpToDate;
+            if (Boolean.FALSE.equals(updated)) {
+                updates.add(index);
+            }
+        }
+        if (updates.size() == 0) {
+            allMappingUpdated = true;
+            delegateListeneer.onResponse(null);
+            return;
+        }
+
+        final GroupedActionListener<Void> conglomerateListeneer = new GroupedActionListener<>(
+            ActionListener.wrap(r -> delegateListeneer.onResponse(null), exception -> {
+                delegateListeneer.onResponse(null);
+                logger.error("Fail to update AD indices' mappings", exception);
             }),
             updates.size()
         );
@@ -688,8 +780,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     private void markMappingUpdated(ADIndex adIndex) {
         IndexState indexState = indexStates.computeIfAbsent(adIndex, IndexState::new);
-        if (Boolean.FALSE.equals(indexState.updated)) {
-            indexState.updated = Boolean.TRUE;
+        if (Boolean.FALSE.equals(indexState.mappingUpToDate)) {
+            indexState.mappingUpToDate = Boolean.TRUE;
             logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", adIndex.getIndexName()));
         }
     }
@@ -719,6 +811,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                         concreteIndex = entry.key;
                         break;
                     }
+                }
+                if (concreteIndex == null) {
+                    thenDo.onResponse(Boolean.FALSE);
+                    return;
                 }
                 shouldUpdateConcreteIndex(concreteIndex, newVersion, thenDo);
             }, exception -> logger.error(new ParameterizedMessage("Fail to get [{}]'s alias", index.getIndexName()), exception)));
@@ -801,8 +897,96 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param index Index metadata
      * @return Whether the given index's mapping is up-to-date
      */
-    public Boolean isUpdated(ADIndex index) {
+    public Boolean isMappingUpdated(ADIndex index) {
         IndexState indexState = this.indexStates.computeIfAbsent(index, IndexState::new);
-        return indexState.updated;
+        return indexState.mappingUpToDate;
+    }
+
+    private void updateJobIndexSettingIfNecessary(IndexState jobIndexState, ActionListener<Void> listener) {
+        GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
+            .indices(ADIndex.JOB.getIndexName())
+            .names(
+                new String[] {
+                    IndexMetadata.SETTING_NUMBER_OF_SHARDS,
+                    IndexMetadata.SETTING_NUMBER_OF_REPLICAS,
+                    IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS }
+            );
+        client.execute(GetSettingsAction.INSTANCE, getSettingsRequest, ActionListener.wrap(settingResponse -> {
+            // auto expand setting is a range string like "1-all"
+            String autoExpandReplica = getStringSetting(settingResponse, IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS);
+            // if the auto expand setting is already there, return immediately
+            if (autoExpandReplica != null) {
+                jobIndexState.settingUpToDate = true;
+                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+                listener.onResponse(null);
+                return;
+            }
+            Integer primaryShardsNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_SHARDS);
+            Integer replicaNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_REPLICAS);
+            if (primaryShardsNumber == null || replicaNumber == null) {
+                logger
+                    .error(
+                        new ParameterizedMessage(
+                            "Fail to find AD job index's primary or replica shard number: primary [{}], replica [{}]",
+                            primaryShardsNumber,
+                            replicaNumber
+                        )
+                    );
+                // don't throw exception as we don't know how to handle it and retry next time
+                listener.onResponse(null);
+                return;
+            }
+            // at least minJobIndexReplicas
+            // at most maxJobIndexReplicas / primaryShardsNumber replicas.
+            // For example, if we have 2 primary shards, since the max number of shards are maxJobIndexReplicas (20),
+            // we will use 20 / 2 = 10 replicas as the upper bound of replica.
+            int maxExpectedReplicas = Math.max(maxJobIndexReplicas / primaryShardsNumber, minJobIndexReplicas);
+            Settings updatedSettings = Settings
+                .builder()
+                .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxExpectedReplicas)
+                .build();
+            final UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(ADIndex.JOB.getIndexName())
+                .settings(updatedSettings);
+            client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(response -> {
+                jobIndexState.settingUpToDate = true;
+                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+                listener.onResponse(null);
+            }, listener::onFailure));
+        }, e -> {
+            if (e instanceof IndexNotFoundException) {
+                // new index will be created with auto expand replica setting
+                jobIndexState.settingUpToDate = true;
+                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+                listener.onResponse(null);
+            } else {
+                listener.onFailure(e);
+            }
+        }));
+    }
+
+    private static Integer getIntegerSetting(GetSettingsResponse settingsResponse, String settingKey) {
+        Integer value = null;
+        Iterator<Settings> iter = settingsResponse.getIndexToSettings().valuesIt();
+        while (iter.hasNext()) {
+            Settings settings = iter.next();
+            value = settings.getAsInt(settingKey, null);
+            if (value != null) {
+                break;
+            }
+        }
+        return value;
+    }
+
+    private static String getStringSetting(GetSettingsResponse settingsResponse, String settingKey) {
+        String value = null;
+        Iterator<Settings> iter = settingsResponse.getIndexToSettings().valuesIt();
+        while (iter.hasNext()) {
+            Settings settings = iter.next();
+            value = settings.get(settingKey, null);
+            if (value != null) {
+                break;
+            }
+        }
+        return value;
     }
 }

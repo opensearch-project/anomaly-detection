@@ -111,7 +111,14 @@ public class RolloverTests extends AbstractADTest {
         numberOfNodes = 2;
         when(nodeFilter.getNumberOfEligibleDataNodes()).thenReturn(numberOfNodes);
 
-        adIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, nodeFilter);
+        adIndices = new AnomalyDetectionIndices(
+            client,
+            clusterService,
+            threadPool,
+            settings,
+            nodeFilter,
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        );
 
         clusterAdminClient = mock(ClusterAdminClient.class);
         when(adminClient.cluster()).thenReturn(clusterAdminClient);
