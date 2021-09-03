@@ -668,7 +668,6 @@ public class ADBatchTaskRunner {
                         ADBatchTaskRemoteExecutionAction.NAME,
                         new ADBatchAnomalyResultRequest(adTask),
                         option,
-                        // TODO: check if still need to add true/false in startADBatchTask
                         new ActionListenerResponseHandler<>(workerNodeResponseListener, ADBatchAnomalyResultResponse::new)
                     );
             }
