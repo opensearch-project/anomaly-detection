@@ -112,17 +112,27 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                 detectorId,
                 filterByEnabled,
                 listener,
-                // Check if there is realtime job or historical analysis task running. If none of these running, we
-                // can delete the detector.
-                (anomalyDetector) -> adTaskManager.getDetector(detectorId, detector -> getDetectorJob(detectorId, listener, () -> {
-                    adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
-                        if (adTask.isPresent() && !adTaskManager.isADTaskEnded(adTask.get())) {
-                            listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-                        } else {
-                            adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
-                        }
-                    }, transportService, true, listener);
-                }), listener),
+                (anomalyDetector) -> adTaskManager.getDetector(detectorId, detector -> {
+                    if (!detector.isPresent()) {
+                        // In a mixed cluster, if delete detector request routes to node running AD1.0, then it will
+                        // not delete detector tasks. User can re-delete these deleted detector after cluster upgraded,
+                        // in that case, the detector is not present.
+                        LOG.info("Can't find anomaly detector {}", detectorId);
+                        adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
+                        return;
+                    }
+                    // Check if there is realtime job or historical analysis task running. If none of these running, we
+                    // can delete the detector.
+                    getDetectorJob(detectorId, listener, () -> {
+                        adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
+                            if (adTask.isPresent() && !adTask.get().isDone()) {
+                                listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                            } else {
+                                adTaskManager.deleteADTasks(detectorId, () -> deleteAnomalyDetectorJobDoc(detectorId, listener), listener);
+                            }
+                        }, transportService, true, listener);
+                    });
+                }, listener),
                 client,
                 clusterService,
                 xContentRegistry
@@ -146,6 +156,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                 listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         }, exception -> {
+            LOG.error("Failed to delete AD job for " + detectorId, exception);
             if (exception instanceof IndexNotFoundException) {
                 deleteDetectorStateDoc(detectorId, listener);
             } else {

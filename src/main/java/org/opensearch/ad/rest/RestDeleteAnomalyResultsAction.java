@@ -60,7 +60,6 @@ public class RestDeleteAnomalyResultsAction extends BaseRestHandler {
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-        logger.debug("delete AD results with query: {} ", searchSourceBuilder);
         DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(ALL_AD_RESULTS_INDEX_PATTERN)
             .setQuery(searchSourceBuilder.query())
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN_HIDDEN);
