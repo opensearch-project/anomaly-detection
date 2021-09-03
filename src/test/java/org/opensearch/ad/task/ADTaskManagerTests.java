@@ -39,6 +39,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.opensearch.ad.TestHelpers.randomDetector;
 import static org.opensearch.ad.TestHelpers.randomFeature;
 import static org.opensearch.ad.TestHelpers.randomUser;
@@ -133,6 +134,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private DiscoveryNode node1;
     private DiscoveryNode node2;
 
+    private int maxRunningEntities;
     @Captor
     ArgumentCaptor<TransportResponseHandler<AnomalyDetectorJobResponse>> remoteResponseHandler;
 
@@ -213,6 +215,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             emptySet(),
             Version.CURRENT
         );
+        maxRunningEntities = MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.get(settings).intValue();
     }
 
     private void setupGetDetector(AnomalyDetector detector) {
@@ -530,5 +533,31 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         String entityValue = adTaskManager.convertEntityToString(adTask);
         Entity entity = adTaskManager.parseEntityFromString(entityValue, adTask);
         assertEquals(entity, adTask.getEntity());
+    }
+
+    public void testDetectorTaskSlotScaleUpDelta() {
+        String detectorId = randomAlphaOfLength(5);
+        DiscoveryNode[] eligibleDataNodes = new DiscoveryNode[] { node1, node2 };
+
+        // Scale down
+        when(hashRing.getNodesWithSameLocalAdVersion()).thenReturn(eligibleDataNodes);
+        when(adTaskCacheManager.getUnfinishedEntityCount(detectorId)).thenReturn(maxRunningEntities * 10);
+        int taskSlots = maxRunningEntities - 1;
+        when(adTaskCacheManager.getDetectorTaskSlots(detectorId)).thenReturn(taskSlots);
+        int delta = adTaskManager.detectorTaskSlotScaleDelta(detectorId);
+        assertEquals(maxRunningEntities - taskSlots, delta);
+    }
+
+    public void testDetectorTaskSlotScaleDownDelta() {
+        String detectorId = randomAlphaOfLength(5);
+        DiscoveryNode[] eligibleDataNodes = new DiscoveryNode[] { node1, node2 };
+
+        // Scale down
+        when(hashRing.getNodesWithSameLocalAdVersion()).thenReturn(eligibleDataNodes);
+        when(adTaskCacheManager.getUnfinishedEntityCount(detectorId)).thenReturn(maxRunningEntities * 10);
+        int taskSlots = maxRunningEntities * 5;
+        when(adTaskCacheManager.getDetectorTaskSlots(detectorId)).thenReturn(taskSlots);
+        int delta = adTaskManager.detectorTaskSlotScaleDelta(detectorId);
+        assertEquals(maxRunningEntities - taskSlots, delta);
     }
 }

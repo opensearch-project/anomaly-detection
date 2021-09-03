@@ -28,6 +28,7 @@ package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.action.DocWriteResponse.Result.UPDATED;
+import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
@@ -48,6 +49,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTaskState;
+import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
@@ -65,6 +67,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.transport.TransportService;
 
 /**
  * Anomaly detector job REST action handler to process POST/PUT request.
@@ -78,6 +81,7 @@ public class IndexAnomalyDetectorJobActionHandler {
     private final Client client;
     private final ActionListener<AnomalyDetectorJobResponse> listener;
     private final NamedXContentRegistry xContentRegistry;
+    private final TransportService transportService;
     private final ADTaskManager adTaskManager;
 
     private final Logger logger = LogManager.getLogger(IndexAnomalyDetectorJobActionHandler.class);
@@ -94,6 +98,7 @@ public class IndexAnomalyDetectorJobActionHandler {
      * @param primaryTerm             primary term of last modification
      * @param requestTimeout          request time out configuration
      * @param xContentRegistry        Registry which is used for XContentParser
+     * @param transportService        transport service
      * @param adTaskManager           AD task manager
      */
     public IndexAnomalyDetectorJobActionHandler(
@@ -105,6 +110,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         Long primaryTerm,
         TimeValue requestTimeout,
         NamedXContentRegistry xContentRegistry,
+        TransportService transportService,
         ADTaskManager adTaskManager
     ) {
         this.client = client;
@@ -115,6 +121,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         this.primaryTerm = primaryTerm;
         this.requestTimeout = requestTimeout;
         this.xContentRegistry = xContentRegistry;
+        this.transportService = transportService;
         this.adTaskManager = adTaskManager;
     }
 
@@ -205,7 +212,24 @@ public class IndexAnomalyDetectorJobActionHandler {
                         job.getLockDurationSeconds(),
                         job.getUser()
                     );
-                    indexAnomalyDetectorJob(newJob, () -> { adTaskManager.startDetector(detector, null, job.getUser(), null, listener); });
+                    // Get latest realtime task and check its state before index job. Will reset running realtime task
+                    // as STOPPED first if job disabled, then start new job and create new realtime task.
+                    adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, (adTask) -> {
+                        if (!adTask.isPresent() || adTask.get().isDone()) {
+                            try {
+                                indexAnomalyDetectorJob(
+                                    newJob,
+                                    () -> { adTaskManager.executeAnomalyDetector(detector, null, job.getUser(), listener); }
+                                );
+                            } catch (IOException e) {
+                                String message = "Failed to start realtime job for detector " + job.getName();
+                                logger.error(message, e);
+                                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+                            }
+                        } else {
+                            listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
+                        }
+                    }, transportService, true, listener);
                 }
             } catch (IOException e) {
                 String message = "Failed to parse anomaly detector job " + job.getName();
