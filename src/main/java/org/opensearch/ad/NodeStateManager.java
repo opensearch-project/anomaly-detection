@@ -286,10 +286,19 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     public void resetBackpressureCounter(String nodeId, String detectorId) {
         Map<String, BackPressureRouting> routingMap = backpressureMuter.get(detectorId);
         if (routingMap == null || routingMap.isEmpty()) {
+            // TODO: confirm with Kaituo, do we need to remove detector's backpressure counter for all nodes/
             backpressureMuter.remove(detectorId);
             return;
         }
         routingMap.remove(nodeId);
+    }
+
+    public void removeBackpressureCounter(String detectorId) {
+        Map<String, BackPressureRouting> routingMap = backpressureMuter.get(detectorId);
+        if (routingMap != null) {
+            routingMap.clear();
+            backpressureMuter.remove(detectorId);
+        }
     }
 
     /**

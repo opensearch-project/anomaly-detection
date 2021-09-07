@@ -305,19 +305,16 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     public void testStartRealtimeDetector() throws IOException {
         List<String> realtimeResult = startRealtimeDetector();
         String detectorId = realtimeResult.get(0);
-        String taskId = realtimeResult.get(1);
+        String jobId = realtimeResult.get(1);
         GetResponse jobDoc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
         AnomalyDetectorJob job = toADJob(jobDoc);
         assertTrue(job.isEnabled());
         assertEquals(detectorId, job.getName());
 
-        ADTask adTask = getADTask(taskId);
-        assertEquals(taskId, adTask.getTaskId());
-
         List<ADTask> adTasks = searchADTasks(detectorId, true, 10);
         assertEquals(1, adTasks.size());
         assertEquals(ADTaskType.REALTIME_SINGLE_ENTITY.name(), adTasks.get(0).getTaskType());
-        assertEquals(taskId, adTasks.get(0).getTaskId());
+        assertNotEquals(jobId, adTasks.get(0).getTaskId());
     }
 
     private List<String> startRealtimeDetector() throws IOException {
@@ -326,9 +323,9 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         String detectorId = createDetector(detector);
         AnomalyDetectorJobRequest request = startDetectorJobRequest(detectorId, null);
         AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
-        String taskId = response.getId();
-        assertNotEquals(detectorId, taskId);
-        return ImmutableList.of(detectorId, taskId);
+        String jobId = response.getId();
+        assertEquals(detectorId, jobId);
+        return ImmutableList.of(detectorId, jobId);
     }
 
     public void testRealtimeDetectorWithoutFeature() throws IOException {
@@ -374,7 +371,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     public void testStopRealtimeDetector() throws IOException {
         List<String> realtimeResult = startRealtimeDetector();
         String detectorId = realtimeResult.get(0);
-        String taskId = realtimeResult.get(1);
+        String jobId = realtimeResult.get(1);
 
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(detectorId, false);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
@@ -383,9 +380,11 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertFalse(job.isEnabled());
         assertEquals(detectorId, job.getName());
 
-        ADTask adTask = getADTask(taskId);
-        assertEquals(taskId, adTask.getTaskId());
-        assertEquals(ADTaskState.STOPPED.name(), adTask.getState());
+        List<ADTask> adTasks = searchADTasks(detectorId, true, 10);
+        assertEquals(1, adTasks.size());
+        assertEquals(ADTaskType.REALTIME_SINGLE_ENTITY.name(), adTasks.get(0).getTaskType());
+        assertNotEquals(jobId, adTasks.get(0).getTaskId());
+        assertEquals(ADTaskState.STOPPED.name(), adTasks.get(0).getState());
     }
 
     public void testStopHistoricalDetector() throws IOException, InterruptedException {

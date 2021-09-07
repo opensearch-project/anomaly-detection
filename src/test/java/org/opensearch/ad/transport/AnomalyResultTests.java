@@ -109,6 +109,7 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -166,6 +167,7 @@ public class AnomalyResultTests extends AbstractADTest {
     private ADCircuitBreakerService adCircuitBreakerService;
     private ADStats adStats;
     private int partitionNum;
+    private ADTaskManager adTaskManager;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -312,6 +314,20 @@ public class AnomalyResultTests extends AbstractADTest {
 
             return null;
         }).when(client).get(any(), any());
+
+        adTaskManager = mock(ADTaskManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(3);
+            listener.onResponse(true);
+            return null;
+        })
+            .when(adTaskManager)
+            .initRealtimeTaskCacheAndCleanupStaleCache(
+                anyString(),
+                any(AnomalyDetector.class),
+                any(TransportService.class),
+                any(ActionListener.class)
+            );
     }
 
     @Override
@@ -354,7 +370,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -477,7 +494,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -557,7 +575,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -600,7 +619,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -703,7 +723,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -748,7 +769,8 @@ public class AnomalyResultTests extends AbstractADTest {
             breakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -817,7 +839,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -885,7 +908,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
@@ -925,7 +949,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         TransportRequestOptions option = TransportRequestOptions
@@ -1080,7 +1105,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
             null, null, null, null, null, null, null, null, null, 0, new AtomicInteger(), null, 1
@@ -1137,7 +1163,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1174,7 +1201,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1217,7 +1245,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1260,7 +1289,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1310,7 +1340,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1397,7 +1428,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1444,7 +1476,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
             null, "123-rcf-0", null, "123", null, null, null, null, null, 0, new AtomicInteger(), null, 1
@@ -1476,7 +1509,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1539,7 +1573,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -1579,7 +1614,8 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY
+            NamedXContentRegistry.EMPTY,
+            adTaskManager
         );
 
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);

@@ -54,6 +54,7 @@ public class DeleteModelTransportAction extends
     private FeatureManager featureManager;
     private CacheProvider cache;
     private ADTaskCacheManager adTaskCacheManager;
+    private NodeStateManager stateManager;
 
     @Inject
     public DeleteModelTransportAction(
@@ -65,7 +66,8 @@ public class DeleteModelTransportAction extends
         ModelManager modelManager,
         FeatureManager featureManager,
         CacheProvider cache,
-        ADTaskCacheManager adTaskCacheManager
+        ADTaskCacheManager adTaskCacheManager,
+        NodeStateManager stateManager
     ) {
         super(
             DeleteModelAction.NAME,
@@ -83,6 +85,7 @@ public class DeleteModelTransportAction extends
         this.featureManager = featureManager;
         this.cache = cache;
         this.adTaskCacheManager = adTaskCacheManager;
+        this.stateManager = stateManager;
     }
 
     @Override
@@ -130,6 +133,9 @@ public class DeleteModelTransportAction extends
 
         // delete buffered shingle data
         featureManager.clear(adID);
+
+        // delete detector backpressure counter
+        stateManager.removeBackpressureCounter(adID);
 
         // delete transport state
         transportStateManager.clear(adID);

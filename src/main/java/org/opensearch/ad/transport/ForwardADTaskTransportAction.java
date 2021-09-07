@@ -39,6 +39,8 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.NodeStateManager;
+import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.ADTaskState;
@@ -60,17 +62,26 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
     private final ADTaskManager adTaskManager;
     private final ADTaskCacheManager adTaskCacheManager;
 
+    // Cache anomaly detector's backpressure counter for realtime detection.
+    private final NodeStateManager stateManager;
+    // Cache anomaly detector's data points for shingling of realtime detection.
+    private final FeatureManager featureManager;
+
     @Inject
     public ForwardADTaskTransportAction(
         ActionFilters actionFilters,
         TransportService transportService,
         ADTaskManager adTaskManager,
-        ADTaskCacheManager adTaskCacheManager
+        ADTaskCacheManager adTaskCacheManager,
+        FeatureManager featureManager,
+        NodeStateManager stateManager
     ) {
         super(ForwardADTaskAction.NAME, transportService, actionFilters, ForwardADTaskRequest::new);
         this.adTaskManager = adTaskManager;
         this.transportService = transportService;
         this.adTaskCacheManager = adTaskCacheManager;
+        this.featureManager = featureManager;
+        this.stateManager = stateManager;
     }
 
     @Override
@@ -125,6 +136,10 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     adTaskCacheManager.removeHistoricalTaskCache(detectorId);
                 } else {
                     adTaskCacheManager.removeRealtimeTaskCache(detectorId);
+                    // If hash ring changed like new node added when scale out, the realtime job coordinating node may
+                    // change, then we should clean up cache on old coordinating node.
+                    stateManager.removeBackpressureCounter(detectorId);
+                    featureManager.clear(detectorId);
                 }
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;

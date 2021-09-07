@@ -475,6 +475,8 @@ public class ModelManager implements DetectorModelSize {
     /**
      * Permanently deletes models hosted in memory and persisted in index.
      *
+     * TODO: confirm with Kaituo, when will we call this clear method, only see when call this method stop realtime job
+     *
      * @param detectorId id the of the detector for which models are to be permanently deleted
      * @param listener onResponse is called with null when this operation is completed
      */

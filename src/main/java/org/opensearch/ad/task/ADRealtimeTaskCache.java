@@ -11,11 +11,15 @@
 
 package org.opensearch.ad.task;
 
+import java.time.Instant;
+
 /**
  * AD realtime task cache which will hold these data
  * 1. task state
  * 2. init progress
  * 3. error
+ * 4. last job run time
+ * 5. detector interval
  */
 public class ADRealtimeTaskCache {
 
@@ -28,10 +32,18 @@ public class ADRealtimeTaskCache {
     // error
     private String error;
 
-    public ADRealtimeTaskCache(String state, Float initProgress, String error) {
+    // track last job run time, will clean up cache if no access after 2 intervals
+    private long lastJobRunTime;
+
+    // detector interval in milliseconds.
+    private long detectorIntervalInMillis;
+
+    public ADRealtimeTaskCache(String state, Float initProgress, String error, long detectorIntervalInMillis) {
         this.state = state;
         this.initProgress = initProgress;
         this.error = error;
+        this.lastJobRunTime = Instant.now().toEpochMilli();
+        this.detectorIntervalInMillis = detectorIntervalInMillis;
     }
 
     public String getState() {
@@ -56,5 +68,17 @@ public class ADRealtimeTaskCache {
 
     public void setError(String error) {
         this.error = error;
+    }
+
+    public void setLastJobRunTime(long lastJobRunTime) {
+        this.lastJobRunTime = lastJobRunTime;
+    }
+
+    public void setDetectorIntervalInMillis(long detectorIntervalInMillis) {
+        this.detectorIntervalInMillis = detectorIntervalInMillis;
+    }
+
+    public boolean expired() {
+        return lastJobRunTime + 2 * detectorIntervalInMillis < Instant.now().toEpochMilli();
     }
 }

@@ -113,6 +113,7 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.Bwc;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
@@ -182,6 +183,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     private String hostField = "host";
     private Map<String, Object> attrs1, attrs2, attrs3;
     private EntityCache entityCache;
+    private ADTaskManager adTaskManager;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -269,6 +271,20 @@ public class MultiEntityResultTests extends AbstractADTest {
         };
         adStats = new ADStats(statsMap);
 
+        adTaskManager = mock(ADTaskManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(3);
+            listener.onResponse(true);
+            return null;
+        })
+            .when(adTaskManager)
+            .initRealtimeTaskCacheAndCleanupStaleCache(
+                anyString(),
+                any(AnomalyDetector.class),
+                any(TransportService.class),
+                any(ActionListener.class)
+            );
+
         action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
@@ -284,7 +300,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
 
         provider = mock(CacheProvider.class);
@@ -455,7 +472,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
     }
 
@@ -691,7 +709,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
     }
 
@@ -752,7 +771,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
 
         CountDownLatch inProgress = setUpSearchResponse();
