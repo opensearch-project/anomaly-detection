@@ -649,12 +649,6 @@ public class PriorityCache implements EntityCache {
      */
     @Override
     public void clear(String detectorId) {
-        removeDetectorCache(detectorId);
-        checkpointDao.deleteModelCheckpointByDetectorId(detectorId);
-    }
-
-    @Override
-    public void removeDetectorCache(String detectorId) {
         if (Strings.isEmpty(detectorId)) {
             return;
         }
@@ -662,6 +656,7 @@ public class PriorityCache implements EntityCache {
         if (buffer != null) {
             buffer.clear();
         }
+        checkpointDao.deleteModelCheckpointByDetectorId(detectorId);
         doorKeepers.remove(detectorId);
     }
 

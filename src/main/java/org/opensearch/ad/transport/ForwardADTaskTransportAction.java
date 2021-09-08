@@ -40,9 +40,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.ADTaskState;
@@ -65,18 +63,14 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
     private final ADTaskCacheManager adTaskCacheManager;
 
     // =========================================================
-    // Fields below contains cache for realtime AD. We need to
-    // clean up these caches when receive FINISHED action for
-    // realtime task.
+    // Fields below contains cache for realtime AD on coordinating
+    // node. We need to clean up these caches when receive FINISHED
+    // action for realtime task.
     // =========================================================
     // NodeStateManager caches anomaly detector's backpressure counter for realtime detection.
     private final NodeStateManager stateManager;
     // FeatureManager caches anomaly detector's feature data points for shingling of realtime detection.
     private final FeatureManager featureManager;
-    // EntityColdStarter caches anomaly detector's door keepers.
-    private final EntityColdStarter entityColdStarter;
-    // CacheProvider caches data for HC realtime AD like active/inactive entities, doorkeepers.
-    private final CacheProvider priorityCache;
 
     @Inject
     public ForwardADTaskTransportAction(
@@ -85,9 +79,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         ADTaskManager adTaskManager,
         ADTaskCacheManager adTaskCacheManager,
         FeatureManager featureManager,
-        NodeStateManager stateManager,
-        EntityColdStarter entityColdStarter,
-        CacheProvider priorityCache
+        NodeStateManager stateManager
     ) {
         super(ForwardADTaskAction.NAME, transportService, actionFilters, ForwardADTaskRequest::new);
         this.adTaskManager = adTaskManager;
@@ -95,8 +87,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         this.adTaskCacheManager = adTaskCacheManager;
         this.featureManager = featureManager;
         this.stateManager = stateManager;
-        this.entityColdStarter = entityColdStarter;
-        this.priorityCache = priorityCache;
     }
 
     @Override
@@ -155,8 +145,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     // change, then we should clean up cache on old coordinating node.
                     stateManager.removeBackpressureCounter(detectorId);
                     featureManager.clear(detectorId);
-                    entityColdStarter.removeDoorKeeper(detectorId);
-                    priorityCache.get().removeDetectorCache(detectorId);
                 }
                 listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;

@@ -128,31 +128,26 @@ public class ADClusterEventListener implements ClusterStateListener {
 
             if (dataNodeAdded || dataNodeRemoved) {
                 hashRing.addNodeChangeEvent();
-                boolean finalDataNodeAdded = dataNodeAdded;
                 hashRing.buildCircles(delta, ActionListener.wrap(hasRingBuildDone -> {
                     if (hasRingBuildDone) {
                         LOG.info("Build AD version hash ring successfully");
-                        if (finalDataNodeAdded) {
-                            // Once hash ring rebuilt done, the removed node is not in hash ring, so we just stop model
-                            // for data node added case.
-                            String localNodeId = event.state().nodes().getLocalNode().getId();
-                            Set<String> modelIds = modelManager.getAllModelIds();
-                            for (String modelId : modelIds) {
-                                Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(modelId);
-                                if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
-                                    LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
-                                    modelManager
-                                        .stopModel(
-                                            // stopModel will clear model cache
-                                            modelManager.getDetectorIdForModelId(modelId),
-                                            modelId,
-                                            ActionListener
-                                                .wrap(
-                                                    r -> LOG.info("Stopped model [{}] with response [{}]", modelId, r),
-                                                    e -> LOG.error("Fail to stop model " + modelId, e)
-                                                )
-                                        );
-                                }
+                        String localNodeId = event.state().nodes().getLocalNode().getId();
+                        Set<String> modelIds = modelManager.getAllModelIds();
+                        for (String modelId : modelIds) {
+                            Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(modelId);
+                            if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
+                                LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
+                                modelManager
+                                    .stopModel(
+                                        // stopModel will clear model cache
+                                        modelManager.getDetectorIdForModelId(modelId),
+                                        modelId,
+                                        ActionListener
+                                            .wrap(
+                                                r -> LOG.info("Stopped model [{}] with response [{}]", modelId, r),
+                                                e -> LOG.error("Fail to stop model " + modelId, e)
+                                            )
+                                    );
                             }
                         }
                     }
