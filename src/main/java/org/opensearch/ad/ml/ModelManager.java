@@ -481,7 +481,6 @@ public class ModelManager implements DetectorModelSize {
      * @param listener onResponse is called with null when this operation is completed
      */
     public void clear(String detectorId, ActionListener<Void> listener) {
-        entityColdStarter.removeDoorKeeper(detectorId);
         clearModels(detectorId, forests, ActionListener.wrap(r -> clearModels(detectorId, thresholds, listener), listener::onFailure));
     }
 
