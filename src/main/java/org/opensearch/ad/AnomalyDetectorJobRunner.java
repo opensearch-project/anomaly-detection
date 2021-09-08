@@ -650,20 +650,12 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 error,
                 ActionListener.wrap(r -> {
                     if (r != null) {
-                        log
-                            .info(
-                                "Updated latest realtime task successfully for detector {}, taskState: {},"
-                                    + " RCF total update: {}, detectorIntervalInMinutes: {}",
-                                detectorId,
-                                taskState,
-                                rcfTotalUpdates,
-                                detectorIntervalInMinutes
-                            );
+                        log.debug("Updated latest realtime task successfully for detector {}, taskState: {}", detectorId, taskState);
                     }
                 }, e -> {
-                    log.error("Failed to update latest realtime task for detector " + detectorId, e);
                     if ((e instanceof ResourceNotFoundException) && e.getMessage().contains(CAN_NOT_FIND_LATEST_TASK)) {
                         // Clear realtime task cache, will recreate AD task in next run, check AnomalyResultTransportAction.
+                        log.error("Can't find latest realtime task of detector " + detectorId);
                         adTaskManager.removeRealtimeTaskCache(detectorId);
                     } else {
                         log.error("Failed to update latest realtime task for detector " + detectorId, e);

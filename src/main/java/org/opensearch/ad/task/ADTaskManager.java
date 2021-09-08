@@ -2138,7 +2138,7 @@ public class ADTaskManager {
         if (detectionIndices.doesDetectorStateIndexExist()) {
             function.execute();
         } else {
-            // If detection index doesn't exist, create index and execute detector.
+            // If detection index doesn't exist, create index and execute function.
             detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
                 if (r.isAcknowledged()) {
                     logger.info("Created {} with mappings.", DETECTION_STATE_INDEX);
@@ -2160,7 +2160,7 @@ public class ADTaskManager {
     }
 
     public void refreshRealtimeJobRunTime(String detectorId) {
-        adTaskCacheManager.recordRealtimeJobRunTime(detectorId);
+        adTaskCacheManager.refreshRealtimeJobRunTime(detectorId);
     }
 
     public void removeRealtimeTaskCache(String detectorId) {
@@ -2879,7 +2879,7 @@ public class ADTaskManager {
     }
 
     // =========================================================
-    // Below are maintenance code triggered in hourly cron
+    // Methods below are maintenance code triggered by hourly cron
     // =========================================================
 
     /**

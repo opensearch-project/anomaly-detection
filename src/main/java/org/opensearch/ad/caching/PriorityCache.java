@@ -83,7 +83,7 @@ public class PriorityCache implements EntityCache {
     private final Map<String, CacheBuffer> activeEnities;
     private final CheckpointDao checkpointDao;
     private volatile int dedicatedCacheSize;
-    // LRU Cache
+    // LRU Cache, key is model id
     private Cache<String, ModelState<EntityModel>> inActiveEntities;
     private final MemoryTracker memoryTracker;
     private final ReentrantLock maintenanceLock;
@@ -92,7 +92,7 @@ public class PriorityCache implements EntityCache {
     private final Duration modelTtl;
     // A bloom filter placed in front of inactive entity cache to
     // filter out unpopular items that are not likely to appear more
-    // than once.
+    // than once. Key is detector id
     private Map<String, DoorKeeper> doorKeepers;
     private ThreadPool threadPool;
     private Random random;
@@ -649,6 +649,12 @@ public class PriorityCache implements EntityCache {
      */
     @Override
     public void clear(String detectorId) {
+        removeDetectorCache(detectorId);
+        checkpointDao.deleteModelCheckpointByDetectorId(detectorId);
+    }
+
+    @Override
+    public void removeDetectorCache(String detectorId) {
         if (Strings.isEmpty(detectorId)) {
             return;
         }
@@ -656,7 +662,6 @@ public class PriorityCache implements EntityCache {
         if (buffer != null) {
             buffer.clear();
         }
-        checkpointDao.deleteModelCheckpointByDetectorId(detectorId);
         doorKeepers.remove(detectorId);
     }
 

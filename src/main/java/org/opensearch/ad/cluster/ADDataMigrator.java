@@ -262,7 +262,7 @@ public class ADDataMigrator {
                         .state(ADTaskState.CREATED.name())
                         .lastUpdateTime(now)
                         .startedBy(userName)
-                        .coordinatingNode(clusterService.localNode().getId())
+                        .coordinatingNode(null)
                         .detectionDateRange(null)
                         .user(job.getUser())
                         .build();

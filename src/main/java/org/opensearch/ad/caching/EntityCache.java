@@ -154,4 +154,10 @@ public interface EntityCache extends MaintenanceState, CleanState, DetectorModel
      * @return the entity's memory size
      */
     Optional<ModelProfile> getModelProfile(String detectorId, String entityModelId);
+
+    /**
+     * Remove cache of one specific detector. Will not delete model checkpoint in index.
+     * @param detectorId detector id
+     */
+    void removeDetectorCache(String detectorId);
 }

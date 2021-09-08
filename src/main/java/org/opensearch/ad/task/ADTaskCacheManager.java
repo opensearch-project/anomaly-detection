@@ -1037,8 +1037,10 @@ public class ADTaskCacheManager {
 
     /**
      * Update realtime task cache with new field values. If realtime task cache exist, update it
-     * directly; otherwise will do nothing. Then next job run will try to init realtime task cache
-     * and try to update realtime task cache again.
+     * directly if task is not done; if task is done, remove the detector's realtime task cache.
+     *
+     * If realtime task cache doesn't exist, will do nothing. Next realtime job run will re-init
+     * realtime task cache when it finds task cache not inited yet.
      * Check {@link ADTaskManager#initRealtimeTaskCacheAndCleanupStaleCache(String, AnomalyDetector, TransportService, ActionListener)},
      * {@link ADTaskManager#updateLatestRealtimeTaskOnCoordinatingNode(String, String, Long, Long, String, ActionListener)}
      *
@@ -1060,6 +1062,7 @@ public class ADTaskCacheManager {
                 realtimeTaskCache.setError(newError);
             }
             if (newState != null && !ADTaskState.NOT_ENDED_STATES.contains(newState)) {
+                // If task is done, will remove its realtime task cache.
                 logger.info("Realtime task done with state {}, remove RT task cache for detector ", newState, detectorId);
                 removeRealtimeTaskCache(detectorId);
             }
@@ -1073,7 +1076,7 @@ public class ADTaskCacheManager {
         logger.debug("Realtime task cache inited");
     }
 
-    public void recordRealtimeJobRunTime(String detectorId) {
+    public void refreshRealtimeJobRunTime(String detectorId) {
         ADRealtimeTaskCache taskCache = realtimeTaskCaches.get(detectorId);
         if (taskCache != null) {
             taskCache.setLastJobRunTime(Instant.now().toEpochMilli());

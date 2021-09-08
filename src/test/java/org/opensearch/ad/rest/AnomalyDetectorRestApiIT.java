@@ -241,7 +241,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers.assertFailWith(ResponseException.class, null, () -> getAnomalyDetector(randomAlphaOfLength(5), client()));
     }
 
-    public void testUpdateAnomalyDetectorA() throws Exception {
+    public void testUpdateAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         String newDescription = randomAlphaOfLength(5);

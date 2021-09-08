@@ -722,4 +722,11 @@ public class EntityColdStarter implements MaintenanceState {
             }
         });
     }
+
+    public void removeDoorKeeper(String detectorId) {
+        if (doorKeepers.containsKey(detectorId)) {
+            logger.info("Remove door keeper in EntityColdStarter for detector {}", detectorId);
+            doorKeepers.remove(detectorId);
+        }
+    }
 }

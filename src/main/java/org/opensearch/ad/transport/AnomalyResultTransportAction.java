@@ -147,8 +147,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final Client client;
     private final ADTaskManager adTaskManager;
 
-    // cache HC detector id. This is used to count HC failure stats. We can tell a detector
-    // if HC or not by checking if detector id exists in this field or not. Will add
+    // Cache HC detector id. This is used to count HC failure stats. We can tell a detector
+    // is HC or not by checking if detector id exists in this field or not. Will add
     // detector id to this field when start to run realtime detection and remove detector
     // id once realtime detection done.
     private final Set<String> hcDetectors;
@@ -453,8 +453,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             () -> executeAnomalyDetection(listener, adID, request, anomalyDetector, dataStartTime, dataEndTime)
                         )
                 );
-
-            // executeAnomalyDetection(listener, adID, request, anomalyDetector, dataStartTime, dataEndTime);
         }, exception -> handleExecuteException(exception, listener, adID));
     }
 
