@@ -35,9 +35,7 @@ import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.test.ClusterServiceUtils.createClusterService;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
 import org.junit.After;
@@ -48,7 +46,6 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterName;
@@ -67,7 +64,6 @@ public class ADClusterEventListenerTests extends AbstractADTest {
     private ClusterService clusterService;
     private ADClusterEventListener listener;
     private HashRing hashRing;
-    private ModelManager modelManager;
     private ClusterState oldClusterState;
     private ClusterState newClusterState;
     private DiscoveryNode masterNode;
@@ -91,7 +87,6 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         super.setUpLog4jForJUnit(ADClusterEventListener.class);
         clusterService = createClusterService(threadPool);
         hashRing = mock(HashRing.class);
-        modelManager = mock(ModelManager.class);
 
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
         masterNode = new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
@@ -105,7 +100,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
             .build();
 
-        listener = new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter);
+        listener = new ADClusterEventListener(clusterService, hashRing, nodeFilter);
     }
 
     @Override
@@ -115,7 +110,6 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         super.tearDownLog4jForJUnit();
         clusterService = null;
         hashRing = null;
-        modelManager = null;
         oldClusterState = null;
         listener = null;
     }
@@ -157,44 +151,30 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         }
     }
 
-    public void testInprogress() throws InterruptedException {
+    public void testInprogress() {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        final CountDownLatch executionLatch = new CountDownLatch(1);
         doAnswer(invocation -> {
             ActionListener<Boolean> listener = invocation.getArgument(1);
             listener.onResponse(true);
             return null;
         }).when(hashRing).buildCircles(any(), any());
-        doAnswer(invocation -> {
-            executionLatch.countDown();
-            inProgressLatch.await();
-            return emptySet();
-        }).when(modelManager).getAllModelIds();
         new Thread(new ListenerRunnable()).start();
-        executionLatch.await();
         listener.clusterChanged(new ClusterChangedEvent("bar", newClusterState, oldClusterState));
         assertTrue(testAppender.containsMessage(ADClusterEventListener.IN_PROGRESS_MSG));
         inProgressLatch.countDown();
     }
 
     public void testNodeAdded() {
-        String modelId = "123-threshold";
         doAnswer(invocation -> {
             ActionListener<Boolean> listener = invocation.getArgument(1);
             listener.onResponse(true);
             return null;
         }).when(hashRing).buildCircles(any(), any());
-        doAnswer(invocation -> {
-            Set<String> res = new HashSet<>();
-            res.add(modelId);
-            return res;
-        }).when(modelManager).getAllModelIds();
 
         doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class));
 
         listener.clusterChanged(new ClusterChangedEvent("foo", newClusterState, oldClusterState));
         assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_ADDED_MSG));
-        assertTrue(testAppender.containsMessage(ADClusterEventListener.REMOVE_MODEL_MSG + " " + modelId));
     }
 
     public void testNodeRemoved() {

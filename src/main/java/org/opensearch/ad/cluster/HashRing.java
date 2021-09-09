@@ -26,6 +26,7 @@
 
 package org.opensearch.ad.cluster;
 
+import static org.opensearch.ad.cluster.ADClusterEventListener.REMOVE_MODEL_MSG;
 import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME;
 import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME_FOR_TEST;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
@@ -54,6 +55,7 @@ import org.opensearch.action.admin.cluster.node.info.NodeInfo;
 import org.opensearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
@@ -109,6 +111,7 @@ public class HashRing {
     private final ADDataMigrator dataMigrator;
     private final Clock clock;
     private final Client client;
+    private final ModelManager modelManager;
 
     public HashRing(
         DiscoveryNodeFilterer nodeFilter,
@@ -116,7 +119,8 @@ public class HashRing {
         Settings settings,
         Client client,
         ClusterService clusterService,
-        ADDataMigrator dataMigrator
+        ADDataMigrator dataMigrator,
+        ModelManager modelManager
     ) {
         this.nodeFilter = nodeFilter;
         this.buildHashRingSemaphore = new Semaphore(1);
@@ -133,6 +137,7 @@ public class HashRing {
         this.circlesForRealtimeAD = new TreeMap<>();
         this.hashRingInited = new AtomicBoolean(false);
         this.nodeChangeEvents = new ConcurrentLinkedQueue<>();
+        this.modelManager = modelManager;
     }
 
     public boolean isHashRingInited() {
@@ -356,6 +361,26 @@ public class HashRing {
             }
             circlesForRealtimeAD = newCircles;
             lastUpdateForRealtimeAD = clock.millis();
+            LOG.info("Build AD version hash ring successfully");
+            String localNodeId = clusterService.localNode().getId();
+            Set<String> modelIds = modelManager.getAllModelIds();
+            for (String modelId : modelIds) {
+                Optional<DiscoveryNode> node = getOwningNodeWithSameLocalAdVersionForRealtimeAD(modelId);
+                if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
+                    LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
+                    modelManager
+                        .stopModel(
+                            // stopModel will clear model cache
+                            modelManager.getDetectorIdForModelId(modelId),
+                            modelId,
+                            ActionListener
+                                .wrap(
+                                    r -> LOG.info("Stopped model [{}] with response [{}]", modelId, r),
+                                    e -> LOG.error("Fail to stop model " + modelId, e)
+                                )
+                        );
+                }
+            }
             // It's possible that multiple threads add new event to nodeChangeEvents,
             // but this is the only place to consume/poll the event and there is only
             // one thread poll it as we are using adVersionCircleInProgress semaphore(1)

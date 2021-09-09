@@ -26,14 +26,11 @@
 
 package org.opensearch.ad.cluster;
 
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterStateListener;
@@ -54,21 +51,14 @@ public class ADClusterEventListener implements ClusterStateListener {
 
     private final Semaphore inProgress;
     private HashRing hashRing;
-    private ModelManager modelManager;
     private final ClusterService clusterService;
     private final DiscoveryNodeFilterer nodeFilter;
 
     @Inject
-    public ADClusterEventListener(
-        ClusterService clusterService,
-        HashRing hashRing,
-        ModelManager modelManager,
-        DiscoveryNodeFilterer nodeFilter
-    ) {
+    public ADClusterEventListener(ClusterService clusterService, HashRing hashRing, DiscoveryNodeFilterer nodeFilter) {
         this.clusterService = clusterService;
         this.clusterService.addListener(this);
         this.hashRing = hashRing;
-        this.modelManager = modelManager;
         this.inProgress = new Semaphore(1);
         this.nodeFilter = nodeFilter;
     }
@@ -128,30 +118,15 @@ public class ADClusterEventListener implements ClusterStateListener {
 
             if (dataNodeAdded || dataNodeRemoved) {
                 hashRing.addNodeChangeEvent();
-                hashRing.buildCircles(delta, ActionListener.wrap(hasRingBuildDone -> {
-                    if (hasRingBuildDone) {
-                        LOG.info("Build AD version hash ring successfully");
-                        String localNodeId = event.state().nodes().getLocalNode().getId();
-                        Set<String> modelIds = modelManager.getAllModelIds();
-                        for (String modelId : modelIds) {
-                            Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(modelId);
-                            if (node.isPresent() && !node.get().getId().equals(localNodeId)) {
-                                LOG.info(REMOVE_MODEL_MSG + " {}", modelId);
-                                modelManager
-                                    .stopModel(
-                                        // stopModel will clear model cache
-                                        modelManager.getDetectorIdForModelId(modelId),
-                                        modelId,
-                                        ActionListener
-                                            .wrap(
-                                                r -> LOG.info("Stopped model [{}] with response [{}]", modelId, r),
-                                                e -> LOG.error("Fail to stop model " + modelId, e)
-                                            )
-                                    );
-                            }
-                        }
-                    }
-                }, e -> { LOG.error("Failed updating AD version hash ring", e); }));
+                hashRing
+                    .buildCircles(
+                        delta,
+                        ActionListener
+                            .wrap(
+                                hasRingBuildDone -> { LOG.info("Hash ring build result: {}", hasRingBuildDone); },
+                                e -> { LOG.error("Failed updating AD version hash ring", e); }
+                            )
+                    );
             }
         } catch (Exception ex) {
             // One possible exception is OpenSearchTimeoutException thrown when we fail

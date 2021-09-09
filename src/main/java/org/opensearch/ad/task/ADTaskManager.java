@@ -728,7 +728,11 @@ public class ADTaskManager {
     }
 
     /**
-     * Start anomaly detector on coordinating node.
+     * Start anomaly detector.
+     * For historical analysis, this method will be called on coordinating node.
+     * For realtime task, we won't know AD job coordinating node until AD job starts. So
+     * this method will be called on vanilla node.
+     *
      * Will init task index if not exist and write new AD task to index. If task index
      * exists, will check if there is task running. If no running task, reset old task
      * as not latest and clean old tasks which exceeds max old task doc limitation.
@@ -1469,7 +1473,10 @@ public class ADTaskManager {
                 // Realtime AD coordinating node is chosen by job scheduler, we won't know it until realtime AD job
                 // runs. Just set realtime AD coordinating node as null here, and AD job runner will reset correct
                 // coordinating node once realtime job starts.
-                createNewADTask(detector, detectionDateRange, user, null, listener);
+                // For historical analysis, this method will be called on coordinating node, so we can set coordinating
+                // node as local node.
+                String coordinatingNode = detectionDateRange == null ? null : clusterService.localNode().getId();
+                createNewADTask(detector, detectionDateRange, user, coordinatingNode, listener);
             } else {
                 logger.error("Failed to update old task's state for detector: {}, response: {} ", detector.getDetectorId(), r.toString());
                 listener.onFailure(bulkFailures.get(0).getCause());
@@ -1484,13 +1491,12 @@ public class ADTaskManager {
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
         User user,
-        String realtimeADCoordinatingNode,
+        String coordinatingNode,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         String userName = user == null ? null : user.getName();
         Instant now = Instant.now();
         String taskType = getADTaskType(detector, detectionDateRange).name();
-        String coordinatingNode = detectionDateRange == null ? realtimeADCoordinatingNode : clusterService.localNode().getId();
         ADTask adTask = new ADTask.Builder()
             .detectorId(detector.getDetectorId())
             .detector(detector)
@@ -2039,6 +2045,7 @@ public class ADTaskManager {
             updatedFields.put(ERROR_FIELD, error);
         }
         Float finalInitProgress = initProgress;
+        // Variable used in lambda expression should be final or effectively final
         String finalError = error;
         String finalNewState = newState;
         updateLatestADTask(detectorId, ADTaskType.REALTIME_TASK_TYPES, updatedFields, ActionListener.wrap(r -> {

@@ -641,7 +641,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
-        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, dataMigrator);
+        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, dataMigrator, modelManager);
 
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
@@ -745,7 +745,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 featureManager,
                 modelManager,
                 stateManager,
-                new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter),
+                new ADClusterEventListener(clusterService, hashRing, nodeFilter),
                 adCircuitBreakerService,
                 adStats,
                 new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
