@@ -2090,7 +2090,7 @@ public class ADTaskManager {
                         clusterService.localNode().getId(),
                         ActionListener.wrap(r -> {
                             logger.info("Recreate realtime task successfully for detector {}", detectorId);
-                            adTaskCacheManager.initRealtimeTaskCache(detectorId, detector.getDetectorIntervalInMinutes());
+                            adTaskCacheManager.initRealtimeTaskCache(detectorId, detector.getDetectorIntervalInMilliseconds());
                             listener.onResponse(true);
                         }, e -> {
                             logger.error("Failed to recreate realtime task for detector " + detectorId, e);
@@ -2616,7 +2616,7 @@ public class ADTaskManager {
                 tasksOfDetector.forEach(taskId -> {
                     ADEntityTaskProfile entityTaskProfile = new ADEntityTaskProfile(
                         adTaskCacheManager.getShingle(taskId).size(),
-                        adTaskCacheManager.getRcfModel(taskId).getTotalUpdates(),
+                        adTaskCacheManager.getRcfModelTotalUpdates(taskId),
                         adTaskCacheManager.isThresholdModelTrained(taskId),
                         adTaskCacheManager.getThresholdModelTrainingDataSize(taskId),
                         adTaskCacheManager.getModelSize(taskId),

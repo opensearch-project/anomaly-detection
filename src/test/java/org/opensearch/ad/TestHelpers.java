@@ -80,6 +80,7 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.ml.ThresholdingResult;
+import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -983,6 +984,23 @@ public class TestHelpers {
         AnomalyDetector detector = withDetector
             ? randomAnomalyDetector(ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS), true)
             : null;
+        Entity entity = null;
+        if (withDetector && adTaskType.name().startsWith("HISTORICAL_HC")) {
+            String categoryField = randomAlphaOfLength(5);
+            detector = TestHelpers
+                .randomDetector(
+                    detector.getFeatureAttributes(),
+                    detector.getIndices().get(0),
+                    randomIntBetween(1, 10),
+                    MockSimpleLog.TIME_FIELD,
+                    ImmutableList.of(categoryField)
+                );
+            if (adTaskType.name().equals(ADTaskType.HISTORICAL_HC_ENTITY.name())) {
+                entity = Entity.createSingleAttributeEntity(categoryField, randomAlphaOfLength(5));
+            }
+
+        }
+
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
         ADTask task = ADTask
             .builder()
@@ -990,6 +1008,7 @@ public class TestHelpers {
             .taskType(adTaskType.name())
             .detectorId(randomAlphaOfLength(5))
             .detector(detector)
+            .entity(entity)
             .state(state.name())
             .taskProgress(0.5f)
             .initProgress(1.0f)

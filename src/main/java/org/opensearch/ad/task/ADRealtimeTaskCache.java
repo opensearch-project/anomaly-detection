@@ -74,10 +74,6 @@ public class ADRealtimeTaskCache {
         this.lastJobRunTime = lastJobRunTime;
     }
 
-    public void setDetectorIntervalInMillis(long detectorIntervalInMillis) {
-        this.detectorIntervalInMillis = detectorIntervalInMillis;
-    }
-
     public boolean expired() {
         return lastJobRunTime + 2 * detectorIntervalInMillis < Instant.now().toEpochMilli();
     }

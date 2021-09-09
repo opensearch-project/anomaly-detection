@@ -188,6 +188,7 @@ public class ADHCBatchTaskCache {
         if (entity == null) {
             return;
         }
+        this.pendingEntities.remove(entity);
         this.tempEntities.remove(entity);
         if (!this.runningEntities.contains(entity)) {
             this.runningEntities.add(entity);
@@ -197,12 +198,6 @@ public class ADHCBatchTaskCache {
     private void moveToTempEntity(String entity) {
         if (entity != null && !this.tempEntities.contains(entity)) {
             this.tempEntities.add(entity);
-        }
-    }
-
-    private void removeFromTempEntity(String entity) {
-        if (entity != null && !this.tempEntities.contains(entity)) {
-            this.tempEntities.remove(entity);
         }
     }
 

@@ -488,7 +488,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             // For a HCAD detector, we don't need to save on the detector level.
             // We return 0 or Double.NaN rcf score if there is no error.
             if ((response.getAnomalyScore() <= 0 || Double.isNaN(response.getAnomalyScore())) && response.getError() == null) {
-                updateRealtimeTask(jobParameter, response, detectorId);
+                updateRealtimeTask(response, detectorId);
                 return;
             }
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
@@ -514,7 +514,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 indexUtil.getSchemaVersion(ADIndex.RESULT)
             );
             anomalyResultHandler.index(anomalyResult, detectorId);
-            updateRealtimeTask(jobParameter, response, detectorId);
+            updateRealtimeTask(response, detectorId);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
@@ -522,7 +522,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         }
     }
 
-    private void updateRealtimeTask(ScheduledJobParameter jobParameter, AnomalyResultResponse response, String detectorId) {
+    private void updateRealtimeTask(AnomalyResultResponse response, String detectorId) {
         if (response.isHCDetector() != null
             && response.isHCDetector()
             && !adTaskManager.skipUpdateHCRealtimeTask(detectorId, response.getError())) {

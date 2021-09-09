@@ -22,11 +22,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
+import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.NoShardAvailableActionException;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexResponse;
@@ -40,6 +42,8 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
@@ -411,5 +415,55 @@ public class ADDataMigratorTests extends ADUnitTestCase {
         adDataMigrator.migrateData();
         verify(adDataMigrator, times(2)).backfillRealtimeTask(any(), anyBoolean());
         verify(client, times(1)).index(any(), any());
+    }
+
+    public void testMigrateDataTwice() {
+        adDataMigrator.migrateData();
+        adDataMigrator.migrateData();
+        verify(detectionIndices, times(1)).doesAnomalyDetectorJobIndexExist();
+    }
+
+    public void testMigrateDataWithNoAvailableShardsException() {
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener
+                .onFailure(
+                    new NoShardAvailableActionException(ShardId.fromString("[.opendistro-anomaly-detector-jobs][1]"), "all shards failed")
+                );
+            return null;
+        }).when(client).search(any(), any());
+        when(detectionIndices.doesAnomalyDetectorJobIndexExist()).thenReturn(true);
+        when(detectionIndices.doesDetectorStateIndexExist()).thenReturn(true);
+
+        adDataMigrator.migrateData();
+        assertFalse(adDataMigrator.isMigrated());
+    }
+
+    public void testMigrateDataWithIndexNotFoundException() {
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onFailure(new IndexNotFoundException(ANOMALY_DETECTOR_JOB_INDEX));
+            return null;
+        }).when(client).search(any(), any());
+        when(detectionIndices.doesAnomalyDetectorJobIndexExist()).thenReturn(true);
+        when(detectionIndices.doesDetectorStateIndexExist()).thenReturn(true);
+
+        adDataMigrator.migrateData();
+        verify(adDataMigrator, never()).backfillRealtimeTask(any(), anyBoolean());
+        assertTrue(adDataMigrator.isMigrated());
+    }
+
+    public void testMigrateDataWithUnknownException() {
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onFailure(new RuntimeException("test unknown exception"));
+            return null;
+        }).when(client).search(any(), any());
+        when(detectionIndices.doesAnomalyDetectorJobIndexExist()).thenReturn(true);
+        when(detectionIndices.doesDetectorStateIndexExist()).thenReturn(true);
+
+        adDataMigrator.migrateData();
+        verify(adDataMigrator, never()).backfillRealtimeTask(any(), anyBoolean());
+        assertTrue(adDataMigrator.isMigrated());
     }
 }

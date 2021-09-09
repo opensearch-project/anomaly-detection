@@ -201,6 +201,10 @@ public class ADTaskCacheManager {
         return getBatchTaskCache(taskId).getRcfModel();
     }
 
+    public long getRcfModelTotalUpdates(String taskId) {
+        return getRcfModel(taskId).getTotalUpdates();
+    }
+
     /**
      * Get task threshold model.
      * If task doesn't exist in cache, will throw {@link java.lang.IllegalArgumentException}.

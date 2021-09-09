@@ -29,6 +29,7 @@ package org.opensearch.ad;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
+import static org.opensearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
 import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
@@ -190,10 +191,17 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public List<ADTask> searchADTasks(String detectorId, Boolean isLatest, int size) throws IOException {
+        return searchADTasks(detectorId, null, isLatest, size);
+    }
+
+    public List<ADTask> searchADTasks(String detectorId, String parentTaskId, Boolean isLatest, int size) throws IOException {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         if (isLatest != null) {
             query.filter(new TermQueryBuilder(IS_LATEST_FIELD, isLatest));
+        }
+        if (parentTaskId != null) {
+            query.filter(new TermQueryBuilder(PARENT_TASK_ID_FIELD, parentTaskId));
         }
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();

@@ -230,22 +230,23 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
 
         if (nodeClient != null) {
             AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
+            String taskId = response.getId();
             waitUntil(() -> {
                 try {
-                    ADTask task = getADTask(response.getId());
+                    ADTask task = getADTask(taskId);
                     return !TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(task.getState());
                 } catch (IOException e) {
                     return false;
                 }
-            }, 20, TimeUnit.SECONDS);
-            ADTask adTask = getADTask(response.getId());
+            }, 90, TimeUnit.SECONDS);
+            ADTask adTask = getADTask(taskId);
             assertEquals(ADTaskType.HISTORICAL_HC_DETECTOR.toString(), adTask.getTaskType());
             assertEquals(ADTaskState.FINISHED.name(), adTask.getState());
             assertEquals(categoryField, adTask.getDetector().getCategoryField().get(0));
             assertEquals(ipField, adTask.getDetector().getCategoryField().get(1));
 
-            List<ADTask> adTasks = searchADTasks(detectorId, true, 100);
-            assertEquals(6, adTasks.size());
+            List<ADTask> adTasks = searchADTasks(detectorId, taskId, true, 100);
+            assertEquals(5, adTasks.size());
             List<ADTask> entityTasks = adTasks
                 .stream()
                 .filter(task -> ADTaskType.HISTORICAL_HC_ENTITY.name().equals(task.getTaskType()))
