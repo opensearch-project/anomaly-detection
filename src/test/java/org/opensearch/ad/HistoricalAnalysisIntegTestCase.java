@@ -89,15 +89,25 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type) {
-        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, DEFAULT_TEST_DATA_DOCS);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, DEFAULT_TEST_DATA_DOCS, true);
     }
 
     public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, int totalDocs) {
-        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, totalDocs);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, totalDocs, true);
     }
 
-    public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, String ip, int totalDocs) {
-        createTestDataIndex(testIndex);
+    public void ingestTestData(
+        String testIndex,
+        Instant startTime,
+        int detectionIntervalInMinutes,
+        String type,
+        String ip,
+        int totalDocs,
+        boolean createIndexFirst
+    ) {
+        if (createIndexFirst) {
+            createTestDataIndex(testIndex);
+        }
         List<Map<String, ?>> docs = new ArrayList<>();
         Instant currentInterval = Instant.from(startTime);
 
@@ -117,7 +127,9 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         assertEquals(RestStatus.OK, bulkResponse.status());
         assertFalse(bulkResponse.hasFailures());
         long count = countDocs(testIndex);
-        assertEquals(totalDocs, count);
+        if (createIndexFirst) {
+            assertEquals(totalDocs, count);
+        }
     }
 
     public Feature maxValueFeature() throws IOException {

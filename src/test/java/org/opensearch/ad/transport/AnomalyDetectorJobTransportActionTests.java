@@ -46,6 +46,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.junit.After;
 import org.junit.Before;
@@ -155,7 +156,9 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         }
     }
 
-    public void testStartHistoricalAnalysisForSingleCategoryHCWithUser() throws IOException {
+    public void testStartHistoricalAnalysisForSingleCategoryHCWithUser() throws IOException, InterruptedException {
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "1", DEFAULT_IP, 2000, false);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "2", DEFAULT_IP, 2000, false);
         AnomalyDetector detector = TestHelpers
             .randomDetector(
                 ImmutableList.of(maxValueFeature()),
@@ -177,13 +180,35 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
 
         if (nodeClient != null) {
             AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
+            waitUntil(() -> {
+                try {
+                    ADTask task = getADTask(response.getId());
+                    return !TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(task.getState());
+                } catch (IOException e) {
+                    return false;
+                }
+            }, 20, TimeUnit.SECONDS);
             ADTask adTask = getADTask(response.getId());
             assertEquals(ADTaskType.HISTORICAL_HC_DETECTOR.toString(), adTask.getTaskType());
+            assertEquals(ADTaskState.FINISHED.name(), adTask.getState());
             assertEquals(categoryField, adTask.getDetector().getCategoryField().get(0));
+
+            List<ADTask> adTasks = searchADTasks(detectorId, true, 100);
+            assertEquals(4, adTasks.size());
+            List<ADTask> entityTasks = adTasks
+                .stream()
+                .filter(task -> ADTaskType.HISTORICAL_HC_ENTITY.name().equals(task.getTaskType()))
+                .collect(Collectors.toList());
+            assertEquals(3, entityTasks.size());
         }
     }
 
-    public void testStartHistoricalAnalysisForMultiCategoryHCWithUser() throws IOException {
+    public void testStartHistoricalAnalysisForMultiCategoryHCWithUser() throws IOException, InterruptedException {
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "1", DEFAULT_IP, 2000, false);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "2", DEFAULT_IP, 2000, false);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "3", "127.0.0.2", 2000, false);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "4", "127.0.0.2", 2000, false);
+
         AnomalyDetector detector = TestHelpers
             .randomDetector(
                 ImmutableList.of(maxValueFeature()),
@@ -205,10 +230,27 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
 
         if (nodeClient != null) {
             AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
+            waitUntil(() -> {
+                try {
+                    ADTask task = getADTask(response.getId());
+                    return !TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(task.getState());
+                } catch (IOException e) {
+                    return false;
+                }
+            }, 20, TimeUnit.SECONDS);
             ADTask adTask = getADTask(response.getId());
             assertEquals(ADTaskType.HISTORICAL_HC_DETECTOR.toString(), adTask.getTaskType());
+            assertEquals(ADTaskState.FINISHED.name(), adTask.getState());
             assertEquals(categoryField, adTask.getDetector().getCategoryField().get(0));
             assertEquals(ipField, adTask.getDetector().getCategoryField().get(1));
+
+            List<ADTask> adTasks = searchADTasks(detectorId, true, 100);
+            assertEquals(6, adTasks.size());
+            List<ADTask> entityTasks = adTasks
+                .stream()
+                .filter(task -> ADTaskType.HISTORICAL_HC_ENTITY.name().equals(task.getTaskType()))
+                .collect(Collectors.toList());
+            assertEquals(5, entityTasks.size());
         }
     }
 

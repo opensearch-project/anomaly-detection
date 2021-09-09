@@ -49,12 +49,11 @@ import org.opensearch.transport.TransportService;
 public class DeleteModelTransportAction extends
     TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
     private static final Logger LOG = LogManager.getLogger(DeleteModelTransportAction.class);
-    private NodeStateManager transportStateManager;
+    private NodeStateManager nodeStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cache;
     private ADTaskCacheManager adTaskCacheManager;
-    private NodeStateManager stateManager;
 
     @Inject
     public DeleteModelTransportAction(
@@ -62,12 +61,11 @@ public class DeleteModelTransportAction extends
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        NodeStateManager tarnsportStatemanager,
+        NodeStateManager nodeStateManager,
         ModelManager modelManager,
         FeatureManager featureManager,
         CacheProvider cache,
-        ADTaskCacheManager adTaskCacheManager,
-        NodeStateManager stateManager
+        ADTaskCacheManager adTaskCacheManager
     ) {
         super(
             DeleteModelAction.NAME,
@@ -80,12 +78,11 @@ public class DeleteModelTransportAction extends
             ThreadPool.Names.MANAGEMENT,
             DeleteModelNodeResponse.class
         );
-        this.transportStateManager = tarnsportStatemanager;
+        this.nodeStateManager = nodeStateManager;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cache = cache;
         this.adTaskCacheManager = adTaskCacheManager;
-        this.stateManager = stateManager;
     }
 
     @Override
@@ -134,11 +131,8 @@ public class DeleteModelTransportAction extends
         // delete buffered shingle data
         featureManager.clear(adID);
 
-        // delete detector backpressure counter
-        stateManager.removeBackpressureCounter(adID);
-
         // delete transport state
-        transportStateManager.clear(adID);
+        nodeStateManager.clear(adID);
 
         cache.get().clear(adID);
 

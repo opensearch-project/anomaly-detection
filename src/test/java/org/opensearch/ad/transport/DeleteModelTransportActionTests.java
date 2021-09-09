@@ -102,8 +102,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
             modelManager,
             featureManager,
             cacheProvider,
-            adTaskCacheManager,
-            stateManager
+            adTaskCacheManager
         );
     }
 

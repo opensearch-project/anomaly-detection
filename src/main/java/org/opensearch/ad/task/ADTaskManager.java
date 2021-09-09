@@ -752,7 +752,7 @@ public class ADTaskManager {
                 // If detection index exist, check if latest AD task is running
                 getAndExecuteOnLatestDetectorLevelTask(detector.getDetectorId(), getADTaskTypes(detectionDateRange), (adTask) -> {
                     if (!adTask.isPresent() || adTask.get().isDone()) {
-                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
+                        updateLatestFlagOfOldTasksAndCreateNewTask(detector, detectionDateRange, user, listener);
                     } else {
                         listener.onFailure(new OpenSearchStatusException(DETECTOR_IS_RUNNING, RestStatus.BAD_REQUEST));
                     }
@@ -762,7 +762,7 @@ public class ADTaskManager {
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
                         logger.info("Created {} with mappings.", DETECTION_STATE_INDEX);
-                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
+                        updateLatestFlagOfOldTasksAndCreateNewTask(detector, detectionDateRange, user, listener);
                     } else {
                         String error = String.format(Locale.ROOT, CREATE_INDEX_NOT_ACKNOWLEDGED, DETECTION_STATE_INDEX);
                         logger.warn(error);
@@ -770,7 +770,7 @@ public class ADTaskManager {
                     }
                 }, e -> {
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
-                        executeAnomalyDetector(detector, detectionDateRange, user, listener);
+                        updateLatestFlagOfOldTasksAndCreateNewTask(detector, detectionDateRange, user, listener);
                     } else {
                         logger.error("Failed to init anomaly detection state index", e);
                         listener.onFailure(e);
@@ -1445,7 +1445,7 @@ public class ADTaskManager {
         return true;
     }
 
-    private void executeAnomalyDetector(
+    private void updateLatestFlagOfOldTasksAndCreateNewTask(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
         User user,
