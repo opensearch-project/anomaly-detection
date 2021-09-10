@@ -40,6 +40,7 @@ import java.util.Map;
 
 import org.apache.http.util.EntityUtils;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisRestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.ADTask;
@@ -82,6 +83,8 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
     }
 
+    // TODO: fix flaky test
+    @Ignore
     public void testHistoricalAnalysisForMultiCategoryHC() throws Exception {
         List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(2);
         String detectorId = startHistoricalAnalysisResult.get(0);
@@ -247,6 +250,8 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
     }
 
+    // TODO: fix flaky test
+    @Ignore
     public void testDeleteRunningHistoricalDetector() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
