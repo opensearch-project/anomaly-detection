@@ -58,7 +58,6 @@ public class ForwardADTaskRequestTests extends ADUnitTestCase {
         );
         ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_1_1_0);
         ActionRequestValidationException validate = request.validate();
-        System.out.println(validate.getMessage());
         assertEquals("Validation Failed: 1: AD ID is missing;2: AD task action is missing;", validate.getMessage());
     }
 
@@ -66,7 +65,6 @@ public class ForwardADTaskRequestTests extends ADUnitTestCase {
         ADTask adTask = TestHelpers.randomAdTask();
         ForwardADTaskRequest request = new ForwardADTaskRequest(adTask, CLEAN_STALE_RUNNING_ENTITIES, null);
         ActionRequestValidationException validate = request.validate();
-        System.out.println(validate.getMessage());
         assertEquals("Validation Failed: 1: Empty stale running entities;", validate.getMessage());
     }
 }

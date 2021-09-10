@@ -1145,9 +1145,8 @@ public class ADTaskManager {
                 if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(adTask.getTaskType())) {
                     // Check if any running entity not run on worker node. If yes, we need to remove it
                     // and poll next entity from pending entity queue and run it.
-                    Integer runningEntitiesCount = taskProfile.getRunningEntitiesCount();
-                    if (runningEntitiesCount != null && runningEntitiesCount > 0) {
-                        List<String> runningTasksInCoordinatingNodeCache = taskProfile.getRunningEntities();
+                    if (!isNullOrEmpty(taskProfile.getRunningEntities())) {
+                        List<String> runningTasksInCoordinatingNodeCache = new ArrayList<>(taskProfile.getRunningEntities());
                         List<String> runningTasksOnWorkerNode = new ArrayList<>();
                         if (taskProfile.getEntityTaskProfiles() != null && taskProfile.getEntityTaskProfiles().size() > 0) {
                             taskProfile
@@ -1274,7 +1273,7 @@ public class ADTaskManager {
 
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
-            if (bulkFailures.isEmpty()) {
+            if (isNullOrEmpty(bulkFailures)) {
                 logger.debug("Updated {} child entity tasks state for detector task {}", r.getUpdated(), detectorTaskId);
             } else {
                 logger.error("Failed to update child entity task's state for detector task {} ", detectorTaskId);
@@ -1636,7 +1635,7 @@ public class ADTaskManager {
         }, delegatedListener);
     }
 
-    private <T> void deleteTaskDocs(
+    protected <T> void deleteTaskDocs(
         String detectorId,
         SearchRequest searchRequest,
         AnomalyDetectorFunction function,
@@ -2476,7 +2475,7 @@ public class ADTaskManager {
      * @param scaleUpListener action listener
      * @return task slots scale delta
      */
-    private int scaleTaskSlots(
+    protected int scaleTaskSlots(
         ADTask adTask,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> scaleUpListener

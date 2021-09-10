@@ -66,6 +66,7 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectionDateRange;
+import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
@@ -229,11 +230,16 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         Client nodeClient = getDataNodeClient();
 
         if (nodeClient != null) {
-            AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
+            AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100_000);
             String taskId = response.getId();
+
             waitUntil(() -> {
                 try {
                     ADTask task = getADTask(taskId);
+                    if (ADTaskState.RUNNING.name().equals(task.getState())) {
+                        ProfileRequest profileRequest = new ProfileRequest(detectorId, ImmutableSet.of(DetectorProfileName.AD_TASK), true);
+                        ProfileResponse profileResponse = client().execute(ProfileAction.INSTANCE, profileRequest).actionGet(10_000);
+                    }
                     return !TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(task.getState());
                 } catch (IOException e) {
                     return false;

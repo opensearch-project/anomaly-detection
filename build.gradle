@@ -497,8 +497,6 @@ List<String> jacocoExclusions = [
 
 
         // TODO: unified flow caused coverage drop
-        'org.opensearch.ad.task.ADTaskManager',
-        'org.opensearch.ad.task.ADBatchTaskRunner',
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
         'org.opensearch.ad.transport.ADTaskProfileResponse',
 

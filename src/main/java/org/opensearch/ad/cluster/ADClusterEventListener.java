@@ -122,19 +122,23 @@ public class ADClusterEventListener implements ClusterStateListener {
                     .buildCircles(
                         delta,
                         ActionListener
-                            .wrap(
-                                hasRingBuildDone -> { LOG.info("Hash ring build result: {}", hasRingBuildDone); },
-                                e -> { LOG.error("Failed updating AD version hash ring", e); }
+                            .runAfter(
+                                ActionListener
+                                    .wrap(
+                                        hasRingBuildDone -> { LOG.info("Hash ring build result: {}", hasRingBuildDone); },
+                                        e -> { LOG.error("Failed updating AD version hash ring", e); }
+                                    ),
+                                () -> inProgress.release()
                             )
                     );
+            } else {
+                inProgress.release();
             }
         } catch (Exception ex) {
             // One possible exception is OpenSearchTimeoutException thrown when we fail
             // to put checkpoint when ModelManager stops model.
             LOG.error("Cluster state change handler has issue(s)", ex);
-        } finally {
             inProgress.release();
         }
-
     }
 }

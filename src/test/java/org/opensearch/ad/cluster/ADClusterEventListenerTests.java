@@ -36,7 +36,6 @@ import static org.opensearch.test.ClusterServiceUtils.createClusterService;
 
 import java.util.HashMap;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -151,17 +150,16 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         }
     }
 
-    public void testInprogress() {
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+    public void testInProgress() {
         doAnswer(invocation -> {
             ActionListener<Boolean> listener = invocation.getArgument(1);
+            Thread.sleep(1000);
             listener.onResponse(true);
             return null;
         }).when(hashRing).buildCircles(any(), any());
         new Thread(new ListenerRunnable()).start();
         listener.clusterChanged(new ClusterChangedEvent("bar", newClusterState, oldClusterState));
         assertTrue(testAppender.containsMessage(ADClusterEventListener.IN_PROGRESS_MSG));
-        inProgressLatch.countDown();
     }
 
     public void testNodeAdded() {

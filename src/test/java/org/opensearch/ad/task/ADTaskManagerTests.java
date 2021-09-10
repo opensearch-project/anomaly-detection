@@ -37,14 +37,20 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.TestHelpers.randomAdTask;
+import static org.opensearch.ad.TestHelpers.randomAnomalyDetector;
+import static org.opensearch.ad.TestHelpers.randomDetectionDateRange;
 import static org.opensearch.ad.TestHelpers.randomDetector;
 import static org.opensearch.ad.TestHelpers.randomFeature;
+import static org.opensearch.ad.TestHelpers.randomIntervalSchedule;
+import static org.opensearch.ad.TestHelpers.randomIntervalTimeConfiguration;
 import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.constant.CommonErrorMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ENTITY_FOUND;
@@ -83,8 +89,10 @@ import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateResponse;
@@ -96,19 +104,25 @@ import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
+import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.transport.ADStatsNodeResponse;
 import org.opensearch.ad.transport.ADStatsNodesResponse;
+import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
+import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
+import org.opensearch.ad.transport.ForwardADTaskRequest;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
@@ -120,8 +134,10 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.reindex.BulkByScrollResponse;
@@ -162,6 +178,41 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private DiscoveryNode node2;
 
     private int maxRunningEntities;
+
+    private String historicalTaskId = "test_historical_task_id";
+    private String realtimeTaskId = "test_realtime_task_id";
+    private String runningHistoricalHCTaskContent = "{\"_index\":\".opendistro-anomaly-detection-state\",\"_type\":\"_doc\",\"_id\":\""
+        + historicalTaskId
+        + "\",\"_score\":1,\"_source\":{\"last_update_time\":1630999442827,\"state\":\"RUNNING\",\"detector_id\":"
+        + "\"tQQiv3sBr1GKRuDiJ5uI\",\"task_progress\":1,\"init_progress\":1,\"execution_start_time\":1630999393798,"
+        + "\"is_latest\":true,\"task_type\":\"HISTORICAL_HC_DETECTOR\",\"coordinating_node\":\"u8aYDPmaS4Ccd08Ed0GNQw\","
+        + "\"detector\":{\"name\":\"test-hc1\",\"description\":\"test\",\"time_field\":\"timestamp\","
+        + "\"indices\":[\"nab_ec2_cpu_utilization_24ae8d\"],\"filter_query\":{\"match_all\":{\"boost\":1}},"
+        + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\""
+        + ":{\"interval\":1,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":0,\"feature_attributes\""
+        + ":[{\"feature_id\":\"tAQiv3sBr1GKRuDiJ5ty\",\"feature_name\":\"F1\",\"feature_enabled\":true,"
+        + "\"aggregation_query\":{\"f_1\":{\"sum\":{\"field\":\"value\"}}}}],\"ui_metadata\":{\"features\":"
+        + "{\"F1\":{\"featureType\":\"simple_aggs\",\"aggregationBy\":\"sum\",\"aggregationOf\":\"value\"}},"
+        + "\"filters\":[]},\"last_update_time\":1630999291783,\"category_field\":[\"type\"],\"detector_type\":"
+        + "\"MULTI_ENTITY\"},\"detection_date_range\":{\"start_time\":1628407291580,\"end_time\":1630999291580},"
+        + "\"entity\":[{\"name\":\"type\",\"value\":\"error10\"}],\"parent_task_id\":\"a1civ3sBwF58XZxvKrko\","
+        + "\"worker_node\":\"DL5uOJV3TjOOAyh5hJXrCA\",\"current_piece\":1630999260000,\"execution_end_time\":1630999442814}}";
+
+    private String taskContent = "{\"_index\":\".opendistro-anomaly-detection-state\",\"_type\":\"_doc\",\"_id\":"
+        + "\"-1ojv3sBwF58XZxvtksG\",\"_score\":1,\"_source\":{\"last_update_time\":1630999442827,\"state\":\"FINISHED\""
+        + ",\"detector_id\":\"tQQiv3sBr1GKRuDiJ5uI\",\"task_progress\":1,\"init_progress\":1,\"execution_start_time\""
+        + ":1630999393798,\"is_latest\":true,\"task_type\":\"HISTORICAL_HC_ENTITY\",\"coordinating_node\":\""
+        + "u8aYDPmaS4Ccd08Ed0GNQw\",\"detector\":{\"name\":\"test-hc1\",\"description\":\"test\",\"time_field\":\""
+        + "timestamp\",\"indices\":[\"nab_ec2_cpu_utilization_24ae8d\"],\"filter_query\":{\"match_all\":{\"boost\":1}}"
+        + ",\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":"
+        + "{\"interval\":1,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":0,\"feature_attributes\":"
+        + "[{\"feature_id\":\"tAQiv3sBr1GKRuDiJ5ty\",\"feature_name\":\"F1\",\"feature_enabled\":true,\"aggregation_query"
+        + "\":{\"f_1\":{\"sum\":{\"field\":\"value\"}}}}],\"ui_metadata\":{\"features\":{\"F1\":{\"featureType\":"
+        + "\"simple_aggs\",\"aggregationBy\":\"sum\",\"aggregationOf\":\"value\"}},\"filters\":[]},\"last_update_time"
+        + "\":1630999291783,\"category_field\":[\"type\"],\"detector_type\":\"MULTI_ENTITY\"},\"detection_date_range\""
+        + ":{\"start_time\":1628407291580,\"end_time\":1630999291580},\"entity\":[{\"name\":\"type\",\"value\":\"error10\"}]"
+        + ",\"parent_task_id\":\"a1civ3sBwF58XZxvKrko\",\"worker_node\":\"DL5uOJV3TjOOAyh5hJXrCA\",\"current_piece\""
+        + ":1630999260000,\"execution_end_time\":1630999442814}}";
     @Captor
     ArgumentCaptor<TransportResponseHandler<AnomalyDetectorJobResponse>> remoteResponseHandler;
 
@@ -408,14 +459,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCheckTaskSlotsWithNoAvailableTaskSlots() throws IOException {
-        ADTask adTask = TestHelpers
-            .randomAdTask(
-                randomAlphaOfLength(5),
-                ADTaskState.INIT,
-                Instant.now(),
-                randomAlphaOfLength(5),
-                TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
-            );
+        ADTask adTask = randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.INIT,
+            Instant.now(),
+            randomAlphaOfLength(5),
+            TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
+        );
         setupHashRingWithSameLocalADVersionNodes();
 
         setupTaskSlots(0, 2, 2, 2);
@@ -439,14 +489,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCheckTaskSlotsWithAvailableTaskSlotsForHC() throws IOException {
-        ADTask adTask = TestHelpers
-            .randomAdTask(
-                randomAlphaOfLength(5),
-                ADTaskState.INIT,
-                Instant.now(),
-                randomAlphaOfLength(5),
-                TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
-            );
+        ADTask adTask = randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.INIT,
+            Instant.now(),
+            randomAlphaOfLength(5),
+            TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
+        );
         setupSearchTopEntities(4);
         setupHashRingWithSameLocalADVersionNodes();
 
@@ -459,14 +508,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCheckTaskSlotsWithAvailableTaskSlotsForSingleEntityDetector() throws IOException {
-        ADTask adTask = TestHelpers
-            .randomAdTask(
-                randomAlphaOfLength(5),
-                ADTaskState.INIT,
-                Instant.now(),
-                randomAlphaOfLength(5),
-                TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of())
-            );
+        ADTask adTask = randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.INIT,
+            Instant.now(),
+            randomAlphaOfLength(5),
+            TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of())
+        );
         setupHashRingWithSameLocalADVersionNodes();
 
         setupTaskSlots(0, 2, 2, 1);
@@ -478,14 +526,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCheckTaskSlotsWithAvailableTaskSlotsAndNoEntity() throws IOException {
-        ADTask adTask = TestHelpers
-            .randomAdTask(
-                randomAlphaOfLength(5),
-                ADTaskState.INIT,
-                Instant.now(),
-                randomAlphaOfLength(5),
-                TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
-            );
+        ADTask adTask = randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.INIT,
+            Instant.now(),
+            randomAlphaOfLength(5),
+            TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
+        );
         setupSearchTopEntities(0);
         setupHashRingWithSameLocalADVersionNodes();
 
@@ -498,14 +545,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCheckTaskSlotsWithAvailableTaskSlotsForScale() throws IOException {
-        ADTask adTask = TestHelpers
-            .randomAdTask(
-                randomAlphaOfLength(5),
-                ADTaskState.INIT,
-                Instant.now(),
-                randomAlphaOfLength(5),
-                TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
-            );
+        ADTask adTask = randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.INIT,
+            Instant.now(),
+            randomAlphaOfLength(5),
+            TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
+        );
         setupSearchTopEntities(4);
         setupHashRingWithSameLocalADVersionNodes();
 
@@ -525,38 +571,36 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testDeleteDuplicateTasks() throws IOException {
-        ADTask adTask = TestHelpers.randomAdTask();
+        ADTask adTask = randomAdTask();
         adTaskManager.handleADTaskException(adTask, new DuplicateTaskException("test"));
         verify(client, times(1)).delete(any(), any());
     }
 
     public void testParseEntityForSingleCategoryHC() throws IOException {
-        ADTask adTask = TestHelpers
-            .randomAdTask(
-                randomAlphaOfLength(5),
-                ADTaskState.INIT,
-                Instant.now(),
-                randomAlphaOfLength(5),
-                TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
-            );
+        ADTask adTask = randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.INIT,
+            Instant.now(),
+            randomAlphaOfLength(5),
+            TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
+        );
         String entityValue = adTaskManager.convertEntityToString(adTask);
         Entity entity = adTaskManager.parseEntityFromString(entityValue, adTask);
         assertEquals(entity, adTask.getEntity());
     }
 
     public void testParseEntityForMultiCategoryHC() throws IOException {
-        ADTask adTask = TestHelpers
-            .randomAdTask(
-                randomAlphaOfLength(5),
-                ADTaskState.INIT,
-                Instant.now(),
-                randomAlphaOfLength(5),
-                TestHelpers
-                    .randomAnomalyDetectorUsingCategoryFields(
-                        randomAlphaOfLength(5),
-                        ImmutableList.of(randomAlphaOfLength(5), randomAlphaOfLength(5))
-                    )
-            );
+        ADTask adTask = randomAdTask(
+            randomAlphaOfLength(5),
+            ADTaskState.INIT,
+            Instant.now(),
+            randomAlphaOfLength(5),
+            TestHelpers
+                .randomAnomalyDetectorUsingCategoryFields(
+                    randomAlphaOfLength(5),
+                    ImmutableList.of(randomAlphaOfLength(5), randomAlphaOfLength(5))
+                )
+        );
         String entityValue = adTaskManager.convertEntityToString(adTask);
         Entity entity = adTaskManager.parseEntityFromString(entityValue, adTask);
         assertEquals(entity, adTask.getEntity());
@@ -664,7 +708,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         ActionListener<Optional<ADTask>> actionListener = mock(ActionListener.class);
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(1);
-            ADTask adTask = TestHelpers.randomAdTask();
+            ADTask adTask = randomAdTask();
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
@@ -747,7 +791,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     @SuppressWarnings("unchecked")
     public void testRemoveStaleRunningEntity() throws IOException {
         ActionListener<AnomalyDetectorJobResponse> actionListener = mock(ActionListener.class);
-        ADTask adTask = TestHelpers.randomAdTask();
+        ADTask adTask = randomAdTask();
         String entity = randomAlphaOfLength(5);
         when(adTaskCacheManager.removeRunningEntity(anyString(), anyString())).thenReturn(true);
         when(adTaskCacheManager.getPendingEntityCount(anyString())).thenReturn(randomIntBetween(1, 10));
@@ -769,7 +813,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         adTaskManager.resetLatestFlagAsFalse(adTasks);
         verify(client, never()).execute(any(), any(), any());
 
-        ADTask adTask = TestHelpers.randomAdTask();
+        ADTask adTask = randomAdTask();
         adTasks.add(adTask);
         doAnswer(invocation -> {
             ActionListener<BulkResponse> listener = invocation.getArgument(2);
@@ -901,26 +945,16 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testMaintainRunningHistoricalTasksWithRunningTask() {
         when(hashRing.getOwningNodeWithHighestAdVersion(anyString())).thenReturn(Optional.of(node1));
         doReturn(node1).when(clusterService).localNode();
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(threadPool).schedule(any(), any(), anyString());
 
-        String taskContent = "{\"_index\":\".opendistro-anomaly-detection-state\",\"_type\":\"_doc\",\"_id\":\"test_id\","
-            + "\"_score\":1,\"_source\":{\"last_update_time\":1630999442827,\"state\":\"RUNNING\",\"detector_id\":"
-            + "\"tQQiv3sBr1GKRuDiJ5uI\",\"task_progress\":1,\"init_progress\":1,\"execution_start_time\":1630999393798,"
-            + "\"is_latest\":true,\"task_type\":\"HISTORICAL_HC_DETECTOR\",\"coordinating_node\":\"u8aYDPmaS4Ccd08Ed0GNQw\","
-            + "\"detector\":{\"name\":\"test-hc1\",\"description\":\"test\",\"time_field\":\"timestamp\","
-            + "\"indices\":[\"nab_ec2_cpu_utilization_24ae8d\"],\"filter_query\":{\"match_all\":{\"boost\":1}},"
-            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\""
-            + ":{\"interval\":1,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":0,\"feature_attributes\""
-            + ":[{\"feature_id\":\"tAQiv3sBr1GKRuDiJ5ty\",\"feature_name\":\"F1\",\"feature_enabled\":true,"
-            + "\"aggregation_query\":{\"f_1\":{\"sum\":{\"field\":\"value\"}}}}],\"ui_metadata\":{\"features\":"
-            + "{\"F1\":{\"featureType\":\"simple_aggs\",\"aggregationBy\":\"sum\",\"aggregationOf\":\"value\"}},"
-            + "\"filters\":[]},\"last_update_time\":1630999291783,\"category_field\":[\"type\"],\"detector_type\":"
-            + "\"MULTI_ENTITY\"},\"detection_date_range\":{\"start_time\":1628407291580,\"end_time\":1630999291580},"
-            + "\"entity\":[{\"name\":\"type\",\"value\":\"error10\"}],\"parent_task_id\":\"a1civ3sBwF58XZxvKrko\","
-            + "\"worker_node\":\"DL5uOJV3TjOOAyh5hJXrCA\",\"current_piece\":1630999260000,\"execution_end_time\":1630999442814}}";
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            SearchHit task = SearchHit.fromXContent(TestHelpers.parser(taskContent));
-            SearchHits searchHits = new SearchHits(new SearchHit[] { task }, new TotalHits(2, TotalHits.Relation.EQUAL_TO), Float.NaN);
+            SearchHit task = SearchHit.fromXContent(TestHelpers.parser(runningHistoricalHCTaskContent));
+            SearchHits searchHits = new SearchHits(new SearchHit[] { task }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), Float.NaN);
             InternalSearchResponse response = new InternalSearchResponse(
                 searchHits,
                 InternalAggregations.EMPTY,
@@ -974,5 +1008,635 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         adTaskManager.maintainRunningRealtimeTasks();
         verify(adTaskCacheManager, times(1)).removeRealtimeTaskCache(anyString());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testStartHistoricalAnalysisWithNoOwningNode() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of());
+        DetectionDateRange detectionDateRange = TestHelpers.randomDetectionDateRange();
+        User user = null;
+        int availableTaskSlots = randomIntBetween(1, 10);
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        doAnswer(invocation -> {
+            Consumer<Optional<DiscoveryNode>> function = invocation.getArgument(1);
+            function.accept(Optional.empty());
+            return null;
+        }).when(hashRing).buildAndGetOwningNodeWithSameLocalAdVersion(anyString(), any(), any());
+        adTaskManager.startHistoricalAnalysis(detector, detectionDateRange, user, availableTaskSlots, transportService, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetAndExecuteOnLatestADTasksWithRunningRealtimeTaskWithTaskStopped() throws IOException {
+        String detectorId = randomAlphaOfLength(5);
+        Consumer<List<ADTask>> function = mock(Consumer.class);
+        AnomalyDetector detector = TestHelpers
+            .randomDetector(
+                ImmutableList.of(randomFeature(true)),
+                randomAlphaOfLength(5),
+                randomIntBetween(1, 10),
+                MockSimpleLog.TIME_FIELD,
+                ImmutableList.of(randomAlphaOfLength(5))
+            );
+        ADTask adTask = ADTask
+            .builder()
+            .taskId(randomAlphaOfLength(5))
+            .taskType(ADTaskType.HISTORICAL_HC_DETECTOR.name())
+            .detectorId(randomAlphaOfLength(5))
+            .detector(detector)
+            .entity(null)
+            .state(ADTaskState.RUNNING.name())
+            .taskProgress(0.5f)
+            .initProgress(1.0f)
+            .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))
+            .executionStartTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(100, ChronoUnit.MINUTES))
+            .isLatest(true)
+            .error(randomAlphaOfLength(5))
+            .checkpointId(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .startedBy(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .coordinatingNode(node1.getId())
+            .build();
+        ADTaskProfile profile = new ADTaskProfile(
+            adTask,
+            randomInt(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomInt(),
+            randomInt(),
+            randomInt(),
+            randomInt(),
+            ImmutableList.of(randomAlphaOfLength(5))
+        );
+        setupGetAndExecuteOnLatestADTasks(profile);
+        adTaskManager
+            .getAndExecuteOnLatestADTasks(
+                detectorId,
+                null,
+                ADTaskType.ALL_DETECTOR_TASK_TYPES,
+                function,
+                transportService,
+                true,
+                10,
+                listener
+            );
+        verify(client, times(2)).update(any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetAndExecuteOnLatestADTasksWithRunningHistoricalTask() throws IOException {
+        String detectorId = randomAlphaOfLength(5);
+        Consumer<List<ADTask>> function = mock(Consumer.class);
+        AnomalyDetector detector = TestHelpers
+            .randomDetector(
+                ImmutableList.of(randomFeature(true)),
+                randomAlphaOfLength(5),
+                randomIntBetween(1, 10),
+                MockSimpleLog.TIME_FIELD,
+                ImmutableList.of(randomAlphaOfLength(5))
+            );
+        ADTask adTask = ADTask
+            .builder()
+            .taskId(historicalTaskId)
+            .taskType(ADTaskType.HISTORICAL_HC_DETECTOR.name())
+            .detectorId(randomAlphaOfLength(5))
+            .detector(detector)
+            .entity(null)
+            .state(ADTaskState.RUNNING.name())
+            .taskProgress(0.5f)
+            .initProgress(1.0f)
+            .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))
+            .executionStartTime(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(100, ChronoUnit.MINUTES))
+            .isLatest(true)
+            .error(randomAlphaOfLength(5))
+            .checkpointId(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .startedBy(randomAlphaOfLength(5))
+            .lastUpdateTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .coordinatingNode(node1.getId())
+            .build();
+        ADTaskProfile profile = new ADTaskProfile(
+            adTask,
+            randomInt(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            randomLong(),
+            randomAlphaOfLength(5),
+            historicalTaskId,
+            randomAlphaOfLength(5),
+            randomInt(),
+            randomInt(),
+            randomInt(),
+            2,
+            ImmutableList.of(randomAlphaOfLength(5), randomAlphaOfLength(5))
+        );
+        setupGetAndExecuteOnLatestADTasks(profile);
+        adTaskManager
+            .getAndExecuteOnLatestADTasks(
+                detectorId,
+                null,
+                ADTaskType.ALL_DETECTOR_TASK_TYPES,
+                function,
+                transportService,
+                true,
+                10,
+                listener
+            );
+        verify(client, times(2)).update(any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setupGetAndExecuteOnLatestADTasks(ADTaskProfile adTaskProfile) {
+        String runningRealtimeHCTaskContent = runningHistoricalHCTaskContent
+            .replace(ADTaskType.HISTORICAL_HC_DETECTOR.name(), ADTaskType.REALTIME_HC_DETECTOR.name())
+            .replace(historicalTaskId, realtimeTaskId);
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchHit historicalTask = SearchHit.fromXContent(TestHelpers.parser(runningHistoricalHCTaskContent));
+            SearchHit realtimeTask = SearchHit.fromXContent(TestHelpers.parser(runningRealtimeHCTaskContent));
+            SearchHits searchHits = new SearchHits(
+                new SearchHit[] { historicalTask, realtimeTask },
+                new TotalHits(2, TotalHits.Relation.EQUAL_TO),
+                Float.NaN
+            );
+            InternalSearchResponse response = new InternalSearchResponse(
+                searchHits,
+                InternalAggregations.EMPTY,
+                null,
+                null,
+                false,
+                null,
+                1
+            );
+            SearchResponse searchResponse = new SearchResponse(
+                response,
+                null,
+                1,
+                1,
+                0,
+                100,
+                ShardSearchFailure.EMPTY_ARRAY,
+                SearchResponse.Clusters.EMPTY
+            );
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+        String detectorId = randomAlphaOfLength(5);
+        Consumer<List<ADTask>> function = mock(Consumer.class);
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+
+        doAnswer(invocation -> {
+            Consumer<DiscoveryNode[]> getNodeFunction = invocation.getArgument(0);
+            getNodeFunction.accept(new DiscoveryNode[] { node1, node2 });
+            return null;
+        }).when(hashRing).getAllEligibleDataNodesWithKnownAdVersion(any(), any());
+
+        doAnswer(invocation -> {
+            ActionListener<ADTaskProfileResponse> taskProfileResponseListener = invocation.getArgument(2);
+            AnomalyDetector detector = TestHelpers
+                .randomDetector(
+                    ImmutableList.of(randomFeature(true)),
+                    randomAlphaOfLength(5),
+                    randomIntBetween(1, 10),
+                    MockSimpleLog.TIME_FIELD,
+                    ImmutableList.of(randomAlphaOfLength(5))
+                );
+            ADTaskProfileNodeResponse nodeResponse = new ADTaskProfileNodeResponse(node1, adTaskProfile, Version.CURRENT);
+            ImmutableList<ADTaskProfileNodeResponse> nodes = ImmutableList.of(nodeResponse);
+            ADTaskProfileResponse taskProfileResponse = new ADTaskProfileResponse(new ClusterName("test"), nodes, ImmutableList.of());
+            taskProfileResponseListener.onResponse(taskProfileResponse);
+            return null;
+        }).doAnswer(invocation -> {
+            ActionListener<BulkByScrollResponse> updateResponselistener = invocation.getArgument(2);
+            BulkByScrollResponse response = mock(BulkByScrollResponse.class);
+            when(response.getBulkFailures()).thenReturn(null);
+            updateResponselistener.onResponse(response);
+            return null;
+        }).when(client).execute(any(), any(), any());
+        when(nodeFilter.getEligibleDataNodes()).thenReturn(new DiscoveryNode[] { node1, node2 });
+
+        doAnswer(invocation -> {
+            ActionListener<UpdateResponse> updateResponselistener = invocation.getArgument(1);
+            UpdateResponse response = new UpdateResponse(
+                ShardId.fromString("[test][1]"),
+                CommonName.MAPPING_TYPE,
+                "1",
+                0L,
+                1L,
+                1L,
+                DocWriteResponse.Result.UPDATED
+            );
+            updateResponselistener.onResponse(response);
+            return null;
+        }).when(client).update(any(), any());
+
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> getResponselistener = invocation.getArgument(1);
+            GetResponse response = new GetResponse(
+                new GetResult(
+                    AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+                    MapperService.SINGLE_MAPPING_NAME,
+                    detectorId,
+                    UNASSIGNED_SEQ_NO,
+                    0,
+                    -1,
+                    true,
+                    BytesReference
+                        .bytes(
+                            new AnomalyDetectorJob(
+                                detectorId,
+                                randomIntervalSchedule(),
+                                randomIntervalTimeConfiguration(),
+                                false,
+                                Instant.now().minusSeconds(60),
+                                Instant.now(),
+                                Instant.now(),
+                                60L,
+                                TestHelpers.randomUser()
+                            ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
+                        ),
+                    Collections.emptyMap(),
+                    Collections.emptyMap()
+                )
+            );
+            getResponselistener.onResponse(response);
+            return null;
+        }).when(client).get(any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testCreateADTaskDirectlyWithException() throws IOException {
+        ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR);
+        Consumer<IndexResponse> function = mock(Consumer.class);
+        ActionListener<IndexResponse> listener = mock(ActionListener.class);
+        doThrow(new RuntimeException("test")).when(client).index(any(), any());
+
+        adTaskManager.createADTaskDirectly(adTask, function, listener);
+        verify(listener, times(1)).onFailure(any());
+
+        doAnswer(invocation -> {
+            ActionListener<IndexResponse> actionListener = invocation.getArgument(1);
+            actionListener.onFailure(new RuntimeException("test"));
+            return null;
+        }).when(client).index(any(), any());
+        adTaskManager.createADTaskDirectly(adTask, function, listener);
+        verify(listener, times(2)).onFailure(any());
+    }
+
+    public void testCleanChildTasksAndADResultsOfDeletedTaskWithNoDeletedDetectorTask() {
+        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(false);
+        adTaskManager.cleanChildTasksAndADResultsOfDeletedTask();
+        verify(client, never()).execute(any(), any(), any());
+    }
+
+    public void testCleanChildTasksAndADResultsOfDeletedTaskWithNullTask() {
+        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(true);
+        when(adTaskCacheManager.pollDeletedDetectorTask()).thenReturn(null);
+        doAnswer(invocation -> {
+            ActionListener<IndexResponse> actionListener = invocation.getArgument(2);
+            actionListener.onFailure(new RuntimeException("test"));
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(threadPool).schedule(any(), any(), any());
+
+        adTaskManager.cleanChildTasksAndADResultsOfDeletedTask();
+        verify(client, never()).execute(any(), any(), any());
+    }
+
+    public void testCleanChildTasksAndADResultsOfDeletedTaskWithFailToDeleteADResult() {
+        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(true);
+        when(adTaskCacheManager.pollDeletedDetectorTask()).thenReturn(randomAlphaOfLength(5));
+        doAnswer(invocation -> {
+            ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
+            actionListener.onFailure(new RuntimeException("test"));
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(threadPool).schedule(any(), any(), any());
+
+        adTaskManager.cleanChildTasksAndADResultsOfDeletedTask();
+        verify(client, times(1)).execute(any(), any(), any());
+    }
+
+    public void testCleanChildTasksAndADResultsOfDeletedTask() {
+        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(true);
+        when(adTaskCacheManager.pollDeletedDetectorTask()).thenReturn(randomAlphaOfLength(5)).thenReturn(null);
+        doAnswer(invocation -> {
+            ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
+            BulkByScrollResponse response = mock(BulkByScrollResponse.class);
+            actionListener.onResponse(response);
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(threadPool).schedule(any(), any(), any());
+
+        adTaskManager.cleanChildTasksAndADResultsOfDeletedTask();
+        verify(client, times(2)).execute(any(), any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testDeleteADTasks() {
+        doAnswer(invocation -> {
+            ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
+            BulkByScrollResponse response = mock(BulkByScrollResponse.class);
+            when(response.getBulkFailures()).thenReturn(null);
+            actionListener.onResponse(response);
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        String detectorId = randomAlphaOfLength(5);
+        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ActionListener<DeleteResponse> listener = mock(ActionListener.class);
+        adTaskManager.deleteADTasks(detectorId, function, listener);
+        verify(function, times(1)).execute();
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testDeleteADTasksWithBulkFailures() {
+        doAnswer(invocation -> {
+            ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
+            BulkByScrollResponse response = mock(BulkByScrollResponse.class);
+            List<BulkItemResponse.Failure> failures = ImmutableList
+                .of(
+                    new BulkItemResponse.Failure(
+                        DETECTION_STATE_INDEX,
+                        CommonName.MAPPING_TYPE,
+                        randomAlphaOfLength(5),
+                        new VersionConflictEngineException(new ShardId(DETECTION_STATE_INDEX, "", 1), "id", "test")
+                    )
+                );
+            when(response.getBulkFailures()).thenReturn(failures);
+            actionListener.onResponse(response);
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        String detectorId = randomAlphaOfLength(5);
+        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ActionListener<DeleteResponse> listener = mock(ActionListener.class);
+        adTaskManager.deleteADTasks(detectorId, function, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testDeleteADTasksWithException() {
+        doAnswer(invocation -> {
+            ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
+            actionListener.onFailure(new IndexNotFoundException(DETECTION_STATE_INDEX));
+            return null;
+        }).doAnswer(invocation -> {
+            ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
+            actionListener.onFailure(new RuntimeException("test"));
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        String detectorId = randomAlphaOfLength(5);
+        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ActionListener<DeleteResponse> listener = mock(ActionListener.class);
+
+        adTaskManager.deleteADTasks(detectorId, function, listener);
+        verify(function, times(1)).execute();
+        verify(listener, never()).onFailure(any());
+
+        adTaskManager.deleteADTasks(detectorId, function, listener);
+        verify(function, times(1)).execute();
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testScaleUpTaskSlots() throws IOException {
+        ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_ENTITY);
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        when(adTaskCacheManager.getAvailableNewEntityTaskLanes(anyString())).thenReturn(0);
+        doReturn(2).when(adTaskManager).detectorTaskSlotScaleDelta(anyString());
+        when(adTaskCacheManager.getLastScaleEntityTaskLaneTime(anyString())).thenReturn(null);
+
+        assertEquals(0, adTaskManager.scaleTaskSlots(adTask, transportService, listener));
+
+        when(adTaskCacheManager.getLastScaleEntityTaskLaneTime(anyString())).thenReturn(Instant.now());
+        assertEquals(2, adTaskManager.scaleTaskSlots(adTask, transportService, listener));
+
+        when(adTaskCacheManager.getLastScaleEntityTaskLaneTime(anyString())).thenReturn(Instant.now().minus(10, ChronoUnit.DAYS));
+        assertEquals(2, adTaskManager.scaleTaskSlots(adTask, transportService, listener));
+        verify(adTaskCacheManager, times(1)).refreshLastScaleEntityTaskLaneTime(anyString());
+        verify(adTaskManager, times(1)).forwardScaleTaskSlotRequestToLeadNode(any(), any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testForwardRequestToLeadNodeWithNotExistingNode() throws IOException {
+        ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_ENTITY);
+        ForwardADTaskRequest forwardADTaskRequest = new ForwardADTaskRequest(adTask, ADTaskAction.APPLY_FOR_TASK_SLOTS);
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        doAnswer(invocation -> {
+            Consumer<Optional<DiscoveryNode>> function = invocation.getArgument(1);
+            function.accept(Optional.empty());
+            return null;
+        }).when(hashRing).buildAndGetOwningNodeWithSameLocalAdVersion(any(), any(), any());
+
+        adTaskManager.forwardRequestToLeadNode(forwardADTaskRequest, transportService, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testScaleTaskLaneOnCoordinatingNode() {
+        ADTask adTask = mock(ADTask.class);
+        when(adTask.getCoordinatingNode()).thenReturn(node1.getId());
+        when(nodeFilter.getEligibleDataNodes()).thenReturn(new DiscoveryNode[] { node1, node2 });
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        adTaskManager.scaleTaskLaneOnCoordinatingNode(adTask, 2, transportService, listener);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testStartDetectorWithException() throws IOException {
+        AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
+        DetectionDateRange detectionDateRange = randomDetectionDateRange();
+        User user = null;
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        when(detectionIndices.doesDetectorStateIndexExist()).thenReturn(false);
+        doThrow(new RuntimeException("test")).when(detectionIndices).initDetectionStateIndex(any());
+        adTaskManager.startDetector(detector, detectionDateRange, user, transportService, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testStopDetectorWithNonExistingDetector() {
+        String detectorId = randomAlphaOfLength(5);
+        boolean historical = true;
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        doAnswer(invocation -> {
+            Consumer<Optional<AnomalyDetector>> function = invocation.getArgument(1);
+            function.accept(Optional.empty());
+            return null;
+        }).when(adTaskManager).getDetector(anyString(), any(), any());
+        adTaskManager.stopDetector(detectorId, historical, indexAnomalyDetectorJobActionHandler, null, transportService, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testStopDetectorWithNonExistingTask() {
+        String detectorId = randomAlphaOfLength(5);
+        boolean historical = true;
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        doAnswer(invocation -> {
+            Consumer<Optional<AnomalyDetector>> function = invocation.getArgument(1);
+            AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
+            function.accept(Optional.of(detector));
+            return null;
+        }).when(adTaskManager).getDetector(anyString(), any(), any());
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> actionListener = invocation.getArgument(1);
+            actionListener.onResponse(null);
+            return null;
+        }).when(client).search(any(), any());
+
+        adTaskManager.stopDetector(detectorId, historical, indexAnomalyDetectorJobActionHandler, null, transportService, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testStopDetectorWithTaskDone() {
+        String detectorId = randomAlphaOfLength(5);
+        boolean historical = true;
+        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        doAnswer(invocation -> {
+            Consumer<Optional<AnomalyDetector>> function = invocation.getArgument(1);
+            AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
+            function.accept(Optional.of(detector));
+            return null;
+        }).when(adTaskManager).getDetector(anyString(), any(), any());
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> actionListener = invocation.getArgument(1);
+            SearchHit task = SearchHit.fromXContent(TestHelpers.parser(taskContent));
+            SearchHits searchHits = new SearchHits(new SearchHit[] { task }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), Float.NaN);
+            InternalSearchResponse response = new InternalSearchResponse(
+                searchHits,
+                InternalAggregations.EMPTY,
+                null,
+                null,
+                false,
+                null,
+                1
+            );
+            SearchResponse searchResponse = new SearchResponse(
+                response,
+                null,
+                1,
+                1,
+                0,
+                100,
+                ShardSearchFailure.EMPTY_ARRAY,
+                SearchResponse.Clusters.EMPTY
+            );
+            actionListener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        adTaskManager.stopDetector(detectorId, historical, indexAnomalyDetectorJobActionHandler, null, transportService, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetDetectorWithWrongContent() {
+        String detectorId = randomAlphaOfLength(5);
+        Consumer<Optional<AnomalyDetector>> function = mock(Consumer.class);
+        ActionListener<GetResponse> listener = mock(ActionListener.class);
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> responseListener = invocation.getArgument(1);
+            GetResponse response = new GetResponse(
+                new GetResult(
+                    AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+                    MapperService.SINGLE_MAPPING_NAME,
+                    detectorId,
+                    UNASSIGNED_SEQ_NO,
+                    0,
+                    -1,
+                    true,
+                    BytesReference
+                        .bytes(
+                            new MockSimpleLog(Instant.now(), 1.0, "127.0.0.1", "category", true, "test")
+                                .toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
+                        ),
+                    Collections.emptyMap(),
+                    Collections.emptyMap()
+                )
+            );
+            responseListener.onResponse(response);
+            return null;
+        }).when(client).get(any(), any());
+        adTaskManager.getDetector(detectorId, function, listener);
+        verify(listener, times(1)).onFailure(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testDeleteTaskDocs() {
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> actionListener = invocation.getArgument(1);
+            SearchHit task = SearchHit.fromXContent(TestHelpers.parser(taskContent));
+            SearchHits searchHits = new SearchHits(new SearchHit[] { task }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), Float.NaN);
+            InternalSearchResponse response = new InternalSearchResponse(
+                searchHits,
+                InternalAggregations.EMPTY,
+                null,
+                null,
+                false,
+                null,
+                1
+            );
+            SearchResponse searchResponse = new SearchResponse(
+                response,
+                null,
+                1,
+                1,
+                0,
+                100,
+                ShardSearchFailure.EMPTY_ARRAY,
+                SearchResponse.Clusters.EMPTY
+            );
+            actionListener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        doAnswer(invocation -> {
+            ActionListener<BulkResponse> responseListener = invocation.getArgument(2);
+            BulkItemResponse[] responses = new BulkItemResponse[1];
+            ShardId shardId = new ShardId(new Index("index_name", "uuid"), 0);
+            responses[0] = new BulkItemResponse(
+                0,
+                randomFrom(DocWriteRequest.OpType.values()),
+                new IndexResponse(shardId, "_doc", "id", 1, 1, 1, true)
+            );
+            responseListener.onResponse(new BulkResponse(responses, 1));
+            return null;
+        }).when(client).execute(any(), any(), any());
+
+        String detectorId = randomAlphaOfLength(5);
+        SearchRequest searchRequest = mock(SearchRequest.class);
+        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ActionListener<SearchResponse> listener = mock(ActionListener.class);
+        adTaskManager.deleteTaskDocs(detectorId, searchRequest, function, listener);
+        verify(adTaskCacheManager, times(1)).addDeletedDetectorTask(anyString());
+        verify(function, times(1)).execute();
     }
 }
