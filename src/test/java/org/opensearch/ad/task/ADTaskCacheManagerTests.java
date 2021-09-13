@@ -206,20 +206,6 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         verify(memoryTracker, times(1)).releaseMemory(eq(cacheSize), eq(true), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
     }
 
-    public void testCancel() throws IOException {
-        when(memoryTracker.canAllocateReserved(anyLong())).thenReturn(true);
-        ADTask adTask = TestHelpers.randomAdTask();
-        adTaskCacheManager.add(adTask);
-        assertEquals(1, adTaskCacheManager.size());
-        assertEquals(false, adTaskCacheManager.isCancelled(adTask.getTaskId()));
-        String cancelReason = randomAlphaOfLength(10);
-        String userName = randomAlphaOfLength(5);
-        adTaskCacheManager.cancel(adTask.getTaskId(), cancelReason, userName);
-        assertEquals(true, adTaskCacheManager.isCancelled(adTask.getTaskId()));
-        assertEquals(cancelReason, adTaskCacheManager.getCancelReason(adTask.getTaskId()));
-        assertEquals(userName, adTaskCacheManager.getCancelledBy(adTask.getTaskId()));
-    }
-
     public void testTaskNotExist() {
         IllegalArgumentException e = expectThrows(
             IllegalArgumentException.class,
@@ -240,23 +226,6 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(2, adTaskCacheManager.size());
         LimitExceededException e = expectThrows(LimitExceededException.class, () -> adTaskCacheManager.add(TestHelpers.randomAdTask()));
         assertEquals("Exceed max historical analysis limit per node: 2", e.getMessage());
-    }
-
-    public void testCancelByTaskId() throws IOException {
-        when(memoryTracker.canAllocateReserved(anyLong())).thenReturn(true);
-        ADTask adTask = TestHelpers.randomAdTask();
-        adTaskCacheManager.add(adTask);
-
-        String reason = randomAlphaOfLength(10);
-        String userName = randomAlphaOfLength(5);
-        ADTaskCancellationState state = adTaskCacheManager.cancel(randomAlphaOfLength(10), reason, userName);
-        assertEquals(ADTaskCancellationState.NOT_FOUND, state);
-
-        state = adTaskCacheManager.cancel(adTask.getTaskId(), reason, userName);
-        assertEquals(ADTaskCancellationState.CANCELLED, state);
-
-        state = adTaskCacheManager.cancel(adTask.getTaskId(), reason, userName);
-        assertEquals(ADTaskCancellationState.ALREADY_CANCELLED, state);
     }
 
     public void testCancelByDetectorIdWhichNotExist() {

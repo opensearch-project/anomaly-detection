@@ -47,6 +47,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
 import static org.opensearch.ad.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
+import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -368,7 +369,7 @@ public class ADBatchTaskRunner {
         long dataEndTime,
         ActionListener<String> internalHCListener
     ) {
-        checkIfADTaskCancelled(adTask.getTaskId());
+        checkIfADTaskCancelledAndCleanupCache(adTask);
         ActionListener<List<Entity>> topEntitiesListener = ActionListener.wrap(topEntities -> {
             topEntities
                 .forEach(entity -> priorityTracker.updatePriority(adTaskManager.convertEntityToString(entity, adTask.getDetector())));
@@ -421,7 +422,7 @@ public class ADBatchTaskRunner {
         long dataEndTime,
         ActionListener<String> internalHCListener
     ) {
-        checkIfADTaskCancelled(adTask.getTaskId());
+        checkIfADTaskCancelledAndCleanupCache(adTask);
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
         RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(adTask.getDetector().getTimeField())
@@ -882,7 +883,7 @@ public class ADBatchTaskRunner {
                         ),
                     ActionListener.wrap(r -> {
                         try {
-                            checkIfADTaskCancelled(adTask.getTaskId());
+                            checkIfADTaskCancelledAndCleanupCache(adTask);
                             getDateRangeOfSourceData(adTask, (dataStartTime, dataEndTime) -> {
                                 long interval = ((IntervalTimeConfiguration) adTask.getDetector().getDetectionInterval())
                                     .toDuration()
@@ -1163,7 +1164,7 @@ public class ADBatchTaskRunner {
         }
 
         if (pieceStartTime < dataEndTime) {
-            checkIfADTaskCancelled(adTask.getTaskId());
+            checkIfADTaskCancelledAndCleanupCache(adTask);
             threadPool.schedule(() -> {
                 checkClusterState(adTask);
                 long expectedPieceEndTime = pieceStartTime + pieceSize * interval;
@@ -1266,10 +1267,29 @@ public class ADBatchTaskRunner {
         return initProgress > 1.0f ? 1.0f : initProgress;
     }
 
-    private void checkIfADTaskCancelled(String taskId) {
+    private void checkIfADTaskCancelledAndCleanupCache(ADTask adTask) {
+        String taskId = adTask.getTaskId();
+        String detectorId = adTask.getDetectorId();
         if (adTaskCacheManager.contains(taskId) && adTaskCacheManager.isCancelled(taskId)) {
             logger.info("AD task cancelled, stop running task {}", taskId);
-            throw new ADTaskCancelledException(adTaskCacheManager.getCancelReason(taskId), adTaskCacheManager.getCancelledBy(taskId));
+            String cancelReason = adTaskCacheManager.getCancelReason(taskId);
+            String cancelledBy = adTaskCacheManager.getCancelledBy(taskId);
+            adTaskCacheManager.remove(taskId);
+
+            if (adTaskCacheManager.isHCTaskCoordinatingNode(detectorId)) {
+                // clean up pending and running entity for HC detector
+                if (adTask.getDetector().isMultientityDetector()) {
+                    logger.info("Clean historical task pending and running entity cache for HC detector {}", detectorId);
+                    adTaskCacheManager.clearPendingEntities(detectorId);
+                    adTaskCacheManager.removeRunningEntity(detectorId, adTaskManager.convertEntityToString(adTask));
+                }
+            } else if (isNullOrEmpty(adTaskCacheManager.getTasksOfDetector(detectorId))) {
+                // Clean up historical task cache for detector on worker node
+                logger.info("All AD task cancelled, cleanup historical task cache for detector {}", detectorId);
+                adTaskCacheManager.removeHistoricalTaskCache(detectorId);
+            }
+
+            throw new ADTaskCancelledException(cancelReason, cancelledBy);
         }
     }
 

@@ -382,8 +382,9 @@ public class ADTaskCacheManager {
      * @param taskId AD task id
      */
     public void remove(String taskId) {
-        if (contains(taskId)) {
-            ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
+        ADBatchTaskCache taskCache = batchTaskCaches.get(taskId);
+        if (taskCache != null) {
+            logger.debug("Remove batch task from cache, task id: {}", taskId);
             memoryTracker.releaseMemory(taskCache.getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
             batchTaskCaches.remove(taskId);
             // can't remove detector id from cache here as it's possible that some task running on
@@ -433,25 +434,6 @@ public class ADTaskCacheManager {
             logger.info("Detector is not in AD task coordinating node cache");
         }
         detectorTaskSlotLimit.remove(detectorId);
-    }
-
-    /**
-     * Cancel AD task.
-     *
-     * @param taskId AD task id
-     * @param reason why need to cancel task
-     * @param userName user name
-     * @return AD task cancellation state
-     */
-    public ADTaskCancellationState cancel(String taskId, String reason, String userName) {
-        if (!contains(taskId)) {
-            return ADTaskCancellationState.NOT_FOUND;
-        }
-        if (isCancelled(taskId)) {
-            return ADTaskCancellationState.ALREADY_CANCELLED;
-        }
-        getBatchTaskCache(taskId).cancel(reason, userName);
-        return ADTaskCancellationState.CANCELLED;
     }
 
     /**
@@ -961,8 +943,8 @@ public class ADTaskCacheManager {
      */
     public boolean removeRunningEntity(String detectorId, String entity) {
         logger.debug("Remove entity from running entities cache: {}", entity);
-        if (hcBatchTaskCaches.containsKey(detectorId)) {
-            ADHCBatchTaskCache hcTaskCache = hcBatchTaskCaches.get(detectorId);
+        ADHCBatchTaskCache hcTaskCache = hcBatchTaskCaches.get(detectorId);
+        if (hcTaskCache != null) {
             return hcTaskCache.removeRunningEntity(entity);
         }
         return false;
