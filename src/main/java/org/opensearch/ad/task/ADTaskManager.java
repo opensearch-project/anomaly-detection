@@ -34,7 +34,6 @@ import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING
 import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
-import static org.opensearch.ad.constant.CommonErrorMessages.NO_ENTITY_FOUND;
 import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.ADTask.COORDINATING_NODE_FIELD;
@@ -604,54 +603,19 @@ public class ADTaskManager {
                     return;
                 }
 
-                long dataStartTime = detectionDateRange.getStartTime().toEpochMilli();
-                long dataEndTime = detectionDateRange.getEndTime().toEpochMilli();
-
-                if (detector.isMultientityDetector()) {
-                    // Get top entities for multi-category HC detector. Check example query in getHighestCountEntities comments
-                    searchFeatureDao
-                        .getHighestCountEntities(
-                            detector,
-                            dataStartTime,
-                            dataEndTime,
-                            maxRunningEntitiesPerDetector,
-                            1,// Get entities with minimum doc count 1 here to make sure we reserve enough task slots for HC detector
-                            maxRunningEntitiesPerDetector,
-                            ActionListener.wrap(topEntities -> {
-                                if (isNullOrEmpty(topEntities)) {
-                                    wrappedActionListener.onFailure(new ResourceNotFoundException(NO_ENTITY_FOUND));
-                                    return;
-                                }
-                                int approvedTaskSlots = Math.min(availableAdTaskSlots, topEntities.size());
-                                // Send task to run multi-category HC detector on coordinating node
-                                forwardToCoordinatingNode(
-                                    adTask,
-                                    detector,
-                                    detectionDateRange,
-                                    user,
-                                    afterCheckAction,
-                                    transportService,
-                                    wrappedActionListener,
-                                    approvedTaskSlots
-                                );
-                            }, e -> {
-                                logger.error("Failed to get top entities for HC detector: " + detector.getDetectorId(), e);
-                                wrappedActionListener.onFailure(e);
-                            })
-                        );
-                } else {
-                    // Send task to run single-flow detector on coordinating node
-                    forwardToCoordinatingNode(
-                        adTask,
-                        detector,
-                        detectionDateRange,
-                        user,
-                        afterCheckAction,
-                        transportService,
-                        wrappedActionListener,
-                        1
-                    );
-                }
+                int approvedTaskSlots = detector.isMultientityDetector()
+                    ? Math.min(maxRunningEntitiesPerDetector, availableAdTaskSlots)
+                    : 1;
+                forwardToCoordinatingNode(
+                    adTask,
+                    detector,
+                    detectionDateRange,
+                    user,
+                    afterCheckAction,
+                    transportService,
+                    wrappedActionListener,
+                    approvedTaskSlots
+                );
             }, exception -> {
                 logger.error("Failed to get node's task stats for detector " + detectorId, exception);
                 wrappedActionListener.onFailure(exception);

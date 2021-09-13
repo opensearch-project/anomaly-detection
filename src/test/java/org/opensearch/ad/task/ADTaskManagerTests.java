@@ -53,7 +53,6 @@ import static org.opensearch.ad.TestHelpers.randomIntervalSchedule;
 import static org.opensearch.ad.TestHelpers.randomIntervalTimeConfiguration;
 import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.constant.CommonErrorMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
-import static org.opensearch.ad.constant.CommonErrorMessages.NO_ENTITY_FOUND;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.model.Entity.createSingleAttributeEntity;
@@ -540,8 +539,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         adTaskManager
             .checkTaskSlots(adTask, adTask.getDetector(), detectionDateRange, randomUser(), ADTaskAction.START, transportService, listener);
-        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
-        assertTrue(exceptionCaptor.getValue().getMessage().contains(NO_ENTITY_FOUND));
+        verify(adTaskManager, times(1)).startHistoricalAnalysis(any(), any(), any(), anyInt(), any(), any());
     }
 
     public void testCheckTaskSlotsWithAvailableTaskSlotsForScale() throws IOException {
