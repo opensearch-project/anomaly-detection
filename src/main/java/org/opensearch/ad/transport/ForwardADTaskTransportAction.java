@@ -138,7 +138,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     );
                 // Historical analysis finished, so we need to remove detector cache. Only single entity detectors use this.
                 if (historicalTask) {
-                    adTaskCacheManager.removeHistoricalTaskCache(detectorId);
+                    adTaskCacheManager.removeHistoricalTaskCacheIfNoRunningEntity(detectorId);
                 } else {
                     adTaskCacheManager.removeRealtimeTaskCache(detectorId);
                     // If hash ring changed like new node added when scale out, the realtime job coordinating node may

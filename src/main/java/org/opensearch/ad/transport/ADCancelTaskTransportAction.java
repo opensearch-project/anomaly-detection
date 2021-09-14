@@ -26,6 +26,8 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.HISTORICAL_ANALYSIS_CANCELLED;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -94,10 +96,9 @@ public class ADCancelTaskTransportAction extends
 
     @Override
     protected ADCancelTaskNodeResponse nodeOperation(ADCancelTaskNodeRequest request) {
-        String reason = "Task cancelled by user";
         String userName = request.getUserName();
         String detectorId = request.getDetectorId();
-        ADTaskCancellationState state = adTaskManager.cancelLocalTaskByDetectorId(detectorId, reason, userName);
+        ADTaskCancellationState state = adTaskManager.cancelLocalTaskByDetectorId(detectorId, HISTORICAL_ANALYSIS_CANCELLED, userName);
         logger.debug("Cancelled AD task for detector: {}", request.getDetectorId());
         return new ADCancelTaskNodeResponse(clusterService.localNode(), state);
     }

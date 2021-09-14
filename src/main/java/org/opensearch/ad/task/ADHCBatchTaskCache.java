@@ -20,11 +20,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.lucene.util.SetOnce;
-import org.opensearch.ad.model.ADTaskState;
-
 /**
- * AD HC detector batch task cache which will mainly hold these for HC detector
+ * AD HC detector batch task cache which will mainly hold these for HC detector on
+ * coordinating node.
  * 1. pending entities queue
  * 2. running entities queue
  * 3. temp entities queue
@@ -68,16 +66,11 @@ public class ADHCBatchTaskCache {
     // Record how many times the task has retried. Key is task id.
     private Map<String, AtomicInteger> taskRetryTimes;
 
-    // detector level task state
-    private String detectorTaskState;
-
-    private SetOnce<Boolean> isCoordinatingNode;
     // record last time when HC detector scales entity task slots
     private Instant lastScaleEntityTaskSlotsTime;
 
-    // record if HC detector historical analysis cancelled/stopped. Every entity task should
-    // recheck this field and stop if it's true.
-    private boolean isHistoricalAnalysisCancelled;
+    // record lastest HC detector task run time, will use this field to check if task is running or not.
+    private Instant latestTaskRunTime;
 
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
@@ -86,21 +79,12 @@ public class ADHCBatchTaskCache {
         this.taskRetryTimes = new ConcurrentHashMap<>();
         this.detectorTaskUpdatingSemaphore = new Semaphore(1);
         this.topEntitiesInited = false;
-        this.detectorTaskState = ADTaskState.INIT.name();
-        this.isCoordinatingNode = new SetOnce<>();
         this.lastScaleEntityTaskSlotsTime = Instant.now();
-    }
-
-    public void setIsCoordinatingNode(boolean isCoordinatingNode) {
-        this.isCoordinatingNode.set(isCoordinatingNode);
-    }
-
-    public boolean isCoordinatingNode() {
-        Boolean isCoordinating = this.isCoordinatingNode.get();
-        return isCoordinating != null && isCoordinating.booleanValue();
+        this.latestTaskRunTime = Instant.now();
     }
 
     public void setTopEntityCount(Integer topEntityCount) {
+        this.refreshLatestTaskRunTime();
         this.topEntityCount = topEntityCount;
     }
 
@@ -133,6 +117,7 @@ public class ADHCBatchTaskCache {
     }
 
     public void setEntityTaskLanes(int entityTaskLanes) {
+        this.refreshLatestTaskRunTime();
         this.entityTaskLanes = new AtomicInteger(entityTaskLanes);
     }
 
@@ -152,20 +137,13 @@ public class ADHCBatchTaskCache {
         return taskRetryTimes.computeIfAbsent(taskId, id -> new AtomicInteger(0)).get();
     }
 
-    public String getDetectorTaskState() {
-        return detectorTaskState;
-    }
-
-    public void setDetectorTaskState(String detectorTaskState) {
-        this.detectorTaskState = detectorTaskState;
-    }
-
     /**
      * Add list of entities into pending entity queue. Will check if these entities exists
      * in temp entities queue first. If yes, will remove from temp entities queue.
      * @param entities a list of entity
      */
     public void addEntities(List<String> entities) {
+        this.refreshLatestTaskRunTime();
         if (entities == null || entities.size() == 0) {
             return;
         }
@@ -177,7 +155,6 @@ public class ADHCBatchTaskCache {
                 pendingEntities.add(entity);
             }
         }
-
     }
 
     /**
@@ -185,6 +162,7 @@ public class ADHCBatchTaskCache {
      * @param entity entity value
      */
     public void moveToRunningEntity(String entity) {
+        this.refreshLatestTaskRunTime();
         if (entity == null) {
             return;
         }
@@ -225,16 +203,20 @@ public class ADHCBatchTaskCache {
         this.lastScaleEntityTaskSlotsTime = lastScaleEntityTaskSlotsTime;
     }
 
-    public boolean getHistoricalAnalysisCancelled() {
-        return isHistoricalAnalysisCancelled;
+    public Instant getLatestTaskRunTime() {
+        return latestTaskRunTime;
     }
 
-    public void setHistoricalAnalysisCancelled(boolean historicalAnalysisCancelled) {
-        isHistoricalAnalysisCancelled = historicalAnalysisCancelled;
+    public void refreshLatestTaskRunTime() {
+        this.latestTaskRunTime = Instant.now();
     }
 
     public boolean hasEntity() {
         return !this.pendingEntities.isEmpty() || !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
+    }
+
+    public boolean hasRunningEntity() {
+        return !this.runningEntities.isEmpty();
     }
 
     public boolean removeRunningEntity(String entity) {
@@ -257,6 +239,7 @@ public class ADHCBatchTaskCache {
      * @return entity value
      */
     public String pollEntity() {
+        this.refreshLatestTaskRunTime();
         String entity = this.pendingEntities.poll();
         if (entity != null) {
             this.moveToTempEntity(entity);
@@ -286,6 +269,7 @@ public class ADHCBatchTaskCache {
      * @param entity entity value
      */
     public void removeEntity(String entity) {
+        this.refreshLatestTaskRunTime();
         if (entity == null) {
             return;
         }

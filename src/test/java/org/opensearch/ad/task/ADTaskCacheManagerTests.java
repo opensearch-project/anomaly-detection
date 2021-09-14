@@ -520,17 +520,20 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertNull(adTaskCacheManager.pollDeletedDetector());
     }
 
-    public void testAddPendingEntitiesWithEmptyList() {
+    public void testAddPendingEntitiesWithEmptyList() throws IOException {
         String detectorId = randomAlphaOfLength(5);
-        adTaskCacheManager.addPendingEntities(detectorId, null);
+        expectThrows(IllegalArgumentException.class, () -> adTaskCacheManager.addPendingEntities(detectorId, null));
+
+        adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
         adTaskCacheManager.addPendingEntities(detectorId, ImmutableList.of());
         assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
     }
 
-    public void testMoveToRunningEntity() {
+    public void testMoveToRunningEntity() throws IOException {
         String detectorId = randomAlphaOfLength(5);
         String entity = randomAlphaOfLength(5);
+        adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         adTaskCacheManager.addPendingEntities(detectorId, ImmutableList.of(entity));
         assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
         adTaskCacheManager.moveToRunningEntity(detectorId, null);
@@ -543,9 +546,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(1, adTaskCacheManager.getRunningEntityCount(detectorId));
     }
 
-    public void testRemoveEntity() {
+    public void testRemoveEntity() throws IOException {
         String detectorId = randomAlphaOfLength(5);
         String entity = randomAlphaOfLength(5);
+        adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         adTaskCacheManager.addPendingEntities(detectorId, ImmutableList.of(entity));
         assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
         adTaskCacheManager.removeEntity(detectorId, null);

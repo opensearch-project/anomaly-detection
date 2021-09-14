@@ -1067,10 +1067,12 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             randomInt(),
+            randomBoolean(),
             randomInt(),
             randomInt(),
             randomInt(),
-            ImmutableList.of(randomAlphaOfLength(5))
+            ImmutableList.of(randomAlphaOfLength(5)),
+            Instant.now().toEpochMilli()
         );
         setupGetAndExecuteOnLatestADTasks(profile);
         adTaskManager
@@ -1130,10 +1132,12 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             historicalTaskId,
             randomAlphaOfLength(5),
             randomInt(),
+            randomBoolean(),
             randomInt(),
             randomInt(),
             2,
-            ImmutableList.of(randomAlphaOfLength(5), randomAlphaOfLength(5))
+            ImmutableList.of(randomAlphaOfLength(5), randomAlphaOfLength(5)),
+            Instant.now().toEpochMilli()
         );
         setupGetAndExecuteOnLatestADTasks(profile);
         adTaskManager
