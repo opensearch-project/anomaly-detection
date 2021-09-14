@@ -42,7 +42,7 @@ jobs:
       - name: Checkout common-utils
         uses: actions/checkout@v2
         with:
-          ref: 'main'
+          ref: '1.1'
           repository: 'opensearch-project/common-utils'
           path: common-utils
       - name: Build common-utils
@@ -53,7 +53,7 @@ jobs:
       - name: Checkout job-scheduler
         uses: actions/checkout@v2
         with:
-          ref: 'main'
+          ref: '1.1'
           repository: 'opensearch-project/job-scheduler'
           path: job-scheduler
 
