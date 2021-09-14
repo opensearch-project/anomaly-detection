@@ -892,16 +892,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         return indexState.schemaVersion;
     }
 
-    /**
-     *
-     * @param index Index metadata
-     * @return Whether the given index's mapping is up-to-date
-     */
-    public Boolean isMappingUpdated(ADIndex index) {
-        IndexState indexState = this.indexStates.computeIfAbsent(index, IndexState::new);
-        return indexState.mappingUpToDate;
-    }
-
     private void updateJobIndexSettingIfNecessary(IndexState jobIndexState, ActionListener<Void> listener) {
         GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
             .indices(ADIndex.JOB.getIndexName())
