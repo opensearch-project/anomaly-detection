@@ -63,7 +63,7 @@ jobs:
       - name: Assemble job-scheduler
         working-directory: ./job-scheduler
         run: |
-          ./gradlew assemble -Dbuild.snapshot=false
+          ./gradlew assemble -Dopensearch.version=1.1.0 -Dbuild.snapshot=false
           echo "Creating ../src/test/resources/job-scheduler ..."
           mkdir -p ../src/test/resources/job-scheduler
           pwd
