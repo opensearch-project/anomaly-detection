@@ -47,7 +47,7 @@ jobs:
           path: common-utils
       - name: Build common-utils
         working-directory: ./common-utils
-        run: ./gradlew publishToMavenLocal -Dbuild.snapshot=false
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.1.0 -Dbuild.snapshot=false
 
       # dependencies: job-scheduler
       - name: Checkout job-scheduler
@@ -59,7 +59,7 @@ jobs:
 
       - name: Build job-scheduler
         working-directory: ./job-scheduler
-        run: ./gradlew publishToMavenLocal -Dbuild.snapshot=false
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.1.0 -Dbuild.snapshot=false
       - name: Assemble job-scheduler
         working-directory: ./job-scheduler
         run: |
