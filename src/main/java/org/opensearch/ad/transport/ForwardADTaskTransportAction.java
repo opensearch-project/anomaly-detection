@@ -127,27 +127,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     listener.onResponse(r);
                 }, e -> listener.onFailure(e)));
                 break;
-            case FINISHED:
-                boolean historicalTask = adTask.isHistoricalTask();
-                logger
-                    .debug(
-                        "Received FINISHED action for detector {}, taskId: {}, historical: {}",
-                        detectorId,
-                        adTask.getTaskId(),
-                        historicalTask
-                    );
-                // Historical analysis finished, so we need to remove detector cache. Only single entity detectors use this.
-                if (historicalTask) {
-                    adTaskCacheManager.removeHistoricalTaskCacheIfNoRunningEntity(detectorId);
-                } else {
-                    adTaskCacheManager.removeRealtimeTaskCache(detectorId);
-                    // If hash ring changed like new node added when scale out, the realtime job coordinating node may
-                    // change, then we should clean up cache on old coordinating node.
-                    stateManager.clear(detectorId);
-                    featureManager.clear(detectorId);
-                }
-                listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
-                break;
             case NEXT_ENTITY:
                 logger.debug("Received NEXT_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Run next entity for HC detector historical analysis.
@@ -191,6 +170,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 logger.debug("Received PUSH_BACK_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Push back entity to pending entities queue and run next entity.
                 if (adTask.isEntityTask()) { // AD task must be entity level task.
+                    adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (adTaskManager.isRetryableError(adTask.getError())
                         && !adTaskCacheManager.exceedRetryLimit(adTask.getDetectorId(), adTask.getTaskId())) {
                         // If retryable exception happens when run entity task, will push back entity to the end
@@ -201,7 +181,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskCacheManager.removeEntity(adTask.getDetectorId(), entityValue);
                         logger.warn("Entity task failed, task id: {}, entity: {}", adTask.getTaskId(), adTask.getEntity().toString());
                     }
-                    adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
                         adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
                         adTaskManager.setHCDetectorTaskDone(adTask, ADTaskState.FINISHED, listener);
@@ -264,6 +243,28 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     adTaskManager.removeStaleRunningEntity(adTask, entity, transportService, listener);
                 }
                 listener.onResponse(new AnomalyDetectorJobResponse(adTask.getTaskId(), 0, 0, 0, RestStatus.OK));
+                break;
+            case CLEAN_CACHE:
+                boolean historicalTask = adTask.isHistoricalTask();
+                logger
+                    .debug(
+                        "Received CLEAN_CACHE action for detector {}, taskId: {}, historical: {}",
+                        detectorId,
+                        adTask.getTaskId(),
+                        historicalTask
+                    );
+                if (historicalTask) {
+                    // Don't clear task cache if still has running entity. CLEAN_STALE_RUNNING_ENTITIES will clean
+                    // stale running entity.
+                    adTaskCacheManager.removeHistoricalTaskCacheIfNoRunningEntity(detectorId);
+                } else {
+                    adTaskCacheManager.removeRealtimeTaskCache(detectorId);
+                    // If hash ring changed like new node added when scale out, the realtime job coordinating node may
+                    // change, then we should clean up cache on old coordinating node.
+                    stateManager.clear(detectorId);
+                    featureManager.clear(detectorId);
+                }
+                listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
                 break;
             default:
                 listener.onFailure(new OpenSearchStatusException("Unsupported AD task action " + adTaskAction, RestStatus.BAD_REQUEST));

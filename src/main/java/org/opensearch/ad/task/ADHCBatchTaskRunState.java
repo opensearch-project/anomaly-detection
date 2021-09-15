@@ -11,19 +11,25 @@
 
 package org.opensearch.ad.task;
 
+import java.time.Instant;
+
 import org.opensearch.ad.model.ADTaskState;
 
 /**
- * Cache HC batch task running state on worker node.
+ * Cache HC batch task running state on coordinating and worker node.
  */
 public class ADHCBatchTaskRunState {
 
+    // HC batch task run state will expire after 60 seconds after last task run time or task cancelled time.
+    public static final int HC_TASk_RUN_STATE_TIMEOUT_IN_MILLIS = 60_000;
     private String detectorTaskState;
     // record if HC detector historical analysis cancelled/stopped. Every entity task should
     // recheck this field and stop if it's true.
     private boolean isHistoricalAnalysisCancelled;
     private String cancelReason;
     private String cancelledBy;
+    private Long lastTaskRunTimeInMillis;
+    private Long cancelledTimeInMillis;
 
     public ADHCBatchTaskRunState() {
         this.detectorTaskState = ADTaskState.INIT.name();
@@ -59,5 +65,28 @@ public class ADHCBatchTaskRunState {
 
     public void setCancelledBy(String cancelledBy) {
         this.cancelledBy = cancelledBy;
+    }
+
+    public void setCancelledTimeInMillis(Long cancelledTimeInMillis) {
+        this.cancelledTimeInMillis = cancelledTimeInMillis;
+    }
+
+    public void refreshLastTaskRunTime() {
+        this.lastTaskRunTimeInMillis = Instant.now().toEpochMilli();
+    }
+
+    public boolean expired() {
+        long nowInMillis = Instant.now().toEpochMilli();
+        if (isHistoricalAnalysisCancelled
+            && cancelledTimeInMillis != null
+            && cancelledTimeInMillis + HC_TASk_RUN_STATE_TIMEOUT_IN_MILLIS < nowInMillis) {
+            return true;
+        }
+        if (!isHistoricalAnalysisCancelled
+            && lastTaskRunTimeInMillis != null
+            && lastTaskRunTimeInMillis + HC_TASk_RUN_STATE_TIMEOUT_IN_MILLIS < nowInMillis) {
+            return true;
+        }
+        return false;
     }
 }

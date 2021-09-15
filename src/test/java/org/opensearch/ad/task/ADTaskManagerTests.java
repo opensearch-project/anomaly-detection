@@ -31,7 +31,6 @@ import static java.util.Collections.emptySet;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -74,6 +73,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.Consumer;
 
@@ -97,11 +97,9 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.cluster.ADDataMigrator;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -166,8 +164,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private TransportService transportService;
     private ADTaskManager adTaskManager;
     private ThreadPool threadPool;
-    private ADDataMigrator dataMigrator;
-    private SearchFeatureDao searchFeatureDao;
     private IndexAnomalyDetectorJobActionHandler indexAnomalyDetectorJobActionHandler;
 
     private DetectionDateRange detectionDateRange;
@@ -249,8 +245,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         hashRing = mock(HashRing.class);
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
-        dataMigrator = mock(ADDataMigrator.class);
-        searchFeatureDao = mock(SearchFeatureDao.class);
         indexAnomalyDetectorJobActionHandler = mock(IndexAnomalyDetectorJobActionHandler.class);
         adTaskManager = spy(
             new ADTaskManager(
@@ -262,9 +256,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                 nodeFilter,
                 hashRing,
                 adTaskCacheManager,
-                threadPool,
-                dataMigrator,
-                searchFeatureDao
+                threadPool
             )
         );
 
@@ -480,11 +472,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         for (int i = 0; i < entitySize; i++) {
             entities.add(createSingleAttributeEntity("category", "value" + i));
         }
-        doAnswer(invocation -> {
-            ActionListener<List<Entity>> listener = invocation.getArgument(6);
-            listener.onResponse(entities);
-            return null;
-        }).when(searchFeatureDao).getHighestCountEntities(any(), anyLong(), anyLong(), anyInt(), anyInt(), anyInt(), any());
     }
 
     public void testCheckTaskSlotsWithAvailableTaskSlotsForHC() throws IOException {
@@ -782,8 +769,18 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         Entity entity = createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5));
         when(adTaskCacheManager.getEntity(anyString())).thenReturn(entity);
         String detectorId = randomAlphaOfLength(5);
+
+        ExecutorService executeService = mock(ExecutorService.class);
+        when(threadPool.executor(anyString())).thenReturn(executeService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executeService).execute(any());
+
         ADTaskProfile taskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(detectorId);
         assertEquals(1, taskProfile.getEntityTaskProfiles().size());
+        verify(adTaskCacheManager, times(1)).cleanExpiredHCBatchTaskRunStates();
     }
 
     @SuppressWarnings("unchecked")
@@ -880,9 +877,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                 nodeFilter,
                 hashRing,
                 adTaskCacheManager,
-                threadPool,
-                dataMigrator,
-                searchFeatureDao
+                threadPool
             )
         );
         adTaskManager.cleanADResultOfDeletedDetector();
@@ -1079,6 +1074,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             .getAndExecuteOnLatestADTasks(
                 detectorId,
                 null,
+                null,
                 ADTaskType.ALL_DETECTOR_TASK_TYPES,
                 function,
                 transportService,
@@ -1143,6 +1139,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         adTaskManager
             .getAndExecuteOnLatestADTasks(
                 detectorId,
+                null,
                 null,
                 ADTaskType.ALL_DETECTOR_TASK_TYPES,
                 function,

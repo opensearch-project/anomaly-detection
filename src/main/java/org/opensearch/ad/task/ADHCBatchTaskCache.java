@@ -23,16 +23,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * AD HC detector batch task cache which will mainly hold these for HC detector on
  * coordinating node.
- * 1. pending entities queue
- * 2. running entities queue
- * 3. temp entities queue
- * 4. task retry times
- * 5. task rate limiters
- * 6. top entities inited or not
- * 7. top entities count
- * 8. is current node coordinating node
- * 9. is historical analysis cancelled for this HC detector
- * 10. detector task update semaphore to control only 1 thread update detector level task
+ * <ul>
+ *    <li>pending entities queue</li>
+ *    <li>running entities queue</li>
+ *    <li>temp entities queue</li>
+ *    <li>entity task lanes</li>
+ *    <li>top entities count</li>
+ *    <li>top entities inited or not</li>
+ *    <li>task retry times</li>
+ *    <li>detector task update semaphore to control only 1 thread update detector level task</li>
+ * </ul>
  */
 public class ADHCBatchTaskCache {
 
@@ -138,21 +138,22 @@ public class ADHCBatchTaskCache {
     }
 
     /**
-     * Add list of entities into pending entity queue. Will check if these entities exists
-     * in temp entities queue first. If yes, will remove from temp entities queue.
+     * Remove entities from both temp and running entities queue and add list of entities into pending entity queue.
      * @param entities a list of entity
      */
-    public void addEntities(List<String> entities) {
+    public void addPendingEntities(List<String> entities) {
         this.refreshLatestTaskRunTime();
         if (entities == null || entities.size() == 0) {
             return;
         }
         for (String entity : entities) {
-            if (entity != null && tempEntities.contains(entity)) {
+            if (entity != null) {
+                // make sure we delete from temp and running queue first before adding the entity to pending queue
                 tempEntities.remove(entity);
-            }
-            if (entity != null && !pendingEntities.contains(entity)) {
-                pendingEntities.add(entity);
+                runningEntities.remove(entity);
+                if (!pendingEntities.contains(entity)) {
+                    pendingEntities.add(entity);
+                }
             }
         }
     }
@@ -167,15 +168,11 @@ public class ADHCBatchTaskCache {
             return;
         }
         this.pendingEntities.remove(entity);
-        this.tempEntities.remove(entity);
-        if (!this.runningEntities.contains(entity)) {
+        boolean removed = this.tempEntities.remove(entity);
+        // It's possible that entity was removed before this function. Should check if
+        // task in temp queue or not before adding it to running queue.
+        if (removed && !this.runningEntities.contains(entity)) {
             this.runningEntities.add(entity);
-        }
-    }
-
-    private void moveToTempEntity(String entity) {
-        if (entity != null && !this.tempEntities.contains(entity)) {
-            this.tempEntities.add(entity);
         }
     }
 
@@ -220,7 +217,8 @@ public class ADHCBatchTaskCache {
     }
 
     public boolean removeRunningEntity(String entity) {
-        return this.runningEntities.remove(entity);
+        // entity may still in temp queue, so need to remove from both temp and running queues
+        return this.runningEntities.remove(entity) || this.tempEntities.remove(entity);
     }
 
     /**
@@ -241,8 +239,8 @@ public class ADHCBatchTaskCache {
     public String pollEntity() {
         this.refreshLatestTaskRunTime();
         String entity = this.pendingEntities.poll();
-        if (entity != null) {
-            this.moveToTempEntity(entity);
+        if (entity != null && !this.tempEntities.contains(entity)) {
+            this.tempEntities.add(entity);
         }
         return entity;
     }
@@ -268,19 +266,11 @@ public class ADHCBatchTaskCache {
      * entities queue. If exists, remove from these queues.
      * @param entity entity value
      */
-    public void removeEntity(String entity) {
+    public boolean removeEntity(String entity) {
         this.refreshLatestTaskRunTime();
         if (entity == null) {
-            return;
+            return false;
         }
-        if (tempEntities.contains(entity)) {
-            tempEntities.remove(entity);
-        }
-        if (pendingEntities.contains(entity)) {
-            pendingEntities.remove(entity);
-        }
-        if (runningEntities.contains(entity)) {
-            runningEntities.remove(entity);
-        }
+        return tempEntities.remove(entity) || pendingEntities.remove(entity) || runningEntities.remove(entity);
     }
 }

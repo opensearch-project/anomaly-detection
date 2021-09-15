@@ -114,7 +114,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertNotNull(adTaskCacheManager.getThresholdModel(adTask.getTaskId()));
         assertNotNull(adTaskCacheManager.getThresholdModelTrainingData(adTask.getTaskId()));
         assertFalse(adTaskCacheManager.isThresholdModelTrained(adTask.getTaskId()));
-        adTaskCacheManager.remove(adTask.getTaskId());
+        adTaskCacheManager.remove(adTask.getTaskId(), randomAlphaOfLength(5), randomAlphaOfLength(5));
         assertEquals(0, adTaskCacheManager.size());
     }
 
@@ -215,7 +215,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
     }
 
     public void testRemoveTaskWhichNotExist() {
-        adTaskCacheManager.remove(randomAlphaOfLength(5));
+        adTaskCacheManager.remove(randomAlphaOfLength(5), randomAlphaOfLength(5), randomAlphaOfLength(5));
         verify(memoryTracker, never()).releaseMemory(anyLong(), anyBoolean(), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
     }
 
@@ -230,9 +230,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
     public void testCancelByDetectorIdWhichNotExist() {
         String detectorId = randomAlphaOfLength(10);
+        String detectorTaskId = randomAlphaOfLength(10);
         String reason = randomAlphaOfLength(10);
         String userName = randomAlphaOfLength(5);
-        ADTaskCancellationState state = adTaskCacheManager.cancelByDetectorId(detectorId, reason, userName);
+        ADTaskCancellationState state = adTaskCacheManager.cancelByDetectorId(detectorId, detectorTaskId, reason, userName);
         assertEquals("Wrong task cancellation state", ADTaskCancellationState.NOT_FOUND, state);
     }
 
@@ -241,13 +242,14 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskCacheManager.add(adTask);
         String detectorId = adTask.getDetectorId();
+        String detectorTaskId = adTask.getDetectorId();
         String reason = randomAlphaOfLength(10);
         String userName = randomAlphaOfLength(5);
-        ADTaskCancellationState state = adTaskCacheManager.cancelByDetectorId(detectorId, reason, userName);
+        ADTaskCancellationState state = adTaskCacheManager.cancelByDetectorId(detectorId, detectorTaskId, reason, userName);
         assertEquals("Wrong task cancellation state", ADTaskCancellationState.CANCELLED, state);
         assertTrue(adTaskCacheManager.isCancelled(adTask.getTaskId()));
 
-        state = adTaskCacheManager.cancelByDetectorId(detectorId, reason, userName);
+        state = adTaskCacheManager.cancelByDetectorId(detectorId, detectorTaskId, reason, userName);
         assertEquals("Wrong task cancellation state", ADTaskCancellationState.ALREADY_CANCELLED, state);
     }
 
@@ -453,7 +455,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         String detectorId = result.get(0);
         String entityTaskId = result.get(2);
         assertFalse(adTaskCacheManager.isCancelled(entityTaskId));
-        adTaskCacheManager.cancelByDetectorId(detectorId, "testReason", "testUser");
+        adTaskCacheManager.cancelByDetectorId(detectorId, "testDetectorTaskId", "testReason", "testUser");
         assertTrue(adTaskCacheManager.isCancelled(entityTaskId));
     }
 

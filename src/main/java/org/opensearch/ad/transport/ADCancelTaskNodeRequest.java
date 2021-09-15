@@ -34,17 +34,25 @@ import org.opensearch.common.io.stream.StreamOutput;
 
 public class ADCancelTaskNodeRequest extends BaseNodeRequest {
     private String detectorId;
+    private String detectorTaskId;
     private String userName;
+    private String reason;
 
     public ADCancelTaskNodeRequest(StreamInput in) throws IOException {
         super(in);
         this.detectorId = in.readOptionalString();
         this.userName = in.readOptionalString();
+        if (in.available() > 0) {
+            this.detectorTaskId = in.readOptionalString();
+            this.reason = in.readOptionalString();
+        }
     }
 
     public ADCancelTaskNodeRequest(ADCancelTaskRequest request) {
         this.detectorId = request.getDetectorId();
+        this.detectorTaskId = request.getDetectorTaskId();
         this.userName = request.getUserName();
+        this.reason = request.getReason();
     }
 
     @Override
@@ -52,14 +60,23 @@ public class ADCancelTaskNodeRequest extends BaseNodeRequest {
         super.writeTo(out);
         out.writeOptionalString(detectorId);
         out.writeOptionalString(userName);
+        out.writeOptionalString(detectorTaskId);
+        out.writeOptionalString(reason);
     }
 
     public String getDetectorId() {
         return detectorId;
     }
 
+    public String getDetectorTaskId() {
+        return detectorTaskId;
+    }
+
     public String getUserName() {
         return userName;
     }
 
+    public String getReason() {
+        return reason;
+    }
 }

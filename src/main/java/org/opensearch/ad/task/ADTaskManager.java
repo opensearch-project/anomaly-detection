@@ -117,14 +117,12 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.cluster.ADDataMigrator;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.ADTaskCancelledException;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADEntityTaskProfile;
 import org.opensearch.ad.model.ADTask;
@@ -197,7 +195,7 @@ import com.google.common.collect.ImmutableSet;
 public class ADTaskManager {
     public static final String AD_TASK_LEAD_NODE_MODEL_ID = "ad_task_lead_node_model_id";
     public static final String AD_TASK_MAINTAINENCE_NODE_MODEL_ID = "ad_task_maintainence_node_model_id";
-    // HC batch task timeout after 10 minutes
+    // HC batch task timeout after 10 minutes if no update after last known run time.
     public static final int HC_BATCH_TASK_CACHE_TIMEOUT_IN_MILLIS = 600_000;
     private final Logger logger = LogManager.getLogger(this.getClass());
     static final String STATE_INDEX_NOT_EXIST_MSG = "State index does not exist.";
@@ -208,7 +206,6 @@ public class ADTaskManager {
     private final AnomalyDetectionIndices detectionIndices;
     private final DiscoveryNodeFilterer nodeFilter;
     private final ADTaskCacheManager adTaskCacheManager;
-    private final ADDataMigrator dataMigrator;
 
     private final HashRing hashRing;
     private volatile Integer maxOldAdTaskDocsPerDetector;
@@ -217,7 +214,6 @@ public class ADTaskManager {
     private volatile TransportRequestOptions transportRequestOptions;
     private final ThreadPool threadPool;
     private static int DEFAULT_MAINTAIN_INTERVAL_IN_SECONDS = 5;
-    private final SearchFeatureDao searchFeatureDao;
     private final Semaphore checkingTaskSlot;
 
     private volatile Integer maxAdBatchTaskPerNode;
@@ -235,9 +231,7 @@ public class ADTaskManager {
         DiscoveryNodeFilterer nodeFilter,
         HashRing hashRing,
         ADTaskCacheManager adTaskCacheManager,
-        ThreadPool threadPool,
-        ADDataMigrator dataMigrator,
-        SearchFeatureDao searchFeatureDao
+        ThreadPool threadPool
     ) {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
@@ -246,8 +240,6 @@ public class ADTaskManager {
         this.clusterService = clusterService;
         this.adTaskCacheManager = adTaskCacheManager;
         this.hashRing = hashRing;
-        this.dataMigrator = dataMigrator;
-        this.searchFeatureDao = searchFeatureDao;
 
         this.maxOldAdTaskDocsPerDetector = MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(settings);
         clusterService
@@ -606,6 +598,15 @@ public class ADTaskManager {
                     return;
                 }
 
+                // It takes long time to check top entities especially for multi-category HC. Tested with
+                // 1.8 billion docs for multi-category HC, it took more than 20 seconds and caused timeout.
+                // By removing top entity check, it took about 200ms to return. So just remove it to make
+                // sure REST API can return quickly.
+                // We may assign more task slots. For example, cluster has 4 data nodes, each node can run 2
+                // batch tasks, so the available task slot number is 8. If max running entities per HC is 4,
+                // then we will assign 4 tasks slots to this HC detector (4 is less than 8). The data index
+                // only have 2 entities. So we assign 2 more task slots than actual need. But it's ok as we
+                // will auto tune task slot when historical analysis task starts.
                 int approvedTaskSlots = detector.isMultientityDetector()
                     ? Math.min(maxRunningEntitiesPerDetector, availableAdTaskSlots)
                     : 1;
@@ -883,7 +884,7 @@ public class ADTaskManager {
         boolean resetTaskState,
         ActionListener<T> listener
     ) {
-        getAndExecuteOnLatestADTask(detectorId, null, adTaskTypes, function, transportService, resetTaskState, listener);
+        getAndExecuteOnLatestADTask(detectorId, null, null, adTaskTypes, function, transportService, resetTaskState, listener);
     }
 
     /**
@@ -891,7 +892,8 @@ public class ADTaskManager {
      * [Important!] Make sure listener returns in function
      *
      * @param detectorId detector id
-     * @param entityValue entity value
+     * @param parentTaskId parent task id
+     * @param entity entity value
      * @param adTaskTypes AD task types
      * @param function consumer function
      * @param transportService transport service
@@ -901,14 +903,15 @@ public class ADTaskManager {
      */
     public <T> void getAndExecuteOnLatestADTask(
         String detectorId,
-        String entityValue,
+        String parentTaskId,
+        Entity entity,
         List<ADTaskType> adTaskTypes,
         Consumer<Optional<ADTask>> function,
         TransportService transportService,
         boolean resetTaskState,
         ActionListener<T> listener
     ) {
-        getAndExecuteOnLatestADTasks(detectorId, entityValue, adTaskTypes, (taskList) -> {
+        getAndExecuteOnLatestADTasks(detectorId, parentTaskId, entity, adTaskTypes, (taskList) -> {
             if (taskList != null && taskList.size() > 0) {
                 function.accept(Optional.ofNullable(taskList.get(0)));
             } else {
@@ -926,7 +929,8 @@ public class ADTaskManager {
      * [Important!] Make sure listener returns in function
      *
      * @param detectorId detector id
-     * @param entityValue entity value
+     * @param parentTaskId parent task id
+     * @param entity entity value
      * @param adTaskTypes AD task types
      * @param function consumer function
      * @param transportService transport service
@@ -937,7 +941,8 @@ public class ADTaskManager {
      */
     public <T> void getAndExecuteOnLatestADTasks(
         String detectorId,
-        String entityValue,
+        String parentTaskId,
+        Entity entity,
         List<ADTaskType> adTaskTypes,
         Consumer<List<ADTask>> function,
         TransportService transportService,
@@ -948,15 +953,26 @@ public class ADTaskManager {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         query.filter(new TermQueryBuilder(IS_LATEST_FIELD, true));
+        if (parentTaskId != null) {
+            query.filter(new TermQueryBuilder(PARENT_TASK_ID_FIELD, parentTaskId));
+        }
         if (adTaskTypes != null && adTaskTypes.size() > 0) {
             query.filter(new TermsQueryBuilder(TASK_TYPE_FIELD, taskTypeToString(adTaskTypes)));
         }
-        if (entityValue != null) {
+        if (entity != null && !isNullOrEmpty(entity.getAttributes())) {
             String path = "entity";
+            String entityKeyFieldName = path + ".name";
             String entityValueFieldName = path + ".value";
-            TermQueryBuilder entityValueFilterQuery = QueryBuilders.termQuery(entityValueFieldName, entityValue);
-            NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(path, entityValueFilterQuery, ScoreMode.None);
-            query.filter(nestedQueryBuilder);
+
+            for (Map.Entry<String, String> attribute : entity.getAttributes().entrySet()) {
+                BoolQueryBuilder entityBoolQuery = new BoolQueryBuilder();
+                TermQueryBuilder entityKeyFilterQuery = QueryBuilders.termQuery(entityKeyFieldName, attribute.getKey());
+                TermQueryBuilder entityValueFilterQuery = QueryBuilders.termQuery(entityValueFieldName, attribute.getValue());
+
+                entityBoolQuery.filter(entityKeyFilterQuery).filter(entityValueFilterQuery);
+                NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(path, entityBoolQuery, ScoreMode.None);
+                query.filter(nestedQueryBuilder);
+            }
         }
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(query).sort(EXECUTION_START_TIME_FIELD, SortOrder.DESC).size(size);
@@ -1109,7 +1125,7 @@ public class ADTaskManager {
                     && detector.isMultientityDetector()
                     && !isNullOrEmpty(taskProfile.getEntityTaskProfiles())) {
                     // If coordinating node restarted, HC detector cache on it will be gone. But worker node still
-                    // runs entity tasks, we'd better stop these entity tasks to clean up resource ealier.
+                    // runs entity tasks, we'd better stop these entity tasks to clean up resource earlier.
                     stopHistoricalAnalysis(adTask.getDetectorId(), Optional.of(adTask), null, ActionListener.wrap(r -> {
                         logger.debug("Restop detector successfully");
                         resetTaskStateAsStopped(adTask, function, transportService, listener);
@@ -1120,14 +1136,13 @@ public class ADTaskManager {
                 } else {
                     resetTaskStateAsStopped(adTask, function, transportService, listener);
                 }
-
             } else {
                 function.execute();
                 // If still running, check if there is any stale running entities and clean them
                 if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(adTask.getTaskType())) {
                     // Check if any running entity not run on worker node. If yes, we need to remove it
                     // and poll next entity from pending entity queue and run it.
-                    if (!isNullOrEmpty(taskProfile.getRunningEntities())) {
+                    if (!isNullOrEmpty(taskProfile.getRunningEntities()) && hcBatchTaskExpired(taskProfile.getLatestHCTaskRunTime())) {
                         List<String> runningTasksInCoordinatingNodeCache = new ArrayList<>(taskProfile.getRunningEntities());
                         List<String> runningTasksOnWorkerNode = new ArrayList<>();
                         if (taskProfile.getEntityTaskProfiles() != null && taskProfile.getEntityTaskProfiles().size() > 0) {
@@ -1205,10 +1220,10 @@ public class ADTaskManager {
         }
 
         String taskId = adTask.get().getTaskId();
-        DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
+        DiscoveryNode[] dataNodes = hashRing.getNodesWithSameLocalAdVersion();
         String userName = user == null ? null : user.getName();
 
-        ADCancelTaskRequest cancelTaskRequest = new ADCancelTaskRequest(detectorId, userName, dataNodes);
+        ADCancelTaskRequest cancelTaskRequest = new ADCancelTaskRequest(detectorId, taskId, userName, dataNodes);
         client
             .execute(
                 ADCancelTaskAction.INSTANCE,
@@ -1302,7 +1317,7 @@ public class ADTaskManager {
         try {
             forwardADTaskToCoordinatingNode(
                 adTask,
-                ADTaskAction.FINISHED,
+                ADTaskAction.CLEAN_CACHE,
                 transportService,
                 ActionListener.wrap(r -> { function.execute(); }, e -> {
                     logger.error("Failed to clear detector cache on coordinating node " + coordinatingNode, e);
@@ -1354,7 +1369,7 @@ public class ADTaskManager {
         DetectorProfile profile,
         ActionListener<DetectorProfile> listener
     ) {
-        getAndExecuteOnLatestADTask(detectorId, null, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
+        getAndExecuteOnLatestADTask(detectorId, null, null, HISTORICAL_DETECTOR_TASK_TYPES, adTask -> {
             if (adTask.isPresent()) {
                 getADTaskProfile(adTask.get(), ActionListener.wrap(adTaskProfile -> {
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
@@ -1837,12 +1852,13 @@ public class ADTaskManager {
      * Cancel running task by detector id.
      *
      * @param detectorId detector id
+     * @param detectorTaskId detector level task id
      * @param reason reason to cancel AD task
      * @param userName which user cancel the AD task
      * @return AD task cancellation state
      */
-    public ADTaskCancellationState cancelLocalTaskByDetectorId(String detectorId, String reason, String userName) {
-        ADTaskCancellationState cancellationState = adTaskCacheManager.cancelByDetectorId(detectorId, reason, userName);
+    public ADTaskCancellationState cancelLocalTaskByDetectorId(String detectorId, String detectorTaskId, String reason, String userName) {
+        ADTaskCancellationState cancellationState = adTaskCacheManager.cancelByDetectorId(detectorId, detectorTaskId, reason, userName);
         logger
             .debug(
                 "Cancelled AD task for detector: {}, state: {}, cancelled by: {}, reason: {}",
@@ -2263,8 +2279,7 @@ public class ADTaskManager {
     public void setHCDetectorTaskDone(ADTask adTask, ADTaskState state, ActionListener<AnomalyDetectorJobResponse> listener) {
         String detectorId = adTask.getDetectorId();
         String taskId = adTask.isEntityTask() ? adTask.getParentTaskId() : adTask.getTaskId();
-
-        String detectorTaskId = adTask.isEntityTask() ? adTask.getParentTaskId() : adTask.getTaskId();
+        String detectorTaskId = adTask.getDetectorLevelTaskId();
 
         ActionListener<UpdateResponse> wrappedListener = ActionListener.wrap(response -> {
             logger.info("Historical HC detector done with state: {}. Remove from cache, detector id:{}", state.name(), detectorId);
@@ -2406,6 +2421,7 @@ public class ADTaskManager {
             } catch (Exception e) {
                 logger.error("Failed to update detector task " + taskId, e);
                 adTaskCacheManager.releaseTaskUpdatingSemaphore(detectorId);
+                listener.onFailure(e);
             }
         } else if (!adTaskCacheManager.isHCTaskCoordinatingNode(detectorId)) {
             // It's possible that AD task cache cleaned up by other task. Return null to avoid too many failure logs.
@@ -2669,6 +2685,17 @@ public class ADTaskManager {
                 detectorTaskProfile.setDetectorTaskSlots(1);
             }
         }
+        threadPool
+            .executor(AD_BATCH_TASK_THREAD_POOL_NAME)
+            .execute(
+                () -> {
+                    // Clean expired HC batch task run states as it may exists after HC historical analysis done if user cancel
+                    // before querying top entities done. We will clean it in hourly cron, check "maintainRunningHistoricalTasks"
+                    // method. Clean it up here when get task profile to release memory earlier.
+                    adTaskCacheManager.cleanExpiredHCBatchTaskRunStates();
+                }
+            );
+
         return detectorTaskProfile;
     }
 
@@ -2909,6 +2936,9 @@ public class ADTaskManager {
      * @param size return how many tasks
      */
     public void maintainRunningHistoricalTasks(TransportService transportService, int size) {
+        // Clean expired HC batch task run state cache.
+        adTaskCacheManager.cleanExpiredHCBatchTaskRunStates();
+
         // Find owning node with highest AD version to make sure we only have 1 node maintain running historical tasks
         // and we use the latest logic.
         Optional<DiscoveryNode> owningNode = hashRing.getOwningNodeWithHighestAdVersion(AD_TASK_MAINTAINENCE_NODE_MODEL_ID);
