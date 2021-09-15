@@ -538,13 +538,23 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
         adTaskCacheManager.addPendingEntities(detectorId, ImmutableList.of(entity));
         assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
         adTaskCacheManager.moveToRunningEntity(detectorId, null);
         assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
+        adTaskCacheManager.moveToRunningEntity(detectorId, entity);
+        assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
+        adTaskCacheManager.pollEntity(detectorId);
+        assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(1, adTaskCacheManager.getTempEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
         adTaskCacheManager.moveToRunningEntity(detectorId, entity);
         assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
-        assertEquals(1, adTaskCacheManager.getRunningEntityCount(detectorId));
-        adTaskCacheManager.moveToRunningEntity(detectorId, entity);
-        assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
         assertEquals(1, adTaskCacheManager.getRunningEntityCount(detectorId));
     }
 
@@ -566,6 +576,11 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
 
         adTaskCacheManager.addPendingEntities(detectorId, ImmutableList.of(entity));
+        adTaskCacheManager.moveToRunningEntity(detectorId, entity);
+        assertEquals(1, adTaskCacheManager.getPendingEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
+        assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
+        adTaskCacheManager.pollEntity(detectorId);
         adTaskCacheManager.moveToRunningEntity(detectorId, entity);
         assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
         assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));

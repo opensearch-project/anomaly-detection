@@ -167,12 +167,13 @@ public class ADHCBatchTaskCache {
         if (entity == null) {
             return;
         }
-        this.pendingEntities.remove(entity);
         boolean removed = this.tempEntities.remove(entity);
         // It's possible that entity was removed before this function. Should check if
         // task in temp queue or not before adding it to running queue.
         if (removed && !this.runningEntities.contains(entity)) {
             this.runningEntities.add(entity);
+            // clean it from pending queue to make sure entity only exists in running queue
+            this.pendingEntities.remove(entity);
         }
     }
 
@@ -265,6 +266,7 @@ public class ADHCBatchTaskCache {
      * Check if entity exists in temp entities queue, pending entities queue or running
      * entities queue. If exists, remove from these queues.
      * @param entity entity value
+     * @return true if entity exists and removed
      */
     public boolean removeEntity(String entity) {
         this.refreshLatestTaskRunTime();

@@ -519,6 +519,7 @@ public class ADTaskCacheManager {
      * Cancel AD task by detector id.
      *
      * @param detectorId detector id
+     * @param detectorTaskId detector level task id
      * @param reason why need to cancel task
      * @param userName user name
      * @return AD task cancellation state
@@ -1292,6 +1293,7 @@ public class ADTaskCacheManager {
      * Check if HC detector's historical analysis cancelled or not.
      *
      * @param detectorId detector id
+     * @param detectorTaskId detector level task id
      * @return true if HC detector historical analysis cancelled; otherwise return false
      */
     public boolean isHistoricalAnalysisCancelledForHC(String detectorId, String detectorTaskId) {
