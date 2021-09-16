@@ -149,7 +149,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         ThreadContext.StoredContext storedContext,
         ActionListener<IndexAnomalyDetectorResponse> listener
     ) {
-        anomalyDetectionIndices.updateMappingIfNecessary();
+        anomalyDetectionIndices.update();
         String detectorId = request.getDetectorID();
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();
