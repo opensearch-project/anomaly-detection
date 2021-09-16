@@ -205,6 +205,8 @@ import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.amazon.randomcutforest.state.RandomCutForestState;
@@ -457,6 +459,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             mapper,
             schema,
             converter,
+            new ThresholdedRandomCutForestMapper(),
+            AccessController
+                .doPrivileged(
+                    (PrivilegedAction<Schema<ThresholdedRandomCutForestState>>) () -> RuntimeSchema
+                        .getSchema(ThresholdedRandomCutForestState.class)
+                ),
             HybridThresholdingModel.class,
             anomalyDetectionIndices,
             AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES,

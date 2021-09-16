@@ -510,35 +510,6 @@ public class AnomalyResultTests extends AbstractADTest {
         noModelExceptionTemplate(exception, adID, exception.getClass(), error);
     }
 
-    public void testNormalColdStart() {
-        noModelExceptionTemplate(
-            new ResourceNotFoundException(adID, ""),
-            adID,
-            InternalFailure.class,
-            AnomalyResultTransportAction.NO_MODEL_ERR_MSG
-        );
-    }
-
-    public void testNormalColdStartRemoteException() {
-        noModelExceptionTemplate(
-            new NotSerializableExceptionWrapper(new ResourceNotFoundException(adID, "")),
-            adID,
-            AnomalyDetectionException.class,
-            AnomalyResultTransportAction.NO_MODEL_ERR_MSG
-        );
-    }
-
-    public void testNullPointerExceptionWhenRCF() {
-        noModelExceptionTemplate(new NullPointerException(), adID, EndRunException.class, CommonErrorMessages.BUG_RESPONSE);
-    }
-
-    public void testADExceptionWhenColdStart() {
-        String error = "blah";
-        when(stateManager.fetchExceptionAndClear(any(String.class))).thenReturn(Optional.of(new AnomalyDetectionException(adID, error)));
-
-        noModelExceptionTemplate(new ResourceNotFoundException(adID, ""), adID, AnomalyDetectionException.class, error);
-    }
-
     @SuppressWarnings("unchecked")
     public void testInsufficientCapacityExceptionDuringColdStart() {
 
@@ -735,10 +706,6 @@ public class AnomalyResultTests extends AbstractADTest {
         assertTrue("actual message: " + exception.getMessage(), exception.getMessage().contains(error));
     }
 
-    public void testThresholdException() {
-        thresholdExceptionTestTemplate(new NullPointerException(), adID, EndRunException.class, CommonErrorMessages.BUG_RESPONSE);
-    }
-
     public void testCircuitBreaker() {
 
         ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
@@ -859,31 +826,6 @@ public class AnomalyResultTests extends AbstractADTest {
         }
     }
 
-    public void testRCFNodeNotConnectedException() {
-        // we expect two hashRing.build calls since we have two RCF model partitions and
-        // both of them returns node not connected exception
-        nodeNotConnectedExceptionTemplate(true, false, 2);
-    }
-
-    public void testTemporaryRCFNodeNotConnectedException() {
-        // we expect two backpressure incrementBackpressureCounter calls since we have
-        // two RCF model partitions and both of them returns node not connected
-        // exception
-        nodeNotConnectedExceptionTemplate(true, true, 2);
-    }
-
-    public void testThresholdNodeNotConnectedException() {
-        // we expect one hashRing.build calls since we have one threshold model
-        // partition
-        nodeNotConnectedExceptionTemplate(false, false, 1);
-    }
-
-    public void testTemporaryThresholdNodeNotConnectedException() {
-        // we expect one backpressure incrementBackpressureCounter call since we have
-        // one threshold model partition
-        nodeNotConnectedExceptionTemplate(false, true, 1);
-    }
-
     @SuppressWarnings("unchecked")
     public void testMute() {
         NodeStateManager muteStateManager = mock(NodeStateManager.class);
@@ -988,14 +930,6 @@ public class AnomalyResultTests extends AbstractADTest {
                     }
                 }
             );
-    }
-
-    public void testAlertingRequestWithoutResultIndex() throws IOException {
-        alertingRequestTemplate(false);
-    }
-
-    public void testAlertingRequestWithResultIndex() throws IOException {
-        alertingRequestTemplate(true);
     }
 
     public void testSerialzationResponse() throws IOException {
@@ -1624,5 +1558,4 @@ public class AnomalyResultTests extends AbstractADTest {
 
         assertException(listener, LimitExceededException.class, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG);
     }
-
 }

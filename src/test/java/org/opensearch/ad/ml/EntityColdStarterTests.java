@@ -96,6 +96,7 @@ import test.org.opensearch.ad.util.MLUtil;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
 
 public class EntityColdStarterTests extends AbstractADTest {
     int numMinSamples;
@@ -253,10 +254,9 @@ public class EntityColdStarterTests extends AbstractADTest {
         EntityModel model = new EntityModel(entity, samples, null, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
-        assertEquals(numMinSamples, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
+        assertEquals(numMinSamples, ercf.getForest().getTotalUpdates());
 
         checkSemaphoreRelease();
     }
@@ -285,11 +285,10 @@ public class EntityColdStarterTests extends AbstractADTest {
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         waitForColdStartFinish();
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
         // maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 2 + 1 = 129
-        assertEquals(129, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertEquals(129, ercf.getForest().getTotalUpdates());
 
         // sleep 1 secs to give time for the last timestamp record to expire when superShortLastColdStartTimeState = true
         Thread.sleep(1000L);
@@ -302,10 +301,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         waitForColdStartFinish();
 
-        forest = model.getRcf();
-
-        assertTrue(forest == null);
-        assertTrue(model.getThreshold() == null);
+        assertFalse(model.getTrcf().isPresent());
         checkSemaphoreRelease();
     }
 
@@ -374,12 +370,12 @@ public class EntityColdStarterTests extends AbstractADTest {
             Thread.sleep(500L);
             i++;
         }
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
+
         // 1st segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 2 + 1 = 129
         // 2nd segment: 1
-        assertEquals(130, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertEquals(130, ercf.getForest().getTotalUpdates());
         checkSemaphoreRelease();
     }
 
@@ -417,12 +413,11 @@ public class EntityColdStarterTests extends AbstractADTest {
             Thread.sleep(500L);
             i++;
         }
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
         // 1st segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 2 + 1 = 129
         // 2nd segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 1 + 1 = 65
-        assertEquals(194, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertEquals(194, ercf.getForest().getTotalUpdates());
         checkSemaphoreRelease();
     }
 
@@ -577,7 +572,6 @@ public class EntityColdStarterTests extends AbstractADTest {
                 .getAnomalyResultForEntity(point, modelState, modelId, entity, detector.getShingleSize());
             assertEquals(score, result.getRcfScore(), 1e-10);
             assertEquals(threshold.grade(score), result.getGrade(), 1e-10);
-            assertEquals(modelManager.computeRcfConfidence(rcf) * threshold.confidence(), result.getConfidence(), 1e-10);
             rcf.update(point);
             threshold.update(score);
         }

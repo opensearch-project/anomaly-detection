@@ -84,6 +84,9 @@ import org.opensearch.index.reindex.ScrollableHitSource;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.amazon.randomcutforest.state.RandomCutForestState;
@@ -116,6 +119,7 @@ public class CheckpointDao {
     public static final String ENTITY_SAMPLE = "sp";
     public static final String ENTITY_RCF = "rcf";
     public static final String ENTITY_THRESHOLD = "th";
+    public static final String ENTITY_TRCF = "trcf";
     public static final String FIELD_MODEL = "model";
     public static final String FIELD_MODELV2 = "modelV2";
     public static final String TIMESTAMP = "timestamp";
@@ -132,6 +136,8 @@ public class CheckpointDao {
     private RandomCutForestMapper mapper;
     private Schema<RandomCutForestState> schema;
     private V1JsonToV2StateConverter converter;
+    private ThresholdedRandomCutForestMapper trcfMapper;
+    private Schema<ThresholdedRandomCutForestState> trcfSchema;
 
     private final Class<? extends ThresholdingModel> thresholdingModelClass;
 
@@ -154,6 +160,8 @@ public class CheckpointDao {
      * @param mapper RCF model serialization utility
      * @param schema RandomCutForestState schema used by ProtoStuff
      * @param converter converter from rcf v1 serde to protostuff based format
+     * @param trcfMapper TRCF serialization mapper
+     * @param trcfSchema TRCF serialization schema
      * @param thresholdingModelClass thresholding model's class
      * @param indexUtil Index utility methods
      * @param maxCheckpointBytes max checkpoint size in bytes
@@ -168,6 +176,8 @@ public class CheckpointDao {
         RandomCutForestMapper mapper,
         Schema<RandomCutForestState> schema,
         V1JsonToV2StateConverter converter,
+        ThresholdedRandomCutForestMapper trcfMapper,
+        Schema<ThresholdedRandomCutForestState> trcfSchema,
         Class<? extends ThresholdingModel> thresholdingModelClass,
         AnomalyDetectionIndices indexUtil,
         int maxCheckpointBytes,
@@ -181,6 +191,8 @@ public class CheckpointDao {
         this.mapper = mapper;
         this.schema = schema;
         this.converter = converter;
+        this.trcfMapper = trcfMapper;
+        this.trcfSchema = trcfSchema;
         this.thresholdingModelClass = thresholdingModelClass;
         this.indexUtil = indexUtil;
         this.maxCheckpointBytes = maxCheckpointBytes;
@@ -337,8 +349,67 @@ public class CheckpointDao {
             if (model.getThreshold() != null) {
                 json.addProperty(ENTITY_THRESHOLD, gson.toJson(model.getThreshold()));
             }
+            if (model.getTrcf().isPresent()) {
+                json.addProperty(ENTITY_TRCF, toCheckpoint(model.getTrcf().get()));
+            }
             return gson.toJson(json);
         });
+    }
+
+    private String toCheckpoint(ThresholdedRandomCutForest trcf) {
+        String checkpoint = null;
+        Map.Entry<LinkedBuffer, Boolean> result = checkoutOrNewBuffer();
+        LinkedBuffer buffer = result.getKey();
+        boolean needCheckin = result.getValue();
+        try {
+            checkpoint = toCheckpoint(trcf, buffer);
+        } catch (RuntimeException e) {
+            logger.error("Failed to serialize model", e);
+            if (needCheckin) {
+                try {
+                    serializeRCFBufferPool.invalidateObject(buffer);
+                    needCheckin = false;
+                } catch (Exception x) {
+                    logger.warn("Failed to invalidate buffer", x);
+                }
+                checkpoint = toCheckpoint(trcf, LinkedBuffer.allocate(serializeRCFBufferSize));
+            }
+        } finally {
+            if (needCheckin) {
+                try {
+                    serializeRCFBufferPool.returnObject(buffer);
+                } catch (Exception e) {
+                    logger.warn("Failed to return buffer to pool", e);
+                }
+            }
+        }
+        return checkpoint;
+    }
+
+    private Map.Entry<LinkedBuffer, Boolean> checkoutOrNewBuffer() {
+        LinkedBuffer buffer = null;
+        boolean isCheckout = true;
+        try {
+            buffer = serializeRCFBufferPool.borrowObject();
+        } catch (Exception e) {
+            logger.warn("Failed to borrow a buffer from pool", e);
+        }
+        if (buffer == null) {
+            buffer = LinkedBuffer.allocate(serializeRCFBufferSize);
+            isCheckout = false;
+        }
+        return new SimpleImmutableEntry(buffer, isCheckout);
+    }
+
+    private String toCheckpoint(ThresholdedRandomCutForest trcf, LinkedBuffer buffer) {
+        try {
+            ThresholdedRandomCutForestState trcfState = trcfMapper.toState(trcf);
+            byte[] bytes = AccessController
+                .doPrivileged((PrivilegedAction<byte[]>) () -> ProtostuffIOUtil.toByteArray(trcfState, trcfSchema, buffer));
+            return Base64.getEncoder().encodeToString(bytes);
+        } finally {
+            buffer.clear();
+        }
     }
 
     private String rcfModelToCheckpoint(RandomCutForest model) {
@@ -466,7 +537,6 @@ public class CheckpointDao {
                     logger.warn(new ParameterizedMessage("Empty model for [{}]", modelId));
                     return Optional.empty();
                 }
-
                 String model = (String) modelObj;
                 if (model.length() > maxCheckpointBytes) {
                     logger.warn(new ParameterizedMessage("[{}]'s model too large: [{}] bytes", modelId, model.length()));
@@ -483,15 +553,21 @@ public class CheckpointDao {
                     // avoid possible null pointer exception
                     samples = new ArrayDeque<>();
                 }
+                ThresholdedRandomCutForest trcf = null;
                 RandomCutForest rcf = null;
-                if (json.has(ENTITY_RCF)) {
-                    String serializedRCF = json.getAsJsonPrimitive(ENTITY_RCF).getAsString();
-                    rcf = deserializeRCFModel(serializedRCF);
-                }
                 ThresholdingModel threshold = null;
-                if (json.has(ENTITY_THRESHOLD)) {
-                    // verified, don't need privileged call to get permission
-                    threshold = this.gson.fromJson(json.getAsJsonPrimitive(ENTITY_THRESHOLD).getAsString(), thresholdingModelClass);
+                if (json.has(ENTITY_TRCF)) {
+                    trcf = toTrcf(json.getAsJsonPrimitive(ENTITY_TRCF).getAsString());
+                } else {
+                    // TODO: convert rcf and threshold to trcf
+                    if (json.has(ENTITY_RCF)) {
+                        String serializedRCF = json.getAsJsonPrimitive(ENTITY_RCF).getAsString();
+                        rcf = deserializeRCFModel(serializedRCF);
+                    }
+                    if (json.has(ENTITY_THRESHOLD)) {
+                        // verified, don't need privileged call to get permission
+                        threshold = this.gson.fromJson(json.getAsJsonPrimitive(ENTITY_THRESHOLD).getAsString(), thresholdingModelClass);
+                    }
                 }
 
                 String lastCheckpointTimeString = (String) (checkpoint.get(TIMESTAMP));
@@ -505,12 +581,32 @@ public class CheckpointDao {
                         logger.error(new ParameterizedMessage("fail to parse entity", serializedEntity), e);
                     }
                 }
-                return Optional.of(new SimpleImmutableEntry<>(new EntityModel(entity, samples, rcf, threshold), timestamp));
+                EntityModel entityModel = new EntityModel(entity, samples, rcf, threshold);
+                entityModel.setTrcf(trcf);
+                return Optional.of(new SimpleImmutableEntry<>(entityModel, timestamp));
             });
         } catch (Exception e) {
             logger.warn("Exception while deserializing checkpoint", e);
             throw e;
         }
+    }
+
+    private ThresholdedRandomCutForest toTrcf(String checkpoint) {
+        ThresholdedRandomCutForest trcf = null;
+        if (checkpoint != null) {
+            try {
+                byte[] bytes = Base64.getDecoder().decode(checkpoint);
+                ThresholdedRandomCutForestState state = trcfSchema.newMessage();
+                AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+                    ProtostuffIOUtil.mergeFrom(bytes, state, trcfSchema);
+                    return null;
+                });
+                trcf = trcfMapper.toModel(state);
+            } catch (RuntimeException e) {
+                logger.error("Failed to deserialize TRCF model", e);
+            }
+        }
+        return trcf;
     }
 
     private RandomCutForest deserializeRCFModel(String rcfCheckpoint) {

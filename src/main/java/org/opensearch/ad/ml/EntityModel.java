@@ -33,6 +33,7 @@ import java.util.Queue;
 import org.opensearch.ad.model.Entity;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
 
 public class EntityModel {
     private Entity entity;
@@ -40,12 +41,26 @@ public class EntityModel {
     private Queue<double[]> samples;
     private RandomCutForest rcf;
     private ThresholdingModel threshold;
+    private ThresholdedRandomCutForest trcf;
 
     public EntityModel(Entity entity, Queue<double[]> samples, RandomCutForest rcf, ThresholdingModel threshold) {
         this.entity = entity;
         this.samples = samples;
         this.rcf = rcf;
         this.threshold = threshold;
+    }
+
+    /**
+     * Constructor with ERCF.
+     *
+     * @param entity entity if any
+     * @param samples samples with the model
+     * @param trcf thresholded rcf model
+     */
+    public EntityModel(Entity entity, Queue<double[]> samples, ThresholdedRandomCutForest trcf) {
+        this.entity = entity;
+        this.samples = samples;
+        this.trcf = trcf;
     }
 
     /**
@@ -86,11 +101,30 @@ public class EntityModel {
         this.threshold = threshold;
     }
 
+    /**
+     * Sets an trcf model.
+     *
+     * @param trcf an trcf model
+     */
+    public void setTrcf(ThresholdedRandomCutForest trcf) {
+        this.trcf = trcf;
+    }
+
+    /**
+     * Returns optional trcf model.
+     *
+     * @return the trcf model or empty
+     */
+    public Optional<ThresholdedRandomCutForest> getTrcf() {
+        return Optional.ofNullable(this.trcf);
+    }
+
     public void clear() {
         if (samples != null) {
             samples.clear();
         }
         rcf = null;
         threshold = null;
+        trcf = null;
     }
 }

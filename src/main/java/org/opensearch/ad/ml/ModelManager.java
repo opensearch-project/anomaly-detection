@@ -63,6 +63,8 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
 
 /**
@@ -809,6 +811,7 @@ public class ModelManager implements DetectorModelSize {
         Entity entity,
         int shingleSize
     ) {
+        ThresholdingResult result = new ThresholdingResult(0, 0, 0);
         if (modelState != null) {
             EntityModel entityModel = modelState.getModel();
 
@@ -816,52 +819,33 @@ public class ModelManager implements DetectorModelSize {
                 entityModel = new EntityModel(entity, new ArrayDeque<>(), null, null);
                 modelState.setModel(entityModel);
             }
-            // trainModelFromExistingSamples may be able to make models not null
-            if (entityModel.getRcf() == null || entityModel.getThreshold() == null) {
+
+            if (!entityModel.getTrcf().isPresent()) {
                 entityColdStarter.trainModelFromExistingSamples(modelState, shingleSize);
             }
-            if (entityModel.getRcf() != null && entityModel.getThreshold() != null) {
-                return score(datapoint, modelId, modelState);
+
+            if (entityModel.getTrcf().isPresent()) {
+                result = score(datapoint, modelId, modelState);
             } else {
                 entityModel.addSample(datapoint);
-                return new ThresholdingResult(0, 0, 0);
             }
-        } else {
-            return new ThresholdingResult(0, 0, 0);
         }
+        return result;
     }
 
     public ThresholdingResult score(double[] feature, String modelId, ModelState<EntityModel> modelState) {
+        ThresholdingResult result = null;
         EntityModel model = modelState.getModel();
-        if (model == null) {
-            return new ThresholdingResult(0, 0, 0);
+        if (model == null || !model.getTrcf().isPresent()) {
+            result = new ThresholdingResult(0, 0, 0);
+        } else {
+            ThresholdedRandomCutForest rcf = model.getTrcf().get();
+            Optional.ofNullable(model.getSamples()).ifPresent(q -> {
+                q.stream().forEach(s -> rcf.process(s, 0));
+                q.clear();
+            });
+            result = toResult(rcf.process(feature, 0));
         }
-        RandomCutForest rcf = model.getRcf();
-        ThresholdingModel threshold = model.getThreshold();
-        if (rcf == null || threshold == null) {
-            return new ThresholdingResult(0, 0, 0);
-        }
-
-        // clear feature not scored yet
-        Queue<double[]> samples = model.getSamples();
-        while (samples != null && samples.peek() != null) {
-            double[] recordedFeature = samples.poll();
-            double rcfScore = rcf.getAnomalyScore(recordedFeature);
-            rcf.update(recordedFeature);
-            threshold.update(rcfScore);
-        }
-        double rcfScore = rcf.getAnomalyScore(feature);
-
-        double anomalyGrade = threshold.grade(rcfScore);
-
-        double anomalyConfidence = computeRcfConfidence(rcf) * threshold.confidence();
-        ThresholdingResult result = new ThresholdingResult(anomalyGrade, anomalyConfidence, rcfScore);
-
-        rcf.update(feature);
-        if (rcfScore > 0) {
-            threshold.update(rcfScore);
-        }
-
         modelState.setLastUsedTime(clock.instant());
         return result;
     }
@@ -921,5 +905,13 @@ public class ModelManager implements DetectorModelSize {
         while (samples.peek() != null) {
             toModel.addSample(samples.poll());
         }
+    }
+
+    private ThresholdingResult toResult(AnomalyDescriptor anomalyDescriptor) {
+        return new ThresholdingResult(
+            anomalyDescriptor.getAnomalyGrade(),
+            anomalyDescriptor.getConfidence(),
+            anomalyDescriptor.getRcfScore()
+        );
     }
 }
