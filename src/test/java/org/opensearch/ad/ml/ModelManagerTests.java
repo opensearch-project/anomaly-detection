@@ -48,6 +48,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
@@ -103,6 +105,8 @@ import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
+import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
 import com.google.common.collect.Sets;
 
@@ -136,6 +140,15 @@ public class ModelManagerTests {
 
     @Mock
     private EntityCache cache;
+
+    @Mock
+    private ModelState<EntityModel> modelState;
+
+    @Mock
+    private EntityModel entityModel;
+
+    @Mock
+    private ThresholdedRandomCutForest trcf;
 
     private double modelDesiredSizePercentage;
     private double modelMaxSizePercentage;
@@ -278,6 +291,9 @@ public class ModelManagerTests {
         detectorId = "detectorId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
+
+        when(this.modelState.getModel()).thenReturn(this.entityModel);
+        when(this.entityModel.getTrcf()).thenReturn(Optional.of(this.trcf));
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -1122,5 +1138,35 @@ public class ModelManagerTests {
         modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null, shingleSize);
         assertEquals(0, state.getModel().getSamples().size());
         assertEquals(now, state.getLastUsedTime());
+    }
+
+    public void getAnomalyResultForEntity_withTrcf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setConfidence(1);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.trcf.process(this.point, 0)).thenReturn(anomalyDescriptor);
+
+        ThresholdingResult result = modelManager
+            .getAnomalyResultForEntity(this.point, this.modelState, this.detectorId, null, this.shingleSize);
+        assertEquals(
+            new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), anomalyDescriptor.getConfidence(), anomalyDescriptor.getRcfScore()),
+            result
+        );
+    }
+
+    @Test
+    public void score_with_trcf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.trcf.process(this.point, 0)).thenReturn(anomalyDescriptor);
+        when(this.entityModel.getSamples()).thenReturn(new ArrayDeque<>(Arrays.asList(this.point)));
+
+        ThresholdingResult result = modelManager.score(this.point, this.detectorId, this.modelState);
+        assertEquals(
+            new ThresholdingResult(anomalyDescriptor.getAnomalyGrade(), anomalyDescriptor.getConfidence(), anomalyDescriptor.getRcfScore()),
+            result
+        );
     }
 }
