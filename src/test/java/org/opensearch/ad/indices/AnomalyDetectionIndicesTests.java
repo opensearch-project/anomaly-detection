@@ -37,6 +37,7 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.settings.Settings;
@@ -72,7 +73,14 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
 
         nodeFilter = new DiscoveryNodeFilterer(clusterService());
 
-        indices = new AnomalyDetectionIndices(client(), clusterService(), client().threadPool(), settings, nodeFilter);
+        indices = new AnomalyDetectionIndices(
+            client(),
+            clusterService(),
+            client().threadPool(),
+            settings,
+            nodeFilter,
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        );
     }
 
     public void testAnomalyDetectorIndexNotExists() {
