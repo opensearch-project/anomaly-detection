@@ -191,7 +191,8 @@ public class CompositeRetriever extends AbstractRetriever {
 
             try {
                 Page page = analyzePage(response);
-                if (totalResults < maxEntities && afterKey != null) {
+                // we can process at most maxEntities entities
+                if (totalResults <= maxEntities && afterKey != null) {
                     updateCompositeAfterKey(response, source);
                     listener.onResponse(page);
                 } else {
