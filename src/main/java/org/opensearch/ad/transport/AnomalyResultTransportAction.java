@@ -103,6 +103,7 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.transport.NetworkExceptionHelper;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
@@ -793,13 +794,16 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
         } else if (causeException instanceof IndexNotFoundException
             && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME)) {
+            // checkpoint index does not exist
+            // ResourceNotFoundException will trigger cold start later
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));
         } else if (causeException instanceof OpenSearchTimeoutException) {
             // we can have OpenSearchTimeoutException when a node tries to load RCF or
             // threshold model
             failure.set(new InternalFailure(adID, causeException));
         } else {
-            // some unexpected bugs occur while predicting anomaly
+            // some unexpected bug occurred or cluster is unstable (e.g., ClusterBlockException) or index is red (e.g.
+            // NoShardAvailableActionException) while predicting anomaly
             failure.set(new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, causeException, false));
         }
     }
@@ -1099,6 +1103,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             || e instanceof ReceiveTimeoutTransportException
             || e instanceof NodeNotConnectedException
             || e instanceof ConnectException
+            || NetworkExceptionHelper.isCloseConnectionException(e)
             || e instanceof ActionNotFoundTransportException;
     }
 

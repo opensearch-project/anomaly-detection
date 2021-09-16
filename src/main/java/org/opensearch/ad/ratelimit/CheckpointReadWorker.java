@@ -36,6 +36,8 @@ import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
+import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -168,6 +170,10 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             // lazy init since we don't expect retryable requests to happen often
             Set<String> retryableRequests = null;
             Set<String> notFoundModels = null;
+            boolean printedUnexpectedFailure = false;
+            // contain requests that we will set the detector's exception to
+            // EndRunException (stop now = false)
+            Map<String, Exception> stopDetectorRequests = null;
             for (MultiGetItemResponse itemResponse : itemResponses) {
                 String modelId = itemResponse.getId();
                 if (itemResponse.isFailed()) {
@@ -189,7 +195,17 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                         LOG.error("too many get AD model checkpoint requests or shard not available");
                         setCoolDownStart();
                     } else {
-                        LOG.error("Unexpected failure", failure);
+                        // some unexpected bug occurred or cluster is unstable (e.g., ClusterBlockException) or index is red (e.g.
+                        // NoShardAvailableActionException) while fetching a checkpoint. As this might happen for a large amount
+                        // of entities, we don't want to flood logs with such exception trace. Only print it once.
+                        if (!printedUnexpectedFailure) {
+                            LOG.error("Unexpected failure", failure);
+                            printedUnexpectedFailure = true;
+                        }
+                        if (stopDetectorRequests == null) {
+                            stopDetectorRequests = new HashMap<>();
+                        }
+                        stopDetectorRequests.put(modelId, failure);
                     }
                 } else if (!itemResponse.getResponse().isExists()) {
                     // lazy init as we don't expect retrying happens often
@@ -209,6 +225,22 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                     if (modelId.isPresent() && notFoundModels.contains(modelId.get())) {
                         // submit to cold start queue
                         entityColdStartQueue.put(origRequest);
+                    }
+                }
+            }
+
+            // deal with failures that we will retry for a limited amount of times
+            // before stopping the detector
+            if (stopDetectorRequests != null) {
+                for (EntityRequest origRequest : toProcess) {
+                    Optional<String> modelId = origRequest.getModelId();
+                    if (modelId.isPresent() && stopDetectorRequests.containsKey(modelId.get())) {
+                        String adID = origRequest.detectorId;
+                        nodeStateManager
+                            .setException(
+                                adID,
+                                new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, stopDetectorRequests.get(modelId.get()), false)
+                            );
                     }
                 }
             }
