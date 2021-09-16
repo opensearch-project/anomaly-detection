@@ -526,9 +526,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.common.exception.ResourceNotFoundException',
         'org.opensearch.ad.task.ADTaskSlotLimit',
         'org.opensearch.ad.task.ADTaskCacheManager',
-
-        // TODO: to be fixed by kaituo
-        'org.opensearch.ad.indices.AnomalyDetectionIndices'
 ]
 
 jacocoTestCoverageVerification {

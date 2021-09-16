@@ -788,4 +788,9 @@ public final class AnomalyDetectorSettings {
     // such as "there are at least 10000 entities", the default is set to 10,000. That is, requests will count the
     // total entities up to 10,000.
     public static final int MAX_TOTAL_ENTITIES_TO_TRACK = 10_000;
+
+    // ======================================
+    // AD Index setting
+    // ======================================
+    public static int MAX_UPDATE_RETRY_TIMES = 10_000;
 }
