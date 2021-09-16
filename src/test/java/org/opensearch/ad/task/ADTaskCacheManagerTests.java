@@ -40,6 +40,7 @@ import static org.opensearch.ad.task.ADTaskCacheManager.TASK_RETRY_LIMIT;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -302,6 +303,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertNull(adTaskCacheManager.getRunningEntities(randomAlphaOfLength(10)));
     }
 
+    public void testPollEntityWithNotExistingHCDetector() {
+        assertNull(adTaskCacheManager.pollEntity(randomAlphaOfLength(5)));
+    }
+
     public void testPushBackEntity() throws IOException {
         String detectorId = randomAlphaOfLength(10);
         adTaskCacheManager.add(detectorId, TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR));
@@ -357,6 +362,30 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         adTaskCacheManager.clearRealtimeTaskCache();
         assertEquals(0, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache().length);
 
+    }
+
+    public void testUpdateRealtimeTaskCache() {
+        String detectorId = randomAlphaOfLength(5);
+        adTaskCacheManager.initRealtimeTaskCache(detectorId, 60_000);
+        adTaskCacheManager.updateRealtimeTaskCache(detectorId, null, null, null);
+        ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        assertNull(realtimeTaskCache.getState());
+        assertNull(realtimeTaskCache.getError());
+        assertNull(realtimeTaskCache.getInitProgress());
+
+        String state = ADTaskState.RUNNING.name();
+        Float initProgress = 0.1f;
+        String error = randomAlphaOfLength(5);
+        adTaskCacheManager.updateRealtimeTaskCache(detectorId, state, initProgress, error);
+        realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        assertEquals(state, realtimeTaskCache.getState());
+        assertEquals(error, realtimeTaskCache.getError());
+        assertEquals(initProgress, realtimeTaskCache.getInitProgress());
+
+        state = ADTaskState.STOPPED.name();
+        adTaskCacheManager.updateRealtimeTaskCache(detectorId, state, initProgress, error);
+        realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        assertNull(realtimeTaskCache);
     }
 
     public void testGetAndDecreaseEntityTaskLanes() throws IOException {
@@ -495,6 +524,17 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(newTaskSlots, newTaskSlots2);
     }
 
+    public void testDetectorTaskSlots() {
+        assertEquals(0, adTaskCacheManager.getDetectorTaskSlots(randomAlphaOfLength(5)));
+
+        String detectorId = randomAlphaOfLength(5);
+        adTaskCacheManager.setDetectorTaskLaneLimit(detectorId, randomIntBetween(1, 10));
+        assertEquals(0, adTaskCacheManager.getDetectorTaskSlots(randomAlphaOfLength(5)));
+        int taskSlots = randomIntBetween(1, 10);
+        adTaskCacheManager.setDetectorTaskSlots(detectorId, taskSlots);
+        assertEquals(taskSlots, adTaskCacheManager.getDetectorTaskSlots(detectorId));
+    }
+
     public void testTaskLanes() throws IOException {
         List<String> result = addHCDetectorCache();
         String detectorId = result.get(0);
@@ -590,6 +630,92 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
         assertEquals(0, adTaskCacheManager.getTempEntityCount(detectorId));
         assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
+    }
 
+    public void testADHCBatchTaskRunStateCacheWithCancel() {
+        String detectorId = randomAlphaOfLength(5);
+        String detectorTaskId = randomAlphaOfLength(5);
+        assertFalse(adTaskCacheManager.detectorTaskStateExists(detectorId, detectorTaskId));
+        assertNull(adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId));
+
+        ADHCBatchTaskRunState state = adTaskCacheManager.getOrCreateHCDetectorTaskStateCache(detectorId, detectorTaskId);
+        assertTrue(adTaskCacheManager.detectorTaskStateExists(detectorId, detectorTaskId));
+        assertEquals(ADTaskState.INIT.name(), state.getDetectorTaskState());
+        assertFalse(state.expired());
+
+        state.setDetectorTaskState(ADTaskState.RUNNING.name());
+        assertEquals(ADTaskState.RUNNING.name(), adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId));
+
+        String cancelReason = randomAlphaOfLength(5);
+        String cancelledBy = randomAlphaOfLength(5);
+        adTaskCacheManager.cancelByDetectorId(detectorId, detectorTaskId, cancelReason, cancelledBy);
+        assertEquals(cancelReason, adTaskCacheManager.getCancelReasonForHC(detectorId, detectorTaskId));
+        assertEquals(cancelledBy, adTaskCacheManager.getCancelledByForHC(detectorId, detectorTaskId));
+
+        expectThrows(IllegalArgumentException.class, () -> adTaskCacheManager.cancelByDetectorId(null, null, cancelReason, cancelledBy));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> adTaskCacheManager.cancelByDetectorId(detectorId, null, cancelReason, cancelledBy)
+        );
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> adTaskCacheManager.cancelByDetectorId(null, detectorTaskId, cancelReason, cancelledBy)
+        );
+    }
+
+    public void testUpdateDetectorTaskState() {
+        String detectorId = randomAlphaOfLength(5);
+        String detectorTaskId = randomAlphaOfLength(5);
+        String newState = ADTaskState.RUNNING.name();
+
+        adTaskCacheManager.updateDetectorTaskState(detectorId, detectorTaskId, newState);
+        assertEquals(newState, adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId));
+    }
+
+    public void testReleaseTaskUpdatingSemaphore() throws IOException {
+        String detectorId = randomAlphaOfLength(5);
+        ADTask adTask = TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR);
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        adTaskCacheManager.releaseTaskUpdatingSemaphore(detectorId);
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+
+        adTaskCacheManager.add(detectorId, adTask);
+        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        adTaskCacheManager.releaseTaskUpdatingSemaphore(detectorId);
+        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+    }
+
+    public void testCleanExpiredHCBatchTaskRunStates() {
+        String detectorId = randomAlphaOfLength(5);
+        String detectorTaskId = randomAlphaOfLength(5);
+        ADHCBatchTaskRunState state = adTaskCacheManager.getOrCreateHCDetectorTaskStateCache(detectorId, detectorTaskId);
+        state.setHistoricalAnalysisCancelled(true);
+        state.setCancelReason(randomAlphaOfLength(5));
+        state.setCancelledBy(randomAlphaOfLength(5));
+        state.setCancelledTimeInMillis(Instant.now().minus(10, ChronoUnit.MINUTES).toEpochMilli());
+        assertTrue(adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId));
+
+        adTaskCacheManager.cleanExpiredHCBatchTaskRunStates();
+        assertFalse(adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId));
+    }
+
+    public void testRemoveHistoricalTaskCacheIfNoRunningEntity() throws IOException {
+        String detectorId = randomAlphaOfLength(5);
+        adTaskCacheManager.removeHistoricalTaskCacheIfNoRunningEntity(detectorId);
+
+        // Add pending entity should not impact remove historical task cache
+        ADTask adTask = TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR);
+        adTaskCacheManager.add(detectorId, adTask);
+        adTaskCacheManager.addPendingEntity(detectorId, randomAlphaOfLength(5));
+        adTaskCacheManager.removeHistoricalTaskCacheIfNoRunningEntity(detectorId);
+
+        // Add pending entity and move it to running should impact remove historical task cache
+        adTaskCacheManager.add(detectorId, adTask);
+        String entity = randomAlphaOfLength(5);
+        adTaskCacheManager.addPendingEntity(detectorId, entity);
+        String pollEntity = adTaskCacheManager.pollEntity(detectorId);
+        assertEquals(entity, pollEntity);
+        expectThrows(IllegalArgumentException.class, () -> adTaskCacheManager.removeHistoricalTaskCacheIfNoRunningEntity(detectorId));
     }
 }

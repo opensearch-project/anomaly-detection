@@ -214,7 +214,7 @@ public class ADHCBatchTaskCache {
     }
 
     public boolean hasRunningEntity() {
-        return !this.runningEntities.isEmpty();
+        return !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
     }
 
     public boolean removeRunningEntity(String entity) {

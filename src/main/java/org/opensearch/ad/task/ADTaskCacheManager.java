@@ -208,7 +208,7 @@ public class ADTaskCacheManager {
         if (adTask.isEntityTask()) {
             ADHCBatchTaskRunState hcBatchTaskRunState = getHCBatchTaskRunState(detectorId, adTask.getDetectorLevelTaskId());
             if (hcBatchTaskRunState != null) {
-                hcBatchTaskRunState.refreshLastTaskRunTime();
+                hcBatchTaskRunState.setLastTaskRunTimeInMillis(Instant.now().toEpochMilli());
             }
         }
         // clean expired HC batch task run states when new task starts on worker node.
@@ -452,7 +452,7 @@ public class ADTaskCacheManager {
             batchTaskCaches.remove(taskId);
             ADHCBatchTaskRunState hcBatchTaskRunState = getHCBatchTaskRunState(detectorId, detectorTaskId);
             if (hcBatchTaskRunState != null) {
-                hcBatchTaskRunState.refreshLastTaskRunTime();
+                hcBatchTaskRunState.setLastTaskRunTimeInMillis(Instant.now().toEpochMilli());
             }
         }
     }
@@ -1256,7 +1256,7 @@ public class ADTaskCacheManager {
         ADHCBatchTaskRunState cache = getOrCreateHCDetectorTaskStateCache(detectorId, detectorTaskId);
         if (cache != null) {
             cache.setDetectorTaskState(newState);
-            cache.refreshLastTaskRunTime();
+            cache.setLastTaskRunTimeInMillis(Instant.now().toEpochMilli());
         }
     }
 

@@ -30,6 +30,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.HISTORICAL_ANALYSIS
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -95,8 +96,8 @@ public class ADCancelTaskTransportAction extends
         String userName = request.getUserName();
         String detectorId = request.getDetectorId();
         String detectorTaskId = request.getDetectorTaskId();
-        ADTaskCancellationState state = adTaskManager
-            .cancelLocalTaskByDetectorId(detectorId, detectorTaskId, HISTORICAL_ANALYSIS_CANCELLED, userName);
+        String reason = Optional.ofNullable(request.getReason()).orElse(HISTORICAL_ANALYSIS_CANCELLED);
+        ADTaskCancellationState state = adTaskManager.cancelLocalTaskByDetectorId(detectorId, detectorTaskId, reason, userName);
         logger.debug("Cancelled AD task for detector: {}", request.getDetectorId());
         return new ADCancelTaskNodeResponse(clusterService.localNode(), state);
     }

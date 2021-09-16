@@ -71,8 +71,8 @@ public class ADHCBatchTaskRunState {
         this.cancelledTimeInMillis = cancelledTimeInMillis;
     }
 
-    public void refreshLastTaskRunTime() {
-        this.lastTaskRunTimeInMillis = Instant.now().toEpochMilli();
+    public void setLastTaskRunTimeInMillis(Long lastTaskRunTimeInMillis) {
+        this.lastTaskRunTimeInMillis = lastTaskRunTimeInMillis;
     }
 
     public boolean expired() {
