@@ -34,6 +34,7 @@ import static org.opensearch.ad.util.ParseUtils.*;
 import static org.opensearch.ad.util.ParseUtils.getDetector;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -41,15 +42,19 @@ import java.util.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
@@ -99,7 +104,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         User user = getUserContext(client);
         AnomalyDetector anomalyDetector = request.getDetector();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, listener, detector -> validateExecute(request, user, listener));
+            resolveUserAndExecute(user, listener, detector -> validateExecute(request, user, context, listener));
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
@@ -135,9 +140,11 @@ public class ValidateAnomalyDetectorTransportAction extends
     private void validateExecute(
             ValidateAnomalyDetectorRequest request,
             User user,
+            ThreadContext.StoredContext storedContext,
             ActionListener<ValidateAnomalyDetectorResponse> listener
     ) {
-
+        storedContext.restore();
+        AnomalyDetector detector = request.getDetector();
         ActionListener<ValidateAnomalyDetectorResponse> validateListener = ActionListener.wrap(response -> {
             logger.debug("Result of validation process " + response);
             // forcing response to be empty
@@ -151,30 +158,34 @@ public class ValidateAnomalyDetectorTransportAction extends
             }
             listener.onFailure(exception);
         });
-        ValidateAnomalyDetectorActionHandler handler = new ValidateAnomalyDetectorActionHandler(
-                clusterService,
-                client,
-                validateListener,
-                anomalyDetectionIndices,
-                request.getDetector(),
-                request.getRequestTimeout(),
-                request.getMaxSingleEntityAnomalyDetectors(),
-                request.getMaxMultiEntityAnomalyDetectors(),
-                request.getMaxAnomalyFeatures(),
-                RestRequest.Method.POST,
-                xContentRegistry,
-                user,
-                searchFeatureDao,
-                request.getTypeStr()
-        );
-        try {
-            handler.start();
-        } catch (Exception exception) {
-            String errorMessage = String
-                    .format(Locale.ROOT, "Unknown exception caught while validating detector %s", request.getDetector());
-            logger.error(errorMessage, exception);
-            listener.onFailure(exception);
-        }
+        checkIndicesAndExecute(detector.getIndices(), () -> {
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                ValidateAnomalyDetectorActionHandler handler = new ValidateAnomalyDetectorActionHandler(
+                        clusterService,
+                        client,
+                        validateListener,
+                        anomalyDetectionIndices,
+                        detector,
+                        request.getRequestTimeout(),
+                        request.getMaxSingleEntityAnomalyDetectors(),
+                        request.getMaxMultiEntityAnomalyDetectors(),
+                        request.getMaxAnomalyFeatures(),
+                        RestRequest.Method.POST,
+                        xContentRegistry,
+                        user,
+                        searchFeatureDao,
+                        request.getTypeStr()
+                );
+                try {
+                    handler.start();
+                } catch (Exception exception) {
+                    String errorMessage = String
+                            .format(Locale.ROOT, "Unknown exception caught while validating detector %s", request.getDetector());
+                    logger.error(errorMessage, exception);
+                    listener.onFailure(exception);
+                }
+            }
+        }, listener);
     }
 
     protected DetectorValidationIssue parseADValidationException(ADValidationException exception) {
@@ -255,5 +266,20 @@ public class ValidateAnomalyDetectorTransportAction extends
         String message = errorMessage.substring(0, colonIndex);
 
         return message;
+    }
+
+
+    private void checkIndicesAndExecute(
+            List<String> indices,
+            AnomalyDetectorFunction function,
+            ActionListener<ValidateAnomalyDetectorResponse> listener
+    ) {
+        SearchRequest searchRequest = new SearchRequest()
+                .indices(indices.toArray(new String[0]))
+                .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
+        client.search(searchRequest, ActionListener.wrap(r -> function.execute(), e -> {
+            logger.error(e);
+            listener.onFailure(e);
+        }));
     }
 }
