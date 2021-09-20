@@ -30,6 +30,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
@@ -59,6 +60,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private final NamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
+    private final SearchFeatureDao searchFeatureDao;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -69,7 +71,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        SearchFeatureDao searchFeatureDao
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
@@ -78,6 +81,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
         this.adTaskManager = adTaskManager;
+        this.searchFeatureDao = searchFeatureDao;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
@@ -170,7 +174,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                     method,
                     xContentRegistry,
                     detectorUser,
-                    adTaskManager
+                    adTaskManager,
+                    searchFeatureDao
                 );
                 try {
                     indexAnomalyDetectorActionHandler.start();

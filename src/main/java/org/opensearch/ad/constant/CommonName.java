@@ -130,4 +130,9 @@ public class CommonName {
     // Used for backward-compatibility in messaging
     // ======================================
     public static final String EMPTY_FIELD = "";
+
+    // Validation
+    // ======================================
+    // detector validation aspect
+    public static final String DETECTOR = "detector";
 }

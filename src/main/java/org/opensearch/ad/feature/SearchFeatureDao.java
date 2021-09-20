@@ -584,7 +584,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         return dataPoints;
     }
 
-    private Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {
+    public Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {
         return parseAggregations(Optional.ofNullable(response).map(resp -> resp.getAggregations()), featureIds);
     }
 
