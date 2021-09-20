@@ -26,14 +26,17 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_CREATE_DETECTOR;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_UPDATE_DETECTOR;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.FEATURE_INVALID_MSG_PREFIX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
-import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.ad.util.ParseUtils.*;
+import static org.opensearch.ad.util.ParseUtils.getDetector;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -95,20 +98,38 @@ public class ValidateAnomalyDetectorTransportAction extends
     protected void doExecute(Task task, ValidateAnomalyDetectorRequest request, ActionListener<ValidateAnomalyDetectorResponse> listener) {
         User user = getUserContext(client);
         AnomalyDetector anomalyDetector = request.getDetector();
-//        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-//            resolveUserAndExecute(user, anomalyDetector.NO_ID, filterByEnabled, listener, (detector) -> validateExecute(request, user, listener));
-//        } catch (Exception e) {
-//            LOG.error(e);
-//            listener.onFailure(e);
-//        }
-        resolveUserAndExecute(user, AnomalyDetector.NO_ID, filterByEnabled, listener, () -> {
-            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-                validateExecute(request, user, listener);
-            } catch (Exception e) {
-                logger.error(e);
-                listener.onFailure(e);
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            resolveUserAndExecute(user, listener, detector -> validateExecute(request, user, listener));
+        } catch (Exception e) {
+            logger.error(e);
+            listener.onFailure(e);
+        }
+//        resolveUserAndExecute(user, AnomalyDetector.NO_ID, filterByEnabled, listener, () -> {
+//            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+//                validateExecute(request, user, listener);
+//            } catch (Exception e) {
+//                logger.error(e);
+//                listener.onFailure(e);
+//            }
+//        }, client, clusterService, xContentRegistry, anomalyDetector, false, false);
+    }
+
+    private void resolveUserAndExecute(
+            User requestedUser,
+            ActionListener<ValidateAnomalyDetectorResponse> listener,
+            Consumer<AnomalyDetector> function
+    ) {
+        try {
+            // Check if user has backend roles
+            // When filter by is enabled, block users validating detectors who do not have backend roles.
+            if (filterByEnabled && !checkFilterByBackendRoles(requestedUser, listener)) {
+                return;
             }
-        }, client, clusterService, xContentRegistry, anomalyDetector, false, false);
+            // Validate Detector
+            function.accept(null);
+        } catch (Exception e) {
+            listener.onFailure(e);
+        }
     }
 
     private void validateExecute(
@@ -116,6 +137,7 @@ public class ValidateAnomalyDetectorTransportAction extends
             User user,
             ActionListener<ValidateAnomalyDetectorResponse> listener
     ) {
+
         ActionListener<ValidateAnomalyDetectorResponse> validateListener = ActionListener.wrap(response -> {
             logger.debug("Result of validation process " + response);
             // forcing response to be empty
