@@ -174,7 +174,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         if (detector.getFeatureAttributes().isEmpty()) {
             return "Can't preview detector without feature";
         } else {
-            return RestHandlerUtils.validateAnomalyDetector(detector, maxAnomalyFeatures);
+            return RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, maxAnomalyFeatures);
         }
     }
 
