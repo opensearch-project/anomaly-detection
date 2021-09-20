@@ -279,7 +279,7 @@ String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["7.10.2","1.1.0-SNAPSHOT"]
+            versions = ["7.10.2","1.1.0"]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
