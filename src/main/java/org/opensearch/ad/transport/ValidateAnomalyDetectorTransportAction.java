@@ -26,12 +26,10 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_CREATE_DETECTOR;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_UPDATE_DETECTOR;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.FEATURE_INVALID_MSG_PREFIX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.*;
-import static org.opensearch.ad.util.ParseUtils.getDetector;
+import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
 
 import java.util.HashMap;
 import java.util.List;
@@ -109,14 +107,6 @@ public class ValidateAnomalyDetectorTransportAction extends
             logger.error(e);
             listener.onFailure(e);
         }
-//        resolveUserAndExecute(user, AnomalyDetector.NO_ID, filterByEnabled, listener, () -> {
-//            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-//                validateExecute(request, user, listener);
-//            } catch (Exception e) {
-//                logger.error(e);
-//                listener.onFailure(e);
-//            }
-//        }, client, clusterService, xContentRegistry, anomalyDetector, false, false);
     }
 
     private void resolveUserAndExecute(

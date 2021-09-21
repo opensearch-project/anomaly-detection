@@ -45,6 +45,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
@@ -90,6 +91,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     private Settings settings;
     private RestRequest.Method method;
     private ADTaskManager adTaskManager;
+    private SearchFeatureDao searchFeatureDao;
+
 
     /**
      * Mockito does not allow mock final methods.  Make my own delegates and mock them.
@@ -177,7 +180,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
     }
 
@@ -226,7 +230,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();
@@ -290,7 +295,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -367,7 +373,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -461,7 +468,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -587,7 +595,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();
@@ -662,7 +671,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();
