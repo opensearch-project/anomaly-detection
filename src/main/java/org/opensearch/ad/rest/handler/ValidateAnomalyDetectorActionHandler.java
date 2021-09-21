@@ -118,8 +118,10 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         String normalizedTypes = StringUtils.isBlank(typeStr) ? ValidationAspect.MODEL.getName() : typeStr.trim().replaceAll("\\s", "");
         Set<String> typesInRequest = new HashSet<>(Arrays.asList(normalizedTypes.split(",")));
 
-        this.aspects = Sets
-                .union(DEFAULT_VALIDATION_ASPECTS, ValidationAspect.getNames(Sets.intersection(ALL_VALIDATION_ASPECTS_STRS, typesInRequest)));
+        this.aspects = Sets.union(
+                                DEFAULT_VALIDATION_ASPECTS,
+                                ValidationAspect.getNames(Sets.intersection(ALL_VALIDATION_ASPECTS_STRS,
+                                typesInRequest)));
     }
 
     @Override
