@@ -247,7 +247,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 .get(
                         request,
                         ActionListener
-                                .wrap(response -> onGetAnomalyDetectorResponse(response, indexingDryRun), exception -> listener.onFailure(exception))
+                                .wrap(
+                                    response -> onGetAnomalyDetectorResponse(response, indexingDryRun),
+                                    exception -> listener.onFailure(exception))
                 );
     }
     
@@ -267,7 +269,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             // So we decide to block updating detector category field.
             if (!listEqualsWithoutConsideringOrder(existingDetector.getCategoryField(), anomalyDetector.getCategoryField())) {
                 listener
-                        .onFailure(new OpenSearchStatusException(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
+                        .onFailure(new OpenSearchStatusException(
+                                    CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD,
+                                    RestStatus.BAD_REQUEST));
                 return;
             }
 
@@ -387,7 +391,11 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         // throws ADValidationException before reaching this line
         int maxCategoryFields = NumericSetting.maxCategoricalFields();
         if (categoryField.size() > maxCategoryFields) {
-            listener.onFailure(new ADValidationException(CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields), DetectorValidationIssueType.CATEGORY, ValidationAspect.DETECTOR));
+            listener.onFailure(
+                    new ADValidationException(
+                            CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
+                            DetectorValidationIssueType.CATEGORY,
+                            ValidationAspect.DETECTOR));
             return;
         }
 
@@ -517,7 +525,11 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                             searchRequest,
                             ActionListener
                                     .wrap(
-                                            searchResponse -> onSearchADNameResponse(searchResponse, detectorId, anomalyDetector.getName(), indexingDryRun),
+                                            searchResponse -> onSearchADNameResponse(
+                                                                                searchResponse,
+                                                                                detectorId,
+                                                                                anomalyDetector.getName(),
+                                                                                indexingDryRun),
                                             exception -> listener.onFailure(exception)
                                     )
                     );
@@ -609,7 +621,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 if (e.getMessage() != null && e.getMessage().contains("version conflict")) {
                     listener
                             .onFailure(
-                                    new IllegalArgumentException("There was a problem updating the historical detector:[" + detectorId + "]")
+                                    new IllegalArgumentException(
+                                        "There was a problem updating the historical detector:[" + detectorId + "]")
                             );
                 } else {
                     listener.onFailure(e);
@@ -700,7 +713,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 if (aggFeatureResult.isPresent()) {
                     multiFeatureQueriesResponseListener
                             .onResponse(
-                                    new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
+                                    new MergeableList<Optional<double[]>>(
+                                        new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
                             );
                 } else {
                     String errorMessage = FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
