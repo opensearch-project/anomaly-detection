@@ -644,8 +644,11 @@ public class MultiEntityResultTests extends AbstractADTest {
                 listener.onResponse(createEmptyResponse());
                 inProgress.countDown();
             } else {
-                listener.onResponse(response);
+                // set firstCalled to be true before returning in case that listener return
+                // and the 2nd call comes in before firstCalled is set to true. Then we
+                // have the 2nd response.
                 firstCalled.set(true);
+                listener.onResponse(response);
                 inProgress.countDown();
             }
             return null;

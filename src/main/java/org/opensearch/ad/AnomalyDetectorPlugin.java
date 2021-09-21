@@ -346,7 +346,14 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         this.clientUtil = new ClientUtil(settings, client, throttler, threadPool);
         this.indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameExpressionResolver);
         this.nodeFilter = new DiscoveryNodeFilterer(clusterService);
-        this.anomalyDetectionIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, nodeFilter);
+        this.anomalyDetectionIndices = new AnomalyDetectionIndices(
+            client,
+            clusterService,
+            threadPool,
+            settings,
+            nodeFilter,
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        );
         this.clusterService = clusterService;
 
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =

@@ -231,7 +231,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             );
             return;
         }
-        indexUtil.updateMappingIfNecessary();
+        indexUtil.update();
         /*
          * We need to handle 3 cases:
          * 1. Detectors created by older versions and never updated. These detectors wont have User details in the
@@ -641,6 +641,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         Long detectorIntervalInMinutes,
         String error
     ) {
+        // Don't need info as this will be printed repeatedly in each interval
         adTaskManager
             .updateLatestRealtimeTaskOnCoordinatingNode(
                 detectorId,
