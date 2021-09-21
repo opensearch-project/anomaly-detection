@@ -21,7 +21,7 @@ import org.opensearch.ad.model.ADTaskState;
 public class ADHCBatchTaskRunState {
 
     // HC batch task run state will expire after 60 seconds after last task run time or task cancelled time.
-    public static final int HC_TASk_RUN_STATE_TIMEOUT_IN_MILLIS = 60_000;
+    public static final int HC_TASK_RUN_STATE_TIMEOUT_IN_MILLIS = 60_000;
     private String detectorTaskState;
     // record if HC detector historical analysis cancelled/stopped. Every entity task should
     // recheck this field and stop if it's true.
@@ -79,12 +79,12 @@ public class ADHCBatchTaskRunState {
         long nowInMillis = Instant.now().toEpochMilli();
         if (isHistoricalAnalysisCancelled
             && cancelledTimeInMillis != null
-            && cancelledTimeInMillis + HC_TASk_RUN_STATE_TIMEOUT_IN_MILLIS < nowInMillis) {
+            && cancelledTimeInMillis + HC_TASK_RUN_STATE_TIMEOUT_IN_MILLIS < nowInMillis) {
             return true;
         }
         if (!isHistoricalAnalysisCancelled
             && lastTaskRunTimeInMillis != null
-            && lastTaskRunTimeInMillis + HC_TASk_RUN_STATE_TIMEOUT_IN_MILLIS < nowInMillis) {
+            && lastTaskRunTimeInMillis + HC_TASK_RUN_STATE_TIMEOUT_IN_MILLIS < nowInMillis) {
             return true;
         }
         return false;

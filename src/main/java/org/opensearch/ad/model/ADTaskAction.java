@@ -46,6 +46,17 @@ public enum ADTaskAction {
      */
     START,
     /**
+     * Historical analysis finished, so we need to remove detector cache. Used for these cases
+     * <ul>
+     *     <li>Single entity detector finished/failed/cancelled. Check ADBatchTaskRunner#internalBatchTaskListener</li>
+     *     <li>Reset task state as stopped. Check ADTaskManager#resetTaskStateAsStopped</li>
+     *     <li>When stop realtime job, we need to stop task and clean up cache. Check ADTaskManager#stopLatestRealtimeTask</li>
+     *     <li> When start realtime job, will clean stale cache on old coordinating node.
+     *          Check ADTaskManager#initRealtimeTaskCacheAndCleanupStaleCache</li>
+     * </ul>
+     */
+    CLEAN_CACHE,
+    /**
      * Cancel historical analysis. Currently only used for HC detector. Single entity detector just need
      * to cancel itself. HC detector need to cancel detector level task on coordinating node.
      * <p>Execute on coordinating node</p>
@@ -88,15 +99,4 @@ public enum ADTaskAction {
      * <p>Execute on lead node</p>
      */
     CHECK_AVAILABLE_TASK_SLOTS,
-    /**
-     * Historical analysis finished, so we need to remove detector cache. Used for these cases
-     * <ul>
-     *     <li>Single entity detector finished/failed/cancelled. Check ADBatchTaskRunner#internalBatchTaskListener</li>
-     *     <li>Reset task state as stopped. Check ADTaskManager#resetTaskStateAsStopped</li>
-     *     <li>When stop realtime job, we need to stop task and clean up cache. Check ADTaskManager#stopLatestRealtimeTask</li>
-     *     <li> When start realtime job, will clean stale cache on old coordinating node.
-     *          Check ADTaskManager#initRealtimeTaskCacheAndCleanupStaleCache</li>
-     * </ul>
-     */
-    CLEAN_CACHE,
 }
