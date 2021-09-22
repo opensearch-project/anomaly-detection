@@ -218,7 +218,11 @@ public class ADHCBatchTaskCache {
     }
 
     public boolean removeRunningEntity(String entity) {
-        // entity may still in temp queue, so need to remove from both temp and running queues
+        // In normal case, the entity will be moved to running queue if entity task dispatched
+        // to worker node successfully. If failed to dispatch to worker node, it will still stay
+        // in temp queue, check ADBatchTaskRunner#workerNodeResponseListener. Then will send
+        // entity task done message to coordinating node to move to pending queue if exception
+        // is retryable or remove entity from cache if not retryable.
         return this.runningEntities.remove(entity) || this.tempEntities.remove(entity);
     }
 
