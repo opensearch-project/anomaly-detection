@@ -44,6 +44,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -70,7 +71,7 @@ import org.opensearch.transport.TransportService;
  * package private
  *
  */
-public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
+public class IndexAnomalyDetectorActionHandlerTests extends AnomalyDetectorActionHandlerTestsBase<IndexAnomalyDetectorResponse> {
     static ThreadPool threadPool;
     private String TEXT_FIELD_TYPE = "text";
     private IndexAnomalyDetectorActionHandler handler;
@@ -98,69 +99,69 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
      * Mockito does not allow mock final methods.  Make my own delegates and mock them.
      *
      */
-    class NodeClientDelegate extends NodeClient {
-
-        NodeClientDelegate(Settings settings, ThreadPool threadPool) {
-            super(settings, threadPool);
-        }
-
-        public <Request extends ActionRequest, Response extends ActionResponse> void execute2(
-            ActionType<Response> action,
-            Request request,
-            ActionListener<Response> listener
-        ) {
-            super.execute(action, request, listener);
-        }
-
-    }
-
-    @BeforeClass
-    public static void beforeClass() {
-        threadPool = new TestThreadPool("IndexAnomalyDetectorJobActionHandlerTests");
-    }
-
-    @AfterClass
-    public static void afterClass() {
-        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
-        threadPool = null;
-    }
+//    class NodeClientDelegate extends NodeClient {
+//
+//        NodeClientDelegate(Settings settings, ThreadPool threadPool) {
+//            super(settings, threadPool);
+//        }
+//
+//        public <Request extends ActionRequest, Response extends ActionResponse> void execute2(
+//            ActionType<Response> action,
+//            Request request,
+//            ActionListener<Response> listener
+//        ) {
+//            super.execute(action, request, listener);
+//        }
+//
+//    }
+//
+//    @BeforeClass
+//    public static void beforeClass() {
+//        threadPool = new TestThreadPool("IndexAnomalyDetectorJobActionHandlerTests");
+//    }
+//
+//    @AfterClass
+//    public static void afterClass() {
+//        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+//        threadPool = null;
+//    }
 
     @SuppressWarnings("unchecked")
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
-
-        settings = Settings.EMPTY;
-        clusterService = mock(ClusterService.class);
-        clientMock = spy(new NodeClient(settings, null));
-        transportService = mock(TransportService.class);
-
-        channel = mock(ActionListener.class);
-
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
-        when(anomalyDetectionIndices.doesAnomalyDetectorIndexExist()).thenReturn(true);
-
-        detectorId = "123";
-        seqNo = 0L;
-        primaryTerm = 0L;
-
-        WriteRequest.RefreshPolicy refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE;
-
-        String field = "a";
-        detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
-
-        requestTimeout = new TimeValue(1000L);
-
-        maxSingleEntityAnomalyDetectors = 1000;
-
-        maxMultiEntityAnomalyDetectors = 10;
-
-        maxAnomalyFeatures = 5;
-
-        method = RestRequest.Method.POST;
-
-        adTaskManager = mock(ADTaskManager.class);
+//
+//        settings = Settings.EMPTY;
+//        clusterService = mock(ClusterService.class);
+//        clientMock = spy(new NodeClient(settings, null));
+//        transportService = mock(TransportService.class);
+//
+//        channel = mock(ActionListener.class);
+//
+//        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
+//        when(anomalyDetectionIndices.doesAnomalyDetectorIndexExist()).thenReturn(true);
+//
+//        detectorId = "123";
+//        seqNo = 0L;
+//        primaryTerm = 0L;
+//
+//        WriteRequest.RefreshPolicy refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE;
+//
+//        String field = "a";
+//        detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
+//
+//        requestTimeout = new TimeValue(1000L);
+//
+//        maxSingleEntityAnomalyDetectors = 1000;
+//
+//        maxMultiEntityAnomalyDetectors = 10;
+//
+//        maxAnomalyFeatures = 5;
+//
+//        method = RestRequest.Method.POST;
+//
+//        adTaskManager = mock(ADTaskManager.class);
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
@@ -188,7 +189,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     // we support upto 2 category fields now
     public void testThreeCategoricalFields() throws IOException {
         expectThrows(
-            IllegalArgumentException.class,
+            ADValidationException.class,
             () -> TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a", "b", "c"))
         );
     }
@@ -384,7 +385,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
-        assertTrue(value instanceof IllegalArgumentException);
+        assertTrue(value instanceof ADValidationException);
         assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG));
     }
 
