@@ -64,24 +64,8 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.settings.NumericSetting;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestStatus;
-import org.opensearch.search.aggregations.AggregatorFactories;
-import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.transport.TransportService;
-
 import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -90,11 +74,26 @@ import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.MergeableList;
 import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.search.aggregations.AggregatorFactories;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.transport.TransportService;
 
 public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionResponse> {
     public static final String EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG = "Can't create multi-entity anomaly detectors more than ";
@@ -158,26 +157,26 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      * @param isDryRun                 Whether handler is dryrun or not
      */
     public AbstractAnomalyDetectorActionHandler(
-            ClusterService clusterService,
-            Client client,
-            TransportService transportService,
-            ActionListener<T> listener,
-            AnomalyDetectionIndices anomalyDetectionIndices,
-            String detectorId,
-            Long seqNo,
-            Long primaryTerm,
-            WriteRequest.RefreshPolicy refreshPolicy,
-            AnomalyDetector anomalyDetector,
-            TimeValue requestTimeout,
-            Integer maxSingleEntityAnomalyDetectors,
-            Integer maxMultiEntityAnomalyDetectors,
-            Integer maxAnomalyFeatures,
-            RestRequest.Method method,
-            NamedXContentRegistry xContentRegistry,
-            User user,
-            ADTaskManager adTaskManager,
-            SearchFeatureDao searchFeatureDao,
-            boolean isDryRun
+        ClusterService clusterService,
+        Client client,
+        TransportService transportService,
+        ActionListener<T> listener,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        String detectorId,
+        Long seqNo,
+        Long primaryTerm,
+        WriteRequest.RefreshPolicy refreshPolicy,
+        AnomalyDetector anomalyDetector,
+        TimeValue requestTimeout,
+        Integer maxSingleEntityAnomalyDetectors,
+        Integer maxMultiEntityAnomalyDetectors,
+        Integer maxAnomalyFeatures,
+        RestRequest.Method method,
+        NamedXContentRegistry xContentRegistry,
+        User user,
+        ADTaskManager adTaskManager,
+        SearchFeatureDao searchFeatureDao,
+        boolean isDryRun
     ) {
         this.clusterService = clusterService;
         this.client = client;
@@ -211,10 +210,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist() && !this.isDryRun) {
             logger.info("AnomalyDetector Indices do not exist");
             anomalyDetectionIndices
-                    .initAnomalyDetectorIndex(
-                            ActionListener
-                                    .wrap(response -> onCreateMappingsResponse(response, false), exception -> listener.onFailure(exception))
-                    );
+                .initAnomalyDetectorIndex(
+                    ActionListener.wrap(response -> onCreateMappingsResponse(response, false), exception -> listener.onFailure(exception))
+                );
         } else {
             logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
             logger.info("DryRun variable " + this.isDryRun);
@@ -229,14 +227,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     protected void prepareAnomalyDetectorIndexing(boolean indexingDryRun) {
         if (method == RestRequest.Method.PUT) {
             handler
-                    .getDetectorJob(
-                            clusterService,
-                            client,
-                            detectorId,
-                            listener,
-                            () -> updateAnomalyDetector(detectorId, indexingDryRun),
-                            xContentRegistry
-                    );
+                .getDetectorJob(
+                    clusterService,
+                    client,
+                    detectorId,
+                    listener,
+                    () -> updateAnomalyDetector(detectorId, indexingDryRun),
+                    xContentRegistry
+                );
         } else {
             createAnomalyDetector(indexingDryRun);
         }
@@ -245,15 +243,16 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     protected void updateAnomalyDetector(String detectorId, boolean indexingDryRun) {
         GetRequest request = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
         client
-                .get(
-                        request,
-                        ActionListener
-                                .wrap(
-                                    response -> onGetAnomalyDetectorResponse(response, indexingDryRun, detectorId),
-                                    exception -> listener.onFailure(exception))
-                );
+            .get(
+                request,
+                ActionListener
+                    .wrap(
+                        response -> onGetAnomalyDetectorResponse(response, indexingDryRun, detectorId),
+                        exception -> listener.onFailure(exception)
+                    )
+            );
     }
-    
+
     private void onGetAnomalyDetectorResponse(GetResponse response, boolean indexingDryRun, String detectorId) {
         if (!response.isExists()) {
             listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
@@ -270,9 +269,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             // So we decide to block updating detector category field.
             if (!listEqualsWithoutConsideringOrder(existingDetector.getCategoryField(), anomalyDetector.getCategoryField())) {
                 listener
-                        .onFailure(new OpenSearchStatusException(
-                                    CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD,
-                                    RestStatus.BAD_REQUEST));
+                    .onFailure(new OpenSearchStatusException(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
                 return;
             }
 
@@ -313,14 +310,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
 
             client
-                    .search(
-                            searchRequest,
-                            ActionListener
-                                    .wrap(
-                                            response -> onSearchMultiEntityAdResponse(response, detectorId, indexingDryRun),
-                                            exception -> listener.onFailure(exception)
-                                    )
-                    );
+                .search(
+                    searchRequest,
+                    ActionListener
+                        .wrap(
+                            response -> onSearchMultiEntityAdResponse(response, detectorId, indexingDryRun),
+                            exception -> listener.onFailure(exception)
+                        )
+                );
         } else {
             validateCategoricalField(detectorId, indexingDryRun);
         }
@@ -340,14 +337,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                     SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
 
                     client
-                            .search(
-                                    searchRequest,
-                                    ActionListener
-                                            .wrap(
-                                                    response -> onSearchSingleEntityAdResponse(response, indexingDryRun),
-                                                    exception -> listener.onFailure(exception)
-                                            )
-                            );
+                        .search(
+                            searchRequest,
+                            ActionListener
+                                .wrap(
+                                    response -> onSearchSingleEntityAdResponse(response, indexingDryRun),
+                                    exception -> listener.onFailure(exception)
+                                )
+                        );
                 } else {
                     searchAdInputIndices(null, indexingDryRun);
                 }
@@ -392,11 +389,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         // throws ADValidationException before reaching this line
         int maxCategoryFields = NumericSetting.maxCategoricalFields();
         if (categoryField.size() > maxCategoryFields) {
-            listener.onFailure(
+            listener
+                .onFailure(
                     new ADValidationException(
-                            CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
-                            DetectorValidationIssueType.CATEGORY,
-                            ValidationAspect.DETECTOR));
+                        CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
+                        DetectorValidationIssueType.CATEGORY,
+                        ValidationAspect.DETECTOR
+                    )
+                );
             return;
         }
 
@@ -417,7 +417,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
             // Review why the change from FieldMappingMetadata to GetFieldMappingsResponse.FieldMappingMetadata
             Map<String, Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse
-                    .mappings();
+                .mappings();
 
             for (Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByType : mappingsByIndex.values()) {
                 for (Map<String, GetFieldMappingsResponse.FieldMappingMetadata> mappingsByField : mappingsByType.values()) {
@@ -441,13 +441,13 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                                         String typeName = (String) metadataMap.get(CommonName.TYPE);
                                         if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
                                             listener
-                                                    .onFailure(
-                                                            new ADValidationException(
-                                                                    CATEGORICAL_FIELD_TYPE_ERR_MSG,
-                                                                    DetectorValidationIssueType.CATEGORY,
-                                                                    ValidationAspect.DETECTOR
-                                                            )
-                                                    );
+                                                .onFailure(
+                                                    new ADValidationException(
+                                                        CATEGORICAL_FIELD_TYPE_ERR_MSG,
+                                                        DetectorValidationIssueType.CATEGORY,
+                                                        ValidationAspect.DETECTOR
+                                                    )
+                                                );
                                             return;
                                         }
                                     }
@@ -461,13 +461,13 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
             if (foundField == false) {
                 listener
-                        .onFailure(
-                                new ADValidationException(
-                                        String.format(Locale.ROOT, NOT_FOUND_ERR_MSG, categoryField0),
-                                        DetectorValidationIssueType.CATEGORY,
-                                        ValidationAspect.DETECTOR
-                                )
-                        );
+                    .onFailure(
+                        new ADValidationException(
+                            String.format(Locale.ROOT, NOT_FOUND_ERR_MSG, categoryField0),
+                            DetectorValidationIssueType.CATEGORY,
+                            ValidationAspect.DETECTOR
+                        )
+                    );
                 return;
             }
 
@@ -483,21 +483,21 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     protected void searchAdInputIndices(String detectorId, boolean indexingDryRun) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                .query(QueryBuilders.matchAllQuery())
-                .size(0)
-                .timeout(requestTimeout);
+            .query(QueryBuilders.matchAllQuery())
+            .size(0)
+            .timeout(requestTimeout);
 
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
 
         client
-                .search(
-                        searchRequest,
-                        ActionListener
-                                .wrap(
-                                        searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId, indexingDryRun),
-                                        exception -> listener.onFailure(exception)
-                                )
-                );
+            .search(
+                searchRequest,
+                ActionListener
+                    .wrap(
+                        searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId, indexingDryRun),
+                        exception -> listener.onFailure(exception)
+                    )
+            );
     }
 
     protected void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId, boolean indexingDryRun) throws IOException {
@@ -522,18 +522,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
 
             client
-                    .search(
-                            searchRequest,
-                            ActionListener
-                                    .wrap(
-                                            searchResponse -> onSearchADNameResponse(
-                                                                                searchResponse,
-                                                                                detectorId,
-                                                                                anomalyDetector.getName(),
-                                                                                indexingDryRun),
-                                            exception -> listener.onFailure(exception)
-                                    )
-                    );
+                .search(
+                    searchRequest,
+                    ActionListener
+                        .wrap(
+                            searchResponse -> onSearchADNameResponse(searchResponse, detectorId, anomalyDetector.getName(), indexingDryRun),
+                            exception -> listener.onFailure(exception)
+                        )
+                );
         } else {
             tryIndexingAnomalyDetector(indexingDryRun);
         }
@@ -541,15 +537,15 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     }
 
     protected void onSearchADNameResponse(SearchResponse response, String detectorId, String name, boolean indexingDryRun)
-            throws IOException {
+        throws IOException {
         if (response.getHits().getTotalHits().value > 0) {
             String errorMsg = String
-                    .format(
-                            Locale.ROOT,
-                            "Cannot create anomaly detector with name [%s] as it's already used by detector %s",
-                            name,
-                            Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
-                    );
+                .format(
+                    Locale.ROOT,
+                    "Cannot create anomaly detector with name [%s] as it's already used by detector %s",
+                    name,
+                    Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
+                );
             logger.warn(errorMsg);
             listener.onFailure(new ADValidationException(errorMsg, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR));
         } else {
@@ -569,29 +565,29 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     @SuppressWarnings("unchecked")
     protected void indexAnomalyDetector(String detectorId) throws IOException {
         AnomalyDetector detector = new AnomalyDetector(
-                anomalyDetector.getDetectorId(),
-                anomalyDetector.getVersion(),
-                anomalyDetector.getName(),
-                anomalyDetector.getDescription(),
-                anomalyDetector.getTimeField(),
-                anomalyDetector.getIndices(),
-                anomalyDetector.getFeatureAttributes(),
-                anomalyDetector.getFilterQuery(),
-                anomalyDetector.getDetectionInterval(),
-                anomalyDetector.getWindowDelay(),
-                anomalyDetector.getShingleSize(),
-                anomalyDetector.getUiMetadata(),
-                anomalyDetector.getSchemaVersion(),
-                Instant.now(),
-                anomalyDetector.getCategoryField(),
-                user
+            anomalyDetector.getDetectorId(),
+            anomalyDetector.getVersion(),
+            anomalyDetector.getName(),
+            anomalyDetector.getDescription(),
+            anomalyDetector.getTimeField(),
+            anomalyDetector.getIndices(),
+            anomalyDetector.getFeatureAttributes(),
+            anomalyDetector.getFilterQuery(),
+            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getWindowDelay(),
+            anomalyDetector.getShingleSize(),
+            anomalyDetector.getUiMetadata(),
+            anomalyDetector.getSchemaVersion(),
+            Instant.now(),
+            anomalyDetector.getCategoryField(),
+            user
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
-                .setRefreshPolicy(refreshPolicy)
-                .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
-                .setIfSeqNo(seqNo)
-                .setIfPrimaryTerm(primaryTerm)
-                .timeout(requestTimeout);
+            .setRefreshPolicy(refreshPolicy)
+            .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
+            .setIfSeqNo(seqNo)
+            .setIfPrimaryTerm(primaryTerm)
+            .timeout(requestTimeout);
         if (StringUtils.isNotBlank(detectorId)) {
             indexRequest.id(detectorId);
         }
@@ -605,16 +601,16 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                     return;
                 }
                 listener
-                        .onResponse(
-                                (T) new IndexAnomalyDetectorResponse(
-                                       indexResponse.getId(),
-                                       indexResponse.getVersion(),
-                                       indexResponse.getSeqNo(),
-                                       indexResponse.getPrimaryTerm(),
-                                       detector,
-                                       RestStatus.CREATED
-                               )
-                        );
+                    .onResponse(
+                        (T) new IndexAnomalyDetectorResponse(
+                            indexResponse.getId(),
+                            indexResponse.getVersion(),
+                            indexResponse.getSeqNo(),
+                            indexResponse.getPrimaryTerm(),
+                            detector,
+                            RestStatus.CREATED
+                        )
+                    );
             }
 
             @Override
@@ -622,10 +618,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 logger.warn("Failed to update detector", e);
                 if (e.getMessage() != null && e.getMessage().contains("version conflict")) {
                     listener
-                            .onFailure(
-                                    new IllegalArgumentException(
-                                        "There was a problem updating the historical detector:[" + detectorId + "]")
-                            );
+                        .onFailure(
+                            new IllegalArgumentException("There was a problem updating the historical detector:[" + detectorId + "]")
+                        );
                 } else {
                     listener.onFailure(e);
                 }
@@ -640,12 +635,12 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         } else {
             logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
             listener
-                    .onFailure(
-                            new OpenSearchStatusException(
-                                    "Created " + ANOMALY_DETECTORS_INDEX + "with mappings call not acknowledged.",
-                                    RestStatus.INTERNAL_SERVER_ERROR
-                            )
-                    );
+                .onFailure(
+                    new OpenSearchStatusException(
+                        "Created " + ANOMALY_DETECTORS_INDEX + "with mappings call not acknowledged.",
+                        RestStatus.INTERNAL_SERVER_ERROR
+                    )
+                );
         }
     }
 
@@ -670,7 +665,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     // https://github.com/opensearch-project/anomaly-detection/issues/39
     protected void validateAnomalyDetectorFeatures(String detectorId, boolean indexingDryRun) throws IOException {
         if (anomalyDetector != null
-                && (anomalyDetector.getFeatureAttributes() == null || anomalyDetector.getFeatureAttributes().isEmpty())) {
+            && (anomalyDetector.getFeatureAttributes() == null || anomalyDetector.getFeatureAttributes().isEmpty())) {
             checkADNameExists(detectorId, indexingDryRun);
             return;
         }
@@ -683,30 +678,30 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
         // checking runtime error of detector features
         ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener
-                .wrap(response -> { checkADNameExists(detectorId, indexingDryRun); }, exception -> {
-                    listener
-                            .onFailure(
-                                    new ADValidationException(
-                                            exception.getMessage(),
-                                            DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                                            ValidationAspect.DETECTOR
-                                    )
-                            );
-                });
+            .wrap(response -> { checkADNameExists(detectorId, indexingDryRun); }, exception -> {
+                listener
+                    .onFailure(
+                        new ADValidationException(
+                            exception.getMessage(),
+                            DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                            ValidationAspect.DETECTOR
+                        )
+                    );
+            });
         MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>> multiFeatureQueriesResponseListener =
-                new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
-                        validateFeatureQueriesListener,
-                        anomalyDetector.getFeatureAttributes().size(),
-                        String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
-                        false
-                );
+            new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
+                validateFeatureQueriesListener,
+                anomalyDetector.getFeatureAttributes().size(),
+                String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
+                false
+            );
 
         for (Feature feature : anomalyDetector.getFeatureAttributes()) {
             SearchSourceBuilder ssb = new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery());
             AggregatorFactories.Builder internalAgg = parseAggregators(
-                    feature.getAggregation().toString(),
-                    xContentRegistry,
-                    feature.getId()
+                feature.getAggregation().toString(),
+                xContentRegistry,
+                feature.getId()
             );
             ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());
             SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().toArray(new String[0])).source(ssb);
@@ -714,10 +709,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()));
                 if (aggFeatureResult.isPresent()) {
                     multiFeatureQueriesResponseListener
-                            .onResponse(
-                                    new MergeableList<Optional<double[]>>(
-                                        new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
-                            );
+                        .onResponse(
+                            new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
+                        );
                 } else {
                     String errorMessage = FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
                     logger.error(errorMessage);
@@ -737,91 +731,91 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         }
     }
 
-//    public class Indexer<T> {
-//        private T t;
-//
-//        public void set(T t) {this.t = t;}
-//
-//        public T get() {return t;}
-//
-//        protected void indexAnomalyDetector(String detectorId) throws IOException {
-//            AnomalyDetector detector = new AnomalyDetector(
-//                    anomalyDetector.getDetectorId(),
-//                    anomalyDetector.getVersion(),
-//                    anomalyDetector.getName(),
-//                    anomalyDetector.getDescription(),
-//                    anomalyDetector.getTimeField(),
-//                    anomalyDetector.getIndices(),
-//                    anomalyDetector.getFeatureAttributes(),
-//                    anomalyDetector.getFilterQuery(),
-//                    anomalyDetector.getDetectionInterval(),
-//                    anomalyDetector.getWindowDelay(),
-//                    anomalyDetector.getShingleSize(),
-//                    anomalyDetector.getUiMetadata(),
-//                    anomalyDetector.getSchemaVersion(),
-//                    Instant.now(),
-//                    anomalyDetector.getCategoryField(),
-//                    user
-//            );
-//            IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
-//                    .setRefreshPolicy(refreshPolicy)
-//                    .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
-//                    .setIfSeqNo(seqNo)
-//                    .setIfPrimaryTerm(primaryTerm)
-//                    .timeout(requestTimeout);
-//            if (detectorId != null) {
-//                indexRequest.id(detectorId);
-//            }
-//
-//
-//            client.index(indexRequest, new ActionListener<IndexResponse>() {
-//                @Override
-//                public void onResponse(IndexResponse indexResponse) {
-//                    String errorMsg = checkShardsFailure(indexResponse);
-//                    if (errorMsg != null) {
-//                        listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
-//                        return;
-//                    }
-//                    listener
-//                            .onResponse(
-//                                    (T) new IndexAnomalyDetectorResponse(
-//                                            indexResponse.getId(),
-//                                            indexResponse.getVersion(),
-//                                            indexResponse.getSeqNo(),
-//                                            indexResponse.getPrimaryTerm(),
-//                                            detector,
-//                                            RestStatus.CREATED
-//                                    )
-//                            );
-//                }
-//
-//                @Override
-//                public void onFailure(Exception e) {
-//                    logger.warn("Failed to update detector", e);
-//                    if (e.getMessage() != null && e.getMessage().contains("version conflict")) {
-//                        listener
-//                                .onFailure(
-//                                        new IllegalArgumentException(
-//                                                "There was a problem updating the historical detector:[" + detectorId + "]")
-//                                );
-//                    } else {
-//                        listener.onFailure(e);
-//                    }
-//                }
-//            });
-//        }
-//
-//
-//        protected String checkShardsFailure(IndexResponse response) {
-//            StringBuilder failureReasons = new StringBuilder();
-//            if (response.getShardInfo().getFailed() > 0) {
-//                for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
-//                    failureReasons.append(failure);
-//                }
-//                return failureReasons.toString();
-//            }
-//            return null;
-//        }
-//
-//    }
+    // public class Indexer<T> {
+    // private T t;
+    //
+    // public void set(T t) {this.t = t;}
+    //
+    // public T get() {return t;}
+    //
+    // protected void indexAnomalyDetector(String detectorId) throws IOException {
+    // AnomalyDetector detector = new AnomalyDetector(
+    // anomalyDetector.getDetectorId(),
+    // anomalyDetector.getVersion(),
+    // anomalyDetector.getName(),
+    // anomalyDetector.getDescription(),
+    // anomalyDetector.getTimeField(),
+    // anomalyDetector.getIndices(),
+    // anomalyDetector.getFeatureAttributes(),
+    // anomalyDetector.getFilterQuery(),
+    // anomalyDetector.getDetectionInterval(),
+    // anomalyDetector.getWindowDelay(),
+    // anomalyDetector.getShingleSize(),
+    // anomalyDetector.getUiMetadata(),
+    // anomalyDetector.getSchemaVersion(),
+    // Instant.now(),
+    // anomalyDetector.getCategoryField(),
+    // user
+    // );
+    // IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
+    // .setRefreshPolicy(refreshPolicy)
+    // .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
+    // .setIfSeqNo(seqNo)
+    // .setIfPrimaryTerm(primaryTerm)
+    // .timeout(requestTimeout);
+    // if (detectorId != null) {
+    // indexRequest.id(detectorId);
+    // }
+    //
+    //
+    // client.index(indexRequest, new ActionListener<IndexResponse>() {
+    // @Override
+    // public void onResponse(IndexResponse indexResponse) {
+    // String errorMsg = checkShardsFailure(indexResponse);
+    // if (errorMsg != null) {
+    // listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
+    // return;
+    // }
+    // listener
+    // .onResponse(
+    // (T) new IndexAnomalyDetectorResponse(
+    // indexResponse.getId(),
+    // indexResponse.getVersion(),
+    // indexResponse.getSeqNo(),
+    // indexResponse.getPrimaryTerm(),
+    // detector,
+    // RestStatus.CREATED
+    // )
+    // );
+    // }
+    //
+    // @Override
+    // public void onFailure(Exception e) {
+    // logger.warn("Failed to update detector", e);
+    // if (e.getMessage() != null && e.getMessage().contains("version conflict")) {
+    // listener
+    // .onFailure(
+    // new IllegalArgumentException(
+    // "There was a problem updating the historical detector:[" + detectorId + "]")
+    // );
+    // } else {
+    // listener.onFailure(e);
+    // }
+    // }
+    // });
+    // }
+    //
+    //
+    // protected String checkShardsFailure(IndexResponse response) {
+    // StringBuilder failureReasons = new StringBuilder();
+    // if (response.getShardInfo().getFailed() > 0) {
+    // for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
+    // failureReasons.append(failure);
+    // }
+    // return failureReasons.toString();
+    // }
+    // return null;
+    // }
+    //
+    // }
 }

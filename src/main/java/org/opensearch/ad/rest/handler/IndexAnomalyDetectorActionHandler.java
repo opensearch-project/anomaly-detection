@@ -11,12 +11,11 @@
 
 package org.opensearch.ad.rest.handler;
 
-
 import java.io.IOException;
 
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
@@ -34,7 +33,7 @@ import org.opensearch.transport.TransportService;
  * POST request is for creating anomaly detector.
  * PUT request is for updating anomaly detector.
  */
-public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<IndexAnomalyDetectorResponse>{
+public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<IndexAnomalyDetectorResponse> {
 
     /**
      * Constructor function.
@@ -59,48 +58,48 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
      * @param adTaskManager           AD Task manager
      * @param searchFeatureDao        Search feature dao
      */
-    public IndexAnomalyDetectorActionHandler (
-    ClusterService clusterService,
-    Client client,
-    TransportService transportService,
-    ActionListener<IndexAnomalyDetectorResponse> listener,
-    AnomalyDetectionIndices anomalyDetectionIndices,
-    String detectorId,
-    Long seqNo,
-    Long primaryTerm,
-    WriteRequest.RefreshPolicy refreshPolicy,
-    AnomalyDetector anomalyDetector,
-    TimeValue requestTimeout,
-    Integer maxSingleEntityAnomalyDetectors,
-    Integer maxMultiEntityAnomalyDetectors,
-    Integer maxAnomalyFeatures,
-    RestRequest.Method method,
-    NamedXContentRegistry xContentRegistry,
-    User user,
-    ADTaskManager adTaskManager,
-    SearchFeatureDao searchFeatureDao
+    public IndexAnomalyDetectorActionHandler(
+        ClusterService clusterService,
+        Client client,
+        TransportService transportService,
+        ActionListener<IndexAnomalyDetectorResponse> listener,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        String detectorId,
+        Long seqNo,
+        Long primaryTerm,
+        WriteRequest.RefreshPolicy refreshPolicy,
+        AnomalyDetector anomalyDetector,
+        TimeValue requestTimeout,
+        Integer maxSingleEntityAnomalyDetectors,
+        Integer maxMultiEntityAnomalyDetectors,
+        Integer maxAnomalyFeatures,
+        RestRequest.Method method,
+        NamedXContentRegistry xContentRegistry,
+        User user,
+        ADTaskManager adTaskManager,
+        SearchFeatureDao searchFeatureDao
     ) {
         super(
-                clusterService,
-                client,
-                transportService,
-                listener,
-                anomalyDetectionIndices,
-                detectorId,
-                seqNo,
-                primaryTerm,
-                refreshPolicy,
-                anomalyDetector,
-                requestTimeout,
-                maxSingleEntityAnomalyDetectors,
-                maxMultiEntityAnomalyDetectors,
-                maxAnomalyFeatures,
-                method,
-                xContentRegistry,
-                user,
-                adTaskManager,
-                searchFeatureDao,
-                false
+            clusterService,
+            client,
+            transportService,
+            listener,
+            anomalyDetectionIndices,
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            anomalyDetector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            method,
+            xContentRegistry,
+            user,
+            adTaskManager,
+            searchFeatureDao,
+            false
         );
     }
 
