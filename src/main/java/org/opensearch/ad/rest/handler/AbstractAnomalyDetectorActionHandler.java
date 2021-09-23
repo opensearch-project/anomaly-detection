@@ -249,14 +249,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                         request,
                         ActionListener
                                 .wrap(
-                                    response -> onGetAnomalyDetectorResponse(response, indexingDryRun),
+                                    response -> onGetAnomalyDetectorResponse(response, indexingDryRun, detectorId),
                                     exception -> listener.onFailure(exception))
                 );
     }
     
-    private void onGetAnomalyDetectorResponse(GetResponse response, boolean indexingDryRun) {
+    private void onGetAnomalyDetectorResponse(GetResponse response, boolean indexingDryRun, String detectorId) {
         if (!response.isExists()) {
-            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
+            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
             return;
         }
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
