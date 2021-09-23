@@ -45,10 +45,9 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.ml.ModelPartitioner;
+import org.opensearch.ad.ml.ModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.BackPressureRouting;
 import org.opensearch.ad.util.ClientUtil;
@@ -73,7 +72,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     public static final String NO_ERROR = "no_error";
     private ConcurrentHashMap<String, NodeState> states;
     private Client client;
-    private ModelPartitioner modelPartitioner;
     private NamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
     // map from detector id to the map of ES node id to the node's backpressureMuter
@@ -92,7 +90,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param clientUtil AD Client utility
      * @param clock A UTC clock
      * @param stateTtl Max time to keep state in memory
-     * @param modelPartitioner Used to partiton a RCF forest
      * @param clusterService Cluster service accessor
      */
     public NodeStateManager(
@@ -102,12 +99,10 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         ClientUtil clientUtil,
         Clock clock,
         Duration stateTtl,
-        ModelPartitioner modelPartitioner,
         ClusterService clusterService
     ) {
         this.states = new ConcurrentHashMap<>();
         this.client = client;
-        this.modelPartitioner = modelPartitioner;
         this.xContentRegistry = xContentRegistry;
         this.clientUtil = clientUtil;
         this.backpressureMuter = new ConcurrentHashMap<>();
@@ -131,26 +126,6 @@ public class NodeStateManager implements MaintenanceState, CleanState {
                 entry.values().forEach(v -> v.setMutePeriod(it));
             }
         });
-    }
-
-    /**
-     * Get the number of RCF model's partition number for detector adID
-     * @param adID detector id
-     * @param detector object
-     * @return the number of RCF model's partition number for adID
-     * @throws LimitExceededException when there is no sufficient resource available
-     */
-    public int getPartitionNumber(String adID, AnomalyDetector detector) {
-        NodeState state = states.get(adID);
-        if (state != null && state.getPartitonNumber() > 0) {
-            return state.getPartitonNumber();
-        }
-
-        int partitionNum = modelPartitioner.getPartitionedForestSizes(detector).getKey();
-        state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
-        state.setPartitonNumber(partitionNum);
-
-        return partitionNum;
     }
 
     /**
@@ -220,7 +195,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             return;
         }
 
-        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, modelPartitioner.getRcfModelId(adID, 0));
+        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, ModelIdMapper.getRcfModelId(adID, 0));
 
         clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetCheckpointResponse(adID, listener));
     }
