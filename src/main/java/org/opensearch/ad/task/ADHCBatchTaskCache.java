@@ -277,6 +277,9 @@ public class ADHCBatchTaskCache {
         if (entity == null) {
             return false;
         }
-        return tempEntities.remove(entity) || pendingEntities.remove(entity) || runningEntities.remove(entity);
+        boolean removedFromTempQueue = tempEntities.remove(entity);
+        boolean removedFromPendingQueue = pendingEntities.remove(entity);
+        boolean removedFromRunningQueue = runningEntities.remove(entity);
+        return removedFromTempQueue || removedFromPendingQueue || removedFromRunningQueue;
     }
 }

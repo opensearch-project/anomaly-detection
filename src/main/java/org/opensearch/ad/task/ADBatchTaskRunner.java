@@ -638,8 +638,7 @@ public class ADBatchTaskRunner {
             handleException(adTask, e);
 
             if (adTask.getDetector().isMultientityDetector()) {
-                // For HC detector, the first task is not entity task, it's HC detector task. But no matter it's entity
-                // or detector level task, we should always send back entity task done message for HC detector.
+                // Entity task done on worker node. Send entity task done message to coordinating node to poll next entity.
                 adTaskManager.entityTaskDone(adTask, e, transportService);
                 if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getDetectorId()) > 0) {
                     // When reach this line, it means entity task failed to start on worker node

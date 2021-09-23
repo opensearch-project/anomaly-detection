@@ -1351,8 +1351,14 @@ public class ADTaskCacheManager {
                 String detectorId = detectorRunStates.getKey();
                 boolean noRunningTask = isNullOrEmpty(getTasksOfDetector(detectorId));
                 Map<String, ADHCBatchTaskRunState> taskRunStates = detectorRunStates.getValue();
-                if (taskRunStates == null || !noRunningTask) {
+                if (taskRunStates == null) {
+                    // If detector's task run state is null, add detector id to detectorIdOfEmptyStates and remove it from
+                    // hcBatchTaskRunState later.
                     detectorIdOfEmptyStates.add(detectorId);
+                    continue;
+                }
+                if (!noRunningTask) {
+                    // If a detector has running task, we should not clean up task run state cache for it.
                     continue;
                 }
                 for (Map.Entry<String, ADHCBatchTaskRunState> taskRunState : taskRunStates.entrySet()) {

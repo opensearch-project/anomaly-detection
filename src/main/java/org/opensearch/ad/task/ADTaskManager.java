@@ -605,7 +605,7 @@ public class ADTaskManager {
                 // We may assign more task slots. For example, cluster has 4 data nodes, each node can run 2
                 // batch tasks, so the available task slot number is 8. If max running entities per HC is 4,
                 // then we will assign 4 tasks slots to this HC detector (4 is less than 8). The data index
-                // only have 2 entities. So we assign 2 more task slots than actual need. But it's ok as we
+                // only has 2 entities. So we assign 2 more task slots than actual need. But it's ok as we
                 // will auto tune task slot when historical analysis task starts.
                 int approvedTaskSlots = detector.isMultientityDetector()
                     ? Math.min(maxRunningEntitiesPerDetector, availableAdTaskSlots)
