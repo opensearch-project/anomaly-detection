@@ -217,6 +217,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                     );
         } else {
             logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
+            logger.info("DryRun variable " + this.isDryRun);
             prepareAnomalyDetectorIndexing(this.isDryRun);
         }
     }
@@ -591,9 +592,10 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 .setIfSeqNo(seqNo)
                 .setIfPrimaryTerm(primaryTerm)
                 .timeout(requestTimeout);
-        if (detectorId != null) {
+        if (StringUtils.isNotBlank(detectorId)) {
             indexRequest.id(detectorId);
         }
+
         client.index(indexRequest, new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {
@@ -605,13 +607,13 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 listener
                         .onResponse(
                                 (T) new IndexAnomalyDetectorResponse(
-                                        indexResponse.getId(),
-                                        indexResponse.getVersion(),
-                                        indexResponse.getSeqNo(),
-                                        indexResponse.getPrimaryTerm(),
-                                        detector,
-                                        RestStatus.CREATED
-                                )
+                                       indexResponse.getId(),
+                                       indexResponse.getVersion(),
+                                       indexResponse.getSeqNo(),
+                                       indexResponse.getPrimaryTerm(),
+                                       detector,
+                                       RestStatus.CREATED
+                               )
                         );
             }
 
@@ -734,4 +736,92 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             }));
         }
     }
+
+//    public class Indexer<T> {
+//        private T t;
+//
+//        public void set(T t) {this.t = t;}
+//
+//        public T get() {return t;}
+//
+//        protected void indexAnomalyDetector(String detectorId) throws IOException {
+//            AnomalyDetector detector = new AnomalyDetector(
+//                    anomalyDetector.getDetectorId(),
+//                    anomalyDetector.getVersion(),
+//                    anomalyDetector.getName(),
+//                    anomalyDetector.getDescription(),
+//                    anomalyDetector.getTimeField(),
+//                    anomalyDetector.getIndices(),
+//                    anomalyDetector.getFeatureAttributes(),
+//                    anomalyDetector.getFilterQuery(),
+//                    anomalyDetector.getDetectionInterval(),
+//                    anomalyDetector.getWindowDelay(),
+//                    anomalyDetector.getShingleSize(),
+//                    anomalyDetector.getUiMetadata(),
+//                    anomalyDetector.getSchemaVersion(),
+//                    Instant.now(),
+//                    anomalyDetector.getCategoryField(),
+//                    user
+//            );
+//            IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
+//                    .setRefreshPolicy(refreshPolicy)
+//                    .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
+//                    .setIfSeqNo(seqNo)
+//                    .setIfPrimaryTerm(primaryTerm)
+//                    .timeout(requestTimeout);
+//            if (detectorId != null) {
+//                indexRequest.id(detectorId);
+//            }
+//
+//
+//            client.index(indexRequest, new ActionListener<IndexResponse>() {
+//                @Override
+//                public void onResponse(IndexResponse indexResponse) {
+//                    String errorMsg = checkShardsFailure(indexResponse);
+//                    if (errorMsg != null) {
+//                        listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
+//                        return;
+//                    }
+//                    listener
+//                            .onResponse(
+//                                    (T) new IndexAnomalyDetectorResponse(
+//                                            indexResponse.getId(),
+//                                            indexResponse.getVersion(),
+//                                            indexResponse.getSeqNo(),
+//                                            indexResponse.getPrimaryTerm(),
+//                                            detector,
+//                                            RestStatus.CREATED
+//                                    )
+//                            );
+//                }
+//
+//                @Override
+//                public void onFailure(Exception e) {
+//                    logger.warn("Failed to update detector", e);
+//                    if (e.getMessage() != null && e.getMessage().contains("version conflict")) {
+//                        listener
+//                                .onFailure(
+//                                        new IllegalArgumentException(
+//                                                "There was a problem updating the historical detector:[" + detectorId + "]")
+//                                );
+//                    } else {
+//                        listener.onFailure(e);
+//                    }
+//                }
+//            });
+//        }
+//
+//
+//        protected String checkShardsFailure(IndexResponse response) {
+//            StringBuilder failureReasons = new StringBuilder();
+//            if (response.getShardInfo().getFailed() > 0) {
+//                for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
+//                    failureReasons.append(failure);
+//                }
+//                return failureReasons.toString();
+//            }
+//            return null;
+//        }
+//
+//    }
 }

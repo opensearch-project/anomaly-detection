@@ -73,6 +73,9 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.ad.model.DetectorValidationIssueType;
+import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -308,6 +311,8 @@ public class TestHelpers {
             user
         );
     }
+
+
 
     public static AnomalyDetector randomDetector(List<Feature> features, String indexName, int detectionIntervalInMinutes, String timeField)
         throws IOException {
@@ -1239,5 +1244,16 @@ public class TestHelpers {
             }
         }
         return adStats;
+    }
+
+    public static DetectorValidationIssue randomDetectorValidationIssue() {
+        DetectorValidationIssue issue = new DetectorValidationIssue(
+                ValidationAspect.DETECTOR,
+                DetectorValidationIssueType.NAME,
+                randomAlphaOfLength(5),
+                null,
+                null
+        );
+        return issue;
     }
 }

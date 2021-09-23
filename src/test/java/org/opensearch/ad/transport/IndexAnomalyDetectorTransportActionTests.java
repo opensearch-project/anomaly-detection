@@ -103,6 +103,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         when(clusterService.state()).thenReturn(clusterState);
 
         adTaskManager = mock(ADTaskManager.class);
+        searchFeatureDao = mock(SearchFeatureDao.class);
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
