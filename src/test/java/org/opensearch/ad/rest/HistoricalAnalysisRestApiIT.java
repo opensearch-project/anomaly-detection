@@ -27,6 +27,7 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.TestHelpers.AD_BASE_STATS_URI;
+import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
@@ -37,6 +38,7 @@ import static org.opensearch.ad.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.http.util.EntityUtils;
 import org.junit.Before;
@@ -73,30 +75,28 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(0);
         String detectorId = startHistoricalAnalysisResult.get(0);
         String taskId = startHistoricalAnalysisResult.get(1);
-        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS);
     }
 
     public void testHistoricalAnalysisForSingleCategoryHC() throws Exception {
         List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(1);
         String detectorId = startHistoricalAnalysisResult.get(0);
         String taskId = startHistoricalAnalysisResult.get(1);
-        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS);
     }
 
-    // TODO: fix flaky test
-    @Ignore
     public void testHistoricalAnalysisForMultiCategoryHC() throws Exception {
         List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(2);
         String detectorId = startHistoricalAnalysisResult.get(0);
         String taskId = startHistoricalAnalysisResult.get(1);
-        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.FINISHED);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS);
     }
 
-    private void checkIfTaskCanFinishCorrectly(String detectorId, String taskId, ADTaskState state) throws InterruptedException {
+    private void checkIfTaskCanFinishCorrectly(String detectorId, String taskId, Set<String> states) throws InterruptedException {
         ADTaskProfile endTaskProfile = waitUntilTaskDone(detectorId);
         ADTask stoppedAdTask = endTaskProfile.getAdTask();
         assertEquals(taskId, stoppedAdTask.getTaskId());
-        assertEquals(state.name(), stoppedAdTask.getState());
+        assertTrue(states.contains(stoppedAdTask.getState()));
     }
 
     @SuppressWarnings("unchecked")
@@ -164,7 +164,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertEquals(RestStatus.OK, TestHelpers.restStatus(stopDetectorResponse));
 
         // get task profile
-        checkIfTaskCanFinishCorrectly(detectorId, taskId, ADTaskState.STOPPED);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, ImmutableSet.of(ADTaskState.STOPPED.name()));
         updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1);
 
         waitUntilTaskDone(detectorId);

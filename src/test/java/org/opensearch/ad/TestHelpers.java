@@ -53,6 +53,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -163,6 +164,9 @@ public class TestHelpers {
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
         .of(ADTaskState.CREATED.name(), ADTaskState.INIT.name(), ADTaskState.RUNNING.name());
+    // Task may fail if memory circuit breaker triggered.
+    public static final Set<String> HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS = ImmutableSet
+        .of(ADTaskState.FINISHED.name(), ADTaskState.FAILED.name());
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_DONE_STATS = ImmutableSet
         .of(ADTaskState.FAILED.name(), ADTaskState.FINISHED.name(), ADTaskState.STOPPED.name());
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);

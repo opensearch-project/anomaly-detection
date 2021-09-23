@@ -1359,6 +1359,10 @@ public class ADTaskCacheManager {
                 }
                 if (!noRunningTask) {
                     // If a detector has running task, we should not clean up task run state cache for it.
+                    // It's possible that some entity task is on the way to worker node. So we should not
+                    // remove detector level state if no running task found. Otherwise the task may arrive
+                    // after run state cache deleted, then it can run on work node. We should delete cache
+                    // if no running task and run state expired.
                     continue;
                 }
                 for (Map.Entry<String, ADHCBatchTaskRunState> taskRunState : taskRunStates.entrySet()) {
