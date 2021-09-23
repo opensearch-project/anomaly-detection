@@ -27,7 +27,6 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
-
 import org.opensearch.ad.constant.CommonValue;
 
 public class ValidateAnomalyDetectorAction extends ActionType<ValidateAnomalyDetectorResponse> {
@@ -39,4 +38,3 @@ public class ValidateAnomalyDetectorAction extends ActionType<ValidateAnomalyDet
         super(NAME, ValidateAnomalyDetectorResponse::new);
     }
 }
-

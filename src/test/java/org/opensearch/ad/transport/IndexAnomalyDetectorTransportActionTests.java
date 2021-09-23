@@ -73,7 +73,6 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private Client client = mock(Client.class);
     private SearchFeatureDao searchFeatureDao;
 
-
     @SuppressWarnings("unchecked")
     @Override
     @Before

@@ -34,28 +34,28 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.ActionListener;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.rest.RestRequest;
-
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.rest.RestRequest;
+
 import com.google.common.collect.Sets;
 
 public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> {
 
     private static final Set<ValidationAspect> DEFAULT_VALIDATION_ASPECTS = Sets.newHashSet(ValidationAspect.DETECTOR);
     private static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
-            .asList(ValidationAspect.values())
-            .stream()
-            .map(aspect -> aspect.getName())
-            .collect(Collectors.toSet());
+        .asList(ValidationAspect.values())
+        .stream()
+        .map(aspect -> aspect.getName())
+        .collect(Collectors.toSet());
 
     private final Set<ValidationAspect> aspects;
 
@@ -78,50 +78,48 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      * @param typeStr                         specified type for validation
      */
     public ValidateAnomalyDetectorActionHandler(
-            ClusterService clusterService,
-            Client client,
-            ActionListener<ValidateAnomalyDetectorResponse> listener,
-            AnomalyDetectionIndices anomalyDetectionIndices,
-            AnomalyDetector anomalyDetector,
-            TimeValue requestTimeout,
-            Integer maxSingleEntityAnomalyDetectors,
-            Integer maxMultiEntityAnomalyDetectors,
-            Integer maxAnomalyFeatures,
-            RestRequest.Method method,
-            NamedXContentRegistry xContentRegistry,
-            User user,
-            SearchFeatureDao searchFeatureDao,
-            String typeStr
+        ClusterService clusterService,
+        Client client,
+        ActionListener<ValidateAnomalyDetectorResponse> listener,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        AnomalyDetector anomalyDetector,
+        TimeValue requestTimeout,
+        Integer maxSingleEntityAnomalyDetectors,
+        Integer maxMultiEntityAnomalyDetectors,
+        Integer maxAnomalyFeatures,
+        RestRequest.Method method,
+        NamedXContentRegistry xContentRegistry,
+        User user,
+        SearchFeatureDao searchFeatureDao,
+        String typeStr
     ) {
         super(
-                clusterService,
-                client,
-                null,
-                listener,
-                anomalyDetectionIndices,
-                AnomalyDetector.NO_ID,
-                null,
-                null,
-                null,
-                anomalyDetector,
-                requestTimeout,
-                maxSingleEntityAnomalyDetectors,
-                maxMultiEntityAnomalyDetectors,
-                maxAnomalyFeatures,
-                method,
-                xContentRegistry,
-                user,
-                null,
-                searchFeatureDao,
-                true
+            clusterService,
+            client,
+            null,
+            listener,
+            anomalyDetectionIndices,
+            AnomalyDetector.NO_ID,
+            null,
+            null,
+            null,
+            anomalyDetector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            method,
+            xContentRegistry,
+            user,
+            null,
+            searchFeatureDao,
+            true
         );
         String normalizedTypes = StringUtils.isBlank(typeStr) ? ValidationAspect.MODEL.getName() : typeStr.trim().replaceAll("\\s", "");
         Set<String> typesInRequest = new HashSet<>(Arrays.asList(normalizedTypes.split(",")));
 
-        this.aspects = Sets.union(
-                                DEFAULT_VALIDATION_ASPECTS,
-                                ValidationAspect.getNames(Sets.intersection(ALL_VALIDATION_ASPECTS_STRS,
-                                typesInRequest)));
+        this.aspects = Sets
+            .union(DEFAULT_VALIDATION_ASPECTS, ValidationAspect.getNames(Sets.intersection(ALL_VALIDATION_ASPECTS_STRS, typesInRequest)));
     }
 
     @Override

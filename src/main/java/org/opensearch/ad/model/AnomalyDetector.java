@@ -28,13 +28,13 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
+import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.common.ParseField;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -154,9 +154,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (timeField == null) {
             throw new ADValidationException(
-                    "Time field should be set",
-                    DetectorValidationIssueType.TIMEFIELD_FIELD,
-                    ValidationAspect.DETECTOR
+                "Time field should be set",
+                DetectorValidationIssueType.TIMEFIELD_FIELD,
+                ValidationAspect.DETECTOR
             );
         }
         if (indices == null || indices.isEmpty()) {
@@ -164,9 +164,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (detectionInterval == null) {
             throw new ADValidationException(
-                    "Detection interval should be set",
-                    DetectorValidationIssueType.DETECTION_INTERVAL,
-                    ValidationAspect.DETECTOR
+                "Detection interval should be set",
+                DetectorValidationIssueType.DETECTION_INTERVAL,
+                ValidationAspect.DETECTOR
             );
         }
         if (invalidShingleSizeRange(shingleSize)) {
@@ -174,22 +174,24 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 "Shingle size must be a positive integer no larger than "
                     + AnomalyDetectorSettings.MAX_SHINGLE_SIZE
                     + ". Got "
-                    + shingleSize,DetectorValidationIssueType.SHINGLE_SIZE_FIELD,ValidationAspect.DETECTOR
+                    + shingleSize,
+                DetectorValidationIssueType.SHINGLE_SIZE_FIELD,
+                ValidationAspect.DETECTOR
             );
         }
         int maxCategoryFields = NumericSetting.maxCategoricalFields();
         if (categoryFields != null && categoryFields.size() > maxCategoryFields) {
             throw new ADValidationException(
-                    CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
-                    DetectorValidationIssueType.CATEGORY,
-                    ValidationAspect.DETECTOR
+                CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
+                DetectorValidationIssueType.CATEGORY,
+                ValidationAspect.DETECTOR
             );
         }
         if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
             throw new ADValidationException(
-                    "Detection interval must be a positive integer",
-                    DetectorValidationIssueType.DETECTION_INTERVAL,
-                    ValidationAspect.DETECTOR
+                "Detection interval must be a positive integer",
+                DetectorValidationIssueType.DETECTION_INTERVAL,
+                ValidationAspect.DETECTOR
             );
         }
         this.detectorId = detectorId;

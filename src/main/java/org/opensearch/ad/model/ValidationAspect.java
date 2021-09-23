@@ -67,4 +67,3 @@ public enum ValidationAspect implements Name {
         return Name.getNameFromCollection(names, ValidationAspect::getName);
     }
 }
-

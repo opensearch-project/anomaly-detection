@@ -185,7 +185,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testInvalidShingleSize() throws Exception {
         TestHelpers
             .assertFailWith(
-                    ADValidationException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -210,7 +210,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                    ADValidationException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -235,7 +235,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testBlankDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                    ADValidationException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -260,7 +260,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullTimeField() throws Exception {
         TestHelpers
             .assertFailWith(
-                    ADValidationException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -285,7 +285,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                    ADValidationException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -310,7 +310,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testEmptyIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                    ADValidationException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -335,7 +335,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectionInterval() throws Exception {
         TestHelpers
             .assertFailWith(
-                    ADValidationException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -359,7 +359,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
 
     public void testInvalidDetectionInterval() {
         ADValidationException exception = expectThrows(
-                ADValidationException.class,
+            ADValidationException.class,
             () -> new AnomalyDetector(
                 randomAlphaOfLength(10),
                 randomLong(),
