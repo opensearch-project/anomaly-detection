@@ -54,7 +54,6 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     private static final String INDEX_ANOMALY_DETECTOR_ACTION = "index_anomaly_detector_action";
     private final Logger logger = LogManager.getLogger(RestIndexAnomalyDetectorAction.class);
 
-
     public RestIndexAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
         super(settings, clusterService);
     }

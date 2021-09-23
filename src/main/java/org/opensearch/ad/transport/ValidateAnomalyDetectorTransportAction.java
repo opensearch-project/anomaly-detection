@@ -28,8 +28,8 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.FEATURE_INVALID_MSG_PREFIX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.ad.util.ParseUtils.getUserContext;
 
 import java.util.HashMap;
 import java.util.List;
@@ -43,30 +43,29 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.feature.SearchFeatureDao;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
+import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.commons.authuser.User;
-
 public class ValidateAnomalyDetectorTransportAction extends
-        HandledTransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
+    HandledTransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
     private static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
 
     private final Client client;
@@ -78,14 +77,14 @@ public class ValidateAnomalyDetectorTransportAction extends
 
     @Inject
     public ValidateAnomalyDetectorTransportAction(
-            Client client,
-            ClusterService clusterService,
-            NamedXContentRegistry xContentRegistry,
-            Settings settings,
-            AnomalyDetectionIndices anomalyDetectionIndices,
-            ActionFilters actionFilters,
-            TransportService transportService,
-            SearchFeatureDao searchFeatureDao
+        Client client,
+        ClusterService clusterService,
+        NamedXContentRegistry xContentRegistry,
+        Settings settings,
+        AnomalyDetectionIndices anomalyDetectionIndices,
+        ActionFilters actionFilters,
+        TransportService transportService,
+        SearchFeatureDao searchFeatureDao
     ) {
         super(ValidateAnomalyDetectorAction.NAME, transportService, actionFilters, ValidateAnomalyDetectorRequest::new);
         this.client = client;
@@ -110,9 +109,9 @@ public class ValidateAnomalyDetectorTransportAction extends
     }
 
     private void resolveUserAndExecute(
-            User requestedUser,
-            ActionListener<ValidateAnomalyDetectorResponse> listener,
-            Consumer<AnomalyDetector> function
+        User requestedUser,
+        ActionListener<ValidateAnomalyDetectorResponse> listener,
+        Consumer<AnomalyDetector> function
     ) {
         try {
             // Check if user has backend roles
@@ -128,10 +127,10 @@ public class ValidateAnomalyDetectorTransportAction extends
     }
 
     private void validateExecute(
-            ValidateAnomalyDetectorRequest request,
-            User user,
-            ThreadContext.StoredContext storedContext,
-            ActionListener<ValidateAnomalyDetectorResponse> listener
+        ValidateAnomalyDetectorRequest request,
+        User user,
+        ThreadContext.StoredContext storedContext,
+        ActionListener<ValidateAnomalyDetectorResponse> listener
     ) {
         storedContext.restore();
         AnomalyDetector detector = request.getDetector();
@@ -151,26 +150,26 @@ public class ValidateAnomalyDetectorTransportAction extends
         checkIndicesAndExecute(detector.getIndices(), () -> {
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 ValidateAnomalyDetectorActionHandler handler = new ValidateAnomalyDetectorActionHandler(
-                        clusterService,
-                        client,
-                        validateListener,
-                        anomalyDetectionIndices,
-                        detector,
-                        request.getRequestTimeout(),
-                        request.getMaxSingleEntityAnomalyDetectors(),
-                        request.getMaxMultiEntityAnomalyDetectors(),
-                        request.getMaxAnomalyFeatures(),
-                        RestRequest.Method.POST,
-                        xContentRegistry,
-                        user,
-                        searchFeatureDao,
-                        request.getTypeStr()
+                    clusterService,
+                    client,
+                    validateListener,
+                    anomalyDetectionIndices,
+                    detector,
+                    request.getRequestTimeout(),
+                    request.getMaxSingleEntityAnomalyDetectors(),
+                    request.getMaxMultiEntityAnomalyDetectors(),
+                    request.getMaxAnomalyFeatures(),
+                    RestRequest.Method.POST,
+                    xContentRegistry,
+                    user,
+                    searchFeatureDao,
+                    request.getTypeStr()
                 );
                 try {
                     handler.start();
                 } catch (Exception exception) {
                     String errorMessage = String
-                            .format(Locale.ROOT, "Unknown exception caught while validating detector %s", request.getDetector());
+                        .format(Locale.ROOT, "Unknown exception caught while validating detector %s", request.getDetector());
                     logger.error(errorMessage, exception);
                     listener.onFailure(exception);
                 }
@@ -227,18 +226,18 @@ public class ValidateAnomalyDetectorTransportAction extends
             if (i == 0) {
                 // element at 0 doesn't have FEATURE_INVALID_MSG_PREFIX removed
                 result
-                        .put(
-                                getFeatureNameFromErrorMessage(subIssueMessagesSuffix[i]),
-                                getFeatureIssueFromErrorMessage(subIssueMessagesSuffix[i])
-                        );
+                    .put(
+                        getFeatureNameFromErrorMessage(subIssueMessagesSuffix[i]),
+                        getFeatureIssueFromErrorMessage(subIssueMessagesSuffix[i])
+                    );
                 continue;
             }
             String errorMessageForSingleFeature = FEATURE_INVALID_MSG_PREFIX + subIssueMessagesSuffix[i];
             result
-                    .put(
-                            getFeatureNameFromErrorMessage(errorMessageForSingleFeature),
-                            getFeatureIssueFromErrorMessage(errorMessageForSingleFeature)
-                    );
+                .put(
+                    getFeatureNameFromErrorMessage(errorMessageForSingleFeature),
+                    getFeatureIssueFromErrorMessage(errorMessageForSingleFeature)
+                );
         }
         return result;
     }
@@ -258,15 +257,14 @@ public class ValidateAnomalyDetectorTransportAction extends
         return message;
     }
 
-
     private void checkIndicesAndExecute(
-            List<String> indices,
-            AnomalyDetectorFunction function,
-            ActionListener<ValidateAnomalyDetectorResponse> listener
+        List<String> indices,
+        AnomalyDetectorFunction function,
+        ActionListener<ValidateAnomalyDetectorResponse> listener
     ) {
         SearchRequest searchRequest = new SearchRequest()
-                .indices(indices.toArray(new String[0]))
-                .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
+            .indices(indices.toArray(new String[0]))
+            .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
         client.search(searchRequest, ActionListener.wrap(r -> function.execute(), e -> {
             logger.error(e);
             listener.onFailure(e);

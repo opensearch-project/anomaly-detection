@@ -79,11 +79,11 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
     }
 
     public DetectorValidationIssue(
-            ValidationAspect aspect,
-            DetectorValidationIssueType type,
-            String message,
-            Map<String, String> subIssues,
-            Object suggestion
+        ValidationAspect aspect,
+        DetectorValidationIssueType type,
+        String message,
+        Map<String, String> subIssues,
+        Object suggestion
     ) {
         this.aspect = aspect;
         this.type = type;
@@ -149,10 +149,10 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
             return false;
         DetectorValidationIssue anotherIssue = (DetectorValidationIssue) o;
         return Objects.equal(getAspect(), anotherIssue.getAspect())
-                && Objects.equal(getMessage(), anotherIssue.getMessage())
-                && Objects.equal(getSubIssues(), anotherIssue.getSubIssues())
-                && Objects.equal(getSuggestion(), anotherIssue.getSuggestion())
-                && Objects.equal(getType(), anotherIssue.getType());
+            && Objects.equal(getMessage(), anotherIssue.getMessage())
+            && Objects.equal(getSubIssues(), anotherIssue.getSubIssues())
+            && Objects.equal(getSuggestion(), anotherIssue.getSuggestion())
+            && Objects.equal(getType(), anotherIssue.getType());
     }
 
     @Override
