@@ -30,6 +30,7 @@ import static org.opensearch.action.ValidateActions.addValidationError;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
@@ -79,7 +80,10 @@ public class ForwardADTaskRequest extends ActionRequest {
         Version remoteAdVersion
     ) {
         if (!ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
-            throw new ADVersionException("Can't forward AD task request to node running AD version " + remoteAdVersion);
+            throw new ADVersionException(
+                detector.getDetectorId(),
+                "Can't forward AD task request to node running AD version " + remoteAdVersion
+            );
         }
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
@@ -120,7 +124,11 @@ public class ForwardADTaskRequest extends ActionRequest {
             this.user = new User(in);
         }
         this.adTaskAction = in.readEnum(ADTaskAction.class);
-        if (in.available() == 0) { // Old version on or before 1.0 will send less fields.
+        if (in.available() == 0) {
+            // Old version on or before 1.0 will send less fields.
+            // This will reject request from old node running AD version on or before 1.0.
+            // So if coordinating node is old node, it can't use new node as worker node
+            // to run task.
             throw new ADVersionException("Can't process ForwardADTaskRequest of old version");
         }
         if (in.readBoolean()) {
@@ -204,5 +212,26 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     public Integer getAvailableTaskSLots() {
         return availableTaskSlots;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        ForwardADTaskRequest request = (ForwardADTaskRequest) o;
+        return Objects.equals(detector, request.detector)
+            && Objects.equals(adTask, request.adTask)
+            && Objects.equals(detectionDateRange, request.detectionDateRange)
+            && Objects.equals(staleRunningEntities, request.staleRunningEntities)
+            && Objects.equals(user, request.user)
+            && Objects.equals(availableTaskSlots, request.availableTaskSlots)
+            && adTaskAction == request.adTaskAction;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(detector, adTask, detectionDateRange, staleRunningEntities, user, availableTaskSlots, adTaskAction);
     }
 }

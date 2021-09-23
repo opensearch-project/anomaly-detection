@@ -83,7 +83,7 @@ public class PriorityCache implements EntityCache {
     private final Map<String, CacheBuffer> activeEnities;
     private final CheckpointDao checkpointDao;
     private volatile int dedicatedCacheSize;
-    // LRU Cache
+    // LRU Cache, key is model id
     private Cache<String, ModelState<EntityModel>> inActiveEntities;
     private final MemoryTracker memoryTracker;
     private final ReentrantLock maintenanceLock;
@@ -92,7 +92,7 @@ public class PriorityCache implements EntityCache {
     private final Duration modelTtl;
     // A bloom filter placed in front of inactive entity cache to
     // filter out unpopular items that are not likely to appear more
-    // than once.
+    // than once. Key is detector id
     private Map<String, DoorKeeper> doorKeepers;
     private ThreadPool threadPool;
     private Random random;

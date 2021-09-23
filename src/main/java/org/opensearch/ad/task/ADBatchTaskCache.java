@@ -61,6 +61,7 @@ import com.amazon.randomcutforest.config.Precision;
 public class ADBatchTaskCache {
     private final String detectorId;
     private final String taskId;
+    private final String detectorTaskId;
     private RandomCutForest rcfModel;
     private ThresholdingModel thresholdModel;
     private boolean thresholdModelTrained;
@@ -76,6 +77,7 @@ public class ADBatchTaskCache {
     protected ADBatchTaskCache(ADTask adTask) {
         this.detectorId = adTask.getDetectorId();
         this.taskId = adTask.getTaskId();
+        this.detectorTaskId = adTask.getDetectorLevelTaskId();
         this.entity = adTask.getEntity();
 
         AnomalyDetector detector = adTask.getDetector();
@@ -121,6 +123,10 @@ public class ADBatchTaskCache {
 
     protected String getTaskId() {
         return taskId;
+    }
+
+    protected String getDetectorTaskId() {
+        return detectorTaskId;
     }
 
     protected RandomCutForest getRcfModel() {
