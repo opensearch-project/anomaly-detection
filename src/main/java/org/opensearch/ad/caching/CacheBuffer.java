@@ -78,7 +78,7 @@ public class CacheBuffer implements ExpiringState {
     // keep the size for minimum capacity entities
     private int minimumCapacity;
 
-    // key -> value
+    // key is model id
     private final ConcurrentHashMap<String, ModelState<EntityModel>> items;
     // memory consumption per entity
     private final long memoryConsumptionPerEntity;

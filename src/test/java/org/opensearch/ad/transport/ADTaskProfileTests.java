@@ -29,6 +29,7 @@ package org.opensearch.ad.transport;
 import static org.opensearch.ad.TestHelpers.randomDiscoveryNode;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -143,10 +144,12 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             randomInt(),
+            randomBoolean(),
             randomInt(),
             randomInt(),
             randomInt(),
-            ImmutableList.of(randomAlphaOfLength(5))
+            ImmutableList.of(randomAlphaOfLength(5)),
+            Instant.now().toEpochMilli()
         );
         ADTaskProfileNodeResponse nodeResponse = new ADTaskProfileNodeResponse(node, profile, Version.CURRENT);
         ImmutableList<ADTaskProfileNodeResponse> nodes = ImmutableList.of(nodeResponse);

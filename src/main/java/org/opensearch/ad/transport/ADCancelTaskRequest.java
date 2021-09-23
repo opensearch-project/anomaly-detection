@@ -41,18 +41,30 @@ import org.opensearch.common.io.stream.StreamOutput;
 public class ADCancelTaskRequest extends BaseNodesRequest<ADCancelTaskRequest> {
 
     private String detectorId;
+    private String detectorTaskId;
     private String userName;
+    private String reason;
 
     public ADCancelTaskRequest(StreamInput in) throws IOException {
         super(in);
         this.detectorId = in.readOptionalString();
         this.userName = in.readOptionalString();
+        if (in.available() > 0) {
+            this.detectorTaskId = in.readOptionalString();
+            this.reason = in.readOptionalString();
+        }
     }
 
-    public ADCancelTaskRequest(String detectorId, String userName, DiscoveryNode... nodes) {
+    public ADCancelTaskRequest(String detectorId, String detectorTaskId, String userName, DiscoveryNode... nodes) {
+        this(detectorId, detectorTaskId, userName, null, nodes);
+    }
+
+    public ADCancelTaskRequest(String detectorId, String detectorTaskId, String userName, String reason, DiscoveryNode... nodes) {
         super(nodes);
         this.detectorId = detectorId;
+        this.detectorTaskId = detectorTaskId;
         this.userName = userName;
+        this.reason = reason;
     }
 
     @Override
@@ -69,13 +81,23 @@ public class ADCancelTaskRequest extends BaseNodesRequest<ADCancelTaskRequest> {
         super.writeTo(out);
         out.writeOptionalString(detectorId);
         out.writeOptionalString(userName);
+        out.writeOptionalString(detectorTaskId);
+        out.writeOptionalString(reason);
     }
 
     public String getDetectorId() {
         return detectorId;
     }
 
+    public String getDetectorTaskId() {
+        return detectorTaskId;
+    }
+
     public String getUserName() {
         return userName;
+    }
+
+    public String getReason() {
+        return reason;
     }
 }

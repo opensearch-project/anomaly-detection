@@ -474,6 +474,8 @@ public class ModelManager implements DetectorModelSize {
 
     /**
      * Permanently deletes models hosted in memory and persisted in index.
+     * When stop realtime job, will call this method to clear all model cache
+     * and checkpoints.
      *
      * @param detectorId id the of the detector for which models are to be permanently deleted
      * @param listener onResponse is called with null when this operation is completed

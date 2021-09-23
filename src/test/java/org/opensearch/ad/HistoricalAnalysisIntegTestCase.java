@@ -29,6 +29,7 @@ package org.opensearch.ad;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
+import static org.opensearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
 import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
@@ -89,15 +90,25 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type) {
-        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, DEFAULT_TEST_DATA_DOCS);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, DEFAULT_TEST_DATA_DOCS, true);
     }
 
     public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, int totalDocs) {
-        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, totalDocs);
+        ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_IP, totalDocs, true);
     }
 
-    public void ingestTestData(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, String ip, int totalDocs) {
-        createTestDataIndex(testIndex);
+    public void ingestTestData(
+        String testIndex,
+        Instant startTime,
+        int detectionIntervalInMinutes,
+        String type,
+        String ip,
+        int totalDocs,
+        boolean createIndexFirst
+    ) {
+        if (createIndexFirst) {
+            createTestDataIndex(testIndex);
+        }
         List<Map<String, ?>> docs = new ArrayList<>();
         Instant currentInterval = Instant.from(startTime);
 
@@ -117,7 +128,9 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         assertEquals(RestStatus.OK, bulkResponse.status());
         assertFalse(bulkResponse.hasFailures());
         long count = countDocs(testIndex);
-        assertEquals(totalDocs, count);
+        if (createIndexFirst) {
+            assertEquals(totalDocs, count);
+        }
     }
 
     public Feature maxValueFeature() throws IOException {
@@ -178,10 +191,17 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public List<ADTask> searchADTasks(String detectorId, Boolean isLatest, int size) throws IOException {
+        return searchADTasks(detectorId, null, isLatest, size);
+    }
+
+    public List<ADTask> searchADTasks(String detectorId, String parentTaskId, Boolean isLatest, int size) throws IOException {
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
         if (isLatest != null) {
             query.filter(new TermQueryBuilder(IS_LATEST_FIELD, isLatest));
+        }
+        if (parentTaskId != null) {
+            query.filter(new TermQueryBuilder(PARENT_TASK_ID_FIELD, parentTaskId));
         }
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
