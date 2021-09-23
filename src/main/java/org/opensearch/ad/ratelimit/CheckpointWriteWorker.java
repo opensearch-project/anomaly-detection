@@ -30,7 +30,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
-import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -108,7 +108,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
     protected BulkRequest toBatchRequest(List<CheckpointWriteRequest> toProcess) {
         final BulkRequest bulkRequest = new BulkRequest();
         for (CheckpointWriteRequest request : toProcess) {
-            bulkRequest.add(request.getIndexRequest());
+            bulkRequest.add(request.getUpdateRequest());
         }
         return bulkRequest;
     }
@@ -188,11 +188,15 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                     return;
                 }
 
+                modelState.setLastCheckpointTime(clock.instant());
                 CheckpointWriteRequest request = new CheckpointWriteRequest(
                     System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
                     detectorId,
                     priority,
-                    new IndexRequest(indexName).id(modelId).source(source)
+                    // If the document does not already exist, the contents of the upsert element
+                    // are inserted as a new document.
+                    // ßIf the document exists, update fields in the map
+                    new UpdateRequest(indexName, modelId).docAsUpsert(true).doc(source)
                 );
 
                 put(request);
@@ -235,13 +239,17 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                         continue;
                     }
 
+                    state.setLastCheckpointTime(clock.instant());
                     allRequests
                         .add(
                             new CheckpointWriteRequest(
                                 System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
                                 detectorId,
                                 priority,
-                                new IndexRequest(indexName).id(modelId).source(source)
+                                // If the document does not already exist, the contents of the upsert element
+                                // are inserted as a new document.
+                                // ßIf the document exists, update fields in the map
+                                new UpdateRequest(indexName, modelId).docAsUpsert(true).doc(source)
                             )
                         );
                 }
