@@ -48,6 +48,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
+import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -152,7 +153,12 @@ public class ADDataMigrator {
             logger.info("Total AD jobs to backfill realtime task: {}", detectorJobs.size());
             backfillRealtimeTask(detectorJobs, true);
         }, e -> {
-            if (!(e instanceof IndexNotFoundException)) {
+            if (ExceptionUtil.getErrorMessage(e).contains("all shards failed")) {
+                // This error may happen when AD job index not ready for query as some nodes not in cluster yet.
+                // Will recreate realtime task when AD job starts.
+                logger.warn("No available shards of AD job index, reset dataMigrated as false");
+                this.dataMigrated.set(false);
+            } else if (!(e instanceof IndexNotFoundException)) {
                 logger.error("Failed to migrate AD data", e);
             }
         }));
@@ -256,7 +262,7 @@ public class ADDataMigrator {
                         .state(ADTaskState.CREATED.name())
                         .lastUpdateTime(now)
                         .startedBy(userName)
-                        .coordinatingNode(clusterService.localNode().getId())
+                        .coordinatingNode(null)
                         .detectionDateRange(null)
                         .user(job.getUser())
                         .build();

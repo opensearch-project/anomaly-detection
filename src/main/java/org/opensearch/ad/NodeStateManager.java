@@ -240,11 +240,16 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     /**
      * Used in delete workflow
      *
-     * @param adID detector ID
+     * @param detectorId detector ID
      */
     @Override
-    public void clear(String adID) {
-        states.remove(adID);
+    public void clear(String detectorId) {
+        Map<String, BackPressureRouting> routingMap = backpressureMuter.get(detectorId);
+        if (routingMap != null) {
+            routingMap.clear();
+            backpressureMuter.remove(detectorId);
+        }
+        states.remove(detectorId);
     }
 
     /**

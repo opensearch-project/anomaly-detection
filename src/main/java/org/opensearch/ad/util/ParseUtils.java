@@ -706,6 +706,10 @@ public final class ParseUtils {
         return collection == null || collection.size() == 0;
     }
 
+    public static <S, T> boolean isNullOrEmpty(Map<S, T> map) {
+        return map == null || map.size() == 0;
+    }
+
     /**
      * Check if two lists of string equals or not without considering the order.
      * If the list is null, will consider it equals to empty list.

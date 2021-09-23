@@ -49,7 +49,7 @@ import org.opensearch.transport.TransportService;
 public class DeleteModelTransportAction extends
     TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
     private static final Logger LOG = LogManager.getLogger(DeleteModelTransportAction.class);
-    private NodeStateManager transportStateManager;
+    private NodeStateManager nodeStateManager;
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cache;
@@ -61,7 +61,7 @@ public class DeleteModelTransportAction extends
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        NodeStateManager tarnsportStatemanager,
+        NodeStateManager nodeStateManager,
         ModelManager modelManager,
         FeatureManager featureManager,
         CacheProvider cache,
@@ -78,7 +78,7 @@ public class DeleteModelTransportAction extends
             ThreadPool.Names.MANAGEMENT,
             DeleteModelNodeResponse.class
         );
-        this.transportStateManager = tarnsportStatemanager;
+        this.nodeStateManager = nodeStateManager;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cache = cache;
@@ -132,7 +132,7 @@ public class DeleteModelTransportAction extends
         featureManager.clear(adID);
 
         // delete transport state
-        transportStateManager.clear(adID);
+        nodeStateManager.clear(adID);
 
         cache.get().clear(adID);
 

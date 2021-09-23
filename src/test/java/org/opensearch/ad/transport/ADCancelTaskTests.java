@@ -45,7 +45,12 @@ import com.google.common.collect.ImmutableList;
 public class ADCancelTaskTests extends ADUnitTestCase {
 
     public void testADCancelTaskRequest() throws IOException {
-        ADCancelTaskRequest request = new ADCancelTaskRequest(randomAlphaOfLength(5), randomAlphaOfLength(5), randomDiscoveryNode());
+        ADCancelTaskRequest request = new ADCancelTaskRequest(
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomDiscoveryNode()
+        );
 
         BytesStreamOutput output = new BytesStreamOutput();
         request.writeTo(output);
@@ -56,7 +61,7 @@ public class ADCancelTaskTests extends ADUnitTestCase {
     }
 
     public void testInvalidADCancelTaskRequest() {
-        ADCancelTaskRequest request = new ADCancelTaskRequest(null, null, randomDiscoveryNode());
+        ADCancelTaskRequest request = new ADCancelTaskRequest(null, null, null, randomDiscoveryNode());
         ActionRequestValidationException validationException = request.validate();
         assertTrue(validationException.getMessage().contains(CommonErrorMessages.AD_ID_MISSING_MSG));
     }
