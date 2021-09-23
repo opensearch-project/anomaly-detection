@@ -44,7 +44,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
 import static org.opensearch.ad.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 
@@ -79,7 +78,6 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -122,6 +120,8 @@ import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -668,7 +668,6 @@ public class ADBatchTaskRunner {
                         ADBatchTaskRemoteExecutionAction.NAME,
                         new ADBatchAnomalyResultRequest(adTask),
                         option,
-                        // TODO: check if still need to add true/false in startADBatchTask
                         new ActionListenerResponseHandler<>(workerNodeResponseListener, ADBatchAnomalyResultResponse::new)
                     );
             }
@@ -977,7 +976,7 @@ public class ADBatchTaskRunner {
             dataStartTime = dataStartTime - dataStartTime % interval;
             dataEndTime = dataEndTime - dataEndTime % interval;
             logger.debug("adjusted date range: start: {}, end: {}, taskId: {}", dataStartTime, dataEndTime, taskId);
-            if ((dataEndTime - dataStartTime) < THRESHOLD_MODEL_TRAINING_SIZE * interval) {
+            if ((dataEndTime - dataStartTime) < NUM_MIN_SAMPLES * interval) {
                 internalListener.onFailure(new AnomalyDetectionException("There is no enough data to train model").countedInStats(false));
                 return;
             }
@@ -1047,8 +1046,7 @@ public class ADBatchTaskRunner {
         ActionListener<String> internalListener
     ) {
         String taskId = adTask.getTaskId();
-        RandomCutForest rcf = adTaskCacheManager.getRcfModel(taskId);
-        ThresholdingModel threshold = adTaskCacheManager.getThresholdModel(taskId);
+        ThresholdedRandomCutForest trcf = adTaskCacheManager.getTRcfModel(taskId);
         Deque<Map.Entry<Long, Optional<double[]>>> shingle = adTaskCacheManager.getShingle(taskId);
 
         List<AnomalyResult> anomalyResults = new ArrayList<>();
@@ -1087,26 +1085,12 @@ public class ADBatchTaskRunner {
                 anomalyResults.add(anomalyResult);
             } else {
                 double[] point = feature.getProcessedFeatures().get();
-                double score = rcf.getAnomalyScore(point);
-                rcf.update(point);
-                double grade = 0d;
-                double confidence = 0d;
-                if (!adTaskCacheManager.isThresholdModelTrained(taskId)) {
-                    if (adTaskCacheManager.getThresholdModelTrainingDataSize(taskId) < THRESHOLD_MODEL_TRAINING_SIZE) {
-                        if (score > 0) {
-                            adTaskCacheManager.addThresholdModelTrainingData(taskId, score);
-                        }
-                    } else {
-                        logger.debug("training threshold model");
-                        threshold.train(adTaskCacheManager.getThresholdModelTrainingData(taskId));
-                        adTaskCacheManager.setThresholdModelTrained(taskId, true);
-                    }
-                } else {
-                    grade = threshold.grade(score);
-                    confidence = threshold.confidence();
-                    if (score > 0) {
-                        threshold.update(score);
-                    }
+                AnomalyDescriptor descriptor = trcf.process(point, 0);
+                double score = descriptor.getRcfScore();
+                double grade = descriptor.getAnomalyGrade();
+                double confidence = descriptor.getDataConfidence();
+                if (!adTaskCacheManager.isThresholdModelTrained(taskId) && score > 0) {
+                    adTaskCacheManager.setThresholdModelTrained(taskId, true);
                 }
                 AnomalyResult anomalyResult = new AnomalyResult(
                     adTask.getDetectorId(),
@@ -1258,7 +1242,7 @@ public class ADBatchTaskRunner {
     }
 
     private float calculateInitProgress(String taskId) {
-        RandomCutForest rcf = adTaskCacheManager.getRcfModel(taskId);
+        RandomCutForest rcf = adTaskCacheManager.getTRcfModel(taskId).getForest();
         if (rcf == null) {
             return 0.0f;
         }

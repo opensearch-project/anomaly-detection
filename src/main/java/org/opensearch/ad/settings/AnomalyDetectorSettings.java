@@ -411,8 +411,6 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static int THRESHOLD_MODEL_TRAINING_SIZE = 128;
-
     // Maximum number of old AD tasks we can keep.
     public static int MAX_OLD_AD_TASK_DOCS = 1000;
     public static final Setting<Integer> MAX_OLD_AD_TASK_DOCS_PER_DETECTOR = Setting
@@ -464,7 +462,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS = Setting
         .intSetting(
             "plugins.anomaly_detection.max_running_entities_per_detector_for_historical_analysis",
-            1,
+            2,
             1,
             1000,
             Setting.Property.NodeScope,
@@ -788,4 +786,9 @@ public final class AnomalyDetectorSettings {
     // such as "there are at least 10000 entities", the default is set to 10,000. That is, requests will count the
     // total entities up to 10,000.
     public static final int MAX_TOTAL_ENTITIES_TO_TRACK = 10_000;
+
+    // ======================================
+    // AD Index setting
+    // ======================================
+    public static int MAX_UPDATE_RETRY_TIMES = 10_000;
 }

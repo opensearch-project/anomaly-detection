@@ -32,7 +32,6 @@ import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_A
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -44,7 +43,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -52,7 +50,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -62,16 +59,22 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 
 public class ADTaskCacheManager {
     private final Logger logger = LogManager.getLogger(ADTaskCacheManager.class);
-    private final Map<String, ADBatchTaskCache> taskCaches;
+
     private volatile Integer maxAdBatchTaskPerNode;
     private volatile Integer maxCachedDeletedTask;
     private final MemoryTracker memoryTracker;
     private final int numberSize = 8;
     public static final int TASK_RETRY_LIMIT = 3;
+
+    // This field is to record all batch tasks running on worker node. Both single
+    // entity detector task and HC entity task will be cached in this field.
+    // Key: task id
+    private final Map<String, ADBatchTaskCache> batchTaskCaches;
 
     // We use this field to record all detector level tasks which running on the
     // coordinating node to resolve race condition. We will check if
@@ -80,10 +83,13 @@ public class ADTaskCacheManager {
     // task in cache. For other tasks, we find the detector id exists,
     // that means there is already one task running for this detector,
     // so we will reject the task.
+    // Key: detector id; Value: detector level task id
     private Map<String, String> detectorTasks;
 
-    // Use this field to cache all HC tasks. Key is detector id
-    private Map<String, ADHCBatchTaskCache> hcTaskCaches;
+    // This field is to cache all HC detector level data on coordinating node, like
+    // pending/running entities, check more details in comments of ADHCBatchTaskCache.
+    // Key is detector id
+    private Map<String, ADHCBatchTaskCache> hcBatchTaskCaches;
     // cache deleted detector level tasks
     private Queue<String> deletedDetectorTasks;
     // cache deleted detectors
@@ -91,7 +97,7 @@ public class ADTaskCacheManager {
 
     // This field is to cache all realtime tasks. Key is detector id
     private Map<String, ADRealtimeTaskCache> realtimeTaskCaches;
-    // This field is to cache all detectors' task slot and task lane limit
+    // This field is to cache all detectors' task slot and task lane limit. Key is detector id
     private Map<String, ADTaskSlotLimit> detectorTaskSlotLimit;
 
     /**
@@ -106,10 +112,10 @@ public class ADTaskCacheManager {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
         this.maxCachedDeletedTask = MAX_CACHED_DELETED_TASKS.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CACHED_DELETED_TASKS, it -> maxCachedDeletedTask = it);
-        taskCaches = new ConcurrentHashMap<>();
+        batchTaskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
         this.detectorTasks = new ConcurrentHashMap<>();
-        this.hcTaskCaches = new ConcurrentHashMap<>();
+        this.hcBatchTaskCaches = new ConcurrentHashMap<>();
         this.realtimeTaskCaches = new ConcurrentHashMap<>();
         this.deletedDetectorTasks = new ConcurrentLinkedQueue<>();
         this.deletedDetectors = new ConcurrentLinkedQueue<>();
@@ -142,7 +148,7 @@ public class ADTaskCacheManager {
         memoryTracker.consumeMemory(neededCacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
         ADBatchTaskCache taskCache = new ADBatchTaskCache(adTask);
         taskCache.getCacheMemorySize().set(neededCacheSize);
-        taskCaches.put(taskId, taskCache);
+        batchTaskCaches.put(taskId, taskCache);
     }
 
     /**
@@ -162,7 +168,7 @@ public class ADTaskCacheManager {
         if (ADTaskType.HISTORICAL_HC_DETECTOR.name().equals(adTask.getTaskType())) {
             ADHCBatchTaskCache adhcBatchTaskCache = new ADHCBatchTaskCache();
             adhcBatchTaskCache.setIsCoordinatingNode(true);
-            this.hcTaskCaches.put(detectorId, adhcBatchTaskCache);
+            this.hcBatchTaskCaches.put(detectorId, adhcBatchTaskCache);
         }
     }
 
@@ -186,30 +192,8 @@ public class ADTaskCacheManager {
      * @param taskId AD task id
      * @return RCF model
      */
-    public RandomCutForest getRcfModel(String taskId) {
-        return getBatchTaskCache(taskId).getRcfModel();
-    }
-
-    /**
-     * Get task threshold model.
-     * If task doesn't exist in cache, will throw {@link java.lang.IllegalArgumentException}.
-     *
-     * @param taskId AD task id
-     * @return threshold model
-     */
-    public ThresholdingModel getThresholdModel(String taskId) {
-        return getBatchTaskCache(taskId).getThresholdModel();
-    }
-
-    /**
-     * Get threshold model training data.
-     * If task doesn't exist in cache, will throw {@link java.lang.IllegalArgumentException}.
-     *
-     * @param taskId AD task id
-     * @return threshold model training data
-     */
-    public double[] getThresholdModelTrainingData(String taskId) {
-        return getBatchTaskCache(taskId).getThresholdModelTrainingData();
+    public ThresholdedRandomCutForest getTRcfModel(String taskId) {
+        return getBatchTaskCache(taskId).getTRcfModel();
     }
 
     /**
@@ -220,22 +204,6 @@ public class ADTaskCacheManager {
      */
     public int getThresholdModelTrainingDataSize(String taskId) {
         return getBatchTaskCache(taskId).getThresholdModelTrainingDataSize().get();
-    }
-
-    /**
-     * Add threshold model training data.
-     *
-     * @param taskId task id
-     * @param data training data
-     * @return latest threshold model training data size after adding new data
-     */
-    public int addThresholdModelTrainingData(String taskId, double... data) {
-        ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
-        double[] thresholdModelTrainingData = taskCache.getThresholdModelTrainingData();
-        AtomicInteger size = taskCache.getThresholdModelTrainingDataSize();
-        int dataPointsAdded = Math.min(data.length, THRESHOLD_MODEL_TRAINING_SIZE - size.get());
-        System.arraycopy(data, 0, thresholdModelTrainingData, size.get(), dataPointsAdded);
-        return size.addAndGet(dataPointsAdded);
     }
 
     /**
@@ -258,13 +226,6 @@ public class ADTaskCacheManager {
     protected void setThresholdModelTrained(String taskId, boolean trained) {
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
         taskCache.setThresholdModelTrained(trained);
-        if (trained) {
-            int size = taskCache.getThresholdModelTrainingDataSize().get();
-            long cacheSize = trainingDataMemorySize(size);
-            taskCache.clearTrainingData();
-            taskCache.getCacheMemorySize().getAndAdd(-cacheSize);
-            memoryTracker.releaseMemory(cacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
-        }
     }
 
     /**
@@ -284,7 +245,7 @@ public class ADTaskCacheManager {
      * @return true if task exists in cache; otherwise, return false.
      */
     public boolean contains(String taskId) {
-        return taskCaches.containsKey(taskId);
+        return batchTaskCaches.containsKey(taskId);
     }
 
     /**
@@ -294,7 +255,7 @@ public class ADTaskCacheManager {
      * @return true if there is task in cache; otherwise return false
      */
     public boolean containsTaskOfDetector(String detectorId) {
-        return taskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).findAny().isPresent();
+        return batchTaskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).findAny().isPresent();
     }
 
     /**
@@ -304,7 +265,7 @@ public class ADTaskCacheManager {
      * @return list of task id
      */
     public List<String> getTasksOfDetector(String detectorId) {
-        return taskCaches
+        return batchTaskCaches
             .values()
             .stream()
             .filter(v -> Objects.equals(detectorId, v.getDetectorId()))
@@ -326,11 +287,11 @@ public class ADTaskCacheManager {
         if (!contains(taskId)) {
             throw new IllegalArgumentException("AD task not in cache");
         }
-        return taskCaches.get(taskId);
+        return batchTaskCaches.get(taskId);
     }
 
     private List<ADBatchTaskCache> getBatchTaskCacheByDetectorId(String detectorId) {
-        return taskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).collect(Collectors.toList());
+        return batchTaskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).collect(Collectors.toList());
     }
 
     /**
@@ -341,11 +302,15 @@ public class ADTaskCacheManager {
      */
     private long calculateADTaskCacheSize(ADTask adTask) {
         AnomalyDetector detector = adTask.getDetector();
-        return memoryTracker.estimateTotalModelSize(detector, NUM_TREES, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
-            + trainingDataMemorySize(THRESHOLD_MODEL_TRAINING_SIZE) + shingleMemorySize(
-                detector.getShingleSize(),
-                detector.getEnabledFeatureIds().size()
-            );
+        int dimension = detector.getEnabledFeatureIds().size() * detector.getShingleSize();
+        return memoryTracker
+            .estimateTRCFModelSize(
+                dimension,
+                NUM_TREES,
+                AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
+                detector.getShingleSize().intValue(),
+                false
+            ) + shingleMemorySize(detector.getShingleSize(), detector.getEnabledFeatureIds().size());
     }
 
     /**
@@ -356,9 +321,12 @@ public class ADTaskCacheManager {
      */
     public long getModelSize(String taskId) {
         ADBatchTaskCache batchTaskCache = getBatchTaskCache(taskId);
-        int dimensions = batchTaskCache.getRcfModel().getDimensions();
-        int numberOfTrees = batchTaskCache.getRcfModel().getNumberOfTrees();
-        return memoryTracker.estimateTotalModelSize(dimensions, numberOfTrees, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO);
+        ThresholdedRandomCutForest tRCF = batchTaskCache.getTRcfModel();
+        RandomCutForest rcfForest = tRCF.getForest();
+        int dimensions = rcfForest.getDimensions();
+        int numberOfTrees = rcfForest.getNumberOfTrees();
+        return memoryTracker
+            .estimateTRCFModelSize(dimensions, numberOfTrees, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO, 1, false);
     }
 
     /**
@@ -370,7 +338,7 @@ public class ADTaskCacheManager {
         if (contains(taskId)) {
             ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
             memoryTracker.releaseMemory(taskCache.getCacheMemorySize().get(), true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
-            taskCaches.remove(taskId);
+            batchTaskCaches.remove(taskId);
             // can't remove detector id from cache here as it's possible that some task running on
             // other worker nodes
         }
@@ -381,8 +349,8 @@ public class ADTaskCacheManager {
      *
      * @param detectorId detector id
      */
-    public void removeDetector(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+    public void removeHistoricalTaskCache(String detectorId) {
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             // this will happen only on coordinating node. When worker nodes left,
             // we will reset task state as STOPPED and clean up cache, add this warning
@@ -397,7 +365,19 @@ public class ADTaskCacheManager {
                     );
             }
             taskCache.clear();
-            hcTaskCaches.remove(detectorId);
+            hcBatchTaskCaches.remove(detectorId);
+        }
+        List<String> tasksOfDetector = getTasksOfDetector(detectorId);
+        for (String taskId : tasksOfDetector) {
+            remove(taskId);
+        }
+        if (tasksOfDetector.size() > 0) {
+            logger
+                .warn(
+                    "Removed historical AD task from cache for detector {}, taskId: {}",
+                    detectorId,
+                    Arrays.toString(tasksOfDetector.toArray(new String[0]))
+                );
         }
         if (detectorTasks.containsKey(detectorId)) {
             detectorTasks.remove(detectorId);
@@ -449,7 +429,7 @@ public class ADTaskCacheManager {
                 cache.cancel(reason, userName);
             }
         }
-        ADHCBatchTaskCache hcTaskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache hcTaskCache = hcBatchTaskCaches.get(detectorId);
         if (hcTaskCache != null) {
             hcTaskCache.setHistoricalAnalysisCancelled(true);
             hcTaskCache.clearPendingEntities();
@@ -469,7 +449,7 @@ public class ADTaskCacheManager {
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
         String detectorId = taskCache.getDetectorId();
 
-        ADHCBatchTaskCache hcTaskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache hcTaskCache = hcBatchTaskCaches.get(detectorId);
         boolean hcDetectorStopped = false;
         if (hcTaskCache != null) {
             hcDetectorStopped = hcTaskCache.getHistoricalAnalysisCancelled();
@@ -506,14 +486,14 @@ public class ADTaskCacheManager {
      * @return task count
      */
     public int size() {
-        return taskCaches.size();
+        return batchTaskCaches.size();
     }
 
     /**
      * Clear all tasks.
      */
     public void clear() {
-        taskCaches.clear();
+        batchTaskCaches.clear();
         detectorTasks.clear();
     }
 
@@ -552,7 +532,7 @@ public class ADTaskCacheManager {
      * @return true if top entity inited; otherwise return false
      */
     public synchronized boolean topEntityInited(String detectorId) {
-        return hcTaskCaches.containsKey(detectorId) ? hcTaskCaches.get(detectorId).getTopEntitiesInited() : false;
+        return hcBatchTaskCaches.containsKey(detectorId) ? hcBatchTaskCaches.get(detectorId).getTopEntitiesInited() : false;
     }
 
     /**
@@ -571,7 +551,7 @@ public class ADTaskCacheManager {
      * @return entity count
      */
     public int getPendingEntityCount(String detectorId) {
-        return hcTaskCaches.containsKey(detectorId) ? hcTaskCaches.get(detectorId).getPendingEntityCount() : 0;
+        return hcBatchTaskCaches.containsKey(detectorId) ? hcBatchTaskCaches.get(detectorId).getPendingEntityCount() : 0;
     }
 
     /**
@@ -581,7 +561,7 @@ public class ADTaskCacheManager {
      * @return count of detector's running entity in cache
      */
     public int getRunningEntityCount(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             return taskCache.getRunningEntityCount();
         }
@@ -589,7 +569,7 @@ public class ADTaskCacheManager {
     }
 
     public int getTempEntityCount(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             return taskCache.getTempEntityCount();
         }
@@ -603,7 +583,7 @@ public class ADTaskCacheManager {
      * @return total top entity count
      */
     public Integer getTopEntityCount(String detectorId) {
-        ADHCBatchTaskCache batchTaskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache batchTaskCache = hcBatchTaskCaches.get(detectorId);
         if (batchTaskCache != null) {
             return batchTaskCache.getTopEntityCount();
         } else {
@@ -619,7 +599,7 @@ public class ADTaskCacheManager {
      * @return detector's running entities in cache
      */
     public List<String> getRunningEntities(String detectorId) {
-        if (hcTaskCaches.containsKey(detectorId)) {
+        if (hcBatchTaskCaches.containsKey(detectorId)) {
             ADHCBatchTaskCache hcTaskCache = getExistingHCTaskCache(detectorId);
             return Arrays.asList(hcTaskCache.getRunningEntities());
         }
@@ -715,7 +695,7 @@ public class ADTaskCacheManager {
     }
 
     public int getUnfinishedEntityCount(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             return taskCache.getUnfinishedEntityCount();
         }
@@ -735,7 +715,7 @@ public class ADTaskCacheManager {
     }
 
     public int getTotalBatchTaskCount() {
-        return taskCaches.size();
+        return batchTaskCaches.size();
     }
 
     /**
@@ -758,8 +738,8 @@ public class ADTaskCacheManager {
     }
 
     private ADHCBatchTaskCache getExistingHCTaskCache(String detectorId) {
-        if (hcTaskCaches.containsKey(detectorId)) {
-            return hcTaskCaches.get(detectorId);
+        if (hcBatchTaskCaches.containsKey(detectorId)) {
+            return hcBatchTaskCaches.get(detectorId);
         } else {
             throw new IllegalArgumentException("Can't find HC detector in cache");
         }
@@ -777,7 +757,7 @@ public class ADTaskCacheManager {
     }
 
     private ADHCBatchTaskCache getOrCreateHCTaskCache(String detectorId) {
-        return hcTaskCaches.computeIfAbsent(detectorId, id -> new ADHCBatchTaskCache());
+        return hcBatchTaskCaches.computeIfAbsent(detectorId, id -> new ADHCBatchTaskCache());
     }
 
     /**
@@ -790,7 +770,7 @@ public class ADTaskCacheManager {
             return true;
         }
         // Only running tasks will be in cache.
-        Optional<ADBatchTaskCache> entityTask = this.taskCaches
+        Optional<ADBatchTaskCache> entityTask = this.batchTaskCaches
             .values()
             .stream()
             .filter(cache -> Objects.equals(detectorId, cache.getDetectorId()) && cache.getEntity() != null)
@@ -804,7 +784,7 @@ public class ADTaskCacheManager {
      * @return true if find detector id in HC cache
      */
     public boolean isHCTaskCoordinatingNode(String detectorId) {
-        return hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).isCoordinatingNode();
+        return hcBatchTaskCaches.containsKey(detectorId) && hcBatchTaskCaches.get(detectorId).isCoordinatingNode();
     }
 
     /**
@@ -826,8 +806,8 @@ public class ADTaskCacheManager {
      * @return one entity
      */
     public synchronized String pollEntity(String detectorId) {
-        if (this.hcTaskCaches.containsKey(detectorId)) {
-            ADHCBatchTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
+        if (this.hcBatchTaskCaches.containsKey(detectorId)) {
+            ADHCBatchTaskCache hcTaskCache = this.hcBatchTaskCaches.get(detectorId);
             String entity = hcTaskCache.pollEntity();
             return entity;
         } else {
@@ -853,8 +833,8 @@ public class ADTaskCacheManager {
      * @param entity entity value
      */
     public synchronized void moveToRunningEntity(String detectorId, String entity) {
-        if (this.hcTaskCaches.containsKey(detectorId)) {
-            ADHCBatchTaskCache hcTaskCache = this.hcTaskCaches.get(detectorId);
+        if (this.hcBatchTaskCaches.containsKey(detectorId)) {
+            ADHCBatchTaskCache hcTaskCache = this.hcBatchTaskCaches.get(detectorId);
             hcTaskCache.moveToRunningEntity(entity);
         }
     }
@@ -900,14 +880,13 @@ public class ADTaskCacheManager {
      * @param entity entity value
      */
     public void removeEntity(String detectorId, String entity) {
-        if (hcTaskCaches.containsKey(detectorId)) {
-            hcTaskCaches.get(detectorId).removeEntity(entity);
+        if (hcBatchTaskCaches.containsKey(detectorId)) {
+            hcBatchTaskCaches.get(detectorId).removeEntity(entity);
         }
     }
 
     /**
      * Return AD task's entity list.
-     * TODO: Currently we only support one category field. Need to support multi-category fields.
      *
      * @param taskId AD task id
      * @return entity
@@ -923,7 +902,7 @@ public class ADTaskCacheManager {
      * @return true if detector still has entity in cache
      */
     public synchronized boolean hasEntity(String detectorId) {
-        return hcTaskCaches.containsKey(detectorId) && hcTaskCaches.get(detectorId).hasEntity();
+        return hcBatchTaskCaches.containsKey(detectorId) && hcBatchTaskCaches.get(detectorId).hasEntity();
     }
 
     /**
@@ -935,8 +914,8 @@ public class ADTaskCacheManager {
      */
     public boolean removeRunningEntity(String detectorId, String entity) {
         logger.debug("Remove entity from running entities cache: {}", entity);
-        if (hcTaskCaches.containsKey(detectorId)) {
-            ADHCBatchTaskCache hcTaskCache = hcTaskCaches.get(detectorId);
+        if (hcBatchTaskCaches.containsKey(detectorId)) {
+            ADHCBatchTaskCache hcTaskCache = hcBatchTaskCaches.get(detectorId);
             return hcTaskCache.removeRunningEntity(entity);
         }
         return false;
@@ -948,7 +927,7 @@ public class ADTaskCacheManager {
      * @return true if can get semaphore
      */
     public boolean tryAcquireTaskUpdatingSemaphore(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             return taskCache.tryAcquireTaskUpdatingSemaphore();
         }
@@ -960,7 +939,7 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      */
     public void releaseTaskUpdatingSemaphore(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             taskCache.releaseTaskUpdatingSemaphore();
         }
@@ -972,8 +951,8 @@ public class ADTaskCacheManager {
      * @param detectorId detector id
      */
     public void clearPendingEntities(String detectorId) {
-        if (hcTaskCaches.containsKey(detectorId)) {
-            hcTaskCaches.get(detectorId).clearPendingEntities();
+        if (hcBatchTaskCaches.containsKey(detectorId)) {
+            hcBatchTaskCaches.get(detectorId).clearPendingEntities();
         }
     }
 
@@ -1120,8 +1099,8 @@ public class ADTaskCacheManager {
      * @return true if detector level task state changed
      */
     public synchronized boolean isDetectorTaskStateChanged(String detectorId, String newState) {
-        if (hcTaskCaches.containsKey(detectorId)) {
-            return !Objects.equals(hcTaskCaches.get(detectorId).getDetectorTaskState(), newState);
+        if (hcBatchTaskCaches.containsKey(detectorId)) {
+            return !Objects.equals(hcBatchTaskCaches.get(detectorId).getDetectorTaskState(), newState);
         }
         return true;
     }
@@ -1140,7 +1119,7 @@ public class ADTaskCacheManager {
     }
 
     public Instant getLastScaleEntityTaskLaneTime(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             return taskCache.getLastScaleEntityTaskSlotsTime();
         }
@@ -1148,7 +1127,7 @@ public class ADTaskCacheManager {
     }
 
     public void refreshLastScaleEntityTaskLaneTime(String detectorId) {
-        ADHCBatchTaskCache taskCache = hcTaskCaches.get(detectorId);
+        ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
             taskCache.setLastScaleEntityTaskSlotsTime(Instant.now());
         }
