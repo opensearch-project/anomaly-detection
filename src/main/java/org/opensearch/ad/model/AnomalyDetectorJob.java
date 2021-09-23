@@ -160,6 +160,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         }
         schedule.writeTo(output);
         windowDelay.writeTo(output);
+        output.writeBoolean(isEnabled);
         output.writeInstant(enabledTime);
         output.writeInstant(disabledTime);
         output.writeInstant(lastUpdateTime);

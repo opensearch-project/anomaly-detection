@@ -53,6 +53,7 @@ import org.opensearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
@@ -87,6 +88,7 @@ public class HashRingTests extends ADUnitTestCase {
     private DiscoveryNode localNode;
     private DiscoveryNode newNode;
     private DiscoveryNode warmNode;
+    private ModelManager modelManager;
 
     @Override
     @Before
@@ -118,7 +120,15 @@ public class HashRingTests extends ADUnitTestCase {
         clusterAdminClient = mock(ClusterAdminClient.class);
         when(adminClient.cluster()).thenReturn(clusterAdminClient);
 
-        hashRing = spy(new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator));
+        String modelId = "123-threshold";
+        modelManager = mock(ModelManager.class);
+        doAnswer(invocation -> {
+            Set<String> res = new HashSet<>();
+            res.add(modelId);
+            return res;
+        }).when(modelManager).getAllModelIds();
+
+        hashRing = spy(new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator, modelManager));
     }
 
     public void testGetOwningNodeWithEmptyResult() throws UnknownHostException {
