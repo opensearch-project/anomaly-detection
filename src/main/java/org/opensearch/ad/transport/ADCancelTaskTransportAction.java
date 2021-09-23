@@ -26,8 +26,11 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.HISTORICAL_ANALYSIS_CANCELLED;
+
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,7 +39,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.ad.task.ADTaskCancellationState;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
@@ -46,7 +48,6 @@ import org.opensearch.transport.TransportService;
 public class ADCancelTaskTransportAction extends
     TransportNodesAction<ADCancelTaskRequest, ADCancelTaskResponse, ADCancelTaskNodeRequest, ADCancelTaskNodeResponse> {
     private final Logger logger = LogManager.getLogger(ADCancelTaskTransportAction.class);
-    private Client client;
     private ADTaskManager adTaskManager;
 
     @Inject
@@ -55,8 +56,7 @@ public class ADCancelTaskTransportAction extends
         ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
-        ADTaskManager adTaskManager,
-        Client client
+        ADTaskManager adTaskManager
     ) {
         super(
             ADCancelTaskAction.NAME,
@@ -70,7 +70,6 @@ public class ADCancelTaskTransportAction extends
             ADCancelTaskNodeResponse.class
         );
         this.adTaskManager = adTaskManager;
-        this.client = client;
     }
 
     @Override
@@ -94,10 +93,11 @@ public class ADCancelTaskTransportAction extends
 
     @Override
     protected ADCancelTaskNodeResponse nodeOperation(ADCancelTaskNodeRequest request) {
-        String reason = "Task cancelled by user";
         String userName = request.getUserName();
         String detectorId = request.getDetectorId();
-        ADTaskCancellationState state = adTaskManager.cancelLocalTaskByDetectorId(detectorId, reason, userName);
+        String detectorTaskId = request.getDetectorTaskId();
+        String reason = Optional.ofNullable(request.getReason()).orElse(HISTORICAL_ANALYSIS_CANCELLED);
+        ADTaskCancellationState state = adTaskManager.cancelLocalTaskByDetectorId(detectorId, detectorTaskId, reason, userName);
         logger.debug("Cancelled AD task for detector: {}", request.getDetectorId());
         return new ADCancelTaskNodeResponse(clusterService.localNode(), state);
     }

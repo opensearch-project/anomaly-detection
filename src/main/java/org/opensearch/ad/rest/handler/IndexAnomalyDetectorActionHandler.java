@@ -225,13 +225,14 @@ public class IndexAnomalyDetectorActionHandler {
         client
             .get(
                 request,
-                ActionListener.wrap(response -> onGetAnomalyDetectorResponse(response), exception -> listener.onFailure(exception))
+                ActionListener
+                    .wrap(response -> onGetAnomalyDetectorResponse(response, detectorId), exception -> listener.onFailure(exception))
             );
     }
 
-    private void onGetAnomalyDetectorResponse(GetResponse response) {
+    private void onGetAnomalyDetectorResponse(GetResponse response, String detectorId) {
         if (!response.isExists()) {
-            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG, RestStatus.NOT_FOUND));
+            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
             return;
         }
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {

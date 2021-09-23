@@ -91,6 +91,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         EntityCache entityCache = mock(EntityCache.class);
         when(cacheProvider.get()).thenReturn(entityCache);
         ADTaskCacheManager adTaskCacheManager = mock(ADTaskCacheManager.class);
+        NodeStateManager stateManager = mock(NodeStateManager.class);
 
         action = new DeleteModelTransportAction(
             threadPool,
