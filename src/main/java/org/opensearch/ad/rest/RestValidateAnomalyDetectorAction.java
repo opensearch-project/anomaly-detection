@@ -34,8 +34,9 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
-import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
-import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
+
+import static org.opensearch.ad.util.RestHandlerUtils.*;
+import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import org.opensearch.client.node.NodeClient;
@@ -64,18 +65,27 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
     }
 
     @Override
-    public List<RestHandler.Route> routes() {
+    public List<Route> routes() {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList
                 .of(
                         // validate detector
-                        new RestHandler.Route(
+                        new ReplacedRoute(
                                 RestRequest.Method.POST,
-                                String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
+                                String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE),
+                                RestRequest.Method.POST,
+                                String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, VALIDATE)
                         ),
                         // validate detector with type
-                        new RestHandler.Route(
+                        new ReplacedRoute(
                                 RestRequest.Method.POST,
-                                String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
+                                String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE),
+                                RestRequest.Method.POST,
+                                String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, VALIDATE, TYPE)
                         )
                 );
     }
