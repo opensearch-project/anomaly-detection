@@ -253,7 +253,7 @@ public class CacheBuffer implements ExpiringState {
                 // null model has only samples. For null model we save a checkpoint
                 // regardless of last checkpoint time. whether If we don't save,
                 // we throw the new samples and might never be able to initialize the model
-                boolean isNullModel = modelRemoved.getRcf() == null || modelRemoved.getThreshold() == null;
+                boolean isNullModel = !modelRemoved.getTrcf().isPresent();
                 checkpointWriteQueue.write(valueRemoved, isNullModel, RequestPriority.MEDIUM);
 
                 modelRemoved.clear();
@@ -326,7 +326,6 @@ public class CacheBuffer implements ExpiringState {
             try {
                 ModelState<EntityModel> modelState = entry.getValue();
                 Instant now = clock.instant();
-
                 if (modelState.getLastUsedTime().plus(modelTtl).isBefore(now)) {
                     // race conditions can happen between the put and one of the following operations:
                     // remove: not a problem as all of the data structures are concurrent.

@@ -526,9 +526,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.common.exception.ResourceNotFoundException',
         'org.opensearch.ad.task.ADTaskSlotLimit',
         'org.opensearch.ad.task.ADTaskCacheManager',
-
-        // TODO: to be fixed by kaituo
-        'org.opensearch.ad.indices.AnomalyDetectionIndices'
 ]
 
 jacocoTestCoverageVerification {
@@ -591,7 +588,6 @@ dependencies {
     // implementation scope let the dependency in both compiling and running classpath, but
     // not leaked through to clients (Opensearch). Here we force the jackson version to whatever
     // opensearch uses.
-    //compile 'software.amazon.randomcutforest:randomcutforest-core:2.0.1'
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
     implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
     implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"

@@ -32,23 +32,13 @@ import java.util.Queue;
 
 import org.opensearch.ad.model.Entity;
 
-import com.amazon.randomcutforest.RandomCutForest;
-import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class EntityModel {
     private Entity entity;
     // TODO: sample should record timestamp
     private Queue<double[]> samples;
-    private RandomCutForest rcf;
-    private ThresholdingModel threshold;
     private ThresholdedRandomCutForest trcf;
-
-    public EntityModel(Entity entity, Queue<double[]> samples, RandomCutForest rcf, ThresholdingModel threshold) {
-        this.entity = entity;
-        this.samples = samples;
-        this.rcf = rcf;
-        this.threshold = threshold;
-    }
 
     /**
      * Constructor with ERCF.
@@ -85,22 +75,6 @@ public class EntityModel {
         }
     }
 
-    public RandomCutForest getRcf() {
-        return this.rcf;
-    }
-
-    public ThresholdingModel getThreshold() {
-        return this.threshold;
-    }
-
-    public void setRcf(RandomCutForest rcf) {
-        this.rcf = rcf;
-    }
-
-    public void setThreshold(ThresholdingModel threshold) {
-        this.threshold = threshold;
-    }
-
     /**
      * Sets an trcf model.
      *
@@ -123,8 +97,6 @@ public class EntityModel {
         if (samples != null) {
             samples.clear();
         }
-        rcf = null;
-        threshold = null;
         trcf = null;
     }
 }
