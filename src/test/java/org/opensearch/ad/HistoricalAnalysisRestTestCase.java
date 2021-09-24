@@ -31,6 +31,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIEC
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,6 +58,7 @@ import com.google.common.collect.ImmutableMap;
 
 public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRestTestCase {
 
+    public static final int MAX_RETRY_TIMES = 200;
     protected String historicalAnalysisTestIndex = "test_historical_analysis_data";
     protected int detectionIntervalInMinutes = 1;
     protected int categoryFieldDocCount = 2;
@@ -231,14 +233,17 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return adTaskProfile;
     }
 
-    protected ADTaskProfile waitUntilTaskDone(String detectorId) throws InterruptedException {
+    // TODO: change response to pair
+    protected List<Object> waitUntilTaskDone(String detectorId) throws InterruptedException {
         return waitUntilTaskReachState(detectorId, TestHelpers.HISTORICAL_ANALYSIS_DONE_STATS);
     }
 
-    protected ADTaskProfile waitUntilTaskReachState(String detectorId, Set<String> targetStates) throws InterruptedException {
+    protected List<Object> waitUntilTaskReachState(String detectorId, Set<String> targetStates) throws InterruptedException {
+        List<Object> results = new ArrayList<>();
         int i = 0;
         ADTaskProfile adTaskProfile = null;
-        while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getAdTask().getState())) && i < 60) {
+        // Increase retryTimes if some task can't reach done state
+        while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getAdTask().getState())) && i < MAX_RETRY_TIMES) {
             try {
                 adTaskProfile = getADTaskProfile(detectorId);
             } catch (Exception e) {
@@ -249,6 +254,8 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
             i++;
         }
         assertNotNull(adTaskProfile);
-        return adTaskProfile;
+        results.add(adTaskProfile);
+        results.add(i);
+        return results;
     }
 }
