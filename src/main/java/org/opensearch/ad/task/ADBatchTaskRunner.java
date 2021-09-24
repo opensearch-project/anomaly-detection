@@ -1085,6 +1085,8 @@ public class ADBatchTaskRunner {
                 anomalyResults.add(anomalyResult);
             } else {
                 double[] point = feature.getProcessedFeatures().get();
+                // 0 is placeholder for timestamp. In the future, we will add
+                // data time stamp there.
                 AnomalyDescriptor descriptor = trcf.process(point, 0);
                 double score = descriptor.getRcfScore();
                 double grade = descriptor.getAnomalyGrade();
