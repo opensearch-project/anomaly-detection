@@ -464,7 +464,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS = Setting
         .intSetting(
             "plugins.anomaly_detection.max_running_entities_per_detector_for_historical_analysis",
-            2,
+            10,
             1,
             1000,
             Setting.Property.NodeScope,
