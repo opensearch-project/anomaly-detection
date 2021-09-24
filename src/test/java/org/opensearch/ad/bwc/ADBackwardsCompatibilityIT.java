@@ -164,8 +164,8 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                     verifyAllRealtimeJobsRunning();
                     break;
                 case MIXED:
-                    // We have no way to specify whether send request to old node or new node now.
-                    // TODO: Add more test later when it's possible to specify request node.
+                    // TODO: We have no way to specify whether send request to old node or new node now.
+                    // Add more test later when it's possible to specify request node.
                     Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
@@ -175,20 +175,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                     // Create single category HC detector and start realtime job
                     createRealtimeAnomalyDetectorsAndStart(SINGLE_CATEGORY_HC_DETECTOR);
 
-                    int mixedClusterTestRound = 0;
-                    switch (MIXED_CLUSTER_TEST_ROUND) {
-                        case "first":
-                            mixedClusterTestRound = 1;
-                            break;
-                        case "second":
-                            mixedClusterTestRound = 2;
-                            break;
-                        case "third":
-                            mixedClusterTestRound = 3;
-                            break;
-                        default:
-                            break;
-                    }
+                    int mixedClusterTestRound = getMixedClusterTestRound();
                     int numberOfDetector = 3 + 2 * mixedClusterTestRound;
                     // Verify cluster has correct number of detectors now
                     verifyAnomalyDetectorCount(TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI, numberOfDetector);
@@ -243,6 +230,24 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
             }
             break;
         }
+    }
+
+    private int getMixedClusterTestRound() {
+        int mixedClusterTestRound = 0;
+        switch (MIXED_CLUSTER_TEST_ROUND) {
+            case "first":
+                mixedClusterTestRound = 1;
+                break;
+            case "second":
+                mixedClusterTestRound = 2;
+                break;
+            case "third":
+                mixedClusterTestRound = 3;
+                break;
+            default:
+                break;
+        }
+        return mixedClusterTestRound;
     }
 
     private void verifyAdTasks() throws InterruptedException, IOException {
