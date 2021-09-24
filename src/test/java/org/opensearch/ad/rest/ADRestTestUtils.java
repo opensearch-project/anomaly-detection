@@ -190,7 +190,8 @@ public class ADRestTestUtils {
         AnomalyDetector detector = new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
-            randomAlphaOfLength(20),
+            // TODO: check why throw duplicate detector name error with randomAlphaOfLength(20) in twoThirdsUpgradedClusterTask
+            randomAlphaOfLength(20) + now.toEpochMilli(),
             randomAlphaOfLength(30),
             timeField,
             ImmutableList.of(indexName),

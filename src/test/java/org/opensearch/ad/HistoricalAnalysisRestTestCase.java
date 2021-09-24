@@ -233,6 +233,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return adTaskProfile;
     }
 
+    // TODO: change response to pair
     protected List<Object> waitUntilTaskDone(String detectorId) throws InterruptedException {
         return waitUntilTaskReachState(detectorId, TestHelpers.HISTORICAL_ANALYSIS_DONE_STATS);
     }

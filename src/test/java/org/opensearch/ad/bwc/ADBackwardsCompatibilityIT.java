@@ -60,6 +60,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
 
     private static final ClusterType CLUSTER_TYPE = ClusterType.parse(System.getProperty("tests.rest.bwcsuite"));
     private static final String CLUSTER_NAME = System.getProperty("tests.clustername");
+    private static final String MIXED_CLUSTER_TEST_ROUND = System.getProperty("tests.rest.bwcsuite_round");
     private String dataIndexName = "test_data_for_ad_plugin";
     private int detectionIntervalInMinutes = 1;
     private int windowDelayIntervalInMinutes = 1;
@@ -154,13 +155,13 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                     // Create single entity historical detector and start historical analysis
                     createHistoricalAnomalyDetectorsAndStart();
 
-                    // Verify cluster has 3 detectors now
+                    // Verify cluster has correct number of detectors now
                     verifyAnomalyDetectorCount(TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI, 3);
-                    // Verify cluster has 3 detectors with search detector API
+                    // Verify cluster has correct number of detectors with search detector API
                     assertEquals(3, countDetectors(client(), null));
 
                     // Verify all realtime detectors are running realtime job
-                    verifyRealtimeJobRunning();
+                    verifyAllRealtimeJobsRunning();
                     break;
                 case MIXED:
                     // We have no way to specify whether send request to old node or new node now.
@@ -168,15 +169,38 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                     Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
-                    // Verify cluster has 3 detectors now
-                    verifyAnomalyDetectorCount(TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI, 3);
-                    // Verify cluster has 3 detectors with search detector API
-                    assertEquals(3, countDetectors(client(), null));
+                    // Create single entity detector and start realtime job
+                    createRealtimeAnomalyDetectorsAndStart(SINGLE_ENTITY_DETECTOR);
+
+                    // Create single category HC detector and start realtime job
+                    createRealtimeAnomalyDetectorsAndStart(SINGLE_CATEGORY_HC_DETECTOR);
+
+                    int mixedClusterTestRound = 0;
+                    switch (MIXED_CLUSTER_TEST_ROUND) {
+                        case "first":
+                            mixedClusterTestRound = 1;
+                            break;
+                        case "second":
+                            mixedClusterTestRound = 2;
+                            break;
+                        case "third":
+                            mixedClusterTestRound = 3;
+                            break;
+                        default:
+                            break;
+                    }
+                    int numberOfDetector = 3 + 2 * mixedClusterTestRound;
+                    // Verify cluster has correct number of detectors now
+                    verifyAnomalyDetectorCount(TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI, numberOfDetector);
+                    // Verify cluster has correct number of detectors with search detector API
+                    assertEquals(numberOfDetector, countDetectors(client(), null));
 
                     // Verify all realtime detectors are running realtime job
-                    verifyRealtimeJobRunning();
+                    verifyAllRealtimeJobsRunning();
                     break;
                 case UPGRADED:
+                    // This branch is for testing full upgraded cluster. That means all nodes in cluster are running
+                    // latest AD version.
                     Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
@@ -200,16 +224,16 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                     // Start historical analysis for multi category HC detector
                     startHistoricalAnalysisOnNewNode(multiCategoryHCResults.get(0), ADTaskType.HISTORICAL_HC_DETECTOR.name());
 
-                    // Verify cluster has 6 detectors now
+                    // Verify cluster has correct number of detectors now
                     verifyAnomalyDetectorCount(TestHelpers.AD_BASE_DETECTORS_URI, 6);
-                    // Verify cluster has 3 detectors with search detector API
+                    // Verify cluster has correct number of detectors with search detector API
                     assertEquals(6, countDetectors(client(), null));
 
                     // Start realtime job for historical detector created on old cluster and check realtime job running.
                     startRealtimeJobForHistoricalDetectorOnNewNode();
 
                     // Verify all realtime detectors are running realtime job
-                    verifyRealtimeJobRunning();
+                    verifyAllRealtimeJobsRunning();
                     // Verify realtime and historical task exists for all running realtime detector
                     verifyAdTasks();
 
@@ -271,6 +295,8 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         }
     }
 
+    // This function can only run on new AD version(>=1.1).
+    // TODO: execute this function on new node in mixed cluster when we have way to send request to specific node.
     private void startHistoricalAnalysisOnNewNode(String detectorId, String taskType) throws IOException, InterruptedException {
         String taskId = startHistoricalAnalysis(client(), detectorId);
         deleteRunningDetector(detectorId);
@@ -282,6 +308,8 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         assertTrue(adResultCount > 0);
     }
 
+    // This function can only run on new AD version(>=1.1).
+    // TODO: execute this function on new node in mixed cluster when we have way to send request to specific node.
     private void startRealtimeJobForHistoricalDetectorOnNewNode() throws IOException {
         for (String detectorId : historicalDetectors) {
             String jobId = startAnomalyDetectorDirectly(client(), detectorId);
@@ -293,7 +321,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         }
     }
 
-    private void verifyRealtimeJobRunning() throws IOException {
+    private void verifyAllRealtimeJobsRunning() throws IOException {
         for (String detectorId : runningRealtimeDetectors) {
             Map<String, Object> jobAndTask = getDetectorWithJobAndTask(client(), detectorId);
             AnomalyDetectorJob detectorJob = (AnomalyDetectorJob) jobAndTask.get(ANOMALY_DETECTOR_JOB);
@@ -325,7 +353,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         switch (detectorType) {
             case SINGLE_ENTITY_DETECTOR:
                 // Create single flow detector
-                Response singleFLowDetectorResponse = createAnomalyDetector(
+                Response singleFlowDetectorResponse = createAnomalyDetector(
                     client(),
                     dataIndexName,
                     MockSimpleLog.TIME_FIELD,
@@ -336,7 +364,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                     null,
                     null
                 );
-                return startAnomalyDetector(singleFLowDetectorResponse, false);
+                return startAnomalyDetector(singleFlowDetectorResponse, false);
             case SINGLE_CATEGORY_HC_DETECTOR:
                 // Create single category HC detector
                 Response singleCategoryHCDetectorResponse = createAnomalyDetector(
