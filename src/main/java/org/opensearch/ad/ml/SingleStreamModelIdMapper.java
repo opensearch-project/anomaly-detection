@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
  * ModelManager.
  *
  */
-public class ModelIdMapper {
+public class SingleStreamModelIdMapper {
     protected static final String DETECTOR_ID_PATTERN = "(.*)_model_.+";
     protected static final String RCF_MODEL_ID_PATTERN = "%s_model_rcf_%d";
     protected static final String THRESHOLD_MODEL_ID_PATTERN = "%s_model_threshold";

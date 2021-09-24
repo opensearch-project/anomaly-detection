@@ -47,7 +47,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.ml.ModelIdMapper;
+import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.BackPressureRouting;
 import org.opensearch.ad.util.ClientUtil;
@@ -195,7 +195,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             return;
         }
 
-        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, ModelIdMapper.getRcfModelId(adID, 0));
+        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, SingleStreamModelIdMapper.getRcfModelId(adID, 0));
 
         clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetCheckpointResponse(adID, listener));
     }
