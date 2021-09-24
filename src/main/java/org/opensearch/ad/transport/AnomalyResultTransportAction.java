@@ -76,8 +76,8 @@ import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.CompositeRetriever.PageIterator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
-import org.opensearch.ad.ml.ModelIdMapper;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.FeatureData;
@@ -219,8 +219,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *      are Double.NaN and feature array is empty.  Do so so that customer can write painless
      *       script.) otherwise.
      *
-     *  Also, AD is responsible for logging the stack trace.  To avoid bloating our logs, alerting
-     *   should always just log the message of an AnomalyDetectionException exception by default.
      *
      *  Known causes of EndRunException with endNow returning false:
      *   + training data for cold start not available
@@ -437,7 +435,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 if (previousException.isPresent()) {
                     Exception exception = previousException.get();
-                    LOG.error("Previous exception of {}: {}", adID, exception);
+                    LOG.error(new ParameterizedMessage("Previous exception of [{}]", adID), exception);
                     if (exception instanceof EndRunException) {
                         EndRunException endRunException = (EndRunException) exception;
                         if (endRunException.isEndNow()) {
@@ -504,7 +502,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             } else {
                 // HC logic ends and single entity logic starts here
-                String rcfModelID = ModelIdMapper.getRcfModelId(adID, 0);
+                // We are going to use only 1 model partition for a single stream detector.
+                // That's why we use 0 here.
+                String rcfModelID = SingleStreamModelIdMapper.getRcfModelId(adID, 0);
                 Optional<DiscoveryNode> asRCFNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
                 if (!asRCFNode.isPresent()) {
                     listener.onFailure(new InternalFailure(adID, "RCF model node is not available."));
@@ -563,8 +563,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 if (!featureOptional.getUnprocessedFeatures().isPresent()) {
                     // Feature not available is common when we have data holes. Respond empty response
-                    // so that alerting will not print stack trace to avoid bloating our logs.
-                    LOG.info("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
+                    // and don't log to avoid bloating our logs.
+                    LOG.debug("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
                             new AnomalyResultResponse(
@@ -578,7 +578,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             )
                         );
                 } else {
-                    LOG.info("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
+                    LOG.debug("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
                             new AnomalyResultResponse(
@@ -826,7 +826,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         );
                 } else {
                     LOG.warn(NULL_RESPONSE + " {} for {}", modelID, rcfNodeID);
-                    listener.onResponse(null);
+                    listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                 }
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);

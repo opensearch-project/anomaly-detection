@@ -37,8 +37,8 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.ml.ModelIdMapper;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -94,7 +94,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
         String adID = request.getAdID();
 
-        String rcfModelID = ModelIdMapper.getRcfModelId(adID, 0);
+        String rcfModelID = SingleStreamModelIdMapper.getRcfModelId(adID, 0);
 
         Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
         if (!rcfNode.isPresent()) {
