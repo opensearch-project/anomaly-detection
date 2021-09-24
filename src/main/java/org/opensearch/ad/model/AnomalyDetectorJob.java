@@ -71,11 +71,11 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     public static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String LOCK_DURATION_SECONDS = "lock_duration_seconds";
 
-    private static final String SCHEDULE_FIELD = "schedule";
-    private static final String WINDOW_DELAY_FIELD = "window_delay";
-    private static final String IS_ENABLED_FIELD = "enabled";
-    private static final String ENABLED_TIME_FIELD = "enabled_time";
-    private static final String DISABLED_TIME_FIELD = "disabled_time";
+    public static final String SCHEDULE_FIELD = "schedule";
+    public static final String WINDOW_DELAY_FIELD = "window_delay";
+    public static final String IS_ENABLED_FIELD = "enabled";
+    public static final String ENABLED_TIME_FIELD = "enabled_time";
+    public static final String DISABLED_TIME_FIELD = "disabled_time";
     public static final String USER_FIELD = "user";
 
     private final String name;

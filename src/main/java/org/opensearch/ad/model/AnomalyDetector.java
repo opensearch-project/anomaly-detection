@@ -635,7 +635,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return detectorType;
     }
 
-    private void setDetectionDateRange(DetectionDateRange detectionDateRange) {
+    public void setDetectionDateRange(DetectionDateRange detectionDateRange) {
         this.detectionDateRange = detectionDateRange;
     }
 
