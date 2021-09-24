@@ -993,6 +993,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStopNonExistingAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
+        // sometimes it fails to start detector as not able to find detector, sleep 2 seconds
+        Thread.sleep(2000);
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
