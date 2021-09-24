@@ -195,7 +195,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                     priority,
                     // If the document does not already exist, the contents of the upsert element
                     // are inserted as a new document.
-                    // ßIf the document exists, update fields in the map
+                    // If the document exists, update fields in the map
                     new UpdateRequest(indexName, modelId).docAsUpsert(true).doc(source)
                 );
 
@@ -248,7 +248,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                                 priority,
                                 // If the document does not already exist, the contents of the upsert element
                                 // are inserted as a new document.
-                                // ßIf the document exists, update fields in the map
+                                // If the document exists, update fields in the map
                                 new UpdateRequest(indexName, modelId).docAsUpsert(true).doc(source)
                             )
                         );

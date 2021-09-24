@@ -231,6 +231,8 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
 
             // deal with failures that we will retry for a limited amount of times
             // before stopping the detector
+            // We cannot just loop over stopDetectorRequests instead of toProcess
+            // because we need detector id from toProcess' elements. stopDetectorRequests only has model id.
             if (stopDetectorRequests != null) {
                 for (EntityRequest origRequest : toProcess) {
                     Optional<String> modelId = origRequest.getModelId();
