@@ -281,7 +281,7 @@ public class LegacyOpenDistroAnomalyDetectorSettings {
     public static final Setting<Integer> MAX_BATCH_TASK_PER_NODE = Setting
         .intSetting(
             "opendistro.anomaly_detection.max_batch_task_per_node",
-            2,
+            10,
             1,
             100,
             Setting.Property.NodeScope,
