@@ -32,7 +32,6 @@ import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_A
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
 
 import java.time.Instant;
@@ -47,7 +46,6 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -56,7 +54,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -68,6 +65,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 
 public class ADTaskCacheManager {
@@ -257,34 +255,8 @@ public class ADTaskCacheManager {
      * @param taskId AD task id
      * @return RCF model
      */
-    public RandomCutForest getRcfModel(String taskId) {
-        return getBatchTaskCache(taskId).getRcfModel();
-    }
-
-    public long getRcfModelTotalUpdates(String taskId) {
-        return getRcfModel(taskId).getTotalUpdates();
-    }
-
-    /**
-     * Get task threshold model.
-     * If task doesn't exist in cache, will throw {@link java.lang.IllegalArgumentException}.
-     *
-     * @param taskId AD task id
-     * @return threshold model
-     */
-    public ThresholdingModel getThresholdModel(String taskId) {
-        return getBatchTaskCache(taskId).getThresholdModel();
-    }
-
-    /**
-     * Get threshold model training data.
-     * If task doesn't exist in cache, will throw {@link java.lang.IllegalArgumentException}.
-     *
-     * @param taskId AD task id
-     * @return threshold model training data
-     */
-    public double[] getThresholdModelTrainingData(String taskId) {
-        return getBatchTaskCache(taskId).getThresholdModelTrainingData();
+    public ThresholdedRandomCutForest getTRcfModel(String taskId) {
+        return getBatchTaskCache(taskId).getTRcfModel();
     }
 
     /**
@@ -295,22 +267,6 @@ public class ADTaskCacheManager {
      */
     public int getThresholdModelTrainingDataSize(String taskId) {
         return getBatchTaskCache(taskId).getThresholdModelTrainingDataSize().get();
-    }
-
-    /**
-     * Add threshold model training data.
-     *
-     * @param taskId task id
-     * @param data training data
-     * @return latest threshold model training data size after adding new data
-     */
-    public int addThresholdModelTrainingData(String taskId, double... data) {
-        ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
-        double[] thresholdModelTrainingData = taskCache.getThresholdModelTrainingData();
-        AtomicInteger size = taskCache.getThresholdModelTrainingDataSize();
-        int dataPointsAdded = Math.min(data.length, THRESHOLD_MODEL_TRAINING_SIZE - size.get());
-        System.arraycopy(data, 0, thresholdModelTrainingData, size.get(), dataPointsAdded);
-        return size.addAndGet(dataPointsAdded);
     }
 
     /**
@@ -333,13 +289,6 @@ public class ADTaskCacheManager {
     protected void setThresholdModelTrained(String taskId, boolean trained) {
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
         taskCache.setThresholdModelTrained(trained);
-        if (trained) {
-            int size = taskCache.getThresholdModelTrainingDataSize().get();
-            long cacheSize = trainingDataMemorySize(size);
-            taskCache.clearTrainingData();
-            taskCache.getCacheMemorySize().getAndAdd(-cacheSize);
-            memoryTracker.releaseMemory(cacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
-        }
     }
 
     /**
@@ -416,11 +365,15 @@ public class ADTaskCacheManager {
      */
     private long calculateADTaskCacheSize(ADTask adTask) {
         AnomalyDetector detector = adTask.getDetector();
-        return memoryTracker.estimateTotalModelSize(detector, NUM_TREES, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
-            + trainingDataMemorySize(THRESHOLD_MODEL_TRAINING_SIZE) + shingleMemorySize(
-                detector.getShingleSize(),
-                detector.getEnabledFeatureIds().size()
-            );
+        int dimension = detector.getEnabledFeatureIds().size() * detector.getShingleSize();
+        return memoryTracker
+            .estimateTRCFModelSize(
+                dimension,
+                NUM_TREES,
+                AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
+                detector.getShingleSize().intValue(),
+                false
+            ) + shingleMemorySize(detector.getShingleSize(), detector.getEnabledFeatureIds().size());
     }
 
     /**
@@ -431,9 +384,12 @@ public class ADTaskCacheManager {
      */
     public long getModelSize(String taskId) {
         ADBatchTaskCache batchTaskCache = getBatchTaskCache(taskId);
-        int dimensions = batchTaskCache.getRcfModel().getDimensions();
-        int numberOfTrees = batchTaskCache.getRcfModel().getNumberOfTrees();
-        return memoryTracker.estimateTotalModelSize(dimensions, numberOfTrees, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO);
+        ThresholdedRandomCutForest tRCF = batchTaskCache.getTRcfModel();
+        RandomCutForest rcfForest = tRCF.getForest();
+        int dimensions = rcfForest.getDimensions();
+        int numberOfTrees = rcfForest.getNumberOfTrees();
+        return memoryTracker
+            .estimateTRCFModelSize(dimensions, numberOfTrees, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO, 1, false);
     }
 
     /**

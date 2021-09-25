@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
@@ -70,8 +70,8 @@ import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 
-import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
  * Training models for HCAD detectors
@@ -87,11 +87,6 @@ public class EntityColdStarter implements MaintenanceState {
     private final double rcfTimeDecay;
     private final int numMinSamples;
     private final double thresholdMinPvalue;
-    private final double thresholdMaxRankError;
-    private final double thresholdMaxScore;
-    private final int thresholdNumLogNormalQuantiles;
-    private final int thresholdDownsamples;
-    private final long thresholdMaxSamples;
     private final int maxSampleStride;
     private final int maxTrainSamples;
     private final Interpolator interpolator;
@@ -126,11 +121,6 @@ public class EntityColdStarter implements MaintenanceState {
      * @param interpolator Used to generate data points between samples.
      * @param searchFeatureDao Used to issue ES queries.
      * @param thresholdMinPvalue min P-value for thresholding
-     * @param thresholdMaxRankError  max rank error for thresholding
-     * @param thresholdMaxScore max RCF score to thresholding
-     * @param thresholdNumLogNormalQuantiles num of lognormal quantiles for thresholding
-     * @param thresholdDownsamples the number of samples to keep during downsampling
-     * @param thresholdMaxSamples the max number of samples before downsampling
      * @param featureManager Used to create features for models.
      * @param settings ES settings accessor
      * @param modelTtl time-to-live before last access time of the cold start cache.
@@ -152,11 +142,6 @@ public class EntityColdStarter implements MaintenanceState {
         Interpolator interpolator,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
-        double thresholdMaxRankError,
-        double thresholdMaxScore,
-        int thresholdNumLogNormalQuantiles,
-        int thresholdDownsamples,
-        long thresholdMaxSamples,
         FeatureManager featureManager,
         Settings settings,
         Duration modelTtl,
@@ -176,11 +161,6 @@ public class EntityColdStarter implements MaintenanceState {
         this.interpolator = interpolator;
         this.searchFeatureDao = searchFeatureDao;
         this.thresholdMinPvalue = thresholdMinPvalue;
-        this.thresholdMaxRankError = thresholdMaxRankError;
-        this.thresholdMaxScore = thresholdMaxScore;
-        this.thresholdNumLogNormalQuantiles = thresholdNumLogNormalQuantiles;
-        this.thresholdDownsamples = thresholdDownsamples;
-        this.thresholdMaxSamples = thresholdMaxSamples;
         this.featureManager = featureManager;
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
         this.doorKeepers = new ConcurrentHashMap<>();
@@ -202,11 +182,6 @@ public class EntityColdStarter implements MaintenanceState {
         Interpolator interpolator,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
-        double thresholdMaxRankError,
-        double thresholdMaxScore,
-        int thresholdNumLogNormalQuantiles,
-        int thresholdDownsamples,
-        long thresholdMaxSamples,
         FeatureManager featureManager,
         Settings settings,
         Duration modelTtl,
@@ -225,11 +200,6 @@ public class EntityColdStarter implements MaintenanceState {
             interpolator,
             searchFeatureDao,
             thresholdMinPvalue,
-            thresholdMaxRankError,
-            thresholdMaxScore,
-            thresholdNumLogNormalQuantiles,
-            thresholdDownsamples,
-            thresholdMaxSamples,
             featureManager,
             settings,
             modelTtl,
@@ -363,7 +333,7 @@ public class EntityColdStarter implements MaintenanceState {
         }
 
         int dimensions = dataPoints.get(0)[0].length * shingleSize;
-        RandomCutForest.Builder<?> rcfBuilder = RandomCutForest
+        ThresholdedRandomCutForest.Builder<?> rcfBuilder = ThresholdedRandomCutForest
             .builder()
             .dimensions(dimensions)
             .sampleSize(rcfSampleSize)
@@ -380,71 +350,26 @@ public class EntityColdStarter implements MaintenanceState {
             // vector is x1, x2, x3, x4, now we add x3, x4, x5, x6. RCF will recognize
             // overlapping x3, x4, and only store x5, x6.
             .shingleSize(shingleSize)
-            .internalShinglingEnabled(true);
+            .internalShinglingEnabled(true)
+            .anomalyRate(1 - this.thresholdMinPvalue);
 
         if (rcfSeed > 0) {
             rcfBuilder.randomSeed(rcfSeed);
         }
-        RandomCutForest rcf = rcfBuilder.build();
-        List<double[]> allScores = new ArrayList<>();
-        int totalLength = 0;
-        // get continuous data points and send for training
-        for (double[][] continuousDataPoints : dataPoints) {
-            double[] scores = trainRCFModel(continuousDataPoints, rcf);
-            allScores.add(scores);
-            totalLength += scores.length;
-        }
+        ThresholdedRandomCutForest trcf = new ThresholdedRandomCutForest(rcfBuilder);
+
+        dataPoints.stream().flatMap(d -> Arrays.stream(d)).forEach(s -> trcf.process(s, 0));
 
         EntityModel model = entityState.getModel();
         if (model == null) {
-            model = new EntityModel(entity, new ArrayDeque<>(), null, null);
+            model = new EntityModel(entity, new ArrayDeque<>(), null);
         }
-        model.setRcf(rcf);
-        double[] joinedScores = new double[totalLength];
-
-        int destStart = 0;
-        for (double[] scores : allScores) {
-            System.arraycopy(scores, 0, joinedScores, destStart, scores.length);
-            destStart += scores.length;
-        }
-
-        // Train thresholding model
-        ThresholdingModel threshold = new HybridThresholdingModel(
-            thresholdMinPvalue,
-            thresholdMaxRankError,
-            thresholdMaxScore,
-            thresholdNumLogNormalQuantiles,
-            thresholdDownsamples,
-            thresholdMaxSamples
-        );
-        threshold.train(joinedScores);
-        model.setThreshold(threshold);
+        model.setTrcf(trcf);
 
         entityState.setLastUsedTime(clock.instant());
 
         // save to checkpoint
         checkpointWriteQueue.write(entityState, true, RequestPriority.MEDIUM);
-    }
-
-    /**
-     * Train the RCF model using given data points
-     * @param dataPoints Data points
-     * @param rcf RCF model to be trained
-     * @return scores returned by RCF models
-     */
-    private double[] trainRCFModel(double[][] dataPoints, RandomCutForest rcf) {
-        if (dataPoints.length == 0 || dataPoints[0].length == 0) {
-            throw new IllegalArgumentException("Data points must not be empty.");
-        }
-
-        double[] scores = new double[dataPoints.length];
-
-        for (int j = 0; j < dataPoints.length; j++) {
-            scores[j] = rcf.getAnomalyScore(dataPoints[j]);
-            rcf.update(dataPoints[j]);
-        }
-
-        return DoubleStream.of(scores).filter(score -> score > 0).toArray();
     }
 
     /**
@@ -699,7 +624,7 @@ public class EntityColdStarter implements MaintenanceState {
     private void combineTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> entityState) {
         EntityModel model = entityState.getModel();
         if (model == null) {
-            model = new EntityModel(null, new ArrayDeque<>(), null, null);
+            model = new EntityModel(null, new ArrayDeque<>(), null);
         }
         for (double[][] consecutivePoints : coldstartDatapoints) {
             for (int i = 0; i < consecutivePoints.length; i++) {

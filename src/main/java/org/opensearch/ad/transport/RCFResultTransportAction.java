@@ -97,6 +97,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                         result.getForestSize(),
                                         result.getAttribution(),
                                         result.getTotalUpdates(),
+                                        result.getGrade(),
                                         remoteAdVersion
                                     )
                                 ),
