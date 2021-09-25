@@ -38,6 +38,7 @@ import java.util.Collections;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.junit.After;
 import org.junit.Before;
+import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
@@ -50,9 +51,10 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.ScrollableHitSource;
 
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
-import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.gson.Gson;
 
 import io.protostuff.LinkedBuffer;
@@ -81,6 +83,14 @@ public class CheckpointDeleteTests extends AbstractADTest {
     private int maxCheckpointBytes;
     private GenericObjectPool<LinkedBuffer> objectPool;
 
+    @Mock
+    private ThresholdedRandomCutForestMapper ercfMapper;
+
+    @Mock
+    private Schema<ThresholdedRandomCutForestState> ercfSchema;
+
+    double anomalyRate;
+
     @SuppressWarnings("unchecked")
     @Override
     @Before
@@ -96,24 +106,26 @@ public class CheckpointDeleteTests extends AbstractADTest {
         maxCheckpointBytes = 1_000_000;
 
         RandomCutForestMapper mapper = mock(RandomCutForestMapper.class);
-        Schema<RandomCutForestState> schema = mock(Schema.class);
         V1JsonToV2StateConverter converter = mock(V1JsonToV2StateConverter.class);
 
         objectPool = mock(GenericObjectPool.class);
         int deserializeRCFBufferSize = 512;
+        anomalyRate = 0.005;
         checkpointDao = new CheckpointDao(
             client,
             clientUtil,
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,
             mapper,
-            schema,
             converter,
+            ercfMapper,
+            ercfSchema,
             HybridThresholdingModel.class,
             indexUtil,
             maxCheckpointBytes,
             objectPool,
-            deserializeRCFBufferSize
+            deserializeRCFBufferSize,
+            anomalyRate
         );
     }
 

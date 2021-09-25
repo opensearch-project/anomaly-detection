@@ -120,7 +120,7 @@ public class HashRingTests extends ADUnitTestCase {
         clusterAdminClient = mock(ClusterAdminClient.class);
         when(adminClient.cluster()).thenReturn(clusterAdminClient);
 
-        String modelId = "123-threshold";
+        String modelId = "123_model_threshold";
         modelManager = mock(ModelManager.class);
         doAnswer(invocation -> {
             Set<String> res = new HashSet<>();

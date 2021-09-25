@@ -29,7 +29,6 @@ package org.opensearch.ad.task;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.TIME_DECAY;
 
 import java.util.ArrayDeque;
@@ -40,15 +39,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.opensearch.ad.ml.HybridThresholdingModel;
-import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
-import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
  * AD batch task cache which will mainly hold these for one task:
@@ -62,12 +59,10 @@ public class ADBatchTaskCache {
     private final String detectorId;
     private final String taskId;
     private final String detectorTaskId;
-    private RandomCutForest rcfModel;
-    private ThresholdingModel thresholdModel;
+    private ThresholdedRandomCutForest rcfModel;
     private boolean thresholdModelTrained;
     private Deque<Map.Entry<Long, Optional<double[]>>> shingle;
     private AtomicInteger thresholdModelTrainingDataSize = new AtomicInteger(0);
-    private double[] thresholdModelTrainingData;
     private AtomicBoolean cancelled = new AtomicBoolean(false);
     private AtomicLong cacheMemorySize = new AtomicLong(0);
     private String cancelReason;
@@ -86,7 +81,7 @@ public class ADBatchTaskCache {
         this.shingle = new ArrayDeque<>(shingleSize);
         int dimensions = detector.getShingleSize() * detector.getEnabledFeatureIds().size();
 
-        rcfModel = RandomCutForest
+        rcfModel = ThresholdedRandomCutForest
             .builder()
             .dimensions(dimensions)
             .numberOfTrees(numberOfTrees)
@@ -97,23 +92,14 @@ public class ADBatchTaskCache {
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
-            // same with dimension for opportunistic memory saving
-            // Usually, we use it as shingleSize(dimension). When a new point comes in, we will
-            // look at the point store if there is any overlapping. Say the previously-stored
-            // vector is x1, x2, x3, x4, now we add x3, x4, x5, x6. RCF will recognize
-            // overlapping x3, x4, and only store x5, x6.
-            .shingleSize(shingleSize)
+            // for external shingling, rcf does not recognize shingle. Thus, shingle size
+            // is 1 here.
+            // shingle in detector config and shingle size here are different things.
+            // shingle size in detector config impacts dimensions.
+            .shingleSize(1)
+            .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
             .build();
 
-        this.thresholdModel = new HybridThresholdingModel(
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
-        );
-        this.thresholdModelTrainingData = new double[THRESHOLD_MODEL_TRAINING_SIZE];
         this.thresholdModelTrained = false;
     }
 
@@ -129,16 +115,12 @@ public class ADBatchTaskCache {
         return detectorTaskId;
     }
 
-    protected RandomCutForest getRcfModel() {
+    protected ThresholdedRandomCutForest getTRcfModel() {
         return rcfModel;
     }
 
     protected Deque<Map.Entry<Long, Optional<double[]>>> getShingle() {
         return shingle;
-    }
-
-    protected ThresholdingModel getThresholdModel() {
-        return thresholdModel;
     }
 
     protected void setThresholdModelTrained(boolean thresholdModelTrained) {
@@ -147,15 +129,6 @@ public class ADBatchTaskCache {
 
     protected boolean isThresholdModelTrained() {
         return thresholdModelTrained;
-    }
-
-    protected double[] getThresholdModelTrainingData() {
-        return thresholdModelTrainingData;
-    }
-
-    protected void clearTrainingData() {
-        this.thresholdModelTrainingData = null;
-        this.thresholdModelTrainingDataSize.set(0);
     }
 
     public AtomicInteger getThresholdModelTrainingDataSize() {
