@@ -29,7 +29,6 @@ public class EntityTests extends AbstractADTest {
         String val2 = "app_4";
         attributes.put(name1, val1);
         attributes.put(name2, val2);
-        String detectorId = "detectorId";
         Entity entity = Entity.createEntityFromOrderedMap(attributes);
         assertEquals("host=server_2,service=app_4", entity.toString());
     }
@@ -40,7 +39,6 @@ public class EntityTests extends AbstractADTest {
 
         Optional<String> modelId = entity.getModelId(detectorId);
 
-        assertTrue(modelId.isPresent());
-        assertEquals(detectorId, modelId.get());
+        assertTrue(!modelId.isPresent());
     }
 }

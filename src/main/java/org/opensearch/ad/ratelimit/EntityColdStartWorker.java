@@ -106,7 +106,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
         }
 
         ModelState<EntityModel> modelState = new ModelState<>(
-            new EntityModel(coldStartRequest.getEntity(), new ArrayDeque<>(), null, null),
+            new EntityModel(coldStartRequest.getEntity(), new ArrayDeque<>(), null),
             modelId.get(),
             detectorId,
             ModelType.ENTITY.getName(),

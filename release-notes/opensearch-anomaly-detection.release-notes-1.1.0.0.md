@@ -23,7 +23,6 @@ Compatible with OpenSearch 1.1.0
 
 ### Infrastructure
 * add deprecated detector type for bwc; add more test cases for historical analysis ([#197](https://github.com/opensearch-project/anomaly-detection/pull/197))
-* Bump OpenSearch core to 1.1 in CI ([#212](https://github.com/opensearch-project/anomaly-detection/pull/212))
 
 ### Documentation
 * Add themed logo to README ([#134](https://github.com/opensearch-project/anomaly-detection/pull/134))

@@ -69,7 +69,6 @@ import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
@@ -205,11 +204,10 @@ import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
-import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestMapper;
-import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForestState;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
-import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
@@ -376,8 +374,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         mapper.setSaveExecutorContextEnabled(true);
         mapper.setSaveTreeStateEnabled(true);
         mapper.setPartialTreeStateEnabled(true);
-        Schema<RandomCutForestState> schema = AccessController
-            .doPrivileged((PrivilegedAction<Schema<RandomCutForestState>>) () -> RuntimeSchema.getSchema(RandomCutForestState.class));
         V1JsonToV2StateConverter converter = new V1JsonToV2StateConverter();
 
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
@@ -392,13 +388,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             adCircuitBreakerService
         );
 
-        ModelPartitioner modelPartitioner = new ModelPartitioner(
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            nodeFilter,
-            memoryTracker
-        );
-
         NodeStateManager stateManager = new NodeStateManager(
             client,
             xContentRegistry,
@@ -406,7 +395,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clientUtil,
             getClock(),
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner,
             clusterService
         );
 
@@ -457,7 +445,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,
             mapper,
-            schema,
             converter,
             new ThresholdedRandomCutForestMapper(),
             AccessController
@@ -469,7 +456,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             anomalyDetectionIndices,
             AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES,
             serializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES
+            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE
         );
 
         Random random = new Random(42);
@@ -526,11 +514,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             interpolator,
             searchFeatureDao,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             featureManager,
             settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
@@ -565,16 +548,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.TIME_DECAY,
             AnomalyDetectorSettings.NUM_MIN_SAMPLES,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             entityColdStarter,
-            modelPartitioner,
             featureManager,
             memoryTracker
         );
@@ -765,7 +742,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 nodeFilter,
                 multiEntityResultHandler,
                 checkpoint,
-                modelPartitioner,
                 cacheProvider,
                 adTaskManager,
                 adBatchTaskRunner,

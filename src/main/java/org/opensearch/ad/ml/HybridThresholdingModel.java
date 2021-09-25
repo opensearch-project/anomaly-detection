@@ -26,12 +26,16 @@
 
 package org.opensearch.ad.ml;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.math3.special.Erf;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.JsonAdapter;
 import com.yahoo.sketches.kll.KllFloatsSketch;
+import com.yahoo.sketches.kll.KllFloatsSketchIterator;
 
 /**
  * A model for converting raw anomaly scores into anomaly grades.
@@ -255,7 +259,7 @@ public class HybridThresholdingModel implements ThresholdingModel {
           raw anomaly scores are positive and non-zero.
         */
         final double maxScorePvalue = computeLogNormalCdf(maxScore, mu, sigma);
-        final double pvalueStep = maxScorePvalue / ((double) numLogNormalQuantiles + 1.0);
+        final double pvalueStep = maxScorePvalue / (numLogNormalQuantiles + 1.0);
         for (double pvalue = pvalueStep; pvalue < maxScorePvalue; pvalue += pvalueStep) {
             double currentScore = computeLogNormalQuantile(pvalue, mu, sigma);
             update(currentScore);
@@ -363,12 +367,22 @@ public class HybridThresholdingModel implements ThresholdingModel {
      */
     private void downsample() {
         KllFloatsSketch downsampledQuantileSketch = new KllFloatsSketch(quantileSketch.getK());
-        double pvalueStep = 1.0 / ((double) downsampleNumSamples - 1.0);
+        double pvalueStep = 1.0 / (downsampleNumSamples - 1.0);
         for (double pvalue = 0.0; pvalue < 1.0; pvalue += pvalueStep) {
             float score = quantileSketch.getQuantile(pvalue);
             downsampledQuantileSketch.update(score);
         }
         downsampledQuantileSketch.update((float) maxScore);
         this.quantileSketch = downsampledQuantileSketch;
+    }
+
+    @Override
+    public List<Double> extractScores() {
+        KllFloatsSketchIterator iter = quantileSketch.iterator();
+        List<Double> scores = new ArrayList<>();
+        while (iter.next()) {
+            scores.add((double) iter.getValue());
+        }
+        return scores;
     }
 }

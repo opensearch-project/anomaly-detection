@@ -148,6 +148,8 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
+import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -764,7 +766,11 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         when(adTaskCacheManager.getTasksOfDetector(anyString())).thenReturn(tasksOfDetector);
         Deque<Map.Entry<Long, Optional<double[]>>> shingle = new LinkedBlockingDeque<>();
         when(adTaskCacheManager.getShingle(anyString())).thenReturn(shingle);
-        when(adTaskCacheManager.getRcfModelTotalUpdates(anyString())).thenReturn(randomLongBetween(100, 1000));
+        ThresholdedRandomCutForest trcf = mock(ThresholdedRandomCutForest.class);
+        when(adTaskCacheManager.getTRcfModel(anyString())).thenReturn(trcf);
+        RandomCutForest rcf = mock(RandomCutForest.class);
+        when(trcf.getForest()).thenReturn(rcf);
+        when(rcf.getTotalUpdates()).thenReturn(randomLongBetween(100, 1000));
         when(adTaskCacheManager.isThresholdModelTrained(anyString())).thenReturn(true);
         when(adTaskCacheManager.getThresholdModelTrainingDataSize(anyString())).thenReturn(randomIntBetween(100, 1000));
         when(adTaskCacheManager.getModelSize(anyString())).thenReturn(randomLongBetween(100, 1000));

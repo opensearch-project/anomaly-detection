@@ -137,9 +137,14 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
     }
 
-    public void testEmptyID() {
+    public void testEmptyDetectorID() {
         ActionRequestValidationException e = new ThresholdResultRequest(null, "123-threshold", 2).validate();
         assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+    }
+
+    public void testEmptyModelID() {
+        ActionRequestValidationException e = new ThresholdResultRequest("123", "", 2).validate();
+        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.MODEL_ID_MISSING_MSG));
     }
 
     public void testSerialzationRequest() throws IOException {

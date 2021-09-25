@@ -11,17 +11,17 @@
 
 package org.opensearch.ad.ratelimit;
 
-import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.update.UpdateRequest;
 
 public class CheckpointWriteRequest extends QueuedRequest {
-    private final IndexRequest indexRequest;
+    private final UpdateRequest updateRequest;
 
-    public CheckpointWriteRequest(long expirationEpochMs, String detectorId, RequestPriority priority, IndexRequest indexRequest) {
+    public CheckpointWriteRequest(long expirationEpochMs, String detectorId, RequestPriority priority, UpdateRequest updateRequest) {
         super(expirationEpochMs, detectorId, priority);
-        this.indexRequest = indexRequest;
+        this.updateRequest = updateRequest;
     }
 
-    public IndexRequest getIndexRequest() {
-        return indexRequest;
+    public UpdateRequest getUpdateRequest() {
+        return updateRequest;
     }
 }

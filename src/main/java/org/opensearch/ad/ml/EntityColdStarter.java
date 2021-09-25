@@ -71,7 +71,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.randomcutforest.config.Precision;
-import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
  * Training models for HCAD detectors
@@ -87,11 +87,6 @@ public class EntityColdStarter implements MaintenanceState {
     private final double rcfTimeDecay;
     private final int numMinSamples;
     private final double thresholdMinPvalue;
-    private final double thresholdMaxRankError;
-    private final double thresholdMaxScore;
-    private final int thresholdNumLogNormalQuantiles;
-    private final int thresholdDownsamples;
-    private final long thresholdMaxSamples;
     private final int maxSampleStride;
     private final int maxTrainSamples;
     private final Interpolator interpolator;
@@ -126,11 +121,6 @@ public class EntityColdStarter implements MaintenanceState {
      * @param interpolator Used to generate data points between samples.
      * @param searchFeatureDao Used to issue ES queries.
      * @param thresholdMinPvalue min P-value for thresholding
-     * @param thresholdMaxRankError  max rank error for thresholding
-     * @param thresholdMaxScore max RCF score to thresholding
-     * @param thresholdNumLogNormalQuantiles num of lognormal quantiles for thresholding
-     * @param thresholdDownsamples the number of samples to keep during downsampling
-     * @param thresholdMaxSamples the max number of samples before downsampling
      * @param featureManager Used to create features for models.
      * @param settings ES settings accessor
      * @param modelTtl time-to-live before last access time of the cold start cache.
@@ -152,11 +142,6 @@ public class EntityColdStarter implements MaintenanceState {
         Interpolator interpolator,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
-        double thresholdMaxRankError,
-        double thresholdMaxScore,
-        int thresholdNumLogNormalQuantiles,
-        int thresholdDownsamples,
-        long thresholdMaxSamples,
         FeatureManager featureManager,
         Settings settings,
         Duration modelTtl,
@@ -176,11 +161,6 @@ public class EntityColdStarter implements MaintenanceState {
         this.interpolator = interpolator;
         this.searchFeatureDao = searchFeatureDao;
         this.thresholdMinPvalue = thresholdMinPvalue;
-        this.thresholdMaxRankError = thresholdMaxRankError;
-        this.thresholdMaxScore = thresholdMaxScore;
-        this.thresholdNumLogNormalQuantiles = thresholdNumLogNormalQuantiles;
-        this.thresholdDownsamples = thresholdDownsamples;
-        this.thresholdMaxSamples = thresholdMaxSamples;
         this.featureManager = featureManager;
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
         this.doorKeepers = new ConcurrentHashMap<>();
@@ -202,11 +182,6 @@ public class EntityColdStarter implements MaintenanceState {
         Interpolator interpolator,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
-        double thresholdMaxRankError,
-        double thresholdMaxScore,
-        int thresholdNumLogNormalQuantiles,
-        int thresholdDownsamples,
-        long thresholdMaxSamples,
         FeatureManager featureManager,
         Settings settings,
         Duration modelTtl,
@@ -225,11 +200,6 @@ public class EntityColdStarter implements MaintenanceState {
             interpolator,
             searchFeatureDao,
             thresholdMinPvalue,
-            thresholdMaxRankError,
-            thresholdMaxScore,
-            thresholdNumLogNormalQuantiles,
-            thresholdDownsamples,
-            thresholdMaxSamples,
             featureManager,
             settings,
             modelTtl,
@@ -386,15 +356,15 @@ public class EntityColdStarter implements MaintenanceState {
         if (rcfSeed > 0) {
             rcfBuilder.randomSeed(rcfSeed);
         }
-        ThresholdedRandomCutForest rcf = new ThresholdedRandomCutForest(rcfBuilder);
+        ThresholdedRandomCutForest trcf = new ThresholdedRandomCutForest(rcfBuilder);
 
-        dataPoints.stream().flatMap(d -> Arrays.stream(d)).forEach(s -> rcf.process(s, 0));
+        dataPoints.stream().flatMap(d -> Arrays.stream(d)).forEach(s -> trcf.process(s, 0));
 
         EntityModel model = entityState.getModel();
         if (model == null) {
-            model = new EntityModel(entity, new ArrayDeque<>(), null, null);
+            model = new EntityModel(entity, new ArrayDeque<>(), null);
         }
-        model.setTrcf(rcf);
+        model.setTrcf(trcf);
 
         entityState.setLastUsedTime(clock.instant());
 
@@ -654,7 +624,7 @@ public class EntityColdStarter implements MaintenanceState {
     private void combineTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> entityState) {
         EntityModel model = entityState.getModel();
         if (model == null) {
-            model = new EntityModel(null, new ArrayDeque<>(), null, null);
+            model = new EntityModel(null, new ArrayDeque<>(), null);
         }
         for (double[][] consecutivePoints : coldstartDatapoints) {
             for (int i = 0; i < consecutivePoints.length; i++) {

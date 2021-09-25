@@ -30,22 +30,20 @@ import static java.lang.Math.PI;
 
 import java.time.Clock;
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
-import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
-import org.apache.commons.lang3.tuple.Triple;
 import org.opensearch.ad.ml.EntityModel;
-import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
-import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.collect.Tuple;
 
-import com.amazon.randomcutforest.RandomCutForest;
-import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
  * Cannot use TestUtil inside ML tests since it uses com.carrotsearch.randomizedtesting.RandomizedRunner
@@ -82,11 +80,20 @@ public class MLUtil {
         int sampleSize = config.getSampleSize() != null ? config.getSampleSize() : random.nextInt(minSampleSize);
         Clock clock = config.getClock() != null ? config.getClock() : Clock.systemUTC();
 
+        Entity entity = null;
+        if (config.hasEntityAttributes()) {
+            Map<String, Object> attributes = new HashMap<>();
+            attributes.put("a", "a1");
+            attributes.put("b", "b1");
+            entity = Entity.createEntityByReordering(attributes);
+        } else {
+            entity = Entity.createSingleAttributeEntity("", "");
+        }
         EntityModel model = null;
         if (fullModel) {
-            model = createNonEmptyModel(detectorId, sampleSize);
+            model = createNonEmptyModel(detectorId, sampleSize, entity);
         } else {
-            model = createEmptyModel(Entity.createSingleAttributeEntity("", ""), sampleSize);
+            model = createEmptyModel(entity, sampleSize);
         }
 
         return new ModelState<>(model, detectorId, detectorId, ModelType.ENTITY.getName(), clock, priority);
@@ -94,42 +101,16 @@ public class MLUtil {
 
     public static EntityModel createEmptyModel(Entity entity, int sampleSize) {
         Queue<double[]> samples = createQueueSamples(sampleSize);
-        return new EntityModel(entity, samples, null, null);
+        return new EntityModel(entity, samples, null);
     }
 
     public static EntityModel createEmptyModel(Entity entity) {
         return createEmptyModel(entity, random.nextInt(minSampleSize));
     }
 
-    public static EntityModel createNonEmptyModel(String detectorId, int sampleSize) {
+    public static EntityModel createNonEmptyModel(String detectorId, int sampleSize, Entity entity) {
         Queue<double[]> samples = createQueueSamples(sampleSize);
-        RandomCutForest rcf = RandomCutForest
-            .builder()
-            .dimensions(1)
-            .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
-            .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
-            .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
-            .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
-            .parallelExecutionEnabled(false)
-            .build();
         int numDataPoints = random.nextInt(1000) + AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-        double[] scores = new double[numDataPoints];
-        for (int j = 0; j < numDataPoints; j++) {
-            double[] dataPoint = new double[] { random.nextDouble() };
-            scores[j] = rcf.getAnomalyScore(dataPoint);
-            rcf.update(dataPoint);
-        }
-
-        double[] nonZeroScores = DoubleStream.of(scores).filter(score -> score > 0).toArray();
-        ThresholdingModel threshold = new HybridThresholdingModel(
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
-        );
-        threshold.train(nonZeroScores);
         ThresholdedRandomCutForest trcf = new ThresholdedRandomCutForest(
             ThresholdedRandomCutForest
                 .builder()
@@ -145,13 +126,12 @@ public class MLUtil {
         for (int i = 0; i < numDataPoints; i++) {
             trcf.process(new double[] { random.nextDouble() }, i);
         }
-        EntityModel entityModel = new EntityModel(Entity.createSingleAttributeEntity("", ""), samples, rcf, threshold);
-        entityModel.setTrcf(trcf);
+        EntityModel entityModel = new EntityModel(entity, samples, trcf);
         return entityModel;
     }
 
     public static EntityModel createNonEmptyModel(String detectorId) {
-        return createNonEmptyModel(detectorId, random.nextInt(minSampleSize));
+        return createNonEmptyModel(detectorId, random.nextInt(minSampleSize), Entity.createSingleAttributeEntity("", ""));
     }
 
     /**
@@ -209,35 +189,23 @@ public class MLUtil {
      * @param rcfConfig RCF config
      * @return models and return training samples
      */
-    public static Triple<Queue<double[]>, RandomCutForest, ThresholdingModel> prepareModel(
+    public static Tuple<Queue<double[]>, ThresholdedRandomCutForest> prepareModel(
         int inputDimension,
-        RandomCutForest.Builder<?> rcfConfig
+        ThresholdedRandomCutForest.Builder<?> rcfConfig
     ) {
         Queue<double[]> samples = new ArrayDeque<>();
 
         Random r = new Random();
-        RandomCutForest rcf = rcfConfig.build();
-        ThresholdingModel threshold = new HybridThresholdingModel(
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES
-        );
+        ThresholdedRandomCutForest rcf = new ThresholdedRandomCutForest(rcfConfig);
 
         int trainDataNum = 1000;
-        double[] scores = new double[trainDataNum];
 
         for (int i = 0; i < trainDataNum; i++) {
             double[] point = r.ints(inputDimension, 0, 50).asDoubleStream().toArray();
             samples.add(point);
-            scores[i] = rcf.getAnomalyScore(point);
-            rcf.update(point);
+            rcf.process(point, 0);
         }
-        // train using non-zero scores
-        threshold.train(DoubleStream.of(scores).filter(score -> score > 0).toArray());
 
-        return Triple.of(samples, rcf, threshold);
+        return Tuple.tuple(samples, rcf);
     }
 }

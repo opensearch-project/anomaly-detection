@@ -11,17 +11,13 @@
 
 package org.opensearch.ad.ml;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import java.util.ArrayDeque;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.test.OpenSearchTestCase;
 
-import com.amazon.randomcutforest.parkservices.threshold.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class EntityModelTests extends OpenSearchTestCase {
 
@@ -33,19 +29,19 @@ public class EntityModelTests extends OpenSearchTestCase {
     }
 
     public void testNullInternalSampleQueue() {
-        EntityModel model = new EntityModel(null, null, null, null);
+        EntityModel model = new EntityModel(null, null, null);
         model.addSample(new double[] { 0.8 });
         assertEquals(1, model.getSamples().size());
     }
 
     public void testNullInputSample() {
-        EntityModel model = new EntityModel(null, null, null, null);
+        EntityModel model = new EntityModel(null, null, null);
         model.addSample(null);
         assertEquals(0, model.getSamples().size());
     }
 
     public void testEmptyInputSample() {
-        EntityModel model = new EntityModel(null, null, null, null);
+        EntityModel model = new EntityModel(null, null, null);
         model.addSample(new double[] {});
         assertEquals(0, model.getSamples().size());
     }
@@ -68,7 +64,7 @@ public class EntityModelTests extends OpenSearchTestCase {
 
     @Test
     public void setTrcf() {
-        EntityModel em = new EntityModel(null, null, null, null);
+        EntityModel em = new EntityModel(null, null, null);
         assertFalse(em.getTrcf().isPresent());
 
         em.setTrcf(this.trcf);
