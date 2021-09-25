@@ -320,7 +320,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_batch_task_per_node", 78).build();
         assertEquals(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.get(settings), Integer.valueOf(78));
-        assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.get(settings), Integer.valueOf(2));
+        assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.get(settings), Integer.valueOf(10));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_old_ad_task_docs_per_detector", 77).build();
         assertEquals(AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(settings), Integer.valueOf(77));
