@@ -173,6 +173,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private DiscoveryNode node2;
 
     private int maxRunningEntities;
+    private int maxBatchTaskPerNode;
 
     private String historicalTaskId = "test_historical_task_id";
     private String realtimeTaskId = "test_realtime_task_id";
@@ -236,6 +237,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS
         );
 
+        maxBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
         clusterService = spy(new ClusterService(settings, clusterSettings, null));
 
         client = mock(Client.class);
@@ -459,7 +461,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         );
         setupHashRingWithSameLocalADVersionNodes();
 
-        setupTaskSlots(0, 2, 2, 2);
+        setupTaskSlots(0, maxBatchTaskPerNode, maxBatchTaskPerNode, maxBatchTaskPerNode);
 
         adTaskManager
             .checkTaskSlots(adTask, adTask.getDetector(), detectionDateRange, randomUser(), ADTaskAction.START, transportService, listener);
@@ -485,7 +487,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         setupSearchTopEntities(4);
         setupHashRingWithSameLocalADVersionNodes();
 
-        setupTaskSlots(0, 2, 2, 1);
+        setupTaskSlots(0, maxBatchTaskPerNode, maxBatchTaskPerNode, maxBatchTaskPerNode - 1);
 
         adTaskManager
             .checkTaskSlots(adTask, adTask.getDetector(), detectionDateRange, randomUser(), ADTaskAction.START, transportService, listener);
@@ -540,7 +542,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         setupSearchTopEntities(4);
         setupHashRingWithSameLocalADVersionNodes();
 
-        setupTaskSlots(0, 2, 2, 1);
+        setupTaskSlots(0, maxBatchTaskPerNode, maxBatchTaskPerNode, maxBatchTaskPerNode - 1);
 
         adTaskManager
             .checkTaskSlots(
