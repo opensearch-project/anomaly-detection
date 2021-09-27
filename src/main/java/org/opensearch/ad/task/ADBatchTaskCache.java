@@ -92,11 +92,7 @@ public class ADBatchTaskCache {
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
-            // for external shingling, rcf does not recognize shingle. Thus, shingle size
-            // is 1 here.
-            // shingle in detector config and shingle size here are different things.
-            // shingle size in detector config impacts dimensions.
-            .shingleSize(1)
+            .shingleSize(shingleSize)
             .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
             .build();
 
