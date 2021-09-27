@@ -469,8 +469,7 @@ public class ModelManager implements DetectorModelSize {
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
-            // for external shingling, rcf does not recognize shingle
-            .shingleSize(1)
+            .shingleSize(detector.getShingleSize())
             .anomalyRate(1 - thresholdMinPvalue)
             .build();
         Arrays.stream(dataPoints).forEach(s -> trcf.process(s, 0));
@@ -559,8 +558,7 @@ public class ModelManager implements DetectorModelSize {
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
-            // for external shingling, rcf does not recognize shingle
-            .shingleSize(1)
+            .shingleSize(shingleSize)
             .anomalyRate(1 - this.thresholdMinPvalue)
             .build();
         return Arrays.stream(dataPoints).map(point -> {

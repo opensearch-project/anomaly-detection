@@ -266,6 +266,8 @@ public class ModelManagerTests {
         when(this.modelState.getModel()).thenReturn(this.entityModel);
         when(this.entityModel.getTrcf()).thenReturn(Optional.of(this.trcf));
         settings = Settings.builder().put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
+
+        when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -392,7 +394,6 @@ public class ModelManagerTests {
         }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
-        when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
         final Set<Setting<?>> settingsSet = Stream
             .concat(
                 ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(),
