@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.MemoryTracker.Origin;
 
-import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
  * A customized ConcurrentHashMap that can automatically consume and release memory.
@@ -40,28 +40,28 @@ import com.amazon.randomcutforest.RandomCutForest;
  *
  * Note: this is mainly used for single-entity detectors.
  */
-public class RCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, ModelState<RandomCutForest>> {
+public class TRCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, ModelState<ThresholdedRandomCutForest>> {
     private final MemoryTracker memoryTracker;
 
-    public RCFMemoryAwareConcurrentHashmap(MemoryTracker memoryTracker) {
+    public TRCFMemoryAwareConcurrentHashmap(MemoryTracker memoryTracker) {
         this.memoryTracker = memoryTracker;
     }
 
     @Override
-    public ModelState<RandomCutForest> remove(Object key) {
-        ModelState<RandomCutForest> deletedModelState = super.remove(key);
+    public ModelState<ThresholdedRandomCutForest> remove(Object key) {
+        ModelState<ThresholdedRandomCutForest> deletedModelState = super.remove(key);
         if (deletedModelState != null && deletedModelState.getModel() != null) {
-            long memoryToRelease = memoryTracker.estimateTotalModelSize(deletedModelState.getModel());
+            long memoryToRelease = memoryTracker.estimateTRCFModelSize(deletedModelState.getModel());
             memoryTracker.releaseMemory(memoryToRelease, true, Origin.SINGLE_ENTITY_DETECTOR);
         }
         return deletedModelState;
     }
 
     @Override
-    public ModelState<RandomCutForest> put(K key, ModelState<RandomCutForest> value) {
-        ModelState<RandomCutForest> previousAssociatedState = super.put(key, value);
+    public ModelState<ThresholdedRandomCutForest> put(K key, ModelState<ThresholdedRandomCutForest> value) {
+        ModelState<ThresholdedRandomCutForest> previousAssociatedState = super.put(key, value);
         if (value != null && value.getModel() != null) {
-            long memoryToConsume = memoryTracker.estimateTotalModelSize(value.getModel());
+            long memoryToConsume = memoryTracker.estimateTRCFModelSize(value.getModel());
             memoryTracker.consumeMemory(memoryToConsume, true, Origin.SINGLE_ENTITY_DETECTOR);
         }
         return previousAssociatedState;

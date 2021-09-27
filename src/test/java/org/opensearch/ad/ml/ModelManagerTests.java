@@ -26,15 +26,14 @@
 
 package org.opensearch.ad.ml;
 
-import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Matchers.anyObject;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -46,8 +45,9 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
@@ -82,7 +82,6 @@ import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
-import org.opensearch.ad.ml.rcf.CombinedRcfResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
@@ -103,6 +102,8 @@ import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
 import com.google.common.collect.Sets;
 
@@ -137,6 +138,15 @@ public class ModelManagerTests {
     @Mock
     private EntityCache cache;
 
+    @Mock
+    private ModelState<EntityModel> modelState;
+
+    @Mock
+    private EntityModel entityModel;
+
+    @Mock
+    private ThresholdedRandomCutForest trcf;
+
     private double modelDesiredSizePercentage;
     private double modelMaxSizePercentage;
     private int numTrees;
@@ -145,16 +155,10 @@ public class ModelManagerTests {
     private double rcfTimeDecay;
     private int numMinSamples;
     private double thresholdMinPvalue;
-    private double thresholdMaxRankError;
-    private double thresholdMaxScore;
-    private int thresholdNumLogNormalQuantiles;
-    private int thresholdDownsamples;
-    private long thresholdMaxSamples;
     private int minPreviewSize;
     private Duration modelTtl;
     private Duration checkpointInterval;
-    private RandomCutForest rcf;
-    private ModelPartitioner modelPartitioner;
+    private ThresholdedRandomCutForest rcf;
 
     @Mock
     private HybridThresholdingModel hybridThresholdingModel;
@@ -197,11 +201,6 @@ public class ModelManagerTests {
         rcfTimeDecay = 1.0 / 1024;
         numMinSamples = 1;
         thresholdMinPvalue = 0.95;
-        thresholdMaxRankError = 1e-4;
-        thresholdMaxScore = 8.0;
-        thresholdNumLogNormalQuantiles = 10000;
-        thresholdDownsamples = 1_000_000;
-        thresholdMaxSamples = 2_000_000;
         minPreviewSize = 500;
         modelTtl = Duration.ofHours(1);
         checkpointInterval = Duration.ofHours(1);
@@ -214,29 +213,19 @@ public class ModelManagerTests {
         }
         point = new double[] { 2 };
 
-        rcf = spy(RandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build());
-        when(rcf.getAnomalyAttribution(point)).thenReturn(attributionVec);
+        rcf = spy(ThresholdedRandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build());
+        double score = 11.;
 
-        when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(10_000_000_000L);
-
-        when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
-
-        settings = Settings.builder().put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
-        final Set<Setting<?>> settingsSet = Stream
-            .concat(
-                ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(),
-                Sets.newHashSet(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE).stream()
-            )
-            .collect(Collectors.toSet());
-        ClusterSettings clusterSettings = new ClusterSettings(settings, settingsSet);
-        clusterService = new ClusterService(settings, clusterSettings, null);
-        MemoryTracker memoryTracker = new MemoryTracker(
-            jvmService,
-            modelMaxSizePercentage,
-            modelDesiredSizePercentage,
-            clusterService,
-            adCircuitBreakerService
-        );
+        double confidence = 0.091353632;
+        double grade = 0.1;
+        AnomalyDescriptor descriptor = new AnomalyDescriptor();
+        descriptor.setRcfScore(score);
+        descriptor.setForestSize(numTrees);
+        descriptor.setDataConfidence(confidence);
+        descriptor.setAnomalyGrade(grade);
+        descriptor.setAttribution(attributionVec);
+        descriptor.setTotalUpdates(numSamples);
+        when(rcf.process(any(), anyLong())).thenReturn(descriptor);
 
         ExecutorService executorService = mock(ExecutorService.class);
         when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
@@ -246,10 +235,11 @@ public class ModelManagerTests {
             return null;
         }).when(executorService).execute(any(Runnable.class));
 
-        modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
-
         now = Instant.now();
         when(clock.instant()).thenReturn(now);
+
+        memoryTracker = mock(MemoryTracker.class);
+        when(memoryTracker.isHostingAllowed(anyString(), any())).thenReturn(true);
 
         modelManager = spy(
             new ModelManager(
@@ -260,16 +250,10 @@ public class ModelManagerTests {
                 rcfTimeDecay,
                 numMinSamples,
                 thresholdMinPvalue,
-                thresholdMaxRankError,
-                thresholdMaxScore,
-                thresholdNumLogNormalQuantiles,
-                thresholdDownsamples,
-                thresholdMaxSamples,
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
                 entityColdStarter,
-                modelPartitioner,
                 featureManager,
                 memoryTracker
             )
@@ -278,6 +262,12 @@ public class ModelManagerTests {
         detectorId = "detectorId";
         rcfModelId = "detectorId_model_rcf_1";
         thresholdModelId = "detectorId_model_threshold";
+
+        when(this.modelState.getModel()).thenReturn(this.entityModel);
+        when(this.entityModel.getTrcf()).thenReturn(Optional.of(this.trcf));
+        settings = Settings.builder().put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
+
+        when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
     }
 
     private Object[] getDetectorIdForModelIdData() {
@@ -293,7 +283,7 @@ public class ModelManagerTests {
     @Test
     @Parameters(method = "getDetectorIdForModelIdData")
     public void getDetectorIdForModelId_returnExpectedId(String modelId, String expectedDetectorId) {
-        assertEquals(expectedDetectorId, modelManager.getDetectorIdForModelId(modelId));
+        assertEquals(expectedDetectorId, SingleStreamModelIdMapper.getDetectorIdForModelId(modelId));
     }
 
     private Object[] getDetectorIdForModelIdIllegalArgument() {
@@ -303,52 +293,7 @@ public class ModelManagerTests {
     @Test(expected = IllegalArgumentException.class)
     @Parameters(method = "getDetectorIdForModelIdIllegalArgument")
     public void getDetectorIdForModelId_throwIllegalArgument_forInvalidId(String modelId) {
-        modelManager.getDetectorIdForModelId(modelId);
-    }
-
-    private Object[] combineRcfResultsData() {
-        double[] attribution = new double[] { 1 };
-        return new Object[] {
-            new Object[] { asList(), 1, new CombinedRcfResult(0, 0, new double[0]) },
-            new Object[] { asList(new RcfResult(0, 0, 0, new double[0])), 1, new CombinedRcfResult(0, 0, new double[0]) },
-            new Object[] { asList(new RcfResult(1, 0, 50, attribution)), 1, new CombinedRcfResult(1, 0, attribution) },
-            new Object[] {
-                asList(new RcfResult(1, 0, 50, attribution), new RcfResult(2, 0, 50, attribution)),
-                1,
-                new CombinedRcfResult(1.5, 0, attribution) },
-            new Object[] {
-                asList(new RcfResult(1, 0, 40, attribution), new RcfResult(2, 0, 60, attribution), new RcfResult(3, 0, 100, attribution)),
-                1,
-                new CombinedRcfResult(2.3, 0, attribution) },
-            new Object[] { asList(new RcfResult(0, 1, 100, attribution)), 1, new CombinedRcfResult(0, 1, attribution) },
-            new Object[] { asList(new RcfResult(0, 1, 50, attribution)), 1, new CombinedRcfResult(0, 0.5, attribution) },
-            new Object[] { asList(new RcfResult(0, 0.5, 1000, attribution)), 1, new CombinedRcfResult(0, 0.5, attribution) },
-            new Object[] {
-                asList(new RcfResult(0, 1, 50, attribution), new RcfResult(0, 0, 50, attribution)),
-                1,
-                new CombinedRcfResult(0, 0.5, attribution) },
-            new Object[] {
-                asList(new RcfResult(0, 0.5, 50, attribution), new RcfResult(0, 0.5, 50, attribution)),
-                1,
-                new CombinedRcfResult(0, 0.5, attribution) },
-            new Object[] {
-                asList(new RcfResult(0, 1, 20, attribution), new RcfResult(0, 1, 30, attribution), new RcfResult(0, 0.5, 50, attribution)),
-                1,
-                new CombinedRcfResult(0, 0.75, attribution) },
-            new Object[] {
-                asList(new RcfResult(1, 0, 20, new double[] { 0, 0, .5, .5 }), new RcfResult(1, 0, 80, new double[] { 0, .5, .25, .25 })),
-                2,
-                new CombinedRcfResult(1, 0, new double[] { .5, .5 }) },
-            new Object[] {
-                asList(new RcfResult(1, 0, 25, new double[] { 0, 0, 1, .0 }), new RcfResult(1, 0, 75, new double[] { 0, 0, 0, 1 })),
-                2,
-                new CombinedRcfResult(1, 0, new double[] { .25, .75 }) }, };
-    }
-
-    @Test
-    @Parameters(method = "combineRcfResultsData")
-    public void combineRcfResults_returnExpected(List<RcfResult> results, int numFeatures, CombinedRcfResult expected) {
-        assertEquals(expected, modelManager.combineRcfResults(results, numFeatures));
+        SingleStreamModelIdMapper.getDetectorIdForModelId(modelId);
     }
 
     private ImmutableOpenMap<String, DiscoveryNode> createDataNodes(int numDataNodes) {
@@ -360,7 +305,7 @@ public class ModelManagerTests {
     }
 
     private Object[] getPartitionedForestSizesData() {
-        RandomCutForest rcf = RandomCutForest.builder().dimensions(1).sampleSize(10).numberOfTrees(100).build();
+        ThresholdedRandomCutForest rcf = ThresholdedRandomCutForest.builder().dimensions(1).sampleSize(10).numberOfTrees(100).build();
         return new Object[] {
             // one partition given sufficient large nodes
             new Object[] { rcf, 100L, 100_000L, createDataNodes(10), pair(1, 100) },
@@ -374,93 +319,50 @@ public class ModelManagerTests {
             new Object[] { rcf, 100L, 1_000L, createDataNodes(1), pair(1, 100) } };
     }
 
-    @Test
-    @Parameters(method = "getPartitionedForestSizesData")
-    public void getPartitionedForestSizes_returnExpected(
-        RandomCutForest rcf,
-        long totalModelSize,
-        long heapSize,
-        ImmutableOpenMap<String, DiscoveryNode> dataNodes,
-        Entry<Integer, Integer> expected
-    ) {
-        when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
-        MemoryTracker memoryTracker = spy(
-            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, adCircuitBreakerService)
-        );
-
-        when(memoryTracker.estimateRCFModelSize(rcf)).thenReturn(totalModelSize);
-
-        modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
-
-        when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
-
-        assertEquals(expected, modelPartitioner.getPartitionedForestSizes(rcf, "id"));
-    }
-
-    private Object[] getPartitionedForestSizesLimitExceededData() {
-        RandomCutForest rcf = RandomCutForest.builder().dimensions(1).sampleSize(10).numberOfTrees(100).build();
-        return new Object[] {
-            new Object[] { rcf, 101L, 1_000L, createDataNodes(1) },
-            new Object[] { rcf, 201L, 1_000L, createDataNodes(2) },
-            new Object[] { rcf, 3001L, 10_000L, createDataNodes(3) } };
-    }
-
-    @Test(expected = LimitExceededException.class)
-    @Parameters(method = "getPartitionedForestSizesLimitExceededData")
-    public void getPartitionedForestSizes_throwLimitExceeded(
-        RandomCutForest rcf,
-        long totalModelSize,
-        long heapSize,
-        ImmutableOpenMap<String, DiscoveryNode> dataNodes
-    ) {
-        when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(heapSize);
-        MemoryTracker memoryTracker = spy(
-            new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, adCircuitBreakerService)
-        );
-        when(memoryTracker.estimateRCFModelSize(rcf)).thenReturn(totalModelSize);
-        modelPartitioner = spy(new ModelPartitioner(numSamples, numTrees, nodeFilter, memoryTracker));
-
-        when(nodeFilter.getEligibleDataNodes()).thenReturn(dataNodes.values().toArray(DiscoveryNode.class));
-
-        modelPartitioner.getPartitionedForestSizes(rcf, "id");
-    }
-
     private Object[] estimateModelSizeData() {
         return new Object[] {
-            new Object[] { RandomCutForest.builder().dimensions(1).sampleSize(256).numberOfTrees(100).build(), 819200L },
-            new Object[] { RandomCutForest.builder().dimensions(5).sampleSize(256).numberOfTrees(100).build(), 4096000L } };
+            new Object[] { ThresholdedRandomCutForest.builder().dimensions(1).sampleSize(256).numberOfTrees(100).build(), 819200L },
+            new Object[] { ThresholdedRandomCutForest.builder().dimensions(5).sampleSize(256).numberOfTrees(100).build(), 4096000L } };
     }
 
     @Parameters(method = "estimateModelSizeData")
-    public void estimateModelSize_returnExpected(RandomCutForest rcf, long expectedSize) {
-        assertEquals(expectedSize, memoryTracker.estimateRCFModelSize(rcf));
+    public void estimateModelSize_returnExpected(ThresholdedRandomCutForest rcf, long expectedSize) {
+        assertEquals(expectedSize, memoryTracker.estimateTRCFModelSize(rcf));
     }
 
     @Test
     public void getRcfResult_returnExpectedToListener() {
         double[] point = new double[0];
-        RandomCutForest forest = mock(RandomCutForest.class);
+        ThresholdedRandomCutForest rForest = mock(ThresholdedRandomCutForest.class);
+        RandomCutForest rcf = mock(RandomCutForest.class);
+        when(rForest.getForest()).thenReturn(rcf);
+        when(rcf.getDimensions()).thenReturn(8);
         double score = 11.;
 
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(forest));
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(rForest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
-        when(forest.getAnomalyScore(point)).thenReturn(score);
-        when(forest.getNumberOfTrees()).thenReturn(numTrees);
-        when(forest.getTimeDecay()).thenReturn(rcfTimeDecay);
-        when(forest.getSampleSize()).thenReturn(numSamples);
-        when(forest.getTotalUpdates()).thenReturn((long) numSamples);
-        when(forest.getAnomalyAttribution(point)).thenReturn(attributionVec);
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
+
+        double confidence = 0.091353632;
+        double grade = 0.1;
+        AnomalyDescriptor descriptor = new AnomalyDescriptor();
+        descriptor.setRcfScore(score);
+        descriptor.setForestSize(numTrees);
+        descriptor.setDataConfidence(confidence);
+        descriptor.setAnomalyGrade(grade);
+        descriptor.setAttribution(attributionVec);
+        descriptor.setTotalUpdates(numSamples);
+        when(rForest.process(any(), anyLong())).thenReturn(descriptor);
 
         ActionListener<RcfResult> listener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, listener);
 
-        RcfResult expected = new RcfResult(score, 0, numTrees, new double[] { 0.5, 0.5 }, 10);
+        RcfResult expected = new RcfResult(score, confidence, numTrees, new double[] { 0.5, 0.5 }, numSamples, grade);
         verify(listener).onResponse(eq(expected));
 
-        when(forest.getTotalUpdates()).thenReturn(numSamples + 1L);
+        descriptor.setTotalUpdates(numSamples + 1L);
         listener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, listener);
 
@@ -475,7 +377,7 @@ public class ModelManagerTests {
             ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
 
         ActionListener<RcfResult> listener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], listener);
@@ -486,12 +388,21 @@ public class ModelManagerTests {
     @Test
     public void getRcfResult_throwToListener_whenHeapLimitExceed() {
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(rcf));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
+        final Set<Setting<?>> settingsSet = Stream
+            .concat(
+                ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(),
+                Sets.newHashSet(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE).stream()
+            )
+            .collect(Collectors.toSet());
+        ClusterSettings clusterSettings = new ClusterSettings(settings, settingsSet);
+        clusterService = new ClusterService(settings, clusterSettings, null);
+
         MemoryTracker memoryTracker = new MemoryTracker(
             jvmService,
             modelMaxSizePercentage,
@@ -512,16 +423,10 @@ public class ModelManagerTests {
                 rcfTimeDecay,
                 numMinSamples,
                 thresholdMinPvalue,
-                thresholdMaxRankError,
-                thresholdMaxScore,
-                thresholdNumLogNormalQuantiles,
-                thresholdDownsamples,
-                thresholdMaxSamples,
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
                 entityColdStarter,
-                modelPartitioner,
                 featureManager,
                 memoryTracker
             )
@@ -606,13 +511,13 @@ public class ModelManagerTests {
 
     @Test
     public void stopModel_returnExpectedToListener_whenRcfStop() {
-        RandomCutForest forest = mock(RandomCutForest.class);
+        ThresholdedRandomCutForest forest = mock(ThresholdedRandomCutForest.class);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
 
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         when(clock.instant()).thenReturn(Instant.EPOCH);
@@ -620,7 +525,7 @@ public class ModelManagerTests {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
+        }).when(checkpointDao).putTRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.stopModel(detectorId, rcfModelId, listener);
@@ -651,19 +556,19 @@ public class ModelManagerTests {
 
     @Test
     public void stopModel_throwToListener_whenCheckpointFail() {
-        RandomCutForest forest = mock(RandomCutForest.class);
+        ThresholdedRandomCutForest forest = mock(ThresholdedRandomCutForest.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         when(clock.instant()).thenReturn(Instant.EPOCH);
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
+        }).when(checkpointDao).putTRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.stopModel(detectorId, rcfModelId, listener);
@@ -679,12 +584,12 @@ public class ModelManagerTests {
             ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
         doAnswer(invocation -> {
             ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(otherModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(otherModelId), any(ActionListener.class));
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         modelManager.getRcfResult(otherModelId, otherModelId, new double[0], rcfResultListener);
         doAnswer(invocation -> {
@@ -722,12 +627,11 @@ public class ModelManagerTests {
 
     @Test
     public void clear_throwToListener_whenDeleteFail() {
-        RandomCutForest forest = mock(RandomCutForest.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(forest));
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(rcf));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
         modelManager.getRcfResult(detectorId, rcfModelId, new double[0], rcfResultListener);
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(1);
@@ -744,24 +648,17 @@ public class ModelManagerTests {
     @Test
     public void trainModel_returnExpectedToListener_putCheckpoints() {
         double[][] trainData = new Random().doubles().limit(100).mapToObj(d -> new double[] { d }).toArray(double[][]::new);
-        doReturn(new SimpleEntry<>(2, 10)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putThresholdCheckpoint(any(), any(), any(ActionListener.class));
-        doAnswer(invocation -> {
-            ActionListener<Void> listener = invocation.getArgument(2);
-            listener.onResponse(null);
-            return null;
-        }).when(checkpointDao).putRCFCheckpoint(any(), any(), any(ActionListener.class));
+        }).when(checkpointDao).putTRCFCheckpoint(any(), any(), any(ActionListener.class));
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.trainModel(anomalyDetector, trainData, listener);
 
         verify(listener).onResponse(eq(null));
-        verify(checkpointDao, times(1)).putThresholdCheckpoint(any(), any(), any());
-        verify(checkpointDao, times(2)).putRCFCheckpoint(any(), any(), any());
+        verify(checkpointDao, times(1)).putTRCFCheckpoint(any(), any(), any());
     }
 
     private Object[] trainModelIllegalArgumentData() {
@@ -779,7 +676,7 @@ public class ModelManagerTests {
 
     @Test
     public void trainModel_throwLimitExceededToListener_whenLimitExceed() {
-        doThrow(new LimitExceededException(null, null)).when(modelPartitioner).getPartitionedForestSizes(anyObject(), anyObject());
+        doThrow(new LimitExceededException(null, null)).when(checkpointDao).putTRCFCheckpoint(any(), any(), any());
 
         ActionListener<Void> listener = mock(ActionListener.class);
         modelManager.trainModel(anomalyDetector, new double[][] { { 0 } }, listener);
@@ -789,14 +686,14 @@ public class ModelManagerTests {
 
     @Test
     public void getRcfModelId_returnNonEmptyString() {
-        String rcfModelId = modelPartitioner.getRcfModelId(anomalyDetector.getDetectorId(), 0);
+        String rcfModelId = SingleStreamModelIdMapper.getRcfModelId(anomalyDetector.getDetectorId(), 0);
 
         assertFalse(rcfModelId.isEmpty());
     }
 
     @Test
     public void getThresholdModelId_returnNonEmptyString() {
-        String thresholdModelId = modelPartitioner.getThresholdModelId(anomalyDetector.getDetectorId());
+        String thresholdModelId = SingleStreamModelIdMapper.getThresholdModelId(anomalyDetector.getDetectorId());
 
         assertFalse(thresholdModelId.isEmpty());
     }
@@ -810,29 +707,29 @@ public class ModelManagerTests {
         String successModelId = "testSuccessModelId";
         String failModelId = "testFailModelId";
         double[] point = new double[0];
-        RandomCutForest forest = mock(RandomCutForest.class);
-        RandomCutForest failForest = mock(RandomCutForest.class);
+        ThresholdedRandomCutForest forest = mock(ThresholdedRandomCutForest.class);
+        ThresholdedRandomCutForest failForest = mock(ThresholdedRandomCutForest.class);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(successModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(successModelId), any(ActionListener.class));
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(failForest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(failModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(failModelId), any(ActionListener.class));
         doAnswer(invocation -> {
             ActionListener<Optional<String>> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putRCFCheckpoint(eq(successModelId), eq(forest), any(ActionListener.class));
+        }).when(checkpointDao).putTRCFCheckpoint(eq(successModelId), eq(forest), any(ActionListener.class));
         doAnswer(invocation -> {
             ActionListener<Optional<String>> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(checkpointDao).putRCFCheckpoint(eq(failModelId), eq(failForest), any(ActionListener.class));
+        }).when(checkpointDao).putTRCFCheckpoint(eq(failModelId), eq(failForest), any(ActionListener.class));
         when(clock.instant()).thenReturn(Instant.EPOCH);
         ActionListener<RcfResult> scoreListener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, successModelId, point, scoreListener);
@@ -842,8 +739,8 @@ public class ModelManagerTests {
         modelManager.maintenance(listener);
 
         verify(listener).onResponse(eq(null));
-        verify(checkpointDao, times(1)).putRCFCheckpoint(eq(successModelId), eq(forest), any(ActionListener.class));
-        verify(checkpointDao, times(1)).putRCFCheckpoint(eq(failModelId), eq(failForest), any(ActionListener.class));
+        verify(checkpointDao, times(1)).putTRCFCheckpoint(eq(successModelId), eq(forest), any(ActionListener.class));
+        verify(checkpointDao, times(1)).putTRCFCheckpoint(eq(failModelId), eq(failForest), any(ActionListener.class));
     }
 
     @Test
@@ -887,18 +784,18 @@ public class ModelManagerTests {
     @Test
     public void maintenance_returnExpectedToListener_stopModel() {
         double[] point = new double[0];
-        RandomCutForest forest = mock(RandomCutForest.class);
+        ThresholdedRandomCutForest forest = mock(ThresholdedRandomCutForest.class);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(forest));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
+        }).when(checkpointDao).putTRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
         when(clock.instant()).thenReturn(Instant.EPOCH, Instant.EPOCH, Instant.EPOCH.plus(modelTtl.plusSeconds(1)));
         ActionListener<RcfResult> scoreListener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
@@ -908,25 +805,23 @@ public class ModelManagerTests {
         verify(listener).onResponse(eq(null));
 
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
-        verify(checkpointDao, times(2)).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        verify(checkpointDao, times(2)).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
     }
 
     @Test
     public void maintenance_returnExpectedToListener_doNothing() {
         double[] point = new double[0];
-        RandomCutForest forest = mock(RandomCutForest.class);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<RandomCutForest>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(forest));
+            ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(rcf));
             return null;
-        }).when(checkpointDao).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(2);
             listener.onResponse(null);
             return null;
-        }).when(checkpointDao).putRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
-        when(forest.getAnomalyAttribution(point)).thenReturn(attributionVec);
+        }).when(checkpointDao).putTRCFCheckpoint(eq(rcfModelId), eq(rcf), any(ActionListener.class));
         when(clock.instant()).thenReturn(Instant.MIN);
         ActionListener<RcfResult> scoreListener = mock(ActionListener.class);
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
@@ -939,7 +834,7 @@ public class ModelManagerTests {
         verify(listener).onResponse(eq(null));
 
         modelManager.getRcfResult(detectorId, rcfModelId, point, scoreListener);
-        verify(checkpointDao, times(1)).getRCFModel(eq(rcfModelId), any(ActionListener.class));
+        verify(checkpointDao, times(1)).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
     }
 
     @Test
@@ -1042,11 +937,6 @@ public class ModelManagerTests {
             interpolator,
             searchFeatureDao,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             featureManager,
             settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
@@ -1062,16 +952,10 @@ public class ModelManagerTests {
                 rcfTimeDecay,
                 numMinSamples,
                 thresholdMinPvalue,
-                thresholdMaxRankError,
-                thresholdMaxScore,
-                thresholdNumLogNormalQuantiles,
-                thresholdDownsamples,
-                thresholdMaxSamples,
                 minPreviewSize,
                 modelTtl,
                 checkpointInterval,
                 entityColdStarter,
-                modelPartitioner,
                 featureManager,
                 memoryTracker
             )
@@ -1080,7 +964,7 @@ public class ModelManagerTests {
         ModelState<EntityModel> state = MLUtil
             .randomModelState(new RandomModelStateConfig.Builder().fullModel(false).sampleSize(numMinSamples).build());
         EntityModel model = state.getModel();
-        assertTrue(model.getRcf() == null || model.getThreshold() == null);
+        assertTrue(!model.getTrcf().isPresent());
         ThresholdingResult result = modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null, shingleSize);
         // model outputs scores
         assertTrue(result.getRcfScore() != 0);
@@ -1122,5 +1006,43 @@ public class ModelManagerTests {
         modelManager.getAnomalyResultForEntity(new double[] { -1 }, state, "", null, shingleSize);
         assertEquals(0, state.getModel().getSamples().size());
         assertEquals(now, state.getLastUsedTime());
+    }
+
+    public void getAnomalyResultForEntity_withTrcf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setDataConfidence(1);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.trcf.process(this.point, 0)).thenReturn(anomalyDescriptor);
+
+        ThresholdingResult result = modelManager
+            .getAnomalyResultForEntity(this.point, this.modelState, this.detectorId, null, this.shingleSize);
+        assertEquals(
+            new ThresholdingResult(
+                anomalyDescriptor.getAnomalyGrade(),
+                anomalyDescriptor.getDataConfidence(),
+                anomalyDescriptor.getRcfScore()
+            ),
+            result
+        );
+    }
+
+    @Test
+    public void score_with_trcf() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
+        anomalyDescriptor.setRcfScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        when(this.trcf.process(this.point, 0)).thenReturn(anomalyDescriptor);
+        when(this.entityModel.getSamples()).thenReturn(new ArrayDeque<>(Arrays.asList(this.point)));
+
+        ThresholdingResult result = modelManager.score(this.point, this.detectorId, this.modelState);
+        assertEquals(
+            new ThresholdingResult(
+                anomalyDescriptor.getAnomalyGrade(),
+                anomalyDescriptor.getDataConfidence(),
+                anomalyDescriptor.getRcfScore()
+            ),
+            result
+        );
     }
 }

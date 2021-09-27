@@ -36,12 +36,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.MathUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.monitor.jvm.JvmService;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
  * Class to track AD memory usage.
@@ -103,11 +102,11 @@ public class MemoryTracker {
      * This function derives from the old code: https://tinyurl.com/2eaabja6
      *
      * @param detectorId Detector Id
-     * @param rcf Random cut forest model
+     * @param trcf Thresholded random cut forest model
      * @return true if there is enough memory; otherwise throw LimitExceededException.
      */
-    public synchronized boolean isHostingAllowed(String detectorId, RandomCutForest rcf) {
-        long requiredBytes = estimateTotalModelSize(rcf);
+    public synchronized boolean isHostingAllowed(String detectorId, ThresholdedRandomCutForest trcf) {
+        long requiredBytes = estimateTRCFModelSize(trcf);
         if (canAllocateReserved(requiredBytes)) {
             return true;
         } else {
@@ -175,46 +174,29 @@ public class MemoryTracker {
     /**
      * Gets the estimated size of an entity's model.
      *
-     * @param forest RCF forest object
+     * @param trcf ThresholdedRandomCutForest object
      * @return estimated model size in bytes
      */
-    public long estimateTotalModelSize(RandomCutForest forest) {
-        return estimateRCFModelSize(forest.getDimensions(), forest.getNumberOfTrees(), forest.getBoundingBoxCacheFraction())
-            + thresholdModelBytes;
-    }
-
-    /**
-     * Gets the estimated size of a RCF model.
-     *
-     * @param forest RCF forest object
-     * @return estimated model size in bytes
-     */
-    public long estimateRCFModelSize(RandomCutForest forest) {
-        return estimateRCFModelSize(forest.getDimensions(), forest.getNumberOfTrees(), forest.getBoundingBoxCacheFraction());
-    }
-
-    /**
-     * Gets the estimated size of an entity's model according to
-     * the detector configuration.
-     *
-     * @param detector detector config object
-     * @param numberOfTrees the number of trees in a RCF forest
-     * @param boundingBoxCacheFraction Bounding box cache ratio in RCF
-     * @return estimated model size in bytes
-     */
-    public long estimateTotalModelSize(AnomalyDetector detector, int numberOfTrees, double boundingBoxCacheFraction) {
-        return estimateRCFModelSize(
-            detector.getEnabledFeatureIds().size() * detector.getShingleSize(),
-            numberOfTrees,
-            boundingBoxCacheFraction
-        ) + thresholdModelBytes;
+    public long estimateTRCFModelSize(ThresholdedRandomCutForest trcf) {
+        RandomCutForest forest = trcf.getForest();
+        return estimateTRCFModelSize(
+            forest.getDimensions(),
+            forest.getNumberOfTrees(),
+            forest.getBoundingBoxCacheFraction(),
+            forest.getShingleSize(),
+            forest.isInternalShinglingEnabled()
+        );
     }
 
     /**
      * Gets the estimated size of an entity's model.
      *
      * RCF size:
-     * Assume the sample size is 256. A compact RCF forest consists of:
+     * Assume the sample size is 256. I measured the memory size of a ThresholdedRandomCutForest
+     * using heap dump.  A ThresholdedRandomCutForest comprises a compact rcf model and
+     * a threshold model.
+     *
+     * A compact RCF forest consists of:
      * - Random number generator: 56 bytes
      * - PointStoreCoordinator: 24 bytes
      * - SequentialForestUpdateExecutor: 24 bytes
@@ -224,8 +206,27 @@ public class MemoryTracker {
      *     - int array for free indexes: 256 * numberOfTrees * 4, where 4 is the size of an integer
      *   - two int array for locationList and refCount: 256 * numberOfTrees * 4 bytes * 2
      *   - a float array for data store: 256 * trees * dimension * 4 bytes: due to various
-     *     optimization like shingleSize(dimensions), we don't use all of the array.  The actual
-     *     usage percentage is
+     *     optimization like shingleSize(dimensions), we don't use all of the array.  The average
+     *     usage percentage depends on shingle size and if internal shingling is enabled.
+     *     I did experiments with power-of-two shingle sizes and internal shingling on/off
+     *     by running ThresholdedRandomCutForest over a million points.
+     *     My experiment shows that
+     *     * if internal shingling is off, data store is filled at full
+     *     capacity.
+     *     * otherwise, data store usage depends on shingle size:
+     *
+     *     Shingle Size           usage
+     *     1                       1
+     *     2                      0.53
+     *     4                      0.27
+     *     8                      0.27
+     *     16                     0.13
+     *     32                     0.07
+     *     64                     0.07
+     *
+     *    The formula reflects the data and fits the point store usage to the closest power-of-two case.
+     *    For example, if shingle size is 17, we use the usage 0.13 since it is closer to 16.
+     *
      *     {@code IF(dimensions>=32, 1/(LOG(dimensions+1, 2)+LOG(dimensions+1, 10)), 1/LOG(dimensions+1, 2))}
      *     where LOG gets the logarithm of a number and the syntax of LOG is {@code LOG (number, [base])}.
      *     We derive the formula by observing the point store usage ratio is a decreasing function of dimensions
@@ -238,42 +239,67 @@ public class MemoryTracker {
      *      - SmallNodeStore (small node store since our sample size is 256, less than the max of short): 6120
      *      + BoxCacheFloat
      *        - other: 104
-     *        - BoundingBoxFloat: (1040 + 255* (dimension * 4 * 2 + 64)) * adjusted bounding box cache usage,
-     *           where if full we have 255 inner node and each box has 80 bytes.
-     *           Plus metadata, we can have in total 21544 bytes.
-     *           {@code adjusted bounding box cache usage = (bounding box cache fraction >= 0.3? 1: bounding box cache fraction)}
-     *           {@code >= 0.3} we will still initialize bounding box cache array of the max size,
-     *           but exclude them using the cache ratio.  It is not guaranteed we will only
-     *           use cache ratio in the array.  For example, with cache ratio 0.5, we used 150
-     *           out of 255 elements.  So can have two float array whose size is the number of
-     *           dimensions; other constants are the metadata size.
+     *        - BoundingBoxFloat: (1040 + 255* ((dimension * 4 + 16) * 2 + 32)) * actual bounding box cache usage,
+     *           {@code actual bounding box cache usage = (bounding box cache fraction >= 0.3? 1: bounding box cache fraction)}
+     *           {@code >= 0.3} we will still initialize bounding box cache array of the max size.
+     *           1040 is the size of BoundingBoxFloat's fields unrelated to tree size (255 nodes in our formula)
      * In total, RCF size is
-     *  56 + # trees * (2248 + 152 + 6120 + 104 + (1040 + 255* (dimension * 4 * 2 + 64)) * adjusted bounding box cache ratio) +
-     *  (256 * # trees  * 2 + 256 * # trees * dimension) * 4 bytes  * 0.5 + 1064 + 24 + 24 + 16
-     *  = 56 + # trees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * adjusted bounding box cache ratio) + 256 * # trees *
-     *   (3 + dimension) * 4 * 0.5 + 1128
+     *  56 + # trees * (2248 + 152 + 6120 + 104 + (1040 + 255* (dimension * 4 + 16) * 2 + 32)) * adjusted bounding box cache ratio) +
+     *  (256 * # trees  * 2 + 256 * # trees * dimension) * 4 bytes  * point store ratio + 30744 * 2 + 15432 + 208) + 24 + 24 + 16
+     *  = 56 + # trees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * actual bounding box cache usage) + 256 * # trees *
+     *   dimension * 4 * point store ratio + 77192
+     *
+     *  Thresholder size
+     *   + Preprocessor:
+     *     - lastShingledInput and lastShingledPoint: 2*(dimension*8 + 16) (2 due to 2 double arrays, 16 are array object size)
+     *     - previousTimeStamps: shingle*8
+     *     - other: 248
+     *   - BasicThrehsolder: 256
+     *   + lastAnomalyAttribution:
+     *      - high and low: 2*(dimension*8 + 16)(2 due to 2 double arrays, 16 are array object)
+     *      - other 24
+     *   - lastAnomalyPoint and lastExpectedPoint:  2*(dimension*8 + 16)
+     *   -  other like ThresholdedRandomCutForest object size: 96
+     * In total, thresholder size is:
+     *  6*(dimension*8 + 16) + shingle*8 + 248 + 256 + 24 + 96
+     *  = 6*(dimension*8 + 16) + shingle*8 + 624
      *
      * @param dimension The number of feature dimensions in RCF
      * @param numberOfTrees The number of trees in RCF
-     * @param boundingBoxCacheFraction Bounding box cache ratio in RCF
-     * @return estimated RCF model size
+     * @param boundingBoxCacheFraction Bounding box cache usage in RCF
+     * @param shingleSize shingle size
+     * @param internalShingling whether internal shingling is enabled or not
+     * @return estimated TRCF model size
+     *
+     * @throws IllegalArgumentException when the input shingle size is out of range [1, 64]
      */
-    public long estimateRCFModelSize(int dimension, int numberOfTrees, double boundingBoxCacheFraction) {
+    public long estimateTRCFModelSize(
+        int dimension,
+        int numberOfTrees,
+        double boundingBoxCacheFraction,
+        int shingleSize,
+        boolean internalShingling
+    ) {
         double averagePointStoreUsage = 0;
-        int logNumber = dimension + 1;
-        if (dimension >= 32) {
-            averagePointStoreUsage = 1.0d / (MathUtil.log2(logNumber) + Math.log10(logNumber));
+        if (!internalShingling || shingleSize == 1) {
+            averagePointStoreUsage = 1;
+        } else if (shingleSize <= 3) {
+            averagePointStoreUsage = 0.53;
+        } else if (shingleSize <= 12) {
+            averagePointStoreUsage = 0.27;
+        } else if (shingleSize <= 24) {
+            averagePointStoreUsage = 0.13;
+        } else if (shingleSize <= 64) {
+            averagePointStoreUsage = 0.07;
         } else {
-            averagePointStoreUsage = 1.0d / MathUtil.log2(logNumber);
+            throw new IllegalArgumentException("out of range shingle size " + shingleSize);
         }
+
         double actualBoundingBoxUsage = boundingBoxCacheFraction >= 0.3 ? 1d : boundingBoxCacheFraction;
         long compactRcfSize = (long) (56 + numberOfTrees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * actualBoundingBoxUsage) + 256
-            * numberOfTrees * (3 + dimension) * 4 * averagePointStoreUsage + 1128);
-        return compactRcfSize;
-    }
-
-    public long estimateTotalModelSize(int dimension, int numberOfTrees, double boundingBoxCacheFraction) {
-        return estimateRCFModelSize(dimension, numberOfTrees, boundingBoxCacheFraction) + thresholdModelBytes;
+            * numberOfTrees * dimension * 4 * averagePointStoreUsage + 77192);
+        long thresholdSize = 6 * (dimension * 8 + 16) + shingleSize * 8 + 624;
+        return compactRcfSize + thresholdSize;
     }
 
     /**

@@ -40,7 +40,6 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -58,7 +57,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.AnomalyResultTests;
@@ -82,7 +80,6 @@ import com.google.common.collect.ImmutableMap;
 
 public class NodeStateManagerTests extends AbstractADTest {
     private NodeStateManager stateManager;
-    private ModelPartitioner modelPartitioner;
     private Client client;
     private ClientUtil clientUtil;
     private Clock clock;
@@ -118,8 +115,6 @@ public class NodeStateManagerTests extends AbstractADTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        modelPartitioner = mock(ModelPartitioner.class);
-        when(modelPartitioner.getPartitionedForestSizes(any(AnomalyDetector.class))).thenReturn(new SimpleImmutableEntry<>(2, 20));
         client = mock(Client.class);
         settings = Settings
             .builder()
@@ -146,16 +141,7 @@ public class NodeStateManagerTests extends AbstractADTest {
         );
 
         clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
-        stateManager = new NodeStateManager(
-            client,
-            xContentRegistry(),
-            settings,
-            clientUtil,
-            clock,
-            duration,
-            modelPartitioner,
-            clusterService
-        );
+        stateManager = new NodeStateManager(client, xContentRegistry(), settings, clientUtil, clock, duration, clusterService);
 
         checkpointResponse = mock(GetResponse.class);
     }
@@ -165,7 +151,6 @@ public class NodeStateManagerTests extends AbstractADTest {
     public void tearDown() throws Exception {
         super.tearDown();
         stateManager = null;
-        modelPartitioner = null;
         client = null;
         clientUtil = null;
         detectorToCheck = null;
@@ -223,19 +208,6 @@ public class NodeStateManagerTests extends AbstractADTest {
         }).when(client).get(any(), any(ActionListener.class));
     }
 
-    public void testGetPartitionNumber() throws IOException, InterruptedException {
-        String detectorId = setupDetector();
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
-        for (int i = 0; i < 2; i++) {
-            // call two times should return the same result
-            int partitionNumber = stateManager.getPartitionNumber(detectorId, detector);
-            assertEquals(2, partitionNumber);
-        }
-
-        // the 2nd call should directly fetch cached result
-        verify(modelPartitioner, times(1)).getPartitionedForestSizes(any());
-    }
-
     public void testGetLastError() throws IOException, InterruptedException {
         String error = "blah";
         assertEquals(NodeStateManager.NO_ERROR, stateManager.getLastDetectionError(adId));
@@ -276,7 +248,6 @@ public class NodeStateManagerTests extends AbstractADTest {
             new ClientUtil(settings, client, throttler, context),
             clock,
             duration,
-            modelPartitioner,
             clusterService
         );
 
