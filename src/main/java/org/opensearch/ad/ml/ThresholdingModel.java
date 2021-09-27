@@ -26,6 +26,8 @@
 
 package org.opensearch.ad.ml;
 
+import java.util.List;
+
 /**
  * A model for converting raw anomaly scores into anomaly grades.
  *
@@ -72,4 +74,10 @@ public interface ThresholdingModel {
      * @return  the model confidence
      */
     double confidence();
+
+    /**
+     * Extract scores
+     * @return the extract scores
+     */
+    List<Double> extractScores();
 }

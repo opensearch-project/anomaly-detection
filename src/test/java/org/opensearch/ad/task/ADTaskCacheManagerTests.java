@@ -110,10 +110,8 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(1, adTaskCacheManager.size());
         assertTrue(adTaskCacheManager.contains(adTask.getTaskId()));
         assertTrue(adTaskCacheManager.containsTaskOfDetector(adTask.getDetectorId()));
-        assertNotNull(adTaskCacheManager.getRcfModel(adTask.getTaskId()));
+        assertNotNull(adTaskCacheManager.getTRcfModel(adTask.getTaskId()));
         assertNotNull(adTaskCacheManager.getShingle(adTask.getTaskId()));
-        assertNotNull(adTaskCacheManager.getThresholdModel(adTask.getTaskId()));
-        assertNotNull(adTaskCacheManager.getThresholdModelTrainingData(adTask.getTaskId()));
         assertFalse(adTaskCacheManager.isThresholdModelTrained(adTask.getTaskId()));
         adTaskCacheManager.remove(adTask.getTaskId(), randomAlphaOfLength(5), randomAlphaOfLength(5));
         assertEquals(0, adTaskCacheManager.size());
@@ -199,18 +197,16 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskCacheManager.add(adTask);
         assertEquals(1, adTaskCacheManager.size());
-        int size = adTaskCacheManager.addThresholdModelTrainingData(adTask.getTaskId(), randomDouble(), randomDouble());
-        long cacheSize = adTaskCacheManager.trainingDataMemorySize(size);
         adTaskCacheManager.setThresholdModelTrained(adTask.getTaskId(), false);
         verify(memoryTracker, never()).releaseMemory(anyLong(), anyBoolean(), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
         adTaskCacheManager.setThresholdModelTrained(adTask.getTaskId(), true);
-        verify(memoryTracker, times(1)).releaseMemory(eq(cacheSize), eq(true), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
+        verify(memoryTracker, times(0)).releaseMemory(anyLong(), eq(true), eq(HISTORICAL_SINGLE_ENTITY_DETECTOR));
     }
 
     public void testTaskNotExist() {
         IllegalArgumentException e = expectThrows(
             IllegalArgumentException.class,
-            () -> adTaskCacheManager.getRcfModel(randomAlphaOfLength(5))
+            () -> adTaskCacheManager.getTRcfModel(randomAlphaOfLength(5))
         );
         assertEquals("AD task not in cache", e.getMessage());
     }

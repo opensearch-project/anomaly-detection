@@ -43,8 +43,10 @@ public class RcfResultTests {
     private double score = 1.;
     private double confidence = 0;
     private int forestSize = 10;
+    private int totalUpdate = 32;
+    private double grade = 0.1;
     private double[] attribution = new double[] { 1. };
-    private RcfResult rcfResult = new RcfResult(score, confidence, forestSize, attribution);
+    private RcfResult rcfResult = new RcfResult(score, confidence, forestSize, attribution, totalUpdate, grade);
 
     @Test
     public void getters_returnExcepted() {
@@ -58,12 +60,12 @@ public class RcfResultTests {
             new Object[] { rcfResult, null, false },
             new Object[] { rcfResult, rcfResult, true },
             new Object[] { rcfResult, 1, false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution), true },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence + 1, forestSize, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }), false }, };
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution, totalUpdate, grade), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence + 1, forestSize, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }, totalUpdate, grade), false }, };
     }
 
     @Test
@@ -74,11 +76,11 @@ public class RcfResultTests {
 
     private Object[] hashCodeData() {
         return new Object[] {
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution), true },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }), false }, };
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution, totalUpdate, grade), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }, totalUpdate, grade), false }, };
     }
 
     @Test

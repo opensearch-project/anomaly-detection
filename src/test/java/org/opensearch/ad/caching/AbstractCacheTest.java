@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Random;
 
 import org.junit.Before;
@@ -45,6 +46,7 @@ public class AbstractCacheTest extends AbstractADTest {
     protected MemoryTracker memoryTracker;
     protected CheckpointWriteWorker checkpointWriteQueue;
     protected Random random;
+    protected int shingleSize;
 
     @Override
     @Before
@@ -56,6 +58,15 @@ public class AbstractCacheTest extends AbstractADTest {
         detectorDuration = Duration.ofMinutes(5);
         when(detector.getDetectionIntervalDuration()).thenReturn(detectorDuration);
         when(detector.getDetectorIntervalInSeconds()).thenReturn(detectorDuration.getSeconds());
+        when(detector.getEnabledFeatureIds()).thenReturn(new ArrayList<String>() {
+            {
+                add("a");
+                add("b");
+                add("c");
+            }
+        });
+        shingleSize = 4;
+        when(detector.getShingleSize()).thenReturn(shingleSize);
 
         entity1 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal1");
         entity2 = Entity.createSingleAttributeEntity("attributeName1", "attributeVal2");
@@ -89,7 +100,7 @@ public class AbstractCacheTest extends AbstractADTest {
         initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
 
         modelState1 = new ModelState<>(
-            new EntityModel(entity1, new ArrayDeque<>(), null, null),
+            new EntityModel(entity1, new ArrayDeque<>(), null),
             modelId1,
             detectorId,
             ModelType.ENTITY.getName(),
@@ -98,7 +109,7 @@ public class AbstractCacheTest extends AbstractADTest {
         );
 
         modelState2 = new ModelState<>(
-            new EntityModel(entity2, new ArrayDeque<>(), null, null),
+            new EntityModel(entity2, new ArrayDeque<>(), null),
             modelId2,
             detectorId,
             ModelType.ENTITY.getName(),
@@ -107,7 +118,7 @@ public class AbstractCacheTest extends AbstractADTest {
         );
 
         modelState3 = new ModelState<>(
-            new EntityModel(entity3, new ArrayDeque<>(), null, null),
+            new EntityModel(entity3, new ArrayDeque<>(), null),
             modelId3,
             detectorId,
             ModelType.ENTITY.getName(),
@@ -116,7 +127,7 @@ public class AbstractCacheTest extends AbstractADTest {
         );
 
         modelState4 = new ModelState<>(
-            new EntityModel(entity4, new ArrayDeque<>(), null, null),
+            new EntityModel(entity4, new ArrayDeque<>(), null),
             modelId4,
             detectorId,
             ModelType.ENTITY.getName(),
