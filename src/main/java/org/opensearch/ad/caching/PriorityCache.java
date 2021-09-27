@@ -446,15 +446,15 @@ public class PriorityCache implements EntityCache {
     private CacheBuffer computeBufferIfAbsent(AnomalyDetector detector, String detectorId) {
         CacheBuffer buffer = activeEnities.get(detectorId);
         if (buffer == null) {
-            long requiredBytes = getReservedDetectorMemory(detector);
+            long requiredBytes = getRequiredMemory(detector, dedicatedCacheSize);
             if (memoryTracker.canAllocateReserved(requiredBytes)) {
                 memoryTracker.consumeMemory(requiredBytes, true, Origin.HC_DETECTOR);
                 long intervalSecs = detector.getDetectorIntervalInSeconds();
+
                 buffer = new CacheBuffer(
                     dedicatedCacheSize,
                     intervalSecs,
-                    memoryTracker
-                        .estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO),
+                    getRequiredMemory(detector, 1),
                     memoryTracker,
                     clock,
                     modelTtl,
@@ -475,9 +475,22 @@ public class PriorityCache implements EntityCache {
         return buffer;
     }
 
-    private long getReservedDetectorMemory(AnomalyDetector detector) {
-        return dedicatedCacheSize * memoryTracker
-            .estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO);
+    /**
+     *
+     * @param detector Detector config accessor
+     * @param numberOfEntity number of entities
+     * @return Memory in bytes required for hosting numberOfEntity entities
+     */
+    private long getRequiredMemory(AnomalyDetector detector, int numberOfEntity) {
+        int dimension = detector.getEnabledFeatureIds().size() * detector.getShingleSize();
+        return numberOfEntity * memoryTracker
+            .estimateTRCFModelSize(
+                dimension,
+                numberOfTrees,
+                AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO,
+                detector.getShingleSize().intValue(),
+                true
+            );
     }
 
     /**
@@ -707,7 +720,8 @@ public class PriorityCache implements EntityCache {
             Optional<EntityModel> modelOptional = cacheBuffer.getModel(entityModelId);
             // TODO: make it work for shingles. samples.size() is not the real shingle
             long accumulatedShingles = modelOptional
-                .map(model -> model.getRcf())
+                .flatMap(model -> model.getTrcf())
+                .map(trcf -> trcf.getForest())
                 .map(rcf -> rcf.getTotalUpdates())
                 .orElseGet(
                     () -> modelOptional.map(model -> model.getSamples()).map(samples -> samples.size()).map(Long::valueOf).orElse(0L)
@@ -807,15 +821,8 @@ public class PriorityCache implements EntityCache {
         // // make sure no model has been stored due to bugs
         for (ModelState<EntityModel> state : inActiveEntities.asMap().values()) {
             EntityModel model = state.getModel();
-            if (model != null && (model.getRcf() != null || model.getThreshold() != null)) {
-                LOG
-                    .warn(
-                        new ParameterizedMessage(
-                            "Inactive entity's model is null: [{}], [{}]. Maybe there are bugs.",
-                            model.getRcf(),
-                            model.getThreshold()
-                        )
-                    );
+            if (model != null && model.getTrcf().isPresent()) {
+                LOG.warn(new ParameterizedMessage("Inactive entity's model is null: [{}]. Maybe there are bugs.", state.getModelId()));
                 state.setModel(null);
             }
         }

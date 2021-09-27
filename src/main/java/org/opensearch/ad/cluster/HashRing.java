@@ -56,6 +56,7 @@ import org.opensearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
@@ -371,7 +372,7 @@ public class HashRing {
                     modelManager
                         .stopModel(
                             // stopModel will clear model cache
-                            modelManager.getDetectorIdForModelId(modelId),
+                            SingleStreamModelIdMapper.getDetectorIdForModelId(modelId),
                             modelId,
                             ActionListener
                                 .wrap(
