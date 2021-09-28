@@ -34,6 +34,7 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.xcontent.ToXContent;
 
 public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
 
@@ -60,5 +61,15 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
         ValidateAnomalyDetectorResponse readResponse = ValidateAnomalyDetectorAction.INSTANCE.getResponseReader().read(streamInput);
 
         assertNull("serialization should have empty issue", readResponse.getIssue());
+    }
+
+    public void testResponseToXContent() throws IOException {
+        DetectorValidationIssue issue = TestHelpers.randomDetectorValidationIssue();
+        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse(issue);
+        String validationResponse = TestHelpers
+            .xContentBuilderToString(response.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        String message = issue.getMessage();
+        System.out.println("result: " + validationResponse);
+        assertEquals("{\"detector\":{\"name\":{\"message\":\"" + message + "\"}}}", validationResponse);
     }
 }

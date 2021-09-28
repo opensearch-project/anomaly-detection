@@ -63,11 +63,9 @@ public class ValidateAnomalyDetectorResponse extends ActionResponse implements T
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder.startObject();
-
         if (issue != null) {
             xContentBuilder.field(issue.getAspect().getName(), issue);
         }
-
         return xContentBuilder.endObject();
     }
 }
