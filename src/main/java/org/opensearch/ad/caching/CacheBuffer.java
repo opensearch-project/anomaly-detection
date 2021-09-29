@@ -51,15 +51,15 @@ import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
 
 /**
- * We use a layered cache to manage active entities’ states.  We have a two-level
+ * We use a layered cache to manage active entities states.  We have a two-level
  * cache that stores active entity states in each node.  Each detector has its
- * dedicated cache that stores ten (dynamically adjustable) entities’ states per
- * node.  A detector’s hottest entities load their states in the dedicated cache.
+ * dedicated cache that stores ten (dynamically adjustable) entities states per
+ * node.  A detectors hottest entities load their states in the dedicated cache.
  * If less than 10 entities use the dedicated cache, the secondary cache can use
  * the rest of the free memory available to AD.  The secondary cache is a shared
  * memory among all detectors for the long tail.  The shared cache size is 10%
  * heap minus all of the dedicated cache consumed by single-entity and multi-entity
- * detectors.  The shared cache’s size shrinks as the dedicated cache is filled
+ * detectors.  The shared caches size shrinks as the dedicated cache is filled
  * up or more detectors are started.
  *
  * Implementation-wise, both dedicated cache and shared cache are stored in items
