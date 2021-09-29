@@ -188,7 +188,7 @@ public class PriorityCache implements EntityCache {
                 state.setModel(null);
 
                 // compute updated priority
-                // We dont want to admit the latest entity for correctness by throwing out a
+                // We don’t want to admit the latest entity for correctness by throwing out a
                 // hot entity. We have a priority (time-decayed count) sensitive to
                 // the number of hits, length of time, and sampling interval. Examples:
                 // 1) an entity from a 5-minute interval detector that is hit 5 times in the
