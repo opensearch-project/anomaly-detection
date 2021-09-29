@@ -38,7 +38,7 @@ import com.google.common.collect.ImmutableList;
  *     execution and set its state as CREATED
  *
  * <li><code>INIT</code>:
- *     After task created, coordinate node will gather all eligible node’s state and dispatch
+ *     After task created, coordinate node will gather all eligible nodes state and dispatch
  *     task to the worker node with lowest load. When the worker node receives the request,
  *     it will set the task state as INIT immediately, then start to run cold start to train
  *     RCF model. We will track the initialization progress in task.
@@ -56,7 +56,7 @@ import com.google.common.collect.ImmutableList;
  *
  * <li><code>STOPPED</code>:
  *     User can cancel a running task by stopping detector, for example, user want to tune
- *     feature and reran and don’t want current task run any more. When a historical detector
+ *     feature and reran and dont want current task run any more. When a historical detector
  *     stopped, we will mark the task flag cancelled as true, when run next piece, we will
  *     check this flag and stop the task. Then task stopped, will set its state as STOPPED
  *
