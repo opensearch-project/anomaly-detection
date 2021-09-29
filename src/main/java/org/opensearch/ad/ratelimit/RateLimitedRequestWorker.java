@@ -47,7 +47,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
 
 /**
- * HCAD can bombard Opensearch with thundering herd traffic, in which many entities
+ * HCAD can bombard Opensearch with “thundering herd” traffic, in which many entities
  * make requests that need similar Opensearch reads/writes at approximately the same
  * time. To remedy this issue we queue the requests and ensure that only a
  * limited set of requests are out for Opensearch reads/writes.
@@ -141,7 +141,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
          * document Id and the expiry time, and the queue can hold a considerable
          * volume of such requests since the size of the request is small.
          * The expiry time is the start timestamp of the next detector run.
-         * Enforcing the expiry time places an upper bound on each requests
+         * Enforcing the expiry time places an upper bound on each request’s
          * lifetime.
          *
          * @return the number of removed requests
@@ -243,10 +243,10 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
      * detector granularity and pulls off requests across similar queues in a
      * round-robin fashion.  This way, if one detector has a much higher
      * cardinality than other detectors,  the unfinished portion of that
-     * detectors workload times out, and other detectors workloads continue
+     * detector’s workload times out, and other detectors’ workloads continue
      * operating with predictable performance. For example, for loading checkpoints,
-     * HCAD pulls off 10 requests from one detector queues, issues a mget request
-     * to ES, wait for it to finish, and then does it again for other detectors
+     * HCAD pulls off 10 requests from one detector’ queues, issues a mget request
+     * to ES, wait for it to finish, and then does it again for other detectors’
      * queues.  If one queue does not have more than 10 requests, HCAD dequeues
      * the next batches of messages in the round-robin schedule.
      * @return next queue to fetch requests
