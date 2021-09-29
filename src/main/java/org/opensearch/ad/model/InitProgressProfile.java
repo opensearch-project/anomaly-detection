@@ -54,7 +54,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 
 /**
  * Profile output for detector initialization progress.  When the new detector is created, it is possible that
- * there hasn’t been enough continuous data in the index.  We need to use live data to initialize.
+ * there hasnt been enough continuous data in the index.  We need to use live data to initialize.
  * During initialization, we need to tell users progress (using a percentage), how many more
  *  shingles to go, and approximately how many minutes before the detector becomes operational
  *  if they keep their data stream continuous.
