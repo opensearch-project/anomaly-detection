@@ -38,13 +38,13 @@ import org.opensearch.threadpool.ThreadPool;
  * ColdEntityQueue is a queue to absorb cold entities. Like hot entities, we load a cold
  * entity's model checkpoint from disk, train models if the checkpoint is not found,
  * query for missed features to complete a shingle, use the models to check whether
- * the incoming feature is normal, update models, and save the detection results to disks. 
+ * the incoming feature is normal, update models, and save the detection results to disks.
  * Implementation-wise, we reuse the queues we have developed for hot entities.
  * The differences are: we process hot entities as long as resources (e.g., AD
  * thread pool has availability) are available, while we release cold entity requests
  * to other queues at a slow controlled pace. Also, cold entity requests' priority is low.
  * So only when there are no hot entity requests to process are we going to process cold
- * entity requests. 
+ * entity requests.
  *
  */
 public class ColdEntityWorker extends RateLimitedRequestWorker<EntityFeatureRequest> {

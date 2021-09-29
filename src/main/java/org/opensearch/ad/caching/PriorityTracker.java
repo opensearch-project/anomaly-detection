@@ -51,7 +51,7 @@ import org.opensearch.ad.annotation.Generated;
  * Our method maintains a time-decayed count for each entity, which allows us to
  * compare the frequencies/priorities of entities from different detectors in the
  *  stream.
- * This class contains the heavy-hitter tracking logic.  When an entity is hit,
+ * This class contains the heavy-hitter tracking logic. When an entity is hit,
  * a user calls PriorityTracker.updatePriority to update the entity's priority.
  * The user can find the most frequently occurring entities in the stream using
  * PriorityTracker.getTopNEntities.  A typical usage is listed below:
@@ -144,13 +144,13 @@ public class PriorityTracker {
 
     // key -> Priority node
     private final ConcurrentHashMap<String, PriorityNode> key2Priority;
-    // when detector is created.  Can be reset.  Unit: seconds
+    // when detector is created. Can be reset. Unit: seconds
     private long landmarkEpoch;
     // a list of priority nodes
     private final ConcurrentSkipListSet<PriorityNode> priorityList;
     // Used to get current time.
     private final Clock clock;
-    // length of seconds in one interval.  Used to compute elapsed periods
+    // length of seconds in one interval. Used to compute elapsed periods
     // since the detector has been enabled.
     private final long intervalSecs;
     // determines how fast the decay is
@@ -293,15 +293,15 @@ public class PriorityTracker {
      * Return the updated priority with new priority increment. Used when comparing
      * entities' priorities within the same detector.
      *
-     * Each detector maintains an ordered map, filled by entities's accumulated sum of g(i−L),
+     * Each detector maintains an ordered map, filled by entities's accumulated sum of g(iL),
      * which is what this function computes.
      *
      * g(n) = e^{0.125n}.  i is current period. L is the landmark: period 0 when the
      * detector is enabled. i - L measures the elapsed periods since detector starts.
      * 0.125 is the decay constant.
      *
-     * Since g(i−L) is changing and they are the same for all entities of the same detector,
-     * we can compare entities' priorities by considering the accumulated sum of g(i−L).
+     * Since g(iL) is changing and they are the same for all entities of the same detector,
+     * we can compare entities' priorities by considering the accumulated sum of g(iL).
      *
      * @param oldPriority Existing priority
      *
@@ -326,7 +326,7 @@ public class PriorityTracker {
      * periods relative to the landmark.
      *
      * When replacing an entity, we query the minimum from each ordered map and
-     * compute w(i,p) for each minimum entity by scaling the sum by g(p−L). Notice g(p−L)
+     * compute w(i,p) for each minimum entity by scaling the sum by g(pL). Notice g(pL)
      * can be different if detectors start at different timestamps. The minimum of the minimum
      * is selected to be replaced. The number of multi-entity detectors is limited (we consider
      * to support ten currently), so the computation is cheap.
