@@ -247,7 +247,7 @@ public class Entity implements ToXContentObject, Writeable {
     * Create model Id out of detector Id and attribute name and value pairs
     *
     * HCAD v1 uses the categorical value as part of the model document Id, but
-    *  OpenSearch’s document Id can be at most 512 bytes. Categorical values are
+    *  OpenSearchs document Id can be at most 512 bytes. Categorical values are
     *  usually less than 256 characters, but can grow to 32766 in theory.
     *  HCAD v1 skips an entity if the entity's name is more than 256 characters.
     *  We cannot do that in v2 as that can reject a lot of entities. To overcome
