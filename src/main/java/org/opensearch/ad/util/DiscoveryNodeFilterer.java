@@ -71,6 +71,15 @@ public class DiscoveryNodeFilterer {
         return eligibleNodes.toArray(new DiscoveryNode[0]);
     }
 
+    public DiscoveryNode[] getAllNodes() {
+        ClusterState state = this.clusterService.state();
+        final List<DiscoveryNode> nodes = new ArrayList<>();
+        for (DiscoveryNode node : state.nodes()) {
+            nodes.add(node);
+        }
+        return nodes.toArray(new DiscoveryNode[0]);
+    }
+
     public boolean isEligibleDataNode(DiscoveryNode node) {
         return eligibleNodeFilter.test(node);
     }
