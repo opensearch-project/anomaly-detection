@@ -125,6 +125,11 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         Response response = TestHelpers
             .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+        try {
+            Thread.sleep(2000);// sleep some time to resolve flaky test as it's possible not able to find detector
+        } catch (InterruptedException e) {
+            logger.error("Failed to sleep after creating detector", e);
+        }
 
         Map<String, Object> detectorJson = jsonXContent
             .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getEntity().getContent())
