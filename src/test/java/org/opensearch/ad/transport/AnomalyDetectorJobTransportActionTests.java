@@ -269,10 +269,21 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         AnomalyDetectorJobRequest request = startDetectorJobRequest(detectorId, dateRange);
         AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         assertNotNull(response.getId());
-        OpenSearchStatusException exception = expectThrows(
-            OpenSearchStatusException.class,
-            () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000)
-        );
+        OpenSearchStatusException exception = null;
+        // Add retry to solve the flaky test
+        for (int i = 0; i < 10; i++) {
+            exception = expectThrows(
+                OpenSearchStatusException.class,
+                () -> client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000)
+            );
+            if (exception.getMessage().contains(DETECTOR_IS_RUNNING)) {
+                break;
+            } else {
+                logger.error("Unexpected error happened when rerun detector", exception);
+            }
+            Thread.sleep(1000);
+        }
+        assertNotNull(exception);
         assertTrue(exception.getMessage().contains(DETECTOR_IS_RUNNING));
         assertEquals(DETECTOR_IS_RUNNING, exception.getMessage());
         Thread.sleep(20000);
