@@ -31,10 +31,8 @@ import java.util.concurrent.Semaphore;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterStateListener;
-import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes.Delta;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -42,34 +40,24 @@ import org.opensearch.gateway.GatewayService;
 
 public class ADClusterEventListener implements ClusterStateListener {
     private static final Logger LOG = LogManager.getLogger(ADClusterEventListener.class);
-    static final String NODE_NOT_APPLIED_MSG = "AD does not use master or ultrawarm nodes";
-    static final String NOT_RECOVERED_MSG = "CLuster is not recovered yet.";
+    static final String NOT_RECOVERED_MSG = "Cluster is not recovered yet.";
     static final String IN_PROGRESS_MSG = "Cluster state change in progress, return.";
-    static final String REMOVE_MODEL_MSG = "Remove model";
-    static final String NODE_ADDED_MSG = "Data node added ";
-    static final String NODE_REMOVED_MSG = "Data node removed ";
+    static final String NODE_CHANGED_MSG = "Cluster node changed";
 
     private final Semaphore inProgress;
     private HashRing hashRing;
     private final ClusterService clusterService;
-    private final DiscoveryNodeFilterer nodeFilter;
 
     @Inject
-    public ADClusterEventListener(ClusterService clusterService, HashRing hashRing, DiscoveryNodeFilterer nodeFilter) {
+    public ADClusterEventListener(ClusterService clusterService, HashRing hashRing) {
         this.clusterService = clusterService;
         this.clusterService.addListener(this);
         this.hashRing = hashRing;
         this.inProgress = new Semaphore(1);
-        this.nodeFilter = nodeFilter;
     }
 
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
-
-        if (!nodeFilter.isEligibleNode(event.state().nodes().getLocalNode())) {
-            LOG.debug(NODE_NOT_APPLIED_MSG);
-            return;
-        }
 
         if (event.state().blocks().hasGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK)) {
             LOG.info(NOT_RECOVERED_MSG);
@@ -96,27 +84,8 @@ public class ADClusterEventListener implements ClusterStateListener {
             }
             Delta delta = event.nodesDelta();
 
-            // Check whether it was a data node that was removed
-            boolean dataNodeRemoved = false;
-            for (DiscoveryNode removedNode : delta.removedNodes()) {
-                if (nodeFilter.isEligibleNode(removedNode)) {
-                    LOG.info(NODE_REMOVED_MSG + " {}", removedNode.getId());
-                    dataNodeRemoved = true;
-                    break;
-                }
-            }
-
-            // Check whether it was a data node that was added
-            boolean dataNodeAdded = false;
-            for (DiscoveryNode addedNode : delta.addedNodes()) {
-                if (nodeFilter.isEligibleNode(addedNode)) {
-                    LOG.info(NODE_ADDED_MSG + " {}", addedNode.getId());
-                    dataNodeAdded = true;
-                    break;
-                }
-            }
-
-            if (dataNodeAdded || dataNodeRemoved) {
+            if (delta.removed() || delta.added()) {
+                LOG.info(NODE_CHANGED_MSG + ", node removed: {}, node added: {}", delta.removed(), delta.added());
                 hashRing.addNodeChangeEvent();
                 hashRing
                     .buildCircles(

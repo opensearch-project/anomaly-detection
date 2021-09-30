@@ -45,7 +45,6 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -67,7 +66,6 @@ public class ADClusterEventListenerTests extends AbstractADTest {
     private ClusterState newClusterState;
     private DiscoveryNode masterNode;
     private DiscoveryNode dataNode1;
-    private DiscoveryNodeFilterer nodeFilter;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -87,7 +85,6 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         clusterService = createClusterService(threadPool);
         hashRing = mock(HashRing.class);
 
-        nodeFilter = new DiscoveryNodeFilterer(clusterService);
         masterNode = new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
         dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
         oldClusterState = ClusterState
@@ -99,7 +96,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
             .build();
 
-        listener = new ADClusterEventListener(clusterService, hashRing, nodeFilter);
+        listener = new ADClusterEventListener(clusterService, hashRing);
     }
 
     @Override
@@ -113,9 +110,9 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         listener = null;
     }
 
-    public void testIsMasterNode() {
+    public void testUnchangedClusterState() {
         listener.clusterChanged(new ClusterChangedEvent("foo", oldClusterState, oldClusterState));
-        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_NOT_APPLIED_MSG));
+        assertTrue(!testAppender.containsMessage(ADClusterEventListener.NODE_CHANGED_MSG));
     }
 
     public void testIsWarmNode() {
@@ -129,7 +126,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .blocks(ClusterBlocks.builder().addGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK))
             .build();
         listener.clusterChanged(new ClusterChangedEvent("foo", warmNodeClusterState, oldClusterState));
-        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_NOT_APPLIED_MSG));
+        assertTrue(testAppender.containsMessage(ADClusterEventListener.NOT_RECOVERED_MSG));
     }
 
     public void testNotRecovered() {
@@ -172,7 +169,8 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class));
 
         listener.clusterChanged(new ClusterChangedEvent("foo", newClusterState, oldClusterState));
-        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_ADDED_MSG));
+        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_CHANGED_MSG));
+        assertTrue(testAppender.containsMessage("node removed: false, node added: true"));
     }
 
     public void testNodeRemoved() {
@@ -189,7 +187,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .build();
 
         listener.clusterChanged(new ClusterChangedEvent("foo", newClusterState, twoDataNodeClusterState));
-        assertTrue(!testAppender.containsMessage(ADClusterEventListener.NODE_ADDED_MSG));
-        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_REMOVED_MSG));
+        assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_CHANGED_MSG));
+        assertTrue(testAppender.containsMessage("node removed: true, node added: true"));
     }
 }

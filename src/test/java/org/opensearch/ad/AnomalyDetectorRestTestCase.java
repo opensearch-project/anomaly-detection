@@ -331,6 +331,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         request.setJsonEntity(Strings.toString(builder));
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        Thread.sleep(2000); // sleep some time to resolve flaky test
     }
 
     public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile, RestClient client) throws IOException {

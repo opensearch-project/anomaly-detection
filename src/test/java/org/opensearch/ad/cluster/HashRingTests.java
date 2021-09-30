@@ -240,6 +240,7 @@ public class HashRingTests extends ADUnitTestCase {
         setupClusterAdminClient(localNode, newNode, warmNode);
 
         doReturn(new DiscoveryNode[] { localNode, newNode }).when(nodeFilter).getEligibleDataNodes();
+        doReturn(new DiscoveryNode[] { localNode, newNode, warmNode }).when(nodeFilter).getAllNodes();
         return addedNodes;
     }
 

@@ -366,6 +366,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUser()
         );
 
+        Thread.sleep(2000); // sleep some time before updating to avoid flaky test
         TestHelpers
             .makeRequest(
                 client(),

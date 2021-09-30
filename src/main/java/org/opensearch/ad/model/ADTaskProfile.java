@@ -573,4 +573,47 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
                 latestHCTaskRunTime
             );
     }
+
+    @Override
+    public String toString() {
+        return "ADTaskProfile{"
+            + "adTask="
+            + adTask
+            + ", shingleSize="
+            + shingleSize
+            + ", rcfTotalUpdates="
+            + rcfTotalUpdates
+            + ", thresholdModelTrained="
+            + thresholdModelTrained
+            + ", thresholdModelTrainingDataSize="
+            + thresholdModelTrainingDataSize
+            + ", modelSizeInBytes="
+            + modelSizeInBytes
+            + ", nodeId='"
+            + nodeId
+            + '\''
+            + ", taskId='"
+            + taskId
+            + '\''
+            + ", adTaskType='"
+            + adTaskType
+            + '\''
+            + ", detectorTaskSlots="
+            + detectorTaskSlots
+            + ", totalEntitiesInited="
+            + totalEntitiesInited
+            + ", totalEntitiesCount="
+            + totalEntitiesCount
+            + ", pendingEntitiesCount="
+            + pendingEntitiesCount
+            + ", runningEntitiesCount="
+            + runningEntitiesCount
+            + ", runningEntities="
+            + runningEntities
+            + ", latestHCTaskRunTime="
+            + latestHCTaskRunTime
+            + ", entityTaskProfiles="
+            + entityTaskProfiles
+            + '}';
+    }
 }
