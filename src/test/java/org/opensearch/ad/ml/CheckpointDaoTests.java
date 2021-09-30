@@ -766,7 +766,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             anomalyRate
         );
 
-        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        // make sure sample size is not 0 otherwise sample size won't be written to checkpoint
+        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).sampleSize(1).build());
         String json = checkpointDao.toCheckpoint(state.getModel(), modelId).get();
         assertEquals(null, JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_TRCF));
         assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_SAMPLE));
