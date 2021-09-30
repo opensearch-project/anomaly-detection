@@ -234,7 +234,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                     Map<String, Object> source = checkpoint.toIndexSource(state);
                     String modelId = state.getModelId();
 
-                    // the model state is bloated, skip
+                    // the model state is bloated or empty (empty samples and models), skip
                     if (source == null || source.isEmpty() || Strings.isEmpty(modelId)) {
                         continue;
                     }
