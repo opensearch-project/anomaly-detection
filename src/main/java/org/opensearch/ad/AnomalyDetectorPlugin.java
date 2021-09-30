@@ -735,7 +735,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 featureManager,
                 modelManager,
                 stateManager,
-                new ADClusterEventListener(clusterService, hashRing, nodeFilter),
+                new ADClusterEventListener(clusterService, hashRing),
                 adCircuitBreakerService,
                 adStats,
                 new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),

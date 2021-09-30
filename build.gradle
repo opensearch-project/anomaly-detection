@@ -508,6 +508,9 @@ List<String> jacocoExclusions = [
 
         // TODO: unified flow caused coverage drop
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
+        // TODO: fix unstable code coverage caused by null NodeClient issue
+        // https://github.com/opensearch-project/anomaly-detection/issues/241
+        'org.opensearch.ad.task.ADBatchTaskRunner'
 ]
 
 jacocoTestCoverageVerification {
