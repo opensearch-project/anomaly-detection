@@ -26,7 +26,6 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.cluster.ADClusterEventListener.REMOVE_MODEL_MSG;
 import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME;
 import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME_FOR_TEST;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
@@ -75,22 +74,22 @@ import com.google.common.collect.Sets;
 
 public class HashRing {
     private static final Logger LOG = LogManager.getLogger(HashRing.class);
-    static final String REBUILD_MSG = "Rebuild hash ring";
     // In case of frequent node join/leave, hash ring has a cooldown period say 5 minute.
     // Hash ring doesn't respond to more than 1 cluster membership changes within the
     // cool-down period.
     static final String COOLDOWN_MSG = "Hash ring doesn't respond to cluster state change within the cooldown period.";
     private static final String DEFAULT_HASH_RING_MODEL_ID = "DEFAULT_HASHRING_MODEL_ID";
+    static final String REMOVE_MODEL_MSG = "Remove model";
 
     private final int VIRTUAL_NODE_COUNT = 100;
 
     // Semaphore to control only 1 thread can build AD hash ring.
     private Semaphore buildHashRingSemaphore;
-    // This field is to track AD version of data node. Historical analysis will use this hash ring.
-    // Key: node id; Value: AD version
-    private Map<String, Version> nodeAdVersions;
+    // This field is to track AD version of all nodes.
+    // Key: node id; Value: AD node info
+    private Map<String, ADNodeInfo> nodeAdVersions;
     // This field records AD version hash ring in realtime way. Historical detection will use this hash ring.
-    // Key: AD version; Value: hash ring
+    // Key: AD version; Value: hash ring which only contains eligible data nodes
     private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> circles;
     // Track if hash ring inited or not. If not inited, the first master event will try to init it.
     private AtomicBoolean hashRingInited;
@@ -100,7 +99,7 @@ public class HashRing {
     // Cool down period before next hash ring rebuild. We need this as realtime AD needs stable hash ring.
     private volatile TimeValue coolDownPeriodForRealtimeAD;
     // This field records AD version hash ring with cooldown period. Realtime job will use this hash ring.
-    // Key: AD version; Value: hash ring
+    // Key: AD version; Value: hash ring which only contains eligible data nodes
     private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> circlesForRealtimeAD;
 
     // Record node change event. Will check if there is node change event when rebuild AD hash ring with
@@ -161,11 +160,9 @@ public class HashRing {
             return;
         }
         Set<String> removedNodeIds = delta.removed()
-            ? delta.removedNodes().stream().filter(nodeFilter::isEligibleDataNode).map(DiscoveryNode::getId).collect(Collectors.toSet())
+            ? delta.removedNodes().stream().map(DiscoveryNode::getId).collect(Collectors.toSet())
             : null;
-        Set<String> addedNodeIds = delta.added()
-            ? delta.addedNodes().stream().filter(nodeFilter::isEligibleDataNode).map(DiscoveryNode::getId).collect(Collectors.toSet())
-            : null;
+        Set<String> addedNodeIds = delta.added() ? delta.addedNodes().stream().map(DiscoveryNode::getId).collect(Collectors.toSet()) : null;
         buildCircles(removedNodeIds, addedNodeIds, listener);
     }
 
@@ -181,14 +178,14 @@ public class HashRing {
             actionListener.onResponse(false);
             return;
         }
-        DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
-        Set<String> eligibleNodeIds = new HashSet<>();
-        for (DiscoveryNode node : eligibleDataNodes) {
-            eligibleNodeIds.add(node.getId());
+        DiscoveryNode[] allNodes = nodeFilter.getAllNodes();
+        Set<String> nodeIds = new HashSet<>();
+        for (DiscoveryNode node : allNodes) {
+            nodeIds.add(node.getId());
         }
         Set<String> currentNodeIds = nodeAdVersions.keySet();
-        Set<String> removedNodeIds = Sets.difference(currentNodeIds, eligibleNodeIds);
-        Set<String> addedNodeIds = Sets.difference(eligibleNodeIds, currentNodeIds);
+        Set<String> removedNodeIds = Sets.difference(currentNodeIds, nodeIds);
+        Set<String> addedNodeIds = Sets.difference(nodeIds, currentNodeIds);
         buildCircles(removedNodeIds, addedNodeIds, actionListener);
     }
 
@@ -243,9 +240,13 @@ public class HashRing {
         try {
             DiscoveryNode localNode = clusterService.localNode();
             if (removedNodeIds != null && removedNodeIds.size() > 0) {
-                LOG.info("Remove nodes from AD version hash ring: {}", Arrays.toString(removedNodeIds.toArray(new String[0])));
+                LOG.info("Node removed: {}", Arrays.toString(removedNodeIds.toArray(new String[0])));
                 for (String nodeId : removedNodeIds) {
-                    removeNodeFromCircles(nodeId);
+                    ADNodeInfo nodeInfo = nodeAdVersions.remove(nodeId);
+                    if (nodeInfo != null && nodeInfo.isEligibleDataNode()) {
+                        removeNodeFromCircles(nodeId, nodeInfo.getAdVersion());
+                        LOG.info("Remove data node from AD version hash ring: {}", nodeId);
+                    }
                 }
             }
             Set<String> allAddedNodes = new HashSet<>();
@@ -253,7 +254,7 @@ public class HashRing {
             if (addedNodeIds != null) {
                 allAddedNodes.addAll(addedNodeIds);
             }
-            if (nodeFilter.isEligibleNode(localNode) && !nodeAdVersions.containsKey(localNode.getId())) {
+            if (!nodeAdVersions.containsKey(localNode.getId())) {
                 allAddedNodes.add(localNode.getId());
             }
             if (allAddedNodes.size() == 0) {
@@ -264,7 +265,7 @@ public class HashRing {
                 return;
             }
 
-            LOG.info("Add nodes to AD version hash ring: {}", Arrays.toString(allAddedNodes.toArray(new String[0])));
+            LOG.info("Node added: {}", Arrays.toString(allAddedNodes.toArray(new String[0])));
             NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
             nodesInfoRequest.nodesIds(allAddedNodes.toArray(new String[0]));
             nodesInfoRequest.clear().addMetric(NodesInfoRequest.Metric.PLUGINS.metricName());
@@ -277,19 +278,20 @@ public class HashRing {
                     for (Map.Entry<String, NodeInfo> entry : nodesMap.entrySet()) {
                         NodeInfo nodeInfo = entry.getValue();
                         PluginsAndModules plugins = nodeInfo.getInfo(PluginsAndModules.class);
-                        if (plugins == null) {
-                            continue;
-                        }
                         DiscoveryNode curNode = nodeInfo.getNode();
-                        if (!nodeFilter.isEligibleDataNode(curNode)) {
+                        if (plugins == null) {
                             continue;
                         }
                         TreeMap<Integer, DiscoveryNode> circle = null;
                         for (PluginInfo pluginInfo : plugins.getPluginInfos()) {
                             if (AD_PLUGIN_NAME.equals(pluginInfo.getName()) || AD_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
                                 Version version = ADVersionUtil.fromString(pluginInfo.getVersion());
-                                circle = circles.computeIfAbsent(version, key -> new TreeMap<>());
-                                nodeAdVersions.put(curNode.getId(), ADVersionUtil.fromString(pluginInfo.getVersion()));
+                                boolean eligibleNode = nodeFilter.isEligibleNode(curNode);
+                                if (eligibleNode) {
+                                    circle = circles.computeIfAbsent(version, key -> new TreeMap<>());
+                                    LOG.info("Add data node to AD version hash ring: {}", curNode.getId());
+                                }
+                                nodeAdVersions.put(curNode.getId(), new ADNodeInfo(version, eligibleNode));
                                 break;
                             }
                         }
@@ -300,7 +302,7 @@ public class HashRing {
                         }
                     }
                 }
-                LOG.info("All nodes in AD version hash ring: {}", nodeAdVersions);
+                LOG.info("All nodes with known AD version: {}", nodeAdVersions);
 
                 // rebuild AD version hash ring with cooldown after all new node added.
                 rebuildCirclesForRealtimeAD();
@@ -331,8 +333,7 @@ public class HashRing {
         }
     }
 
-    private void removeNodeFromCircles(String nodeId) {
-        Version adVersion = this.nodeAdVersions.remove(nodeId);
+    private void removeNodeFromCircles(String nodeId, Version adVersion) {
         if (adVersion != null) {
             TreeMap<Integer, DiscoveryNode> circle = this.circles.get(adVersion);
             List<Integer> deleted = new ArrayList<>();
@@ -534,7 +535,8 @@ public class HashRing {
      * @return AD version
      */
     public Version getAdVersion(String nodeId) {
-        return nodeAdVersions.get(nodeId);
+        ADNodeInfo adNodeInfo = nodeAdVersions.get(nodeId);
+        return adNodeInfo == null ? null : adNodeInfo.getAdVersion();
     }
 
     /**
@@ -551,14 +553,14 @@ public class HashRing {
             return Optional.of(clusterService.localNode());
         }
         String ipAddress = getIpAddress(address);
-        DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
+        DiscoveryNode[] allNodes = nodeFilter.getAllNodes();
 
         // Can't handle this edge case for BWC of AD1.0: mixed cluster with AD1.0 and Version after 1.1.
         // Start multiple OpenSearch processes on same IP, some run AD 1.0, some run new AD
         // on or after 1.1. As we ignore port number in transport address, just look for node
         // with IP like "127.0.0.1", so it's possible that we get wrong node as all nodes have
         // same IP.
-        for (DiscoveryNode node : eligibleDataNodes) {
+        for (DiscoveryNode node : allNodes) {
             if (getIpAddress(node.getAddress()).equals(ipAddress)) {
                 return Optional.ofNullable(node);
             }
