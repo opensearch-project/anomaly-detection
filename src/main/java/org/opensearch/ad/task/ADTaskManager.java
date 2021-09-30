@@ -2695,7 +2695,7 @@ public class ADTaskManager {
                     adTaskCacheManager.cleanExpiredHCBatchTaskRunStates();
                 }
             );
-
+        logger.debug("Local AD task profile of detector {}: {}", detectorId, detectorTaskProfile);
         return detectorTaskProfile;
     }
 
