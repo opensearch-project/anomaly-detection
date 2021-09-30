@@ -541,6 +541,9 @@ public class CheckpointDao {
                     }
 
                     Optional<ThresholdedRandomCutForest> convertedTRCF = convertToTRCF(rcf, threshold);
+                    // if checkpoint is corrupted (e.g., some unexpected checkpoint when we missed
+                    // the mark in backward compatibility), we are not gonna load the model part
+                    // the model will have to use live data to initialize
                     if (convertedTRCF.isPresent()) {
                         trcf = convertedTRCF.get();
                     }
