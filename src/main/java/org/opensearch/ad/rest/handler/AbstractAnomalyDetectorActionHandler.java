@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
@@ -102,6 +87,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
     public static final String NOT_FOUND_ERR_MSG = "Cannot found the categorical field %s";
+    public static final String DUPLICATE_DETECTOR_MSG = "Cannot create anomaly detector with name [%s] as it's already used by detector %s";
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
     public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has invalid query";
     public static final String FEATURE_WITH_EMPTY_DATA_MSG = FEATURE_INVALID_MSG_PREFIX + " returning empty aggregated data: ";
@@ -542,7 +528,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             String errorMsg = String
                 .format(
                     Locale.ROOT,
-                    "Cannot create anomaly detector with name [%s] as it's already used by detector %s",
+                    DUPLICATE_DETECTOR_MSG,
                     name,
                     Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
                 );
@@ -730,92 +716,4 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             }));
         }
     }
-
-    // public class Indexer<T> {
-    // private T t;
-    //
-    // public void set(T t) {this.t = t;}
-    //
-    // public T get() {return t;}
-    //
-    // protected void indexAnomalyDetector(String detectorId) throws IOException {
-    // AnomalyDetector detector = new AnomalyDetector(
-    // anomalyDetector.getDetectorId(),
-    // anomalyDetector.getVersion(),
-    // anomalyDetector.getName(),
-    // anomalyDetector.getDescription(),
-    // anomalyDetector.getTimeField(),
-    // anomalyDetector.getIndices(),
-    // anomalyDetector.getFeatureAttributes(),
-    // anomalyDetector.getFilterQuery(),
-    // anomalyDetector.getDetectionInterval(),
-    // anomalyDetector.getWindowDelay(),
-    // anomalyDetector.getShingleSize(),
-    // anomalyDetector.getUiMetadata(),
-    // anomalyDetector.getSchemaVersion(),
-    // Instant.now(),
-    // anomalyDetector.getCategoryField(),
-    // user
-    // );
-    // IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
-    // .setRefreshPolicy(refreshPolicy)
-    // .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
-    // .setIfSeqNo(seqNo)
-    // .setIfPrimaryTerm(primaryTerm)
-    // .timeout(requestTimeout);
-    // if (detectorId != null) {
-    // indexRequest.id(detectorId);
-    // }
-    //
-    //
-    // client.index(indexRequest, new ActionListener<IndexResponse>() {
-    // @Override
-    // public void onResponse(IndexResponse indexResponse) {
-    // String errorMsg = checkShardsFailure(indexResponse);
-    // if (errorMsg != null) {
-    // listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
-    // return;
-    // }
-    // listener
-    // .onResponse(
-    // (T) new IndexAnomalyDetectorResponse(
-    // indexResponse.getId(),
-    // indexResponse.getVersion(),
-    // indexResponse.getSeqNo(),
-    // indexResponse.getPrimaryTerm(),
-    // detector,
-    // RestStatus.CREATED
-    // )
-    // );
-    // }
-    //
-    // @Override
-    // public void onFailure(Exception e) {
-    // logger.warn("Failed to update detector", e);
-    // if (e.getMessage() != null && e.getMessage().contains("version conflict")) {
-    // listener
-    // .onFailure(
-    // new IllegalArgumentException(
-    // "There was a problem updating the historical detector:[" + detectorId + "]")
-    // );
-    // } else {
-    // listener.onFailure(e);
-    // }
-    // }
-    // });
-    // }
-    //
-    //
-    // protected String checkShardsFailure(IndexResponse response) {
-    // StringBuilder failureReasons = new StringBuilder();
-    // if (response.getShardInfo().getFailed() > 0) {
-    // for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
-    // failureReasons.append(failure);
-    // }
-    // return failureReasons.toString();
-    // }
-    // return null;
-    // }
-    //
-    // }
 }
