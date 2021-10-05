@@ -100,7 +100,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             searchFeatureDao,
             true
         );
-        String normalizedTypes = StringUtils.isBlank(typeStr) ? ValidationAspect.MODEL.getName() : typeStr.trim().replaceAll("\\s", "");
+        String normalizedTypes = StringUtils.isBlank(typeStr) ? ValidationAspect.DETECTOR.getName() : typeStr.trim().replaceAll("\\s", "");
         Set<String> typesInRequest = new HashSet<>(Arrays.asList(normalizedTypes.split(",")));
 
         this.aspects = Sets
