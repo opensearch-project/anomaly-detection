@@ -13,6 +13,9 @@ package org.opensearch.ad.model;
 
 import org.opensearch.ad.Name;
 
+import java.util.Collection;
+import java.util.Set;
+
 public enum DetectorValidationIssueType implements Name {
     NAME(AnomalyDetector.NAME_FIELD),
     TIMEFIELD_FIELD(AnomalyDetector.TIMEFIELD_FIELD),
@@ -58,7 +61,7 @@ public enum DetectorValidationIssueType implements Name {
         }
     }
 
-    // public static Set<DetectorValidationIssueType> getNames(Collection<String> names) {
-    // return Name.getNameFromCollection(names, DetectorValidationIssueType::getName);
-    // }
+     public static Set<DetectorValidationIssueType> getNames(Collection<String> names) {
+     return Name.getNameFromCollection(names, DetectorValidationIssueType::getName);
+     }
 }
