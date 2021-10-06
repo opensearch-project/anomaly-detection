@@ -737,6 +737,9 @@ public final class AnomalyDetectorSettings {
     // preview timeout in terms of milliseconds
     public static final long PREVIEW_TIMEOUT_IN_MILLIS = 60_000;
 
+    // search top anomaly high cardinality results in terms of milliseconds
+    public static final long TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS = 60_000;
+
     // ======================================
     // cleanup resouce setting
     // ======================================

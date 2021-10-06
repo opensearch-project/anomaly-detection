@@ -50,7 +50,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
 
     public static final String DETECTOR_ID_FIELD = "detector_id";
     public static final String ANOMALY_SCORE_FIELD = "anomaly_score";
-    private static final String ANOMALY_GRADE_FIELD = "anomaly_grade";
+    public static final String ANOMALY_GRADE_FIELD = "anomaly_grade";
     private static final String CONFIDENCE_FIELD = "confidence";
     private static final String FEATURE_DATA_FIELD = "feature_data";
     private static final String DATA_START_TIME_FIELD = "data_start_time";
