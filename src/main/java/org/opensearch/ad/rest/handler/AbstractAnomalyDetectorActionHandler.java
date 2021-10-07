@@ -86,7 +86,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document found in indices: ";
     public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
-    public static final String NOT_FOUND_ERR_MSG = "Cannot found the categorical field %s";
+    public static final String NOT_FOUND_ERR_MSG = "Cannot find the categorical field %s";
     public static final String DUPLICATE_DETECTOR_MSG = "Cannot create anomaly detector with name [%s] as it's already used by detector %s";
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
     public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has invalid query";
