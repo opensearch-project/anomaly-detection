@@ -2376,7 +2376,13 @@ public class ADTaskManager {
             } else {
                 logger.error("Failed to update AD task {}, status: {}", taskId, response.status());
             }
-        }, e -> { logger.error("Failed to update task1: " + taskId, e); }));
+        }, e -> {
+            if (e instanceof LimitExceededException && e.getMessage().contains(HC_DETECTOR_TASK_IS_UPDATING)) {
+                logger.warn("AD HC detector task is updating, skip this update for task: " + taskId);
+            } else {
+                logger.error("Failed to update AD HC detector task: " + taskId, e);
+            }
+        }));
     }
 
     /**
