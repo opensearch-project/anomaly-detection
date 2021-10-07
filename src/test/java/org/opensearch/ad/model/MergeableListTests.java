@@ -11,10 +11,10 @@
 
 package org.opensearch.ad.model;
 
-import org.opensearch.ad.AbstractADTest;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import org.opensearch.ad.AbstractADTest;
 
 public class MergeableListTests extends AbstractADTest {
 

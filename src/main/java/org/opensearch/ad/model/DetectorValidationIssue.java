@@ -77,6 +77,10 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         this.suggestion = suggestion;
     }
 
+    public DetectorValidationIssue(ValidationAspect aspect, DetectorValidationIssueType type, String message) {
+        this(aspect, type, message, null, null);
+    }
+
     public DetectorValidationIssue(StreamInput input) throws IOException {
         aspect = input.readEnum(ValidationAspect.class);
         type = input.readEnum(DetectorValidationIssueType.class);

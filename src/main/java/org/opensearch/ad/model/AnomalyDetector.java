@@ -71,6 +71,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String TYPE = "_doc";
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
+    public static final String PARSING_ISSUE = "query_parsing";
+
 
     public static final String NAME_FIELD = "name";
     private static final String DESCRIPTION_FIELD = "description";

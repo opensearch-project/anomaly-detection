@@ -1264,67 +1264,73 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testValidateAnomalyDetectorWithNoTimeField() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
-
-        Exception ex = expectThrows(
-                ResponseException.class,
-                () -> TestHelpers
-                        .makeRequest(
-                                client(),
-                                "POST",
-                                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
-                                ImmutableMap.of(),
-                                TestHelpers
-                                        .toHttpEntity(
-                                                "{\"name\":\""
-                                                        + "test detector"
-                                                        + "\",\"description\":\"Test detector\","
-                                                        + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
-                                                        + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
-                                                        + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
-                                                        + "{\"total_error\":"
-                                                        + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
-                                                        + "{\"field\":"
-                                                        + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
-                                                        + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
-                                                        + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}"
-                                        ),
-                                null
-                        )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.NULL_TIME_FIELD));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"name\":\""
+                            + "test detector"
+                            + "\",\"description\":\"Test detector\","
+                            + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
+                            + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
+                            + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
+                            + "{\"total_error\":"
+                            + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                            + "{\"field\":"
+                            + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                            + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals("Validation response returned", RestStatus.OK, TestHelpers.restStatus(resp));
+        assertEquals("time field missing", CommonErrorMessages.NULL_TIME_FIELD, messageMap.get("time_field").get("message"));
     }
 
     public void testValidateAnomalyDetectorWithIncorrectShingleSize() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
-        Exception ex = expectThrows(
-                ResponseException.class,
-                () -> TestHelpers
-                .makeRequest(
-                        client(),
-                        "POST",
-                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
-                        ImmutableMap.of(),
-                        TestHelpers
-                            .toHttpEntity(
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
                         "{\"name\":\""
-                                + "test detector"
-                                + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
-                                + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
-                                + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
-                                + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
-                                + "{\"total_error\":"
-                                + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
-                                + "{\"field\":"
-                                + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
-                                + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
-                                + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},"
-                                +"\"shingle_size\": 2000}"
-                                ),
-                        null
-                ));
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.INVALID_SHINGLE_SIZE));
+                            + "test detector"
+                            + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
+                            + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
+                            + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
+                            + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
+                            + "{\"total_error\":"
+                            + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                            + "{\"field\":"
+                            + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                            + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},"
+                            + "\"shingle_size\": 2000}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals("Validation returned message regarding incorrect shingle size", RestStatus.OK, TestHelpers.restStatus(resp));
+        String errorMessage = "Shingle size must be a positive integer no larger than "
+            + AnomalyDetectorSettings.MAX_SHINGLE_SIZE
+            + ". Got 2000";
+        assertEquals("shingle size error message", errorMessage, messageMap.get("shingle_size").get("message"));
     }
-
 
     public void testValidateAnomalyDetectorWithNoIssue() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
