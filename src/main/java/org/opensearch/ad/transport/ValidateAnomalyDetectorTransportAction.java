@@ -29,10 +29,13 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
+import org.opensearch.ad.model.DetectorValidationIssueType;
+import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -43,6 +46,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -130,6 +134,7 @@ public class ValidateAnomalyDetectorTransportAction extends
                 listener.onResponse(new ValidateAnomalyDetectorResponse(issue));
                 return;
             }
+            logger.error(exception);
             listener.onFailure(exception);
         });
         checkIndicesAndExecute(detector.getIndices(), () -> {
@@ -204,7 +209,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         String[] subIssueMessagesSuffix = errorMessage.split(featureSubIssueMessageSeparator);
 
         if (subIssueMessagesSuffix.length == 1) {
-            result.put(getFeatureNameFromErrorMessage(errorMessage), getFeatureIssueFromErrorMessage(errorMessage));
+            result.put(errorMessage.split(": ")[1], errorMessage.split(": ")[0]);
             return result;
         }
         for (int i = 0; i < subIssueMessagesSuffix.length; i++) {
@@ -212,34 +217,19 @@ public class ValidateAnomalyDetectorTransportAction extends
                 // element at 0 doesn't have FEATURE_INVALID_MSG_PREFIX removed
                 result
                     .put(
-                        getFeatureNameFromErrorMessage(subIssueMessagesSuffix[i]),
-                        getFeatureIssueFromErrorMessage(subIssueMessagesSuffix[i])
+                            subIssueMessagesSuffix[i].split(": ")[1],
+                            subIssueMessagesSuffix[i].split(": ")[0]
                     );
                 continue;
             }
             String errorMessageForSingleFeature = FEATURE_INVALID_MSG_PREFIX + subIssueMessagesSuffix[i];
             result
                 .put(
-                    getFeatureNameFromErrorMessage(errorMessageForSingleFeature),
-                    getFeatureIssueFromErrorMessage(errorMessageForSingleFeature)
+                        errorMessageForSingleFeature.split(": ")[1],
+                        errorMessageForSingleFeature.split(": ")[0]
                 );
         }
         return result;
-    }
-
-    private String getFeatureNameFromErrorMessage(String errorMessage) {
-        int colonIndex = errorMessage.indexOf(": ");
-        // start index of featureName is colonIndex + 2, because there is space
-        String featureName = errorMessage.substring(colonIndex + 2);
-        return featureName;
-    }
-
-    private String getFeatureIssueFromErrorMessage(String errorMessage) {
-        int colonIndex = errorMessage.indexOf(": ");
-        // start index of message is 0, and its ending index is colonIndex
-        String message = errorMessage.substring(0, colonIndex);
-
-        return message;
     }
 
     private void checkIndicesAndExecute(
@@ -251,8 +241,20 @@ public class ValidateAnomalyDetectorTransportAction extends
             .indices(indices.toArray(new String[0]))
             .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
         client.search(searchRequest, ActionListener.wrap(r -> function.execute(), e -> {
-            logger.error(e);
-            listener.onFailure(e);
+            if (e instanceof IndexNotFoundException) {
+                // IndexNotFoundException is converted to a ADValidationException that gets
+                // parsed to a DetectorValidationIssue that is returned to
+                // the user as a response indicating index doesn't exist
+                DetectorValidationIssue issue = parseADValidationException(
+                    new ADValidationException(
+                        CommonErrorMessages.INDEX_NOT_FOUND,
+                        DetectorValidationIssueType.INDICES,
+                        ValidationAspect.DETECTOR
+                    )
+                );
+                listener.onResponse(new ValidateAnomalyDetectorResponse(issue));
+                return;
+            }
         }));
     }
 }

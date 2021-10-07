@@ -54,7 +54,6 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
         String validationResponse = TestHelpers
             .xContentBuilderToString(response.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         String message = issue.getMessage();
-        System.out.println("result: " + validationResponse);
         assertEquals("{\"detector\":{\"name\":{\"message\":\"" + message + "\"}}}", validationResponse);
     }
 }

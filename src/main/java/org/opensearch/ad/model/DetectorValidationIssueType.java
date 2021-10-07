@@ -11,10 +11,10 @@
 
 package org.opensearch.ad.model;
 
-import org.opensearch.ad.Name;
-
 import java.util.Collection;
 import java.util.Set;
+
+import org.opensearch.ad.Name;
 
 public enum DetectorValidationIssueType implements Name {
     NAME(AnomalyDetector.NAME_FIELD),
@@ -24,7 +24,8 @@ public enum DetectorValidationIssueType implements Name {
     FEATURE_ATTRIBUTES(AnomalyDetector.FEATURE_ATTRIBUTES_FIELD),
     DETECTION_INTERVAL(AnomalyDetector.DETECTION_INTERVAL_FIELD),
     CATEGORY(AnomalyDetector.CATEGORY_FIELD),
-    FILTER_QUERY(AnomalyDetector.FILTER_QUERY_FIELD);
+    FILTER_QUERY(AnomalyDetector.FILTER_QUERY_FIELD),
+    PARSING_ISSUE(AnomalyDetector.PARSING_ISSUE);
 
     private String name;
 
@@ -56,12 +57,14 @@ public enum DetectorValidationIssueType implements Name {
                 return CATEGORY;
             case AnomalyDetector.FILTER_QUERY_FIELD:
                 return FILTER_QUERY;
+            case AnomalyDetector.PARSING_ISSUE:
+                return PARSING_ISSUE;
             default:
                 throw new IllegalArgumentException("Unsupported validation type");
         }
     }
 
-     public static Set<DetectorValidationIssueType> getNames(Collection<String> names) {
-     return Name.getNameFromCollection(names, DetectorValidationIssueType::getName);
-     }
+    public static Set<DetectorValidationIssueType> getNames(Collection<String> names) {
+        return Name.getNameFromCollection(names, DetectorValidationIssueType::getName);
+    }
 }

@@ -20,17 +20,27 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.DetectorValidationIssue;
+import org.opensearch.ad.model.DetectorValidationIssueType;
+import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.ParsingException;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentParseException;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestToXContentListener;
 
 import com.google.common.collect.ImmutableList;
@@ -73,6 +83,18 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             );
     }
 
+    protected void sendAnomalyDetectorValidationParseResponse(DetectorValidationIssue issue, RestChannel channel) throws IOException {
+        try {
+            BytesRestResponse restResponse = new BytesRestResponse(
+                RestStatus.OK,
+                new ValidateAnomalyDetectorResponse(issue).toXContent(channel.newBuilder())
+            );
+            channel.sendResponse(restResponse);
+        } catch (Exception e) {
+            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, e.getMessage()));
+        }
+    }
+
     @Override
     protected BaseRestHandler.RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
@@ -80,19 +102,42 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         }
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-
-        AnomalyDetector detector = AnomalyDetector.parse(parser);
-        String typesStr = request.param(TYPE);
-
-        ValidateAnomalyDetectorRequest validateAnomalyDetectorRequest = new ValidateAnomalyDetectorRequest(
-            detector,
-            typesStr,
-            maxSingleEntityDetectors,
-            maxMultiEntityDetectors,
-            maxAnomalyFeatures,
-            requestTimeout
-        );
-        return channel -> client
-            .execute(ValidateAnomalyDetectorAction.INSTANCE, validateAnomalyDetectorRequest, new RestToXContentListener<>(channel));
+        return channel -> {
+            AnomalyDetector detector;
+            try {
+                detector = AnomalyDetector.parse(parser);
+            } catch (Exception ex) {
+                if (ex instanceof ADValidationException) {
+                    ADValidationException ADException = (ADValidationException) ex;
+                    DetectorValidationIssue issue = new DetectorValidationIssue(
+                        ADException.getAspect(),
+                        ADException.getType(),
+                        ADException.getMessage()
+                    );
+                    sendAnomalyDetectorValidationParseResponse(issue, channel);
+                    return;
+                } else if (ex instanceof ParsingException || ex instanceof XContentParseException) {
+                    DetectorValidationIssue issueParsing = new DetectorValidationIssue(
+                        ValidationAspect.DETECTOR,
+                        DetectorValidationIssueType.PARSING_ISSUE,
+                        ex.getMessage()
+                    );
+                    sendAnomalyDetectorValidationParseResponse(issueParsing, channel);
+                    return;
+                } else {
+                    throw ex;
+                }
+            }
+            String typesStr = request.param(TYPE);
+            ValidateAnomalyDetectorRequest validateAnomalyDetectorRequest = new ValidateAnomalyDetectorRequest(
+                detector,
+                typesStr,
+                maxSingleEntityDetectors,
+                maxMultiEntityDetectors,
+                maxAnomalyFeatures,
+                requestTimeout
+            );
+            client.execute(ValidateAnomalyDetectorAction.INSTANCE, validateAnomalyDetectorRequest, new RestToXContentListener<>(channel));
+        };
     }
 }
