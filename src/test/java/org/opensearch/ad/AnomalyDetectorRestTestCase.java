@@ -50,6 +50,8 @@ import com.google.gson.JsonArray;
 
 public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
+    public static final int MAX_RETRY_TIMES = 10;
+
     @Override
     protected NamedXContentRegistry xContentRegistry() {
         return new NamedXContentRegistry(ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY));
@@ -125,33 +127,29 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         Response response = TestHelpers
             .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
-        try {
-            Thread.sleep(2000);// sleep some time to resolve flaky test as it's possible not able to find detector
-        } catch (InterruptedException e) {
-            logger.error("Failed to sleep after creating detector", e);
-        }
 
         Map<String, Object> detectorJson = jsonXContent
             .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getEntity().getContent())
             .map();
-        return new AnomalyDetector(
-            (String) detectorJson.get("_id"),
-            ((Integer) detectorJson.get("_version")).longValue(),
-            detector.getName(),
-            detector.getDescription(),
-            detector.getTimeField(),
-            detector.getIndices(),
-            detector.getFeatureAttributes(),
-            detector.getFilterQuery(),
-            detector.getDetectionInterval(),
-            detector.getWindowDelay(),
-            detector.getShingleSize(),
-            detector.getUiMetadata(),
-            detector.getSchemaVersion(),
-            detector.getLastUpdateTime(),
-            detector.getCategoryField(),
-            detector.getUser()
-        );
+        String detectorId = (String) detectorJson.get("_id");
+        AnomalyDetector detectorInIndex = null;
+        int i = 0;
+        do {
+            i++;
+            try {
+                detectorInIndex = getAnomalyDetector(detectorId, client);
+                assertNotNull(detectorInIndex);
+                break;
+            } catch (Exception e) {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ex) {
+                    logger.error("Failed to sleep after creating detector", ex);
+                }
+            }
+        } while (i < MAX_RETRY_TIMES);
+        assertNotNull("Can't get anomaly detector from index", detectorInIndex);
+        return detectorInIndex;
     }
 
     protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, RestClient client) throws IOException {
