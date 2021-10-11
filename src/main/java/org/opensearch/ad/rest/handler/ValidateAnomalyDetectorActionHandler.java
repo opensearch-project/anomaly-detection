@@ -107,6 +107,9 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             .union(DEFAULT_VALIDATION_ASPECTS, ValidationAspect.getNames(Sets.intersection(ALL_VALIDATION_ASPECTS_STRS, typesInRequest)));
     }
 
+    // All current validation that is done in the AbstractAnomalyDetectorActionHandler that is called
+    // by super.start() involves validation checks against the detector configurations,
+    // any issues raised here would block user from creating the anomaly detector.
     @Override
     public void start() throws IOException {
         super.start();
@@ -115,6 +118,11 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         }
     }
 
+    // Future additional implementation of the validation API will include model validation
+    // which are for non-blocker issues meaning detector creation can be executed after
+    // and only suggestions are given on how to improve configs.
+    // PR outlining the blocker level validations already implemented above:
+    // https://github.com/opensearch-project/anomaly-detection/pull/231
     // TODO: add implementation for model config validation
     private void validateModelConfig() {
 

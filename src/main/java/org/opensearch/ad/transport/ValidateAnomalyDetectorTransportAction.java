@@ -90,7 +90,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         User user = getUserContext(client);
         AnomalyDetector anomalyDetector = request.getDetector();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, listener, detector -> validateExecute(request, user, context, listener));
+            resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener));
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
@@ -100,7 +100,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     private void resolveUserAndExecute(
         User requestedUser,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
-        Consumer<AnomalyDetector> function
+        AnomalyDetectorFunction function
     ) {
         try {
             // Check if user has backend roles
@@ -109,7 +109,7 @@ public class ValidateAnomalyDetectorTransportAction extends
                 return;
             }
             // Validate Detector
-            function.accept(null);
+            function.execute();
         } catch (Exception e) {
             listener.onFailure(e);
         }
@@ -153,7 +153,7 @@ public class ValidateAnomalyDetectorTransportAction extends
                     xContentRegistry,
                     user,
                     searchFeatureDao,
-                    request.getTypeStr()
+                    request.getValidationType()
                 );
                 try {
                     handler.start();
@@ -171,7 +171,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         String originalErrorMessage = exception.getMessage();
         String errorMessage;
         Map<String, String> subIssues = null;
-        Object suggestion = null;
+        String suggestion = null;
         switch (exception.getType()) {
             case FEATURE_ATTRIBUTES:
                 int firstLeftBracketIndex = originalErrorMessage.indexOf("[");
