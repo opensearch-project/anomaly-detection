@@ -72,6 +72,7 @@ public class DoorKeeper implements MaintenanceState, ExpiringState {
 
     @Override
     public boolean expired(Duration stateTtl) {
-        return expired(lastAccessTime, stateTtl, clock.instant());
+        // ignore stateTtl since we have customized resetInterval
+        return expired(lastAccessTime, resetInterval, clock.instant());
     }
 }
