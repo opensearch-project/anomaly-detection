@@ -43,28 +43,28 @@ public enum DetectorValidationIssueType implements Name {
         return name;
     }
 
-    public static DetectorValidationIssueType getName(String name) {
-        switch (name) {
-            case AnomalyDetector.NAME_FIELD:
-                return NAME;
-            case AnomalyDetector.INDICES_FIELD:
-                return INDICES;
-            case AnomalyDetector.FEATURE_ATTRIBUTES_FIELD:
-                return FEATURE_ATTRIBUTES;
-            case AnomalyDetector.DETECTION_INTERVAL_FIELD:
-                return DETECTION_INTERVAL;
-            case AnomalyDetector.CATEGORY_FIELD:
-                return CATEGORY;
-            case AnomalyDetector.FILTER_QUERY_FIELD:
-                return FILTER_QUERY;
-            case AnomalyDetector.PARSING_ISSUE:
-                return PARSING_ISSUE;
-            default:
-                throw new IllegalArgumentException("Unsupported validation type");
-        }
-    }
-
-    public static Set<DetectorValidationIssueType> getNames(Collection<String> names) {
-        return Name.getNameFromCollection(names, DetectorValidationIssueType::getName);
-    }
+//    public static DetectorValidationIssueType getName(String name) {
+//        switch (name) {
+//            case AnomalyDetector.NAME_FIELD:
+//                return NAME;
+//            case AnomalyDetector.INDICES_FIELD:
+//                return INDICES;
+//            case AnomalyDetector.FEATURE_ATTRIBUTES_FIELD:
+//                return FEATURE_ATTRIBUTES;
+//            case AnomalyDetector.DETECTION_INTERVAL_FIELD:
+//                return DETECTION_INTERVAL;
+//            case AnomalyDetector.CATEGORY_FIELD:
+//                return CATEGORY;
+//            case AnomalyDetector.FILTER_QUERY_FIELD:
+//                return FILTER_QUERY;
+//            case AnomalyDetector.PARSING_ISSUE:
+//                return PARSING_ISSUE;
+//            default:
+//                throw new IllegalArgumentException("Unsupported validation type");
+//        }
+//    }
+//
+//    public static Set<DetectorValidationIssueType> getNames(Collection<String> names) {
+//        return Name.getNameFromCollection(names, DetectorValidationIssueType::getName);
+//    }
 }

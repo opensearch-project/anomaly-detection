@@ -72,6 +72,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
     public static final String PARSING_ISSUE = "query_parsing";
+    public static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
+    public static final Integer MAX_DETECTOR_NAME_SIZE = 64;
+
 
 
     public static final String NAME_FIELD = "name";
@@ -153,8 +156,18 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     ) {
         if (Strings.isBlank(name)) {
             throw new ADValidationException("Detector name should be set", DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
+        } else if (!name.matches(NAME_REGEX)) {
+            throw new ADValidationException(
+                    "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen) and _(underscore)",
+                    DetectorValidationIssueType.NAME,
+                    ValidationAspect.DETECTOR);
+        } else if (name.length() > MAX_DETECTOR_NAME_SIZE) {
+            throw new ADValidationException(
+                    "Name is too big maximum limit is " + MAX_DETECTOR_NAME_SIZE,
+                    DetectorValidationIssueType.NAME,
+                    ValidationAspect.DETECTOR);
         }
-        if (timeField == null) {
+        if (Strings.isBlank(timeField)) {
             throw new ADValidationException(
                 "Time field should be set",
                 DetectorValidationIssueType.TIMEFIELD_FIELD,

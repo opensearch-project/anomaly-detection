@@ -23,7 +23,7 @@ import org.opensearch.common.unit.TimeValue;
 public class ValidateAnomalyDetectorRequest extends ActionRequest {
 
     private final AnomalyDetector detector;
-    private final String typeStr;
+    private final String validationType;
     private final Integer maxSingleEntityAnomalyDetectors;
     private final Integer maxMultiEntityAnomalyDetectors;
     private final Integer maxAnomalyFeatures;
@@ -32,7 +32,7 @@ public class ValidateAnomalyDetectorRequest extends ActionRequest {
     public ValidateAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
         detector = new AnomalyDetector(in);
-        typeStr = in.readString();
+        validationType = in.readString();
         maxSingleEntityAnomalyDetectors = in.readInt();
         maxMultiEntityAnomalyDetectors = in.readInt();
         maxAnomalyFeatures = in.readInt();
@@ -41,14 +41,14 @@ public class ValidateAnomalyDetectorRequest extends ActionRequest {
 
     public ValidateAnomalyDetectorRequest(
         AnomalyDetector detector,
-        String typeStr,
+        String validationType,
         Integer maxSingleEntityAnomalyDetectors,
         Integer maxMultiEntityAnomalyDetectors,
         Integer maxAnomalyFeatures,
         TimeValue requestTimeout
     ) {
         this.detector = detector;
-        this.typeStr = typeStr;
+        this.validationType = validationType;
         this.maxSingleEntityAnomalyDetectors = maxSingleEntityAnomalyDetectors;
         this.maxMultiEntityAnomalyDetectors = maxMultiEntityAnomalyDetectors;
         this.maxAnomalyFeatures = maxAnomalyFeatures;
@@ -59,7 +59,7 @@ public class ValidateAnomalyDetectorRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         detector.writeTo(out);
-        out.writeString(typeStr);
+        out.writeString(validationType);
         out.writeInt(maxSingleEntityAnomalyDetectors);
         out.writeInt(maxMultiEntityAnomalyDetectors);
         out.writeInt(maxAnomalyFeatures);
@@ -75,8 +75,8 @@ public class ValidateAnomalyDetectorRequest extends ActionRequest {
         return detector;
     }
 
-    public String getTypeStr() {
-        return typeStr;
+    public String getValidationType() {
+        return validationType;
     }
 
     public Integer getMaxSingleEntityAnomalyDetectors() {
