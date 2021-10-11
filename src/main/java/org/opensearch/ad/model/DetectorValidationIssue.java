@@ -41,7 +41,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
     private final DetectorValidationIssueType type;
     private final String message;
     private Map<String, String> subIssues;
-    private Object suggestion;
+    private String suggestion;
 
     public ValidationAspect getAspect() {
         return aspect;
@@ -59,7 +59,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         return subIssues;
     }
 
-    public Object getSuggestion() {
+    public String getSuggestion() {
         return suggestion;
     }
 
@@ -68,7 +68,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         DetectorValidationIssueType type,
         String message,
         Map<String, String> subIssues,
-        Object suggestion
+        String suggestion
     ) {
         this.aspect = aspect;
         this.type = type;
@@ -89,7 +89,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
             subIssues = input.readMap(StreamInput::readString, StreamInput::readString);
         }
         if (input.readBoolean()) {
-            suggestion = input.readGenericValue();
+            suggestion = input.readString();
         }
     }
 
