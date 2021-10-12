@@ -69,7 +69,7 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
                 ImmutableList.of(randomFeature(featureName, randomAlphaOfLength(5)), randomFeature(featureName, randomAlphaOfLength(5)))
             );
         String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 2);
-        assertEquals("Detector has duplicate feature names: " + featureName + "\n", error);
+        assertEquals("Detector has duplicate feature names: " + featureName, error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateAggregationNames() throws IOException {

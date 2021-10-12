@@ -33,6 +33,10 @@ import org.opensearch.rest.RestRequest;
 
 import com.google.common.collect.Sets;
 
+/**
+ * Anomaly detector REST action handler to process POST request.
+ * POST request is for validating anomaly detector against detector and/or model configs.
+ */
 public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> {
 
     private static final Set<ValidationAspect> DEFAULT_VALIDATION_ASPECTS = Sets.newHashSet(ValidationAspect.DETECTOR);
@@ -60,7 +64,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      * @param xContentRegistry                Registry which is used for XContentParser
      * @param user                            User context
      * @param searchFeatureDao                Search feature DAO
-     * @param typeStr                         specified type for validation
+     * @param validationType                         specified type for validation
      */
     public ValidateAnomalyDetectorActionHandler(
         ClusterService clusterService,
@@ -76,7 +80,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         NamedXContentRegistry xContentRegistry,
         User user,
         SearchFeatureDao searchFeatureDao,
-        String typeStr
+        String validationType
     ) {
         super(
             clusterService,
@@ -100,7 +104,9 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             searchFeatureDao,
             true
         );
-        String normalizedTypes = StringUtils.isBlank(typeStr) ? ValidationAspect.DETECTOR.getName() : typeStr.trim().replaceAll("\\s", "");
+        String normalizedTypes = StringUtils.isBlank(validationType)
+            ? ValidationAspect.DETECTOR.getName()
+            : validationType.trim().replaceAll("\\s", "");
         Set<String> typesInRequest = new HashSet<>(Arrays.asList(normalizedTypes.split(",")));
 
         this.aspects = Sets

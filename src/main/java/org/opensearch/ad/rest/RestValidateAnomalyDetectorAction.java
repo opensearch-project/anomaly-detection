@@ -45,6 +45,9 @@ import org.opensearch.rest.action.RestToXContentListener;
 
 import com.google.common.collect.ImmutableList;
 
+/**
+ * This class consists of the REST handler to validate anomaly detector configurations.
+ */
 public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
     private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
 
@@ -59,30 +62,18 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
 
     @Override
     public List<Route> routes() {
-        return ImmutableList.of(
-                new Route(RestRequest.Method.POST,
-                        String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)),
-                new Route(RestRequest.Method.POST,
-                        String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE))
-        );
+        return ImmutableList
+            .of(
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
+                ),
+                new Route(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
+                )
+            );
     }
-
-//    @Override
-//    public List<ReplacedRoute> replacedRoutes() {
-//        return ImmutableList
-//            .of(
-//                // validate detector
-//                new ReplacedRoute(
-//                    RestRequest.Method.POST,
-//                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
-//                ),
-//                // validate detector with type
-//                new ReplacedRoute(
-//                    RestRequest.Method.POST,
-//                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
-//                )
-//            );
-//    }
 
     protected void sendAnomalyDetectorValidationParseResponse(DetectorValidationIssue issue, RestChannel channel) throws IOException {
         try {
@@ -128,7 +119,6 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
                     sendAnomalyDetectorValidationParseResponse(issueParsing, channel);
                     return;
                 } else {
-                    System.out.println("exception that is unknown");
                     throw ex;
                 }
             }

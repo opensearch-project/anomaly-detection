@@ -508,4 +508,5 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }
+
 }

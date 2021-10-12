@@ -46,7 +46,7 @@ public class ValidateAnomalyDetectorRequestTests extends OpenSearchSingleNodeTes
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ValidateAnomalyDetectorRequest request2 = new ValidateAnomalyDetectorRequest(input);
         assertEquals("serialization has the wrong detector", request2.getDetector(), detector);
-        assertEquals("serialization has the wrong typeStr", request2.getValidationType()(), typeStr);
+        assertEquals("serialization has the wrong typeStr", request2.getValidationType(), typeStr);
         assertEquals("serialization has the wrong requestTimeout", request2.getRequestTimeout(), requestTimeout);
     }
 }

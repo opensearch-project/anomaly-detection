@@ -386,7 +386,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
-        assertTrue(value instanceof ADValidationException);
+        assertTrue(value instanceof IllegalArgumentException);
         assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG));
     }
 

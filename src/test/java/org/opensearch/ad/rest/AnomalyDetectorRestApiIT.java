@@ -1273,7 +1273,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 TestHelpers
                     .toHttpEntity(
                         "{\"name\":\""
-                            + "test detector"
+                            + "test-detector"
                             + "\",\"description\":\"Test detector\","
                             + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
                             + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
@@ -1306,7 +1306,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 TestHelpers
                     .toHttpEntity(
                         "{\"name\":\""
-                            + "test detector"
+                            + "test-detector"
                             + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
                             + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
                             + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
@@ -1343,7 +1343,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 TestHelpers
                     .toHttpEntity(
                         "{\"name\":\""
-                            + "test detector"
+                            + "test-detector"
                             + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
                             + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
                             + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"

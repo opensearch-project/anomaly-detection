@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.FEATURE_INVALID_MSG_PREFIX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
@@ -20,7 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -169,14 +167,15 @@ public class ValidateAnomalyDetectorTransportAction extends
 
     protected DetectorValidationIssue parseADValidationException(ADValidationException exception) {
         String originalErrorMessage = exception.getMessage();
-        String errorMessage;
+        String errorMessage = "";
         Map<String, String> subIssues = null;
         String suggestion = null;
+
         switch (exception.getType()) {
             case FEATURE_ATTRIBUTES:
                 int firstLeftBracketIndex = originalErrorMessage.indexOf("[");
                 int lastRightBracketIndex = originalErrorMessage.lastIndexOf("]");
-                if (firstLeftBracketIndex != -1 && lastRightBracketIndex != -1) {
+                if (firstLeftBracketIndex != -1) {
                     // if feature issue messages are between square brackets like
                     // [Feature has issue: A, Feature has issue: B]
                     errorMessage = originalErrorMessage.substring(firstLeftBracketIndex + 1, lastRightBracketIndex);
@@ -191,43 +190,27 @@ public class ValidateAnomalyDetectorTransportAction extends
             case DETECTION_INTERVAL:
             case FILTER_QUERY:
             case TIMEFIELD_FIELD:
+            case PARSING_ISSUE:
             case SHINGLE_SIZE_FIELD:
             case INDICES:
                 errorMessage = originalErrorMessage;
                 break;
-            default:
-                logger.warn(String.format(Locale.ROOT, "Invalid AD validation exception type: %s", exception));
-                return null;
         }
         return new DetectorValidationIssue(exception.getAspect(), exception.getType(), errorMessage, subIssues, suggestion);
     }
 
+    // Example of method output:
+    // String input:Feature has invalid query returning empty aggregated data: average_total_rev, Feature has invalid query causing runtime
+    // exception: average_total_rev-2
+    // output: "sub_issues": {
+    // "average_total_rev": "Feature has invalid query returning empty aggregated data",
+    // "average_total_rev-2": "Feature has invalid query causing runtime exception"
+    // }
     private Map<String, String> getFeatureSubIssuesFromErrorMessage(String errorMessage) {
-        Map<String, String> result = new HashMap<String, String>();
-        String featureSubIssueMessageSeparator = ", " + FEATURE_INVALID_MSG_PREFIX;
-
-        String[] subIssueMessagesSuffix = errorMessage.split(featureSubIssueMessageSeparator);
-
-        if (subIssueMessagesSuffix.length == 1) {
-            result.put(errorMessage.split(": ")[1], errorMessage.split(": ")[0]);
-            return result;
-        }
+        Map<String, String> result = new HashMap<>();
+        String[] subIssueMessagesSuffix = errorMessage.split(", ");
         for (int i = 0; i < subIssueMessagesSuffix.length; i++) {
-            if (i == 0) {
-                // element at 0 doesn't have FEATURE_INVALID_MSG_PREFIX removed
-                result
-                    .put(
-                            subIssueMessagesSuffix[i].split(": ")[1],
-                            subIssueMessagesSuffix[i].split(": ")[0]
-                    );
-                continue;
-            }
-            String errorMessageForSingleFeature = FEATURE_INVALID_MSG_PREFIX + subIssueMessagesSuffix[i];
-            result
-                .put(
-                        errorMessageForSingleFeature.split(": ")[1],
-                        errorMessageForSingleFeature.split(": ")[0]
-                );
+            result.put(subIssueMessagesSuffix[i].split(": ")[1], subIssueMessagesSuffix[i].split(": ")[0]);
         }
         return result;
     }
