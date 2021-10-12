@@ -143,7 +143,10 @@ public final class RestHandlerUtils {
         StringBuilder errorMsgBuilder = new StringBuilder();
         if (duplicateFeatureNames.size() > 0) {
             errorMsgBuilder.append("Detector has duplicate feature names: ");
-            errorMsgBuilder.append(String.join(", ", duplicateFeatureNames)).append("\n");
+            errorMsgBuilder.append(String.join(", ", duplicateFeatureNames));
+        }
+        if (errorMsgBuilder.length() != 0 && duplicateFeatureAggNames.size() > 0) {
+            errorMsgBuilder.append(". ");
         }
         if (duplicateFeatureAggNames.size() > 0) {
             errorMsgBuilder.append("Detector has duplicate feature aggregation query names: ");
