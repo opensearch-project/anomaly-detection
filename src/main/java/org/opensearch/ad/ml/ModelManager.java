@@ -41,10 +41,10 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
+import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
-import com.amazon.randomcutforest.returntypes.DiVector;
 
 /**
  * A facade managing ML operations and models.
@@ -158,9 +158,9 @@ public class ModelManager implements DetectorModelSize {
      *                 onFailure is called with ResourceNotFoundException when the model is not found
      *                 onFailure is called with LimitExceededException when a limit is exceeded for the model
      */
-    public void getRcfResult(String detectorId, String modelId, double[] point, ActionListener<RcfResult> listener) {
+    public void getTRcfResult(String detectorId, String modelId, double[] point, ActionListener<ThresholdingResult> listener) {
         if (forests.containsKey(modelId)) {
-            getRcfResult(forests.get(modelId), point, listener);
+            getTRcfResult(forests.get(modelId), point, listener);
         } else {
             checkpointDao
                 .getTRCFModel(
@@ -174,34 +174,87 @@ public class ModelManager implements DetectorModelSize {
         }
     }
 
-    private void getRcfResult(ModelState<ThresholdedRandomCutForest> modelState, double[] point, ActionListener<RcfResult> listener) {
+    private void getTRcfResult(
+        ModelState<ThresholdedRandomCutForest> modelState,
+        double[] point,
+        ActionListener<ThresholdingResult> listener
+    ) {
         modelState.setLastUsedTime(clock.instant());
 
-        ThresholdedRandomCutForest rcf = modelState.getModel();
-        AnomalyDescriptor result = rcf.process(point, 0);
-        double score = result.getRcfScore();
-        double confidence = result.getDataConfidence();
-        int forestSize = result.getForestSize();
-        double grade = result.getAnomalyGrade();
-
-        // result.getAttribution() is null when anomaly grade is less than or equals to 0
-        // need to create an empty array for bwc because the old node expects an non-empty array
-        int dimension = rcf.getForest().getDimensions();
-        double[] attribution = new double[dimension];
-        if (result.getAttribution() != null) {
-            attribution = getAnomalyAttribution(result.getAttribution());
+        ThresholdedRandomCutForest trcf = modelState.getModel();
+        try {
+            AnomalyDescriptor result = trcf.process(point, 0);
+            double[] attribution = normalizeAttribution(trcf.getForest(), result.getCurrentTimeAttribution());
+            listener
+                .onResponse(
+                    new ThresholdingResult(
+                        result.getAnomalyGrade(),
+                        result.getDataConfidence(),
+                        result.getRcfScore(),
+                        result.getTotalUpdates(),
+                        result.isStartOfAnomaly(),
+                        result.isInHighScoreRegion(),
+                        result.getRelativeIndex(),
+                        attribution,
+                        result.getOldValues(),
+                        result.getExpectedValuesList(),
+                        result.getThreshold(),
+                        result.getForestSize()
+                    )
+                );
+        } catch (Exception e) {
+            listener.onFailure(e);
         }
-
-        listener.onResponse(new RcfResult(score, confidence, forestSize, attribution, result.getTotalUpdates(), grade));
     }
 
-    private double[] getAnomalyAttribution(DiVector vec) {
-        vec.renormalize(1d);
-        double[] attribution = new double[vec.getDimensions()];
-        for (int i = 0; i < attribution.length; i++) {
-            attribution[i] = vec.getHighLowSum(i);
+    /**
+     * normalize total attribution to 1
+     *
+     * @param forest rcf accessor
+     * @param rawAttribution raw attribution scores
+     *
+     * @return normalized attribution
+     */
+    public double[] normalizeAttribution(RandomCutForest forest, double[] rawAttribution) {
+        // result.getAttribution() is null when anomaly grade is less than or equals to 0
+        // need to create an empty array for bwc because the old node expects an non-empty array
+        if (forest == null) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Empty forest"));
         }
+        double[] attribution = createEmptyAttribution(forest);
+        if (rawAttribution != null && rawAttribution.length > 0) {
+            double sum = Arrays.stream(rawAttribution).sum();
+            // avoid dividing by zero error
+            if (sum > 0) {
+                if (rawAttribution.length != attribution.length) {
+                    throw new IllegalArgumentException(
+                        String
+                            .format(
+                                Locale.ROOT,
+                                "Unexpected attribution array length: expected %d but is %d",
+                                attribution.length,
+                                rawAttribution.length
+                            )
+                    );
+                }
+                int numFeatures = rawAttribution.length;
+                attribution = new double[numFeatures];
+                for (int i = 0; i < numFeatures; i++) {
+                    attribution[i] = rawAttribution[i] / sum;
+                }
+            }
+        }
+
         return attribution;
+    }
+
+    private double[] createEmptyAttribution(RandomCutForest forest) {
+        int shingleSize = forest.getShingleSize();
+        if (shingleSize <= 0) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "zero shingle size"));
+        }
+        int baseDimensions = forest.getDimensions() / shingleSize;
+        return new double[baseDimensions];
     }
 
     private Optional<ModelState<ThresholdedRandomCutForest>> restoreModelState(
@@ -222,12 +275,12 @@ public class ModelManager implements DetectorModelSize {
         String modelId,
         String detectorId,
         double[] point,
-        ActionListener<RcfResult> listener
+        ActionListener<ThresholdingResult> listener
     ) {
         Optional<ModelState<ThresholdedRandomCutForest>> model = restoreModelState(rcfModel, modelId, detectorId);
         if (model.isPresent()) {
             forests.put(modelId, model.get());
-            getRcfResult(model.get(), point, listener);
+            getTRcfResult(model.get(), point, listener);
         } else {
             throw new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId);
         }
@@ -535,7 +588,7 @@ public class ModelManager implements DetectorModelSize {
         int rcfNumFeatures = dataPoints[0].length;
         // speed is important in preview. We don't want cx to wait too long.
         // thus use the default value of boundingBoxCacheFraction = 1
-        ThresholdedRandomCutForest forest = ThresholdedRandomCutForest
+        ThresholdedRandomCutForest trcf = ThresholdedRandomCutForest
             .builder()
             .randomSeed(0L)
             .dimensions(rcfNumFeatures)
@@ -552,8 +605,21 @@ public class ModelManager implements DetectorModelSize {
             .anomalyRate(1 - this.thresholdMinPvalue)
             .build();
         return Arrays.stream(dataPoints).map(point -> {
-            AnomalyDescriptor descriptor = forest.process(point, 0);
-            return new ThresholdingResult(descriptor.getAnomalyGrade(), descriptor.getDataConfidence(), descriptor.getRcfScore());
+            AnomalyDescriptor descriptor = trcf.process(point, 0);
+            return new ThresholdingResult(
+                descriptor.getAnomalyGrade(),
+                descriptor.getDataConfidence(),
+                descriptor.getRcfScore(),
+                descriptor.getTotalUpdates(),
+                descriptor.isStartOfAnomaly(),
+                descriptor.isInHighScoreRegion(),
+                descriptor.getRelativeIndex(),
+                normalizeAttribution(trcf.getForest(), descriptor.getCurrentTimeAttribution()),
+                descriptor.getOldValues(),
+                descriptor.getExpectedValuesList(),
+                descriptor.getThreshold(),
+                rcfNumTrees
+            );
         }).collect(Collectors.toList());
     }
 
@@ -642,19 +708,22 @@ public class ModelManager implements DetectorModelSize {
     }
 
     public ThresholdingResult score(double[] feature, String modelId, ModelState<EntityModel> modelState) {
-        ThresholdingResult result = null;
+        ThresholdingResult result = new ThresholdingResult(0, 0, 0);
         EntityModel model = modelState.getModel();
-        if (model == null || !model.getTrcf().isPresent()) {
-            result = new ThresholdingResult(0, 0, 0);
-        } else {
-            ThresholdedRandomCutForest rcf = model.getTrcf().get();
-            Optional.ofNullable(model.getSamples()).ifPresent(q -> {
-                q.stream().forEach(s -> rcf.process(s, 0));
-                q.clear();
-            });
-            result = toResult(rcf.process(feature, 0));
+        try {
+            if (model != null && model.getTrcf().isPresent()) {
+                ThresholdedRandomCutForest trcf = model.getTrcf().get();
+                Optional.ofNullable(model.getSamples()).ifPresent(q -> {
+                    q.stream().forEach(s -> trcf.process(s, 0));
+                    q.clear();
+                });
+                result = toResult(trcf.getForest(), trcf.process(feature, 0));
+            }
+        } catch (Exception e) {
+            logger.error("Fail to score", e);
+        } finally {
+            modelState.setLastUsedTime(clock.instant());
         }
-        modelState.setLastUsedTime(clock.instant());
         return result;
     }
 
@@ -713,11 +782,20 @@ public class ModelManager implements DetectorModelSize {
         }
     }
 
-    private ThresholdingResult toResult(AnomalyDescriptor anomalyDescriptor) {
+    private ThresholdingResult toResult(RandomCutForest rcf, AnomalyDescriptor anomalyDescriptor) {
         return new ThresholdingResult(
             anomalyDescriptor.getAnomalyGrade(),
             anomalyDescriptor.getDataConfidence(),
-            anomalyDescriptor.getRcfScore()
+            anomalyDescriptor.getRcfScore(),
+            anomalyDescriptor.getTotalUpdates(),
+            anomalyDescriptor.isStartOfAnomaly(),
+            anomalyDescriptor.isInHighScoreRegion(),
+            anomalyDescriptor.getRelativeIndex(),
+            normalizeAttribution(rcf, anomalyDescriptor.getCurrentTimeAttribution()),
+            anomalyDescriptor.getOldValues(),
+            anomalyDescriptor.getExpectedValuesList(),
+            anomalyDescriptor.getThreshold(),
+            rcfNumTrees
         );
     }
 }

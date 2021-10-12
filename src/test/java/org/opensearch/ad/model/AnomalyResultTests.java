@@ -11,6 +11,12 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
+import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomLong;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -79,7 +85,15 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             null,
             TestHelpers.randomUser(),
             CommonValue.NO_SCHEMA_VERSION,
-            null
+            null,
+            randomLong(),
+            randomBoolean(),
+            randomBoolean(),
+            randomIntBetween(-3, 0),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            randomDoubleBetween(1.1, 10.0, true)
         );
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -118,7 +132,15 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             null,
             null,
             CommonValue.NO_SCHEMA_VERSION,
-            null
+            null,
+            randomLong(),
+            randomBoolean(),
+            randomBoolean(),
+            randomIntBetween(-3, 0),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            randomDoubleBetween(1.1, 10.0, true)
         );
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));

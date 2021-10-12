@@ -161,6 +161,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     private AnomalyResult wrongAnomalyResult() {
         return new AnomalyResult(
             randomAlphaOfLength(5),
+            null,
             randomDouble(),
             randomDouble(),
             randomDouble(),
@@ -172,7 +173,16 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             randomAlphaOfLength(5),
             null,
             null,
-            null
+            null,
+            null,
+            randomLong(),
+            randomBoolean(),
+            randomBoolean(),
+            randomIntBetween(-3, 0),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            randomDoubleBetween(1.1, 10.0, true)
         );
     }
 }

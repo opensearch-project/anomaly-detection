@@ -515,6 +515,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             }
             AnomalyResult anomalyResult = new AnomalyResult(
                 detectorId,
+                null, // real time results have no task id
                 response.getAnomalyScore(),
                 response.getAnomalyGrade(),
                 response.getConfidence(),
@@ -524,8 +525,18 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 executionStartTime,
                 Instant.now(),
                 response.getError(),
+                null,
                 user,
                 anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
+                null, // single-stream real-time has no model id
+                response.getRcfTotalUpdates(),
+                response.isStartOfAnomaly(),
+                response.isInHighScoreRegion(),
+                response.getRelativeIndex(),
+                response.getCurrentTimeAttribution(),
+                response.getOldValues(),
+                response.getExpectedValuesList(),
+                response.getThreshold()
             );
             String resultIndex = jobParameter.getResultIndex();
             anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
@@ -628,17 +639,17 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
             AnomalyResult anomalyResult = new AnomalyResult(
                 detectorId,
-                Double.NaN,
-                Double.NaN,
-                Double.NaN,
+                null, // no task id
                 new ArrayList<FeatureData>(),
                 dataStartTime,
                 dataEndTime,
                 executionStartTime,
                 Instant.now(),
                 errorMessage,
+                null, // single-stream detectors have no entity
                 user,
                 anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
+                null // no model id
             );
             String resultIndex = jobParameter.getResultIndex();
             if (resultIndex != null && !anomalyDetectionIndices.doesIndexExist(resultIndex)) {

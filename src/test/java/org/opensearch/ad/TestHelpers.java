@@ -20,6 +20,7 @@ import static org.opensearch.test.OpenSearchTestCase.buildNewFakeTransportAddres
 import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
 import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
 import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomInt;
 import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomLong;
@@ -800,7 +801,15 @@ public class TestHelpers {
             null,
             user,
             CommonValue.NO_SCHEMA_VERSION,
-            null
+            null,
+            randomLong(),
+            randomBoolean(),
+            randomBoolean(),
+            randomIntBetween(-3, 0),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            randomDoubleBetween(1.1, 10.0, true)
         );
     }
 
@@ -822,6 +831,7 @@ public class TestHelpers {
     public static AnomalyResult randomHCADAnomalyDetectResult(double score, double grade, String error) {
         return new AnomalyResult(
             randomAlphaOfLength(5),
+            null,
             score,
             grade,
             randomDouble(),
@@ -833,7 +843,16 @@ public class TestHelpers {
             error,
             Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)),
             randomUser(),
-            CommonValue.NO_SCHEMA_VERSION
+            CommonValue.NO_SCHEMA_VERSION,
+            null,
+            randomLong(),
+            randomBoolean(),
+            randomBoolean(),
+            randomIntBetween(-3, 0),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            randomDoubleBetween(1.1, 10.0, true)
         );
     }
 

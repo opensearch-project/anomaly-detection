@@ -19,6 +19,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
+import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomLong;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -121,7 +126,15 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             null,
             null,
             CommonValue.NO_SCHEMA_VERSION,
-            randomAlphaOfLength(5)
+            randomAlphaOfLength(5),
+            randomLong(),
+            randomBoolean(),
+            randomBoolean(),
+            randomIntBetween(-3, 0),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            randomDoubleBetween(1.1, 10.0, true)
         );
 
     }

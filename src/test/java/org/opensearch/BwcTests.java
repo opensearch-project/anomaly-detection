@@ -14,6 +14,10 @@ package org.opensearch;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.hamcrest.Matchers.equalTo;
+import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
+import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -486,7 +490,21 @@ public class BwcTests extends AbstractADTest {
     }
 
     private void setUpRCFResultResponse() {
-        rcfResultResponse1_1 = new RCFResultResponse(0.345, 0.123, 30, new double[] { 0.3, 0.7 }, 134, 0.4, Version.CURRENT);
+        rcfResultResponse1_1 = new RCFResultResponse(
+            0.345,
+            0.123,
+            30,
+            new double[] { 0.3, 0.7 },
+            134,
+            0.4,
+            Version.CURRENT,
+            randomBoolean(),
+            randomBoolean(),
+            randomIntBetween(-3, 0),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            randomDoubleBetween(1.1, 10.0, true)
+        );
         rcfResultResponse1_0 = new RCFResultResponse1_0(0.345, 0.123, 30, new double[] { 0.3, 0.7 });
     }
 

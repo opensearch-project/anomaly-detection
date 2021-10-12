@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 4
+    "schema_version": 5
   },
   "properties": {
     "detector_id": {
@@ -106,6 +106,30 @@
     },
     "model_id": {
       "type": "keyword"
+    },
+    "totalUpdates": {
+      "type": "long"
+    },
+    "startOfAnomaly": {
+      "type": "boolean"
+    },
+    "inHighScoreRegion": {
+      "type": "boolean"
+    },
+    "relativeIndex": {
+      "type": "integer"
+    },
+    "currentTimeAttribution": {
+      "type": "double"
+    },
+    "oldValues": {
+      "type": "double"
+    },
+    "expectedValuesList": {
+      "type": "double"
+    },
+    "threshold": {
+      "type": "double"
     }
   }
 }

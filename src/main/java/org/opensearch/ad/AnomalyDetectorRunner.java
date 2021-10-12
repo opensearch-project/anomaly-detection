@@ -170,6 +170,7 @@ public final class AnomalyDetectorRunner {
                     result = new AnomalyResult(
                         detector.getDetectorId(),
                         null,
+                        null,
                         thresholdingResult.getGrade(),
                         thresholdingResult.getConfidence(),
                         featureDatas,
@@ -180,13 +181,20 @@ public final class AnomalyDetectorRunner {
                         null,
                         entity,
                         detector.getUser(),
-                        CommonValue.NO_SCHEMA_VERSION
+                        CommonValue.NO_SCHEMA_VERSION,
+                        null,
+                        thresholdingResult.getTotalUpdates(),
+                        thresholdingResult.isStartOfAnomaly(),
+                        thresholdingResult.isInHighScoreRegion(),
+                        thresholdingResult.getRelativeIndex(),
+                        thresholdingResult.getCurrentTimeAttribution(),
+                        thresholdingResult.getOldValues(),
+                        thresholdingResult.getExpectedValuesList(),
+                        thresholdingResult.getThreshold()
                     );
                 } else {
                     result = new AnomalyResult(
                         detector.getDetectorId(),
-                        null,
-                        null,
                         null,
                         featureDatas,
                         Instant.ofEpochMilli(timeRange.getKey()),
@@ -196,7 +204,8 @@ public final class AnomalyDetectorRunner {
                         null,
                         entity,
                         detector.getUser(),
-                        CommonValue.NO_SCHEMA_VERSION
+                        CommonValue.NO_SCHEMA_VERSION,
+                        null
                     );
                 }
 

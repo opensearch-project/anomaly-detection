@@ -18,6 +18,7 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
@@ -85,6 +86,14 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 + " roles={type=text, fields={keyword={type=keyword}}}}}"
         )
         .build();
+    public static final String TOTAL_UPDATES_FIELD = "totalUpdates";
+    public static final String START_OF_ANOMALY_FIELD = "startOfAnomaly";
+    public static final String IN_HIGH_SCORE_REGION_FIELD = "inHighScoreRegion";
+    public static final String RELATIVE_INDEX_FIELD = "relativeIndex";
+    public static final String CURRENT_TIME_ATTRIBUTION_FIELD = "currentTimeAttribution";
+    public static final String OLD_VALUES_FIELD = "oldValues";
+    public static final String EXPECTED_VAL_LIST_FIELD = "expectedValuesList";
+    public static final String THRESHOLD_FIELD = "threshold";
 
     private final String detectorId;
     private final String taskId;
@@ -112,42 +121,107 @@ public class AnomalyResult implements ToXContentObject, Writeable {
      */
     private final String modelId;
 
-    public AnomalyResult(
-        String detectorId,
-        Double anomalyScore,
-        Double anomalyGrade,
-        Double confidence,
-        List<FeatureData> featureData,
-        Instant dataStartTime,
-        Instant dataEndTime,
-        Instant executionStartTime,
-        Instant executionEndTime,
-        String error,
-        User user,
-        Integer schemaVersion
-    ) {
-        this(
-            detectorId,
-            anomalyScore,
-            anomalyGrade,
-            confidence,
-            featureData,
-            dataStartTime,
-            dataEndTime,
-            executionStartTime,
-            executionEndTime,
-            error,
-            null,
-            user,
-            schemaVersion
-        );
-    }
+    // sequence index (the number of updates to RCF) -- it is possible in imputation
+    // that
+    // the number of updates more than the input tuples seen by the overall program
+    private final Long totalUpdates;
 
+    // flag indicating if the anomaly is the start of an anomaly or part of a run of
+    // anomalies
+    private final Boolean startOfAnomaly;
+
+    // flag indicating if the time stamp is in elevated score region to be
+    // considered as anomaly
+    private final Boolean inHighScoreRegion;
+
+    /**
+     * position of the anomaly vis a vis the current time (can be -ve) if anomaly is
+     * detected late, which can and should happen sometime; for shingle size 1; this
+     * is always 0
+     */
+    private final Integer relativeIndex;
+
+    // a flattened version denoting the basic contribution of each input variable
+    private final double[] currentTimeAttribution;
+
+    /*
+    oldValues is related to relativeIndex and startOfAnomaly.
+    So if we detect anomaly late, we get the baseDimension values from the past (current is 0).
+    That is, we look back relativeIndex * baseDimensions.
+
+    For example, current shingle is
+    "currentValues": [
+    6819.0,
+    2375.3333333333335,
+    0.0,
+    49882.0,
+    92070.0,
+    5084.0,
+    2072.809523809524,
+    0.0,
+    43529.0,
+    91169.0,
+    8129.0,
+    2582.892857142857,
+    12.0,
+    54241.0,
+    84596.0,
+    11174.0,
+    3092.9761904761904,
+    24.0,
+    64952.0,
+    78024.0,
+    14220.0,
+    3603.059523809524,
+    37.0,
+    75664.0,
+    71451.0,
+    17265.0,
+    4113.142857142857,
+    49.0,
+    86376.0,
+    64878.0,
+    16478.0,
+    3761.4166666666665,
+    37.0,
+    78990.0,
+    70057.0,
+    15691.0,
+    3409.690476190476,
+    24.0,
+    71604.0,
+    75236.0
+    ],
+    Since relativeIndex is -2, we look back baseDimension * 2 and get the oldValues:
+    "startOfAnomaly": true,
+    "inHighScoreRegion": true,
+    "relativeIndex": -2,
+    "oldValues": [
+    17265.0,
+    4113.142857142857,
+    49.0,
+    86376.0,
+    64878.0
+    ],
+
+    So oldValues is null when relativeIndex is 0 or startOfAnomaly is true.*/
+    private final double[] oldValues;
+
+    // expected values, currently set to maximum 1 expected. In the future, we
+    // might give different expected values with differently likelihood. So
+    // the two-dimensional array allows us to future-proof our applications.
+    // Also, expected values correspond to oldValues if present or current input
+    // point otherwise. If oldValues is present, it will take effort to show this
+    // on UX since we found an anomaly from the past (old values).
+    private final double[][] expectedValuesList;
+
+    // rcf score threshold at the time of writing a result
+    private final Double threshold;
+
+    // used when indexing exception or error or an empty result
     public AnomalyResult(
         String detectorId,
-        Double anomalyScore,
-        Double anomalyGrade,
-        Double confidence,
+        String taskId,
         List<FeatureData> featureData,
         Instant dataStartTime,
         Instant dataEndTime,
@@ -156,14 +230,15 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         String error,
         Entity entity,
         User user,
-        Integer schemaVersion
+        Integer schemaVersion,
+        String modelId
     ) {
         this(
             detectorId,
-            null,
-            anomalyScore,
-            anomalyGrade,
-            confidence,
+            taskId,
+            Double.NaN,
+            Double.NaN,
+            Double.NaN,
             featureData,
             dataStartTime,
             dataEndTime,
@@ -173,6 +248,14 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             entity,
             user,
             schemaVersion,
+            modelId,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null
         );
     }
@@ -192,7 +275,15 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Entity entity,
         User user,
         Integer schemaVersion,
-        String modelId
+        String modelId,
+        Long totalUpdates,
+        Boolean startOfAnomaly,
+        Boolean inHighScoreRegion,
+        Integer relativeIndex,
+        double[] currentTimeAttribution,
+        double[] oldValues,
+        double[][] expectedValuesList,
+        Double threshold
     ) {
         this.detectorId = detectorId;
         this.taskId = taskId;
@@ -209,6 +300,14 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.user = user;
         this.schemaVersion = schemaVersion;
         this.modelId = modelId;
+        this.totalUpdates = totalUpdates;
+        this.startOfAnomaly = startOfAnomaly;
+        this.inHighScoreRegion = inHighScoreRegion;
+        this.relativeIndex = relativeIndex;
+        this.currentTimeAttribution = currentTimeAttribution;
+        this.oldValues = oldValues;
+        this.expectedValuesList = expectedValuesList;
+        this.threshold = threshold;
     }
 
     public AnomalyResult(StreamInput input) throws IOException {
@@ -239,6 +338,38 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.schemaVersion = input.readInt();
         this.taskId = input.readOptionalString();
         this.modelId = input.readOptionalString();
+
+        this.totalUpdates = input.readOptionalLong();
+        this.startOfAnomaly = input.readOptionalBoolean();
+        this.inHighScoreRegion = input.readOptionalBoolean();
+        this.relativeIndex = input.readOptionalInt();
+
+        // input.readOptionalArray(i -> i.readDouble(), double[]::new) results in
+        // compiler error as readOptionalArray does not work for primitive array.
+        // use readDoubleArray and readBoolean instead
+        if (input.readBoolean()) {
+            this.currentTimeAttribution = input.readDoubleArray();
+        } else {
+            this.currentTimeAttribution = null;
+        }
+
+        if (input.readBoolean()) {
+            this.oldValues = input.readDoubleArray();
+        } else {
+            this.oldValues = null;
+        }
+
+        if (input.readBoolean()) {
+            int numberofExpectedVals = input.readVInt();
+            this.expectedValuesList = new double[numberofExpectedVals][];
+            for (int i = 0; i < numberofExpectedVals; i++) {
+                expectedValuesList[i] = input.readDoubleArray();
+            }
+        } else {
+            this.expectedValuesList = null;
+        }
+
+        this.threshold = input.readOptionalDouble();
     }
 
     @Override
@@ -293,6 +424,44 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         if (modelId != null) {
             xContentBuilder.field(MODEL_ID_FIELD, modelId);
         }
+
+        // output extra fields such as attribution and expected only when this is an anomaly
+        if (anomalyGrade != null && anomalyGrade > 0) {
+            if (totalUpdates != null) {
+                xContentBuilder.field(TOTAL_UPDATES_FIELD, totalUpdates);
+            }
+            if (startOfAnomaly != null) {
+                xContentBuilder.field(START_OF_ANOMALY_FIELD, startOfAnomaly);
+            }
+            if (inHighScoreRegion != null) {
+                xContentBuilder.field(IN_HIGH_SCORE_REGION_FIELD, inHighScoreRegion);
+            }
+            if (relativeIndex != null) {
+                xContentBuilder.field(RELATIVE_INDEX_FIELD, relativeIndex);
+            }
+            if (currentTimeAttribution != null) {
+                xContentBuilder.array(CURRENT_TIME_ATTRIBUTION_FIELD, currentTimeAttribution);
+            }
+            if (oldValues != null) {
+                xContentBuilder.array(OLD_VALUES_FIELD, oldValues);
+            }
+            // In OpenSearch, an array of arrays like [ 1, [ 2, 3 ]] is the equivalent of [ 1, 2, 3 ]
+            // Also, even though expectedValuesList if a two-dimensional array, it has only one nested
+            // array inside in current implementation.
+            // Index the field by flattening the two-dimensional array expectedValuesList to
+            // a one-dimensional array.
+            if (expectedValuesList != null) {
+                // int[2][] { int[5] { 1, 2, 6, 7, 2 }, int[5] {2,44,55,2, 3}}
+                // will be flattened to
+                // int[10] { 1, 2, 6, 7, 2, 2, 44, 55, 2, 3}
+                double[] flattenedExpectedVals = Arrays.stream(expectedValuesList).flatMapToDouble(Arrays::stream).toArray();
+                xContentBuilder.array(EXPECTED_VAL_LIST_FIELD, flattenedExpectedVals);
+            }
+        }
+
+        if (threshold != null && !threshold.isNaN()) {
+            xContentBuilder.field(THRESHOLD_FIELD, threshold);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -312,6 +481,14 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         String taskId = null;
         String modelId = null;
+        Long totalUpdates = null;
+        Boolean startOfAnomaly = false;
+        Boolean inHighScoreRegion = false;
+        Integer relativeIndex = 0;
+        double[] currentTimeAttribution = null;
+        double[] oldValues = null;
+        double[] flattenedExpectedValues = null;
+        Double threshold = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -367,11 +544,56 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 case MODEL_ID_FIELD:
                     modelId = parser.text();
                     break;
+                case TOTAL_UPDATES_FIELD:
+                    totalUpdates = parser.longValue();
+                    break;
+                case START_OF_ANOMALY_FIELD:
+                    startOfAnomaly = parser.booleanValue();
+                    break;
+                case IN_HIGH_SCORE_REGION_FIELD:
+                    inHighScoreRegion = parser.booleanValue();
+                    break;
+                case RELATIVE_INDEX_FIELD:
+                    relativeIndex = parser.intValue();
+                    break;
+                case CURRENT_TIME_ATTRIBUTION_FIELD:
+                    currentTimeAttribution = ParseUtils.parseDoubleArray(parser);
+                    break;
+                case OLD_VALUES_FIELD:
+                    oldValues = ParseUtils.parseDoubleArray(parser);
+                    break;
+                case EXPECTED_VAL_LIST_FIELD:
+                    flattenedExpectedValues = ParseUtils.parseDoubleArray(parser);
+                    break;
+                case THRESHOLD_FIELD:
+                    threshold = parser.doubleValue();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
             }
         }
+
+        // unflatten flattenedExpectedValues
+        double[][] expectedValuesList = null;
+        if (currentTimeAttribution != null && flattenedExpectedValues != null) {
+            int dimension = currentTimeAttribution.length;
+            int numberOfExpectedVals = flattenedExpectedValues.length / dimension;
+            if (numberOfExpectedVals > 0) {
+                expectedValuesList = new double[numberOfExpectedVals][dimension];
+                if (numberOfExpectedVals == 1) {
+                    expectedValuesList[0] = flattenedExpectedValues;
+                } else {
+                    for (int i = 0; i < numberOfExpectedVals; i++) {
+                        int start = i * dimension;
+                        int end = start + dimension;
+                        expectedValuesList[i] = Arrays.copyOfRange(flattenedExpectedValues, start, end);
+                    }
+                }
+
+            }
+        }
+
         return new AnomalyResult(
             detectorId,
             taskId,
@@ -387,7 +609,15 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             entity,
             user,
             schemaVersion,
-            modelId
+            modelId,
+            totalUpdates,
+            startOfAnomaly,
+            inHighScoreRegion,
+            relativeIndex,
+            currentTimeAttribution,
+            oldValues,
+            expectedValuesList,
+            threshold
         );
     }
 
@@ -399,19 +629,27 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         if (o == null || getClass() != o.getClass())
             return false;
         AnomalyResult that = (AnomalyResult) o;
-        return Objects.equal(getDetectorId(), that.getDetectorId())
-            && Objects.equal(getTaskId(), that.getTaskId())
-            && Objects.equal(getAnomalyScore(), that.getAnomalyScore())
-            && Objects.equal(getAnomalyGrade(), that.getAnomalyGrade())
-            && Objects.equal(getConfidence(), that.getConfidence())
-            && Objects.equal(getFeatureData(), that.getFeatureData())
-            && Objects.equal(getDataStartTime(), that.getDataStartTime())
-            && Objects.equal(getDataEndTime(), that.getDataEndTime())
-            && Objects.equal(getExecutionStartTime(), that.getExecutionStartTime())
-            && Objects.equal(getExecutionEndTime(), that.getExecutionEndTime())
-            && Objects.equal(getError(), that.getError())
-            && Objects.equal(getEntity(), that.getEntity())
-            && Objects.equal(getModelId(), that.getModelId());
+        return Objects.equal(detectorId, that.detectorId)
+            && Objects.equal(taskId, that.taskId)
+            && Objects.equal(anomalyScore, that.anomalyScore)
+            && Objects.equal(anomalyGrade, that.anomalyGrade)
+            && Objects.equal(confidence, that.confidence)
+            && Objects.equal(featureData, that.featureData)
+            && Objects.equal(dataStartTime, that.dataStartTime)
+            && Objects.equal(dataEndTime, that.dataEndTime)
+            && Objects.equal(executionStartTime, that.executionStartTime)
+            && Objects.equal(executionEndTime, that.executionEndTime)
+            && Objects.equal(error, that.error)
+            && Objects.equal(entity, that.entity)
+            && Objects.equal(modelId, that.modelId)
+            && Objects.equal(totalUpdates, that.totalUpdates)
+            && Objects.equal(startOfAnomaly, that.startOfAnomaly)
+            && Objects.equal(inHighScoreRegion, that.inHighScoreRegion)
+            && Objects.equal(relativeIndex, that.relativeIndex)
+            && Arrays.equals(currentTimeAttribution, currentTimeAttribution)
+            && Arrays.equals(oldValues, oldValues)
+            && Arrays.deepEquals(expectedValuesList, expectedValuesList)
+            && Objects.equal(threshold, that.threshold);
     }
 
     @Generated
@@ -419,19 +657,27 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public int hashCode() {
         return Objects
             .hashCode(
-                getDetectorId(),
-                getTaskId(),
-                getAnomalyScore(),
-                getAnomalyGrade(),
-                getConfidence(),
-                getFeatureData(),
-                getDataStartTime(),
-                getDataEndTime(),
-                getExecutionStartTime(),
-                getExecutionEndTime(),
-                getError(),
-                getEntity(),
-                getModelId()
+                detectorId,
+                taskId,
+                anomalyScore,
+                anomalyGrade,
+                confidence,
+                featureData,
+                dataStartTime,
+                dataEndTime,
+                executionStartTime,
+                executionEndTime,
+                error,
+                entity,
+                modelId,
+                totalUpdates,
+                startOfAnomaly,
+                inHighScoreRegion,
+                relativeIndex,
+                Arrays.hashCode(currentTimeAttribution),
+                Arrays.hashCode(oldValues),
+                Arrays.deepHashCode(expectedValuesList),
+                threshold
             );
     }
 
@@ -452,6 +698,14 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .append("error", error)
             .append("entity", entity)
             .append("modelId", modelId)
+            .append("totalUpdates", totalUpdates)
+            .append("startOfAnomaly", startOfAnomaly)
+            .append("inHighScoreRegion", inHighScoreRegion)
+            .append("relativeIndex", relativeIndex)
+            .append("currentTimeAttribution", Arrays.toString(currentTimeAttribution))
+            .append("oldValues", Arrays.toString(oldValues))
+            .append("expectedValuesList", Arrays.deepToString(expectedValuesList))
+            .append("threshold", threshold)
             .toString();
     }
 
@@ -507,6 +761,38 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         return modelId;
     }
 
+    public Long getTotalUpdates() {
+        return totalUpdates;
+    }
+
+    public Boolean isStartOfAnomaly() {
+        return startOfAnomaly;
+    }
+
+    public Boolean isInHighScoreRegion() {
+        return inHighScoreRegion;
+    }
+
+    public Integer getRelativeIndex() {
+        return relativeIndex;
+    }
+
+    public double[] getCurrentTimeAttribution() {
+        return currentTimeAttribution;
+    }
+
+    public double[] getOldValues() {
+        return oldValues;
+    }
+
+    public double[][] getExpectedValuesList() {
+        return expectedValuesList;
+    }
+
+    public Double getThreshold() {
+        return threshold;
+    }
+
     /**
      * Anomaly result index consists of overwhelmingly (99.5%) zero-grade non-error documents.
      * This function exclude the majority case.
@@ -548,6 +834,40 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeInt(schemaVersion);
         out.writeOptionalString(taskId);
         out.writeOptionalString(modelId);
+
+        out.writeOptionalLong(totalUpdates);
+        out.writeOptionalBoolean(startOfAnomaly);
+        out.writeOptionalBoolean(inHighScoreRegion);
+        out.writeOptionalInt(relativeIndex);
+
+        // writeOptionalArray does not work for primitive array. Use WriteDoubleArray
+        // instead.
+        if (currentTimeAttribution != null) {
+            out.writeBoolean(true);
+            out.writeDoubleArray(currentTimeAttribution);
+        } else {
+            out.writeBoolean(false);
+        }
+
+        if (oldValues != null) {
+            out.writeBoolean(true);
+            out.writeDoubleArray(oldValues);
+        } else {
+            out.writeBoolean(false);
+        }
+
+        if (expectedValuesList != null) {
+            out.writeBoolean(true);
+            int numberofExpectedVals = expectedValuesList.length;
+            out.writeVInt(expectedValuesList.length);
+            for (int i = 0; i < numberofExpectedVals; i++) {
+                out.writeDoubleArray(expectedValuesList[i]);
+            }
+        } else {
+            out.writeBoolean(false);
+        }
+
+        out.writeOptionalDouble(threshold);
     }
 
     public static AnomalyResult getDummyResult() {

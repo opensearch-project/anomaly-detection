@@ -707,7 +707,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             anomalyResultBulkIndexHandler,
             adTaskCacheManager,
             searchFeatureDao,
-            hashRing
+            hashRing,
+            modelManager
         );
 
         ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client);

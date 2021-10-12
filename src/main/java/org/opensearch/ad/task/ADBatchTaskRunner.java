@@ -65,6 +65,7 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -134,6 +135,7 @@ public class ADBatchTaskRunner {
     private final ADTaskCacheManager adTaskCacheManager;
     private final TransportRequestOptions option;
     private final HashRing hashRing;
+    private final ModelManager modelManager;
 
     private volatile Integer maxAdBatchTaskPerNode;
     private volatile Integer pieceSize;
@@ -157,7 +159,8 @@ public class ADBatchTaskRunner {
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler,
         ADTaskCacheManager adTaskCacheManager,
         SearchFeatureDao searchFeatureDao,
-        HashRing hashRing
+        HashRing hashRing,
+        ModelManager modelManager
     ) {
         this.settings = settings;
         this.threadPool = threadPool;
@@ -179,6 +182,7 @@ public class ADBatchTaskRunner {
         this.adTaskCacheManager = adTaskCacheManager;
         this.searchFeatureDao = searchFeatureDao;
         this.hashRing = hashRing;
+        this.modelManager = modelManager;
 
         this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
@@ -926,7 +930,7 @@ public class ADBatchTaskRunner {
         }
     }
 
-    private void getDateRangeOfSourceData(ADTask adTask, BiConsumer<Long, Long> consumer, ActionListener internalListener) {
+    private void getDateRangeOfSourceData(ADTask adTask, BiConsumer<Long, Long> consumer, ActionListener<String> internalListener) {
         String taskId = adTask.getTaskId();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .aggregation(AggregationBuilders.min(AGG_NAME_MIN_TIME).field(adTask.getDetector().getTimeField()))
@@ -1072,9 +1076,6 @@ public class ADBatchTaskRunner {
                 AnomalyResult anomalyResult = new AnomalyResult(
                     adTask.getDetectorId(),
                     adTask.getDetectorLevelTaskId(),
-                    Double.NaN,
-                    Double.NaN,
-                    Double.NaN,
                     featureData,
                     Instant.ofEpochMilli(intervalEndTime - interval),
                     Instant.ofEpochMilli(intervalEndTime),
@@ -1093,8 +1094,6 @@ public class ADBatchTaskRunner {
                 // data time stamp there.
                 AnomalyDescriptor descriptor = trcf.process(point, 0);
                 double score = descriptor.getRcfScore();
-                double grade = descriptor.getAnomalyGrade();
-                double confidence = descriptor.getDataConfidence();
                 if (!adTaskCacheManager.isThresholdModelTrained(taskId) && score > 0) {
                     adTaskCacheManager.setThresholdModelTrained(taskId, true);
                 }
@@ -1102,8 +1101,8 @@ public class ADBatchTaskRunner {
                     adTask.getDetectorId(),
                     adTask.getDetectorLevelTaskId(),
                     score,
-                    grade,
-                    confidence,
+                    descriptor.getAnomalyGrade(),
+                    descriptor.getDataConfidence(),
                     featureData,
                     Instant.ofEpochMilli(intervalEndTime - interval),
                     Instant.ofEpochMilli(intervalEndTime),
@@ -1113,7 +1112,15 @@ public class ADBatchTaskRunner {
                     adTask.getEntity(),
                     adTask.getDetector().getUser(),
                     anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
-                    adTask.getEntityModelId()
+                    adTask.getEntityModelId(),
+                    descriptor.getTotalUpdates(),
+                    descriptor.isStartOfAnomaly(),
+                    descriptor.isInHighScoreRegion(),
+                    descriptor.getRelativeIndex(),
+                    modelManager.normalizeAttribution(trcf.getForest(), descriptor.getCurrentTimeAttribution()),
+                    descriptor.getOldValues(),
+                    descriptor.getExpectedValuesList(),
+                    descriptor.getThreshold()
                 );
                 anomalyResults.add(anomalyResult);
             }

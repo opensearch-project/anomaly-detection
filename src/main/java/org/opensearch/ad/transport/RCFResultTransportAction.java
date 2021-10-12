@@ -68,7 +68,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
         try {
             LOG.info("Serve rcf request for {}", request.getModelID());
             manager
-                .getRcfResult(
+                .getTRcfResult(
                     request.getAdID(),
                     request.getModelID(),
                     request.getFeatures(),
@@ -77,13 +77,19 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                             result -> listener
                                 .onResponse(
                                     new RCFResultResponse(
-                                        result.getScore(),
+                                        result.getRcfScore(),
                                         result.getConfidence(),
                                         result.getForestSize(),
-                                        result.getAttribution(),
+                                        result.getCurrentTimeAttribution(),
                                         result.getTotalUpdates(),
                                         result.getGrade(),
-                                        remoteAdVersion
+                                        remoteAdVersion,
+                                        result.isStartOfAnomaly(),
+                                        result.isInHighScoreRegion(),
+                                        result.getRelativeIndex(),
+                                        result.getOldValues(),
+                                        result.getExpectedValuesList(),
+                                        result.getThreshold()
                                     )
                                 ),
                             exception -> {
