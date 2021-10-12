@@ -299,12 +299,12 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public Feature maxValueFeature() throws IOException {
-        return maxValueFeature(nameField, valueField);
+        return maxValueFeature(nameField, valueField, nameField);
     }
 
-    public Feature maxValueFeature(String featureName, String fieldName) throws IOException {
+    public Feature maxValueFeature(String aggregationName, String fieldName, String featureName) throws IOException {
         AggregationBuilder aggregationBuilder = TestHelpers
-            .parseAggregation("{\"" + featureName + "\":{\"max\":{\"field\":\"" + fieldName + "\"}}}");
-        return new Feature(randomAlphaOfLength(5), randomAlphaOfLength(10), true, aggregationBuilder);
+            .parseAggregation("{\"" + aggregationName + "\":{\"max\":{\"field\":\"" + fieldName + "\"}}}");
+        return new Feature(randomAlphaOfLength(5), featureName, true, aggregationBuilder);
     }
 }

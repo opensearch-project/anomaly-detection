@@ -21,6 +21,7 @@ import java.time.temporal.ChronoUnit;
 import org.junit.Test;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.Feature;
@@ -50,6 +51,26 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     }
 
     @Test
+    public void testValidateAnomalyDetectorWithNoIndexFound() throws IOException {
+        AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now());
+        Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
+        // ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
+        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+            anomalyDetector,
+            ValidationAspect.DETECTOR.getName(),
+            5,
+            5,
+            5,
+            new TimeValue(5_000L)
+        );
+        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        assertNotNull(response.getIssue());
+        assertEquals(DetectorValidationIssueType.INDICES, response.getIssue().getType());
+        assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
+        assertTrue(response.getIssue().getMessage().contains(CommonErrorMessages.INDEX_NOT_FOUND));
+    }
+
+    @Test
     public void testValidateAnomalyDetectorWithDuplicateName() throws IOException {
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now());
         Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
@@ -72,7 +93,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
 
     @Test
     public void testValidateAnomalyDetectorWithNonExistingFeatureField() throws IOException {
-        Feature maxFeature = maxValueFeature(nameField, "non_existing_field");
+        Feature maxFeature = maxValueFeature(nameField, "non_existing_field", nameField);
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableList.of(maxFeature), ImmutableMap.of(), Instant.now());
         Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
@@ -94,8 +115,54 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     }
 
     @Test
+    public void testValidateAnomalyDetectorWithDuplicateFeatureAggregationNames() throws IOException {
+        Feature maxFeature = maxValueFeature(nameField, categoryField, "test-1");
+        Feature maxFeatureTwo = maxValueFeature(nameField, categoryField, "test-2");
+        AnomalyDetector anomalyDetector = TestHelpers
+            .randomAnomalyDetector(ImmutableList.of(maxFeature, maxFeatureTwo), ImmutableMap.of(), Instant.now());
+        Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
+        ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
+        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+            anomalyDetector,
+            ValidationAspect.DETECTOR.getName(),
+            5,
+            5,
+            5,
+            new TimeValue(5_000L)
+        );
+        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        assertNotNull(response.getIssue());
+        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature aggregation query names:"));
+        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
+    }
+
+    @Test
+    public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {
+        Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
+        Feature maxFeatureTwo = maxValueFeature("test_1", categoryField, nameField);
+        AnomalyDetector anomalyDetector = TestHelpers
+            .randomAnomalyDetector(ImmutableList.of(maxFeature, maxFeatureTwo), ImmutableMap.of(), Instant.now());
+        Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
+        ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
+        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+            anomalyDetector,
+            ValidationAspect.DETECTOR.getName(),
+            5,
+            5,
+            5,
+            new TimeValue(5_000L)
+        );
+        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        assertNotNull(response.getIssue());
+        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature names:"));
+        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
+    }
+
+    @Test
     public void testValidateAnomalyDetectorWithInvalidFeatureField() throws IOException {
-        Feature maxFeature = maxValueFeature(nameField, categoryField);
+        Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableList.of(maxFeature), ImmutableMap.of(), Instant.now());
         Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
@@ -118,8 +185,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
 
     @Test
     public void testValidateAnomalyDetectorWithMultipleInvalidFeatureField() throws IOException {
-        Feature maxFeature = maxValueFeature(nameField, categoryField);
-        Feature maxFeatureTwo = maxValueFeature("test_two", categoryField);
+        Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
+        Feature maxFeatureTwo = maxValueFeature("test_two", categoryField, "test_two");
         AnomalyDetector anomalyDetector = TestHelpers
             .randomAnomalyDetector(ImmutableList.of(maxFeature, maxFeatureTwo), ImmutableMap.of(), Instant.now());
         Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);

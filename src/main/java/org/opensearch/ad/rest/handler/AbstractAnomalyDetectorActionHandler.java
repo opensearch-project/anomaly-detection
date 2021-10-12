@@ -80,6 +80,28 @@ import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.transport.TransportService;
 
+/**
+ * Abstract Anomaly detector REST action handler to process POST/PUT request.
+ * POST request is for either validating or creating anomaly detector.
+ * PUT request is for updating anomaly detector.
+ *
+ * <p>Create, Update and Validate APIs all share similar validation process, the differences in logic
+ * between the three usages of this class are outlined below.</p>
+ * <ul>
+ * <li><code>Create/Update:</code><p>This class is extended by <code>IndexAnomalyDetectorActionHandler</code> which handles
+ *  either create AD or update AD REST Actions. When this class is constructed from these
+ *  actions then the <code>isDryRun</code> parameter will be instantiated as <b>false</b>.</p>
+ *  <p>This means that if the AD index doesn't exist at the time request is received it will be created.
+ *  Furthermore, this handler will actually create or update the AD and also handle a few exceptions as
+ *  they are thrown instead of converting some of them to ADValidationExceptions.</p>
+ * <li><code>Validate:</code><p>This class is also extended by <code>ValidateAnomalyDetectorActionHandler</code> which handles
+ *  the validate AD REST Actions. When this class is constructed from these
+ *  actions then the <code>isDryRun</code> parameter will be instantiated as <b>true</b>.</p>
+ *  <p>This means that if the AD index doesn't exist at the time request is received it wont be created.
+ *  Furthermore, this means that the AD won't actually be created and all exceptions will be wrapped into
+ *  DetectorValidationResponses hence the user will be notified which validation checks didn't pass.</p>
+ *  </ul>
+ */
 public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionResponse> {
     public static final String EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG = "Can't create multi-entity anomaly detectors more than ";
     public static final String EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG = "Can't create single-entity anomaly detectors more than ";
@@ -490,7 +512,11 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         if (response.getHits().getTotalHits().value == 0) {
             String errorMsg = NO_DOCS_IN_USER_INDEX_MSG + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
-            listener.onFailure(new ADValidationException(errorMsg, DetectorValidationIssueType.INDICES, ValidationAspect.DETECTOR));
+            if (indexingDryRun) {
+                listener.onFailure(new ADValidationException(errorMsg, DetectorValidationIssueType.INDICES, ValidationAspect.DETECTOR));
+                return;
+            }
+            listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
             validateAnomalyDetectorFeatures(detectorId, indexingDryRun);
         }
@@ -658,7 +684,12 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         // checking configuration/syntax error of detector features
         String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
-            listener.onFailure(new ADValidationException(error, DetectorValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.DETECTOR));
+            if (indexingDryRun) {
+                listener
+                    .onFailure(new ADValidationException(error, DetectorValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.DETECTOR));
+                return;
+            }
+            listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
             return;
         }
 
