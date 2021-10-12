@@ -118,6 +118,14 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
                     );
                     sendAnomalyDetectorValidationParseResponse(issueParsing, channel);
                     return;
+                } else if (ex instanceof IllegalArgumentException && ex.getMessage().contains("should be non-negative")) {
+                    DetectorValidationIssue intervalIssue = new DetectorValidationIssue(
+                        ValidationAspect.DETECTOR,
+                        DetectorValidationIssueType.DETECTION_INTERVAL,
+                        ex.getMessage()
+                    );
+                    sendAnomalyDetectorValidationParseResponse(intervalIssue, channel);
+                    return;
                 } else {
                     throw ex;
                 }
