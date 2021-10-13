@@ -444,6 +444,17 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     break;
                 case DETECTION_INTERVAL_FIELD:
                     detectionInterval = TimeConfiguration.parse(parser);
+                    try {
+                        detectionInterval = TimeConfiguration.parse(parser);
+                    } catch (Exception e) {
+                        if (e instanceof IllegalArgumentException && e.getMessage().contains("should be non-negative")) {
+                            throw new ADValidationException(
+                                "Detection interval must be a positive integer",
+                                DetectorValidationIssueType.DETECTION_INTERVAL,
+                                ValidationAspect.DETECTOR
+                            );
+                        }
+                    }
                     break;
                 case FEATURE_ATTRIBUTES_FIELD:
                     ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
@@ -452,7 +463,17 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     }
                     break;
                 case WINDOW_DELAY_FIELD:
-                    windowDelay = TimeConfiguration.parse(parser);
+                    try {
+                        windowDelay = TimeConfiguration.parse(parser);
+                    } catch (Exception e) {
+                        if (e instanceof IllegalArgumentException && e.getMessage().contains("should be non-negative")) {
+                            throw new ADValidationException(
+                                "Window delay interval must be a positive integer",
+                                DetectorValidationIssueType.WINDOW_DELAY,
+                                ValidationAspect.DETECTOR
+                            );
+                        }
+                    }
                     break;
                 case SHINGLE_SIZE_FIELD:
                     shingleSize = parser.intValue();

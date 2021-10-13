@@ -46,6 +46,7 @@ public class CommonErrorMessages {
     public static String AD_TASK_ACTION_MISSING = "AD task action is missing";
     public static final String BUG_RESPONSE = "We might have bugs.";
     public static final String INDEX_NOT_FOUND = "index does not exist";
+    public static final String NOT_EXISTENT_VALIDATION_TYPE = "The given validation type doesn't exist";
 
     private static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field.";
 

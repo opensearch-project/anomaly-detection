@@ -103,8 +103,9 @@ import org.opensearch.transport.TransportService;
  *  </ul>
  */
 public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionResponse> {
-    public static final String EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG = "Can't create multi-entity anomaly detectors more than ";
-    public static final String EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG = "Can't create single-entity anomaly detectors more than ";
+    public static final String EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG = "Can't create more than %d multi-entity anomaly detectors.";
+    public static final String EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG =
+        "Can't create more than %d single-entity anomaly detector.";
     public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document found in indices: ";
     public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
@@ -365,7 +366,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     protected void onSearchSingleEntityAdResponse(SearchResponse response, boolean indexingDryRun) throws IOException {
         if (response.getHits().getTotalHits().value >= maxSingleEntityAnomalyDetectors && !indexingDryRun) {
-            String errorMsg = EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG + maxSingleEntityAnomalyDetectors;
+            String errorMsg = String.format(Locale.ROOT, EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG, maxSingleEntityAnomalyDetectors);
             logger.error(errorMsg);
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
@@ -375,7 +376,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     protected void onSearchMultiEntityAdResponse(SearchResponse response, String detectorId, boolean indexingDryRun) throws IOException {
         if (response.getHits().getTotalHits().value >= maxMultiEntityAnomalyDetectors && !indexingDryRun) {
-            String errorMsg = EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG + maxMultiEntityAnomalyDetectors;
+            String errorMsg = String.format(Locale.ROOT, EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG, maxMultiEntityAnomalyDetectors);
             logger.error(errorMsg);
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {

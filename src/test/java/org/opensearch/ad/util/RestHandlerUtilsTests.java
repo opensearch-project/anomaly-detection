@@ -56,6 +56,10 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
         parser.close();
     }
 
+    public void testisExceptionCausedByInvalidQueryNotSearchPhaseException() {
+        assertFalse(RestHandlerUtils.isExceptionCausedByInvalidQuery(new IllegalArgumentException()));
+    }
+
     public void testValidateAnomalyDetectorWithTooManyFeatures() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(), randomFeature()));
         String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 1);

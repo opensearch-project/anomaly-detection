@@ -24,6 +24,7 @@ import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.AfterClass;
@@ -242,7 +243,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG));
+        String errorMsg = String
+            .format(
+                Locale.ROOT,
+                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG,
+                maxSingleEntityAnomalyDetectors
+            );
+        assertTrue(value.getMessage().contains(errorMsg));
     }
 
     @SuppressWarnings("unchecked")
@@ -533,7 +540,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
+        String errorMsg = String
+            .format(
+                Locale.ROOT,
+                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG,
+                maxMultiEntityAnomalyDetectors
+            );
+        assertTrue(value.getMessage().contains(errorMsg));
     }
 
     @Ignore
