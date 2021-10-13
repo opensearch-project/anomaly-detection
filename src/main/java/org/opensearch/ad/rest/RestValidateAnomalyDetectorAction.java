@@ -16,9 +16,15 @@ import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -50,6 +56,12 @@ import com.google.common.collect.ImmutableList;
  */
 public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
     private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
+
+    public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
+        .asList(ValidationAspect.values())
+        .stream()
+        .map(aspect -> aspect.getName())
+        .collect(Collectors.toSet());
 
     public RestValidateAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
         super(settings, clusterService);
@@ -87,6 +99,11 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         }
     }
 
+    private Boolean validationTypesAreAccepted(String validationType) {
+        Set<String> typesInRequest = new HashSet<>(Arrays.asList(validationType.split(",")));
+        return (!Collections.disjoint(typesInRequest, ALL_VALIDATION_ASPECTS_STRS));
+    }
+
     @Override
     protected BaseRestHandler.RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
@@ -95,6 +112,13 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         String typesStr = request.param(TYPE);
+
+        // if type param isn't blank and isn't a part of possible validation types throws exception
+        if (!StringUtils.isBlank(typesStr)) {
+            if (!validationTypesAreAccepted(typesStr)) {
+                throw new IllegalStateException(CommonErrorMessages.NOT_EXISTENT_VALIDATION_TYPE);
+            }
+        }
 
         return channel -> {
             AnomalyDetector detector;
@@ -117,14 +141,6 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
                         ex.getMessage()
                     );
                     sendAnomalyDetectorValidationParseResponse(issueParsing, channel);
-                    return;
-                } else if (ex instanceof IllegalArgumentException && ex.getMessage().contains("should be non-negative")) {
-                    DetectorValidationIssue intervalIssue = new DetectorValidationIssue(
-                        ValidationAspect.DETECTOR,
-                        DetectorValidationIssueType.DETECTION_INTERVAL,
-                        ex.getMessage()
-                    );
-                    sendAnomalyDetectorValidationParseResponse(intervalIssue, channel);
                     return;
                 } else {
                     throw ex;

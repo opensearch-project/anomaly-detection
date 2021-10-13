@@ -1338,7 +1338,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
                 ImmutableMap.of(),
                 TestHelpers
                     .toHttpEntity(
@@ -1359,6 +1359,38 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
         Map<String, Object> responseMap = entityAsMap(resp);
         assertEquals("no issue, empty response body", new HashMap<String, Object>(), responseMap);
+    }
+
+    public void testValidateAnomalyDetectorOnWrongValidationType() throws Exception {
+        TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        TestHelpers
+            .assertFailWith(
+                ResponseException.class,
+                CommonErrorMessages.NOT_EXISTENT_VALIDATION_TYPE,
+                () -> TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
+                        ImmutableMap.of(),
+                        TestHelpers
+                            .toHttpEntity(
+                                "{\"name\":\""
+                                    + "test-detector"
+                                    + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
+                                    + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
+                                    + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
+                                    + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
+                                    + "{\"total_error\":"
+                                    + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                                    + "{\"field\":"
+                                    + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                                    + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                                    + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}"
+                            ),
+                        null
+                    )
+            );
     }
 
     public void testValidateAnomalyDetectorWithEmptyIndices() throws Exception {

@@ -25,16 +25,10 @@ import org.opensearch.ad.constant.CommonName;
  *     All the following validation checks that will be executed will be
  *     based on detector configuration settings. If any validation checks fail the AD Creation
  *     process will be blocked and the user will be indicated what fields caused the failure.
- * <li><code>MODEL</code>:
- *     All the following validation checks that will be executed will be
- *     based on the model configurations. If any validation checks fail the AD Creation
- *     process will be <b>not</b> be blocked. However, user will receive suggestions on how
- *     certain configurations can be optimized so AD model training will more likely succeed.
  * </ul>
  */
 public enum ValidationAspect implements Name {
-    DETECTOR(CommonName.DETECTOR),
-    MODEL(CommonName.MODEL);
+    DETECTOR(CommonName.DETECTOR);
 
     private String name;
 
@@ -56,8 +50,6 @@ public enum ValidationAspect implements Name {
         switch (name) {
             case CommonName.DETECTOR:
                 return DETECTOR;
-            case CommonName.MODEL:
-                return MODEL;
             default:
                 throw new IllegalArgumentException("Unsupported validation aspects");
         }
