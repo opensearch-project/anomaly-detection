@@ -13,6 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.FEATURE_WITH_EMPTY_DATA_MSG;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.FEATURE_WITH_INVALID_QUERY_MSG;
+import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -27,6 +28,7 @@ import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.search.aggregations.AggregationBuilder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -138,6 +140,30 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     }
 
     @Test
+    public void testValidateAnomalyDetectorWithDuplicateFeatureNamesAndDuplicateAggregationNames() throws IOException {
+        Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
+        Feature maxFeatureTwo = maxValueFeature(nameField, categoryField, nameField);
+        AnomalyDetector anomalyDetector = TestHelpers
+            .randomAnomalyDetector(ImmutableList.of(maxFeature, maxFeatureTwo), ImmutableMap.of(), Instant.now());
+        Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
+        ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
+        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+            anomalyDetector,
+            ValidationAspect.DETECTOR.getName(),
+            5,
+            5,
+            5,
+            new TimeValue(5_000L)
+        );
+        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        assertNotNull(response.getIssue());
+        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature aggregation query names:"));
+        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature names:"));
+        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
+    }
+
+    @Test
     public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {
         Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
         Feature maxFeatureTwo = maxValueFeature("test_1", categoryField, nameField);
@@ -181,6 +207,33 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertTrue(response.getIssue().getMessage().contains(FEATURE_WITH_INVALID_QUERY_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(maxFeature.getName()));
         assertTrue(FEATURE_WITH_INVALID_QUERY_MSG.contains(response.getIssue().getSubIssues().get(maxFeature.getName())));
+    }
+
+    @Test
+    public void testValidateAnomalyDetectorWithUnknownFeatureField() throws IOException {
+        AggregationBuilder aggregationBuilder = TestHelpers.parseAggregation("{\"test\":{\"terms\":{\"field\":\"type\"}}}");
+        AnomalyDetector anomalyDetector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(new Feature(randomAlphaOfLength(5), nameField, true, aggregationBuilder)),
+                ImmutableMap.of(),
+                Instant.now()
+            );
+        Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
+        ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
+        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+            anomalyDetector,
+            ValidationAspect.DETECTOR.getName(),
+            5,
+            5,
+            5,
+            new TimeValue(5_000L)
+        );
+        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        assertNotNull(response.getIssue());
+        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
+        assertTrue(response.getIssue().getMessage().contains(UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG));
+        assertTrue(response.getIssue().getSubIssues().containsKey(nameField));
     }
 
     @Test

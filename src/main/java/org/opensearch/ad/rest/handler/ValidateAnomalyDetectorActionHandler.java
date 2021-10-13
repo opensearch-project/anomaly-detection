@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.ActionListener;
@@ -23,6 +22,7 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -40,12 +40,6 @@ import com.google.common.collect.Sets;
 public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> {
 
     private static final Set<ValidationAspect> DEFAULT_VALIDATION_ASPECTS = Sets.newHashSet(ValidationAspect.DETECTOR);
-    private static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
-        .asList(ValidationAspect.values())
-        .stream()
-        .map(aspect -> aspect.getName())
-        .collect(Collectors.toSet());
-
     private final Set<ValidationAspect> aspects;
 
     /**
@@ -104,13 +98,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             searchFeatureDao,
             true
         );
-        String normalizedTypes = StringUtils.isBlank(validationType)
-            ? ValidationAspect.DETECTOR.getName()
-            : validationType.trim().replaceAll("\\s", "");
-        Set<String> typesInRequest = new HashSet<>(Arrays.asList(normalizedTypes.split(",")));
-
-        this.aspects = Sets
-            .union(DEFAULT_VALIDATION_ASPECTS, ValidationAspect.getNames(Sets.intersection(ALL_VALIDATION_ASPECTS_STRS, typesInRequest)));
+        this.aspects = getValidationTypes(validationType);
     }
 
     // All current validation that is done in the AbstractAnomalyDetectorActionHandler that is called
@@ -119,9 +107,6 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
     @Override
     public void start() throws IOException {
         super.start();
-        if (aspects.contains(ValidationAspect.MODEL)) {
-            validateModelConfig();
-        }
     }
 
     // Future additional implementation of the validation API will include model validation
@@ -134,4 +119,13 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
 
     }
 
+    private Set<ValidationAspect> getValidationTypes(String validationType) {
+        if (StringUtils.isBlank(validationType)) {
+            return DEFAULT_VALIDATION_ASPECTS;
+        } else {
+            Set<String> typesInRequest = new HashSet<>(Arrays.asList(validationType.split(",")));
+            return ValidationAspect
+                .getNames(Sets.intersection(RestValidateAnomalyDetectorAction.ALL_VALIDATION_ASPECTS_STRS, typesInRequest));
+        }
+    }
 }
