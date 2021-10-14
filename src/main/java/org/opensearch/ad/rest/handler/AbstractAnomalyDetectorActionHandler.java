@@ -365,19 +365,38 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     }
 
     protected void onSearchSingleEntityAdResponse(SearchResponse response, boolean indexingDryRun) throws IOException {
-        if (response.getHits().getTotalHits().value >= maxSingleEntityAnomalyDetectors && !indexingDryRun) {
-            String errorMsg = String.format(Locale.ROOT, EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG, maxSingleEntityAnomalyDetectors);
-            logger.error(errorMsg);
-            listener.onFailure(new IllegalArgumentException(errorMsg));
+        if (response.getHits().getTotalHits().value >= maxSingleEntityAnomalyDetectors) {
+            String errorMsgSingleEntity = String
+                .format(Locale.ROOT, EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG, maxSingleEntityAnomalyDetectors);
+            logger.error(errorMsgSingleEntity);
+            if (indexingDryRun) {
+                listener
+                    .onFailure(
+                        new ADValidationException(
+                            errorMsgSingleEntity,
+                            DetectorValidationIssueType.GENERAL_SETTINGS,
+                            ValidationAspect.DETECTOR
+                        )
+                    );
+                return;
+            }
+            listener.onFailure(new IllegalArgumentException(errorMsgSingleEntity));
         } else {
             searchAdInputIndices(null, indexingDryRun);
         }
     }
 
     protected void onSearchMultiEntityAdResponse(SearchResponse response, String detectorId, boolean indexingDryRun) throws IOException {
-        if (response.getHits().getTotalHits().value >= maxMultiEntityAnomalyDetectors && !indexingDryRun) {
+        if (response.getHits().getTotalHits().value >= maxMultiEntityAnomalyDetectors) {
             String errorMsg = String.format(Locale.ROOT, EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG, maxMultiEntityAnomalyDetectors);
             logger.error(errorMsg);
+            if (indexingDryRun) {
+                listener
+                    .onFailure(
+                        new ADValidationException(errorMsg, DetectorValidationIssueType.GENERAL_SETTINGS, ValidationAspect.DETECTOR)
+                    );
+                return;
+            }
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
             validateCategoricalField(detectorId, indexingDryRun);

@@ -72,6 +72,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
     public static final String PARSING_ISSUE = "query_parsing";
+    public static final String GENERAL_SETTINGS = "general_settings";
     public static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
     public static final Integer MAX_DETECTOR_NAME_SIZE = 64;
 
