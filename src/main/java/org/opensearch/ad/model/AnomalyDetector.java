@@ -444,7 +444,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     }
                     break;
                 case DETECTION_INTERVAL_FIELD:
-                    detectionInterval = TimeConfiguration.parse(parser);
                     try {
                         detectionInterval = TimeConfiguration.parse(parser);
                     } catch (Exception e) {
