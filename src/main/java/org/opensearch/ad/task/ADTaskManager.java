@@ -2135,12 +2135,12 @@ public class ADTaskManager {
                                 oldCoordinatingNode,
                                 detectorId
                             );
-                        adTaskCacheManager.initRealtimeTaskCache(detectorId, detector.getDetectorIntervalInMinutes());
+                        adTaskCacheManager.initRealtimeTaskCache(detectorId, detector.getDetectorIntervalInMilliseconds());
                         listener.onResponse(true);
                     }, listener);
                 } else {
                     logger.info("Init realtime task cache for detector {}", detectorId);
-                    adTaskCacheManager.initRealtimeTaskCache(detectorId, detector.getDetectorIntervalInMinutes());
+                    adTaskCacheManager.initRealtimeTaskCache(detectorId, detector.getDetectorIntervalInMilliseconds());
                     listener.onResponse(true);
                 }
             }, transportService, false, listener);
