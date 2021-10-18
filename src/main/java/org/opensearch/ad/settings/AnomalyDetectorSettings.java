@@ -194,7 +194,10 @@ public final class AnomalyDetectorSettings {
 
     public static final double TIME_DECAY = 0.0001;
 
-    public static final int NUM_MIN_SAMPLES = 128;
+    // If we have 32 + shingleSize (hopefully recent) values, RCF can get up and running. It will be noisy —
+    // there is a reason that default size is 256 (+ shingle size), but it may be more useful for people to
+    /// start seeing some results.
+    public static final int NUM_MIN_SAMPLES = 32;
 
     // The threshold for splitting RCF models in single-stream detectors.
     // The smallest machine in the Amazon managed service has 1GB heap.
@@ -776,4 +779,9 @@ public final class AnomalyDetectorSettings {
     // AD Index setting
     // ======================================
     public static int MAX_UPDATE_RETRY_TIMES = 10_000;
+
+    // ======================================
+    // Cold start setting
+    // ======================================
+    public static int MAX_COLD_START_ROUNDS = 2;
 }

@@ -20,8 +20,8 @@ import static org.opensearch.ad.util.ParseUtils.batchFeatureQuery;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.time.ZonedDateTime;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -471,16 +471,12 @@ public class SearchFeatureDao extends AbstractRetriever {
     }
 
     /**
-     * Get the entity's earliest and latest timestamps
+     * Get the entity's earliest timestamps
      * @param detector detector config
      * @param entity the entity's information
      * @param listener listener to return back the requested timestamps
      */
-    public void getEntityMinMaxDataTime(
-        AnomalyDetector detector,
-        Entity entity,
-        ActionListener<Entry<Optional<Long>, Optional<Long>>> listener
-    ) {
+    public void getEntityMinDataTime(AnomalyDetector detector, Entity entity, ActionListener<Optional<Long>> listener) {
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
 
         for (TermQueryBuilder term : entity.getTermQueryBuilders()) {
@@ -489,7 +485,6 @@ public class SearchFeatureDao extends AbstractRetriever {
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(internalFilterQuery)
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .aggregation(AggregationBuilders.min(AGG_NAME_MIN).field(detector.getTimeField()))
             .trackTotalHits(false)
             .size(0);
@@ -497,21 +492,17 @@ public class SearchFeatureDao extends AbstractRetriever {
         client
             .search(
                 searchRequest,
-                ActionListener.wrap(response -> { listener.onResponse(parseMinMaxDataTime(response)); }, listener::onFailure)
+                ActionListener.wrap(response -> { listener.onResponse(parseMinDataTime(response)); }, listener::onFailure)
             );
     }
 
-    private Entry<Optional<Long>, Optional<Long>> parseMinMaxDataTime(SearchResponse searchResponse) {
+    private Optional<Long> parseMinDataTime(SearchResponse searchResponse) {
         Optional<Map<String, Aggregation>> mapOptional = Optional
             .ofNullable(searchResponse)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap());
 
-        Optional<Long> latest = mapOptional.map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME)).map(agg -> (long) agg.getValue());
-
-        Optional<Long> earliest = mapOptional.map(map -> (Min) map.get(AGG_NAME_MIN)).map(agg -> (long) agg.getValue());
-
-        return new SimpleImmutableEntry<>(earliest, latest);
+        return mapOptional.map(map -> (Min) map.get(AGG_NAME_MIN)).map(agg -> (long) agg.getValue());
     }
 
     /**
@@ -1000,9 +991,9 @@ public class SearchFeatureDao extends AbstractRetriever {
                         .stream()
                         .filter(InternalDateRange.class::isInstance)
                         .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
-                        .filter(bucket -> bucket.getFrom() != null)
+                        .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
                         .filter(bucket -> bucket.getDocCount() > docCountThreshold)
-                        .sorted(Comparator.comparing((Bucket bucket) -> Long.valueOf(bucket.getFromAsString())))
+                        .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
                         .map(bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()))
                         .collect(Collectors.toList())
                 );
