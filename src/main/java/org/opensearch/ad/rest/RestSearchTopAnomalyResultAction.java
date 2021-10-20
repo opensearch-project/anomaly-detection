@@ -17,22 +17,17 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.SearchTopAnomalyResultAction;
 import org.opensearch.ad.transport.SearchTopAnomalyResultRequest;
-import org.opensearch.ad.transport.SearchTopAnomalyResultResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
-import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestResponse;
-import org.opensearch.rest.RestStatus;
-import org.opensearch.rest.action.RestResponseListener;
+import org.opensearch.rest.action.RestToXContentListener;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import static org.opensearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 
@@ -74,12 +69,7 @@ public class RestSearchTopAnomalyResultAction extends BaseRestHandler {
                 client.execute(
                         SearchTopAnomalyResultAction.INSTANCE,
                         searchTopAnomalyResultRequest,
-                        new RestResponseListener<SearchTopAnomalyResultResponse>(channel) {
-                            @Override
-                            public RestResponse buildResponse(SearchTopAnomalyResultResponse response) throws Exception {
-                                return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));
-                            }
-                        });
+                        new RestToXContentListener<>(channel));
 
     }
 
