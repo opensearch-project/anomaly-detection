@@ -15,6 +15,7 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.XContentParser;
 
 import java.io.IOException;
@@ -171,7 +172,23 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
     }
 
     @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+        out.writeOptionalString(detectorId);
+        out.writeOptionalString(taskId);
+        out.writeBoolean(historical);
+        out.writeOptionalInt(size);
+        out.writeOptionalStringArray((String[]) categoryFields.toArray());
+        out.writeOptionalString(order);
+        out.writeInstant(startTime);
+        out.writeInstant(endTime);
+    }
+
+    @Override
     public ActionRequestValidationException validate() {
+        if (startTime == null || endTime == null) {
+            throw new IllegalArgumentException("Must set both start time and end time with epoch of milliseconds");
+        }
         return null;
     }
 }

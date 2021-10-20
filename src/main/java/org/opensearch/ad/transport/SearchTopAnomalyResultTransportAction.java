@@ -227,12 +227,17 @@ public class SearchTopAnomalyResultTransportAction
                 null
         );
         client.execute(GetAnomalyDetectorAction.INSTANCE, getAdRequest, ActionListener.wrap(getAdResponse -> {
-            // Validating the start and end time
-            if (request.getStartTime() == null || request.getEndTime() == null) {
-                throw new IllegalArgumentException("Must set both start time and end time with epoch of milliseconds");
-            }
             if (!request.getStartTime().isBefore(request.getEndTime())) {
                 throw new IllegalArgumentException("Start time should be before end time");
+            }
+
+            // Make sure detector exists
+            if (getAdResponse.getDetector() == null) {
+                throw new IllegalArgumentException(String.format(
+                        Locale.ROOT,
+                        "No anomaly detector found with ID %s",
+                        request.getDetectorId())
+                );
             }
 
             // Make sure detector is HC
@@ -332,8 +337,7 @@ public class SearchTopAnomalyResultTransportAction
         SearchSourceBuilder searchSourceBuilder;
         private long expirationEpochMs;
         private int maxResults;
-        private OrderType orderType;
-        private PriorityQueue<AnomalyResultBucket> maxHeap;
+        private PriorityQueue<AnomalyResultBucket> topResultsHeap;
 
         TopAnomalyResultListener(
                 ActionListener<SearchTopAnomalyResultResponse> listener,
@@ -346,16 +350,14 @@ public class SearchTopAnomalyResultTransportAction
             this.searchSourceBuilder = searchSourceBuilder;
             this.expirationEpochMs = expirationEpochMs;
             this.maxResults = maxResults;
-            this.orderType = orderType;
-            this.maxHeap = new PriorityQueue<>(maxResults, new Comparator<AnomalyResultBucket>() {
-                // Sorting by descending order of anomaly grade or doc count
+            this.topResultsHeap = new PriorityQueue<>(maxResults, new Comparator<AnomalyResultBucket>() {
+                // Sorting by ascending order of anomaly grade or doc count
                 @Override
                 public int compare(AnomalyResultBucket bucket1, AnomalyResultBucket bucket2) {
                     if (orderType == OrderType.SEVERITY) {
-                        double difference = bucket1.getMaxAnomalyGrade() - bucket2.getMaxAnomalyGrade();
-                        return difference > 0 ? 1 : difference == 0 ? 0 : -1;
+                        return Double.compare(bucket1.getMaxAnomalyGrade(), bucket2.getMaxAnomalyGrade());
                     } else {
-                        return bucket1.getDocCount() - bucket2.getDocCount();
+                        return Integer.compare(bucket1.getDocCount(), bucket2.getDocCount());
                     }
                 }
             });
@@ -387,22 +389,24 @@ public class SearchTopAnomalyResultTransportAction
                         .map(bucket -> AnomalyResultBucket.createAnomalyResultBucket(bucket))
                         .collect(Collectors.toList());
 
-                // Add all of the results to the heap, and only keep the top maxResults buckets
-                maxHeap.addAll(bucketResults);
-                while (maxHeap.size() > maxResults) {
-                    maxHeap.poll();
+                // Add all of the results to the heap, and only keep the top maxResults buckets.
+                // Note that the top results heap is implemented as a min heap, so by polling
+                // the lowest values from the heap, only the top values remain.
+                topResultsHeap.addAll(bucketResults);
+                while (topResultsHeap.size() > maxResults) {
+                    topResultsHeap.poll();
                 }
 
                 // If afterKey is null: we've hit the end of results. Return the results
                 Map<String, Object> afterKey = compositeAgg.afterKey();
                 if (afterKey == null) {
-                    listener.onResponse(new SearchTopAnomalyResultResponse(getOrderedListFromMaxHeap(maxHeap, orderType)));
+                    listener.onResponse(new SearchTopAnomalyResultResponse(getDescendingOrderListFromHeap(topResultsHeap)));
                 } else if (expirationEpochMs < clock.millis()) {
-                    if (maxHeap.isEmpty()) {
+                    if (topResultsHeap.isEmpty()) {
                         listener.onFailure(new AnomalyDetectionException("Timed out getting all top anomaly results. Please retry later."));
                     } else {
                         logger.info("Timed out getting all top anomaly results. Sending back partial results.");
-                        listener.onResponse(new SearchTopAnomalyResultResponse(getOrderedListFromMaxHeap(maxHeap, orderType)));
+                        listener.onResponse(new SearchTopAnomalyResultResponse(getDescendingOrderListFromHeap(topResultsHeap)));
                     }
                 } else {
                     CompositeAggregationBuilder aggBuilder = (CompositeAggregationBuilder) searchSourceBuilder.aggregations().
@@ -540,26 +544,20 @@ public class SearchTopAnomalyResultTransportAction
     }
 
     /**
-     * Creates an ordered List from the max heap, based on the order type.
+     * Creates a descending-ordered List from a min heap.
      *
-     * @param maxHeap   the max heap
-     * @param orderType the order type to determine how to sort the result buckets
-     * @return an ordered List containing all of the elements in the max heap
+     * @param minHeap a min heap
+     * @return an ordered List containing all of the elements in the heap
      */
-    private List<AnomalyResultBucket> getOrderedListFromMaxHeap(PriorityQueue<AnomalyResultBucket> maxHeap, OrderType orderType) {
-        List<AnomalyResultBucket> maxHeapAsList = new ArrayList<>(maxHeap);
-        Collections.sort(maxHeapAsList, new Comparator<AnomalyResultBucket>() {
-            @Override
-            public int compare(AnomalyResultBucket bucket1, AnomalyResultBucket bucket2) {
-                if (orderType == OrderType.SEVERITY) {
-                    double difference = bucket2.getMaxAnomalyGrade() - bucket1.getMaxAnomalyGrade();
-                    return difference > 0 ? 1 : difference == 0 ? 0 : -1;
-                } else {
-                    return bucket2.getDocCount() - bucket1.getDocCount();
-                }
-            }
-        });
-        return maxHeapAsList;
+    private List<AnomalyResultBucket> getDescendingOrderListFromHeap(PriorityQueue<AnomalyResultBucket> minHeap) {
+        List<AnomalyResultBucket> topResultsHeapAsList = new ArrayList<>();
+        while (!minHeap.isEmpty()) {
+            topResultsHeapAsList.add(minHeap.poll());
+        }
+        // Need to reverse the list, since polling from a min heap
+        // will return results in ascending order
+        Collections.reverse(topResultsHeapAsList);
+        return topResultsHeapAsList;
     }
 
 }
