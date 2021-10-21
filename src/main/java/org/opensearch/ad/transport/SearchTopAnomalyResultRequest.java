@@ -178,7 +178,7 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
         out.writeOptionalString(taskId);
         out.writeBoolean(historical);
         out.writeOptionalInt(size);
-        out.writeOptionalStringArray((String[]) categoryFields.toArray());
+        out.writeOptionalStringCollection(categoryFields);
         out.writeOptionalString(order);
         out.writeInstant(startTime);
         out.writeInstant(endTime);
@@ -188,6 +188,9 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
     public ActionRequestValidationException validate() {
         if (startTime == null || endTime == null) {
             throw new IllegalArgumentException("Must set both start time and end time with epoch of milliseconds");
+        }
+        if (!startTime.isBefore(endTime)) {
+            throw new IllegalArgumentException("Start time should be before end time");
         }
         return null;
     }

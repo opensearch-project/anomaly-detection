@@ -227,10 +227,6 @@ public class SearchTopAnomalyResultTransportAction
                 null
         );
         client.execute(GetAnomalyDetectorAction.INSTANCE, getAdRequest, ActionListener.wrap(getAdResponse -> {
-            if (!request.getStartTime().isBefore(request.getEndTime())) {
-                throw new IllegalArgumentException("Start time should be before end time");
-            }
-
             // Make sure detector exists
             if (getAdResponse.getDetector() == null) {
                 throw new IllegalArgumentException(String.format(
@@ -310,6 +306,11 @@ public class SearchTopAnomalyResultTransportAction
             // Generating the search request which will contain the generated query
             SearchRequest searchRequest = generateSearchRequest(request);
 
+            // Utilizing the existing search() from SearchHandler to handle security permissions. Both user role
+            // and backend role filtering is handled in there, and any error will be propagated up and
+            // returned as a failure in this Listener.
+            // This same method is used for security handling for the search results action. Since this action
+            // is doing fundamentally the same thing, we can reuse the security logic here.
             searchHandler.search(searchRequest, new TopAnomalyResultListener(listener,
                     searchRequest.source(),
                     clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
