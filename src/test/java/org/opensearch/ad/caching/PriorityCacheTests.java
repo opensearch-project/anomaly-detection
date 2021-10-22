@@ -39,6 +39,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -92,7 +93,6 @@ public class PriorityCacheTests extends AbstractCacheTest {
     double[] point;
     int dedicatedCacheSize;
 
-    @SuppressWarnings("unchecked")
     @Override
     @Before
     public void setUp() throws Exception {
@@ -646,5 +646,25 @@ public class PriorityCacheTests extends AbstractCacheTest {
         Pair<List<Entity>, List<Entity>> selectedAndOther = cacheProvider.selectUpdateCandidate(cacheMissEntities, detectorId, detector);
         assertEquals(0, selectedAndOther.getLeft().size());
         assertEquals(0, selectedAndOther.getRight().size());
+    }
+
+    // test that detector interval is more than 1 hour that maintenance is called before
+    // the next get method
+    public void testLongDetectorInterval() {
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
+        when(detector.getDetectionIntervalDuration()).thenReturn(Duration.ofHours(12));
+        String modelId = entity1.getModelId(detectorId).get();
+        // record last access time 1000
+        cacheProvider.get(modelId, detector);
+        assertEquals(-1, cacheProvider.getLastActiveMs(detectorId, modelId));
+        // 2 hour = 7200 seconds have passed
+        long currentTimeEpoch = 8200;
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(currentTimeEpoch));
+        // door keeper should not be expired since we reclaim space every 60 intervals
+        cacheProvider.maintenance();
+        // door keeper still has the record and won't blocks entity state being created
+        cacheProvider.get(modelId, detector);
+        // * 1000 to convert to milliseconds
+        assertEquals(currentTimeEpoch * 1000, cacheProvider.getLastActiveMs(detectorId, modelId));
     }
 }

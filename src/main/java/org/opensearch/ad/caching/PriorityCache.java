@@ -171,7 +171,12 @@ public class PriorityCache implements EntityCache {
                 );
 
             // first hit, ignore
-            if (doorKeeper.mightContain(modelId) == false) {
+            // since door keeper may get reset during maintenance, it is possible
+            // the entity is still active even though door keeper has no record of
+            // this model Id. We have to call isActive method to make sure. Otherwise,
+            // the entity might miss an anomaly result every 60 intervals due to door keeper
+            // reset.
+            if (!doorKeeper.mightContain(modelId) && !isActive(detectorId, modelId)) {
                 doorKeeper.put(modelId);
                 return null;
             }
@@ -642,7 +647,8 @@ public class PriorityCache implements EntityCache {
             doorKeepers.entrySet().stream().forEach(doorKeeperEntry -> {
                 String detectorId = doorKeeperEntry.getKey();
                 DoorKeeper doorKeeper = doorKeeperEntry.getValue();
-                if (doorKeeper.expired(modelTtl)) {
+                // doorKeeper has its own state ttl
+                if (doorKeeper.expired(null)) {
                     doorKeepers.remove(detectorId);
                 } else {
                     doorKeeper.maintenance();
@@ -786,14 +792,18 @@ public class PriorityCache implements EntityCache {
     @Override
     public long getLastActiveMs(String detectorId, String entityModelId) {
         CacheBuffer cacheBuffer = activeEnities.get(detectorId);
+        long lastUsedMs = -1;
         if (cacheBuffer != null) {
-            return cacheBuffer.getLastUsedTime(entityModelId);
+            lastUsedMs = cacheBuffer.getLastUsedTime(entityModelId);
+            if (lastUsedMs != -1) {
+                return lastUsedMs;
+            }
         }
         ModelState<EntityModel> stateInActive = inActiveEntities.getIfPresent(entityModelId);
         if (stateInActive != null) {
-            return stateInActive.getLastUsedTime().getEpochSecond();
+            lastUsedMs = stateInActive.getLastUsedTime().toEpochMilli();
         }
-        return -1L;
+        return lastUsedMs;
     }
 
     @Override
