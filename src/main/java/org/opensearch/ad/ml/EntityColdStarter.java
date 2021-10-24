@@ -263,8 +263,6 @@ public class EntityColdStarter implements MaintenanceState {
                             checkpointWriteQueue.write(modelState, true, RequestPriority.MEDIUM);
                             logger.info("Not enough data to train entity: {}, currently we have {}", modelId, samples.size());
                         }
-                        // save to checkpoint
-                        checkpointWriteQueue.write(modelState, true, RequestPriority.MEDIUM);
                     } else {
                         logger.info("Cannot get training data for {}", modelId);
                     }
@@ -377,8 +375,6 @@ public class EntityColdStarter implements MaintenanceState {
 
         // save to checkpoint
         checkpointWriteQueue.write(entityState, true, RequestPriority.MEDIUM);
-        // clear samples after using
-        dataPoints.clear();
     }
 
     /**

@@ -171,18 +171,18 @@ public class NodeState implements ExpiringState {
     }
 
     /**
-    *
-    * @return Detector configuration object
-    */
+     *
+     * @return Detector configuration object
+     */
     public AnomalyDetectorJob getDetectorJob() {
         refreshLastUpdateTime();
         return detectorJob;
     }
 
     /**
-    *
-    * @param detectorJob Detector job
-    */
+     *
+     * @param detectorJob Detector job
+     */
     public void setDetectorJob(AnomalyDetectorJob detectorJob) {
         this.detectorJob = detectorJob;
         refreshLastUpdateTime();
