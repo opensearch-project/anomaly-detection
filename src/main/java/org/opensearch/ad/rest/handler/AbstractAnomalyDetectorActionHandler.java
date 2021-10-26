@@ -105,16 +105,16 @@ import org.opensearch.transport.TransportService;
 public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionResponse> {
     public static final String EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG = "Can't create more than %d multi-entity anomaly detectors.";
     public static final String EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG =
-        "Can't create more than %d single-entity anomaly detector.";
-    public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document found in indices: ";
+        "Can't create more than %d single-entity anomaly detectors.";
+    public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document is found in the indices: ";
     public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
     public static final String NOT_FOUND_ERR_MSG = "Cannot find the categorical field %s";
     public static final String DUPLICATE_DETECTOR_MSG = "Cannot create anomaly detector with name [%s] as it's already used by detector %s";
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
-    public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has invalid query";
+    public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";
     public static final String FEATURE_WITH_EMPTY_DATA_MSG = FEATURE_INVALID_MSG_PREFIX + " returning empty aggregated data: ";
-    public static final String FEATURE_WITH_INVALID_QUERY_MSG = FEATURE_INVALID_MSG_PREFIX + " causing runtime exception: ";
+    public static final String FEATURE_WITH_INVALID_QUERY_MSG = FEATURE_INVALID_MSG_PREFIX + " causing a runtime exception: ";
     public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG = "Unknown exception caught while searching query for feature: ";
 
     protected final AnomalyDetectionIndices anomalyDetectionIndices;
