@@ -109,7 +109,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document is found in the indices: ";
     public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
-    public static final String NOT_FOUND_ERR_MSG = "Cannot find the categorical field %s";
+    public static final String NOT_FOUND_ERR_MSG = "Can't find the categorical field %s";
     public static final String DUPLICATE_DETECTOR_MSG = "Cannot create anomaly detector with name [%s] as it's already used by detector %s";
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
     public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";
@@ -712,59 +712,63 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
             return;
         }
-
-        // checking runtime error of detector features
-        ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener
-            .wrap(response -> { checkADNameExists(detectorId, indexingDryRun); }, exception -> {
-                listener
-                    .onFailure(
-                        new ADValidationException(
-                            exception.getMessage(),
-                            DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                            ValidationAspect.DETECTOR
-                        )
+        // checking runtime error or feature query leading to no data only when validating
+        // AD create/update isn't blocked by these checks
+        if (!indexingDryRun) {
+            checkADNameExists(detectorId, false);
+        } else {
+            ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener
+                    .wrap(response -> { checkADNameExists(detectorId, indexingDryRun); }, exception -> {
+                        listener
+                                .onFailure(
+                                        new ADValidationException(
+                                                exception.getMessage(),
+                                                DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                                                ValidationAspect.DETECTOR
+                                        )
+                                );
+                    });
+            MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>> multiFeatureQueriesResponseListener =
+                    new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
+                            validateFeatureQueriesListener,
+                            anomalyDetector.getFeatureAttributes().size(),
+                            String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
+                            false
                     );
-            });
-        MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>> multiFeatureQueriesResponseListener =
-            new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
-                validateFeatureQueriesListener,
-                anomalyDetector.getFeatureAttributes().size(),
-                String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
-                false
-            );
 
-        for (Feature feature : anomalyDetector.getFeatureAttributes()) {
-            SearchSourceBuilder ssb = new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery());
-            AggregatorFactories.Builder internalAgg = parseAggregators(
-                feature.getAggregation().toString(),
-                xContentRegistry,
-                feature.getId()
-            );
-            ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());
-            SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().toArray(new String[0])).source(ssb);
-            client.search(searchRequest, ActionListener.wrap(response -> {
-                Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()));
-                if (aggFeatureResult.isPresent()) {
-                    multiFeatureQueriesResponseListener
-                        .onResponse(
-                            new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
-                        );
-                } else {
-                    String errorMessage = FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
-                    logger.error(errorMessage);
-                    multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
-                }
-            }, e -> {
-                String errorMessage;
-                if (isExceptionCausedByInvalidQuery(e)) {
-                    errorMessage = FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
-                } else {
-                    errorMessage = UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
-                }
+            for (Feature feature : anomalyDetector.getFeatureAttributes()) {
+                SearchSourceBuilder ssb = new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery());
+                AggregatorFactories.Builder internalAgg = parseAggregators(
+                        feature.getAggregation().toString(),
+                        xContentRegistry,
+                        feature.getId()
+                );
+                ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());
+                SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().toArray(new String[0])).source(ssb);
+                client.search(searchRequest, ActionListener.wrap(response -> {
+                    Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()));
+                    if (aggFeatureResult.isPresent()) {
+                        multiFeatureQueriesResponseListener
+                                .onResponse(
+                                        new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
+                                );
+                    } else {
+                        String errorMessage = FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
+                        logger.error(errorMessage);
+                        multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
+                    }
+                }, e -> {
+                    String errorMessage;
+                    if (isExceptionCausedByInvalidQuery(e)) {
+                        errorMessage = FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
+                    } else {
+                        errorMessage = UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
+                    }
 
-                logger.error(errorMessage, e);
-                multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
-            }));
+                    logger.error(errorMessage, e);
+                    multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
+                }));
+            }
         }
     }
 }
