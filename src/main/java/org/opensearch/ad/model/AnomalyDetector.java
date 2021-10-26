@@ -163,7 +163,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             );
         } else if (name.length() > MAX_DETECTOR_NAME_SIZE) {
             throw new ADValidationException(
-                "Name is too big maximum limit is " + MAX_DETECTOR_NAME_SIZE,
+                "Name should be shortened. The maximum limit is " + MAX_DETECTOR_NAME_SIZE + "characters.",
                 DetectorValidationIssueType.NAME,
                 ValidationAspect.DETECTOR
             );
@@ -447,13 +447,15 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     try {
                         detectionInterval = TimeConfiguration.parse(parser);
                     } catch (Exception e) {
-                        if (e instanceof IllegalArgumentException && e.getMessage().contains("should be non-negative")) {
+                        if (e instanceof IllegalArgumentException
+                            && e.getMessage().contains(CommonErrorMessages.NEGATIVE_TIME_CONFIGURATION)) {
                             throw new ADValidationException(
                                 "Detection interval must be a positive integer",
                                 DetectorValidationIssueType.DETECTION_INTERVAL,
                                 ValidationAspect.DETECTOR
                             );
                         }
+                        throw e;
                     }
                     break;
                 case FEATURE_ATTRIBUTES_FIELD:
@@ -466,13 +468,15 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     try {
                         windowDelay = TimeConfiguration.parse(parser);
                     } catch (Exception e) {
-                        if (e instanceof IllegalArgumentException && e.getMessage().contains("should be non-negative")) {
+                        if (e instanceof IllegalArgumentException
+                            && e.getMessage().contains(CommonErrorMessages.NEGATIVE_TIME_CONFIGURATION)) {
                             throw new ADValidationException(
                                 "Window delay interval must be a positive integer",
                                 DetectorValidationIssueType.WINDOW_DELAY,
                                 ValidationAspect.DETECTOR
                             );
                         }
+                        throw e;
                     }
                     break;
                 case SHINGLE_SIZE_FIELD:

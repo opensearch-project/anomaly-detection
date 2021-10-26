@@ -34,7 +34,7 @@ public class ValidateAnomalyDetectorResponse extends ActionResponse implements T
 
     public ValidateAnomalyDetectorResponse(StreamInput in) throws IOException {
         super(in);
-        if (in.available() > 0) {
+        if (in.readBoolean()) {
             issue = new DetectorValidationIssue(in);
         }
     }
@@ -42,7 +42,10 @@ public class ValidateAnomalyDetectorResponse extends ActionResponse implements T
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         if (issue != null) {
+            out.writeBoolean(true);
             issue.writeTo(out);
+        } else {
+            out.writeBoolean(false);
         }
     }
 
