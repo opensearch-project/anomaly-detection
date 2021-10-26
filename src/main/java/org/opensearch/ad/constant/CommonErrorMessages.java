@@ -48,7 +48,7 @@ public class CommonErrorMessages {
     public static final String INDEX_NOT_FOUND = "index does not exist";
     public static final String NOT_EXISTENT_VALIDATION_TYPE = "The given validation type doesn't exist";
 
-    private static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field.";
+    private static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field/s.";
 
     public static String getTooManyCategoricalFieldErr(int limit) {
         return String.format(Locale.ROOT, TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT, limit);
