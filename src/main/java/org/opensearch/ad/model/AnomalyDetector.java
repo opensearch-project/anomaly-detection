@@ -441,7 +441,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                         filterQuery = parseInnerQueryBuilder(parser);
                     } catch (ParsingException | XContentParseException e) {
                         throw new ADValidationException(
-                            "Custom query error: " + e.getMessage(),
+                            "Custom query error in data filter: " + e.getMessage(),
                             DetectorValidationIssueType.FILTER_QUERY,
                             ValidationAspect.DETECTOR
                         );
