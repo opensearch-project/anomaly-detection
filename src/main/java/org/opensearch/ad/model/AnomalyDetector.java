@@ -36,6 +36,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParseField;
+import org.opensearch.common.ParsingException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -44,6 +45,7 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParseException;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.QueryBuilder;
@@ -157,7 +159,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             throw new ADValidationException("Detector name should be set", DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
         } else if (!name.matches(NAME_REGEX)) {
             throw new ADValidationException(
-                "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen) and _(underscore)",
+                CommonErrorMessages.INVALID_DETECTOR_NAME,
                 DetectorValidationIssueType.NAME,
                 ValidationAspect.DETECTOR
             );
@@ -437,6 +439,12 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
                     try {
                         filterQuery = parseInnerQueryBuilder(parser);
+                    } catch (ParsingException | XContentParseException e) {
+                        throw new ADValidationException(
+                            "Custom query error: " + e.getMessage(),
+                            DetectorValidationIssueType.FILTER_QUERY,
+                            ValidationAspect.DETECTOR
+                        );
                     } catch (IllegalArgumentException e) {
                         if (!e.getMessage().contains("empty clause")) {
                             throw e;
@@ -459,9 +467,20 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     }
                     break;
                 case FEATURE_ATTRIBUTES_FIELD:
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
-                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
-                        features.add(Feature.parse(parser));
+                    try {
+                        ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                        while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                            features.add(Feature.parse(parser));
+                        }
+                    } catch (Exception e) {
+                        if (e instanceof ParsingException || e instanceof XContentParseException) {
+                            throw new ADValidationException(
+                                "Custom query error: " + e.getMessage(),
+                                DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                                ValidationAspect.DETECTOR
+                            );
+                        }
+                        throw e;
                     }
                     break;
                 case WINDOW_DELAY_FIELD:

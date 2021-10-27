@@ -30,7 +30,6 @@ import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
@@ -38,9 +37,7 @@ import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.ParsingException;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.XContentParseException;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
@@ -133,14 +130,6 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
                         ADException.getMessage()
                     );
                     sendAnomalyDetectorValidationParseResponse(issue, channel);
-                    return;
-                } else if (ex instanceof ParsingException || ex instanceof XContentParseException) {
-                    DetectorValidationIssue issueParsing = new DetectorValidationIssue(
-                        ValidationAspect.DETECTOR,
-                        DetectorValidationIssueType.PARSING_ISSUE,
-                        ex.getMessage()
-                    );
-                    sendAnomalyDetectorValidationParseResponse(issueParsing, channel);
                     return;
                 } else {
                     throw ex;
