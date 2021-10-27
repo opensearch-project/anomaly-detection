@@ -63,7 +63,7 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
     public void testValidateAnomalyDetectorWithTooManyFeatures() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(), randomFeature()));
         String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 1);
-        assertEquals("Can't create anomaly features more than 1", error);
+        assertEquals("Can't create more than 1 anomaly features", error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {

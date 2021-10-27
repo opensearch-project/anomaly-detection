@@ -109,13 +109,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document is found in the indices: ";
     public static final String ONLY_ONE_CATEGORICAL_FIELD_ERR_MSG = "We can have only one categorical field.";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
-    public static final String NOT_FOUND_ERR_MSG = "Can't find the categorical field %s";
+    public static final String CATEGORY_NOT_FOUND_ERR_MSG = "Can't find the categorical field %s";
     public static final String DUPLICATE_DETECTOR_MSG = "Cannot create anomaly detector with name [%s] as it's already used by detector %s";
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
     public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";
     public static final String FEATURE_WITH_EMPTY_DATA_MSG = FEATURE_INVALID_MSG_PREFIX + " returning empty aggregated data: ";
     public static final String FEATURE_WITH_INVALID_QUERY_MSG = FEATURE_INVALID_MSG_PREFIX + " causing a runtime exception: ";
-    public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG = "Unknown exception caught while searching query for feature: ";
+    public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
+        "Feature has an unknown exception caught while executing the feature query: ";
 
     protected final AnomalyDetectionIndices anomalyDetectionIndices;
     protected final String detectorId;
@@ -491,7 +492,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 listener
                     .onFailure(
                         new ADValidationException(
-                            String.format(Locale.ROOT, NOT_FOUND_ERR_MSG, categoryField0),
+                            String.format(Locale.ROOT, CATEGORY_NOT_FOUND_ERR_MSG, categoryField0),
                             DetectorValidationIssueType.CATEGORY,
                             ValidationAspect.DETECTOR
                         )
@@ -718,30 +719,30 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             checkADNameExists(detectorId, false);
         } else {
             ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener
-                    .wrap(response -> { checkADNameExists(detectorId, indexingDryRun); }, exception -> {
-                        listener
-                                .onFailure(
-                                        new ADValidationException(
-                                                exception.getMessage(),
-                                                DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                                                ValidationAspect.DETECTOR
-                                        )
-                                );
-                    });
+                .wrap(response -> { checkADNameExists(detectorId, indexingDryRun); }, exception -> {
+                    listener
+                        .onFailure(
+                            new ADValidationException(
+                                exception.getMessage(),
+                                DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                                ValidationAspect.DETECTOR
+                            )
+                        );
+                });
             MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>> multiFeatureQueriesResponseListener =
-                    new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
-                            validateFeatureQueriesListener,
-                            anomalyDetector.getFeatureAttributes().size(),
-                            String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
-                            false
-                    );
+                new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
+                    validateFeatureQueriesListener,
+                    anomalyDetector.getFeatureAttributes().size(),
+                    String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
+                    false
+                );
 
             for (Feature feature : anomalyDetector.getFeatureAttributes()) {
                 SearchSourceBuilder ssb = new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery());
                 AggregatorFactories.Builder internalAgg = parseAggregators(
-                        feature.getAggregation().toString(),
-                        xContentRegistry,
-                        feature.getId()
+                    feature.getAggregation().toString(),
+                    xContentRegistry,
+                    feature.getId()
                 );
                 ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());
                 SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().toArray(new String[0])).source(ssb);
@@ -749,9 +750,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                     Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()));
                     if (aggFeatureResult.isPresent()) {
                         multiFeatureQueriesResponseListener
-                                .onResponse(
-                                        new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
-                                );
+                            .onResponse(
+                                new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
+                            );
                     } else {
                         String errorMessage = FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
                         logger.error(errorMessage);

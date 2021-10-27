@@ -118,7 +118,7 @@ public final class RestHandlerUtils {
         List<Feature> features = anomalyDetector.getFeatureAttributes();
         if (features != null) {
             if (features.size() > maxAnomalyFeatures) {
-                return "Can't create more than " + maxAnomalyFeatures + " anomaly features.";
+                return "Can't create more than " + maxAnomalyFeatures + " anomaly features";
             }
             return validateFeaturesConfig(anomalyDetector.getFeatureAttributes());
         }
