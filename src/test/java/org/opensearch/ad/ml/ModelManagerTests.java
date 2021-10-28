@@ -203,9 +203,9 @@ public class ModelManagerTests {
 
         double confidence = 0.091353632;
         double grade = 0.1;
-        AnomalyDescriptor descriptor = new AnomalyDescriptor();
-        descriptor.setRcfScore(score);
-        descriptor.setForestSize(numTrees);
+        AnomalyDescriptor descriptor = new AnomalyDescriptor(point, 0);
+        descriptor.setRCFScore(score);
+        descriptor.setNumberOfTrees(numTrees);
         descriptor.setDataConfidence(confidence);
         descriptor.setAnomalyGrade(grade);
         descriptor.setAttribution(attributionVec);
@@ -340,11 +340,12 @@ public class ModelManagerTests {
         double[] currentTimeAttribution = new double[] { 0.5, 0.5 };
         double[] oldValues = new double[] { 123, 456 };
         double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
+        double[] likelihood = new double[] { 1 };
         double threshold = 1.1d;
 
-        AnomalyDescriptor descriptor = new AnomalyDescriptor();
-        descriptor.setRcfScore(score);
-        descriptor.setForestSize(numTrees);
+        AnomalyDescriptor descriptor = new AnomalyDescriptor(point, 0);
+        descriptor.setRCFScore(score);
+        descriptor.setNumberOfTrees(numTrees);
         descriptor.setDataConfidence(confidence);
         descriptor.setAnomalyGrade(grade);
         descriptor.setAttribution(attributionVec);
@@ -352,9 +353,10 @@ public class ModelManagerTests {
         descriptor.setStartOfAnomaly(startOfAnomaly);
         descriptor.setInHighScoreRegion(inHighScoreRegion);
         descriptor.setRelativeIndex(relativeIndex);
-        descriptor.setCurrentTimeAttribution(currentTimeAttribution);
-        descriptor.setOldValues(oldValues);
+        descriptor.setRelevantAttribution(currentTimeAttribution);
+        descriptor.setPastValues(oldValues);
         descriptor.setExpectedValuesList(expectedValuesList);
+        descriptor.setLikelihoodOfValues(likelihood);
         descriptor.setThreshold(threshold);
 
         when(rForest.process(any(), anyLong())).thenReturn(descriptor);
@@ -373,6 +375,7 @@ public class ModelManagerTests {
             currentTimeAttribution,
             oldValues,
             expectedValuesList,
+            likelihood,
             threshold,
             numTrees
         );
@@ -1026,8 +1029,8 @@ public class ModelManagerTests {
     }
 
     public void getAnomalyResultForEntity_withTrcf() {
-        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
-        anomalyDescriptor.setRcfScore(2);
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor(point, 0);
+        anomalyDescriptor.setRCFScore(2);
         anomalyDescriptor.setDataConfidence(1);
         anomalyDescriptor.setAnomalyGrade(1);
         when(this.trcf.process(this.point, 0)).thenReturn(anomalyDescriptor);
@@ -1038,7 +1041,7 @@ public class ModelManagerTests {
             new ThresholdingResult(
                 anomalyDescriptor.getAnomalyGrade(),
                 anomalyDescriptor.getDataConfidence(),
-                anomalyDescriptor.getRcfScore()
+                anomalyDescriptor.getRCFScore()
             ),
             result
         );
@@ -1046,11 +1049,11 @@ public class ModelManagerTests {
 
     @Test
     public void score_with_trcf() {
-        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor();
-        anomalyDescriptor.setRcfScore(2);
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor(point, 0);
+        anomalyDescriptor.setRCFScore(2);
         anomalyDescriptor.setAnomalyGrade(1);
         // input dimension is 5
-        anomalyDescriptor.setCurrentTimeAttribution(new double[] { 0, 0, 0, 0, 0 });
+        anomalyDescriptor.setRelevantAttribution(new double[] { 0, 0, 0, 0, 0 });
         RandomCutForest rcf = mock(RandomCutForest.class);
         when(rcf.getShingleSize()).thenReturn(8);
         when(rcf.getDimensions()).thenReturn(40);
@@ -1063,12 +1066,13 @@ public class ModelManagerTests {
             new ThresholdingResult(
                 anomalyDescriptor.getAnomalyGrade(),
                 anomalyDescriptor.getDataConfidence(),
-                anomalyDescriptor.getRcfScore(),
+                anomalyDescriptor.getRCFScore(),
                 0,
                 false,
                 false,
                 0,
-                anomalyDescriptor.getCurrentTimeAttribution(),
+                anomalyDescriptor.getRelevantAttribution(),
+                null,
                 null,
                 null,
                 0,

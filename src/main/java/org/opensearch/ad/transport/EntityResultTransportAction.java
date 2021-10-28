@@ -202,38 +202,29 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 // result.getGrade() = 0 means it is not an anomaly
                 // So many OpenSearchRejectedExecutionException if we write no matter what
                 if (result.getRcfScore() > 0) {
+                    AnomalyResult resultToSave = result
+                        .toAnomalyResult(
+                            detector,
+                            Instant.ofEpochMilli(request.getStart()),
+                            Instant.ofEpochMilli(request.getEnd()),
+                            executionStartTime,
+                            Instant.now(),
+                            ParseUtils.getFeatureData(datapoint, detector),
+                            categoricalValues,
+                            indexUtil.getSchemaVersion(ADIndex.RESULT),
+                            modelId,
+                            null,
+                            null
+                        );
+
                     resultWriteQueue
                         .put(
                             new ResultWriteRequest(
                                 System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
                                 detectorId,
                                 result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                                new AnomalyResult(
-                                    detectorId,
-                                    null,
-                                    result.getRcfScore(),
-                                    result.getGrade(),
-                                    result.getConfidence(),
-                                    ParseUtils.getFeatureData(datapoint, detector),
-                                    Instant.ofEpochMilli(request.getStart()),
-                                    Instant.ofEpochMilli(request.getEnd()),
-                                    executionStartTime,
-                                    Instant.now(),
-                                    null,
-                                    categoricalValues,
-                                    detector.getUser(),
-                                    indexUtil.getSchemaVersion(ADIndex.RESULT),
-                                    modelId,
-                                    result.getTotalUpdates(),
-                                    result.isStartOfAnomaly(),
-                                    result.isInHighScoreRegion(),
-                                    result.getRelativeIndex(),
-                                    result.getCurrentTimeAttribution(),
-                                    result.getOldValues(),
-                                    result.getExpectedValuesList(),
-                                    result.getThreshold()
-                                ),
-                            detector.getResultIndex()
+                                resultToSave,
+                                detector.getResultIndex()
                             )
                         );
                 }

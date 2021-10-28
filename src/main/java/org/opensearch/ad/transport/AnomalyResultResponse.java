@@ -14,10 +14,13 @@ package org.opensearch.ad.transport;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.opensearch.action.ActionResponse;
+import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.common.io.stream.InputStreamStreamInput;
 import org.opensearch.common.io.stream.OutputStreamStreamOutput;
@@ -25,6 +28,7 @@ import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.commons.authuser.User;
 
 public class AnomalyResultResponse extends ActionResponse implements ToXContentObject {
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
@@ -38,9 +42,10 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
     public static final String START_OF_ANOMALY_FIELD_JSON_KEY = "startOfAnomaly";
     public static final String IN_HIGH_SCORE_REGION_FIELD_JSON_KEY = "inHighScoreRegion";
     public static final String RELATIVE_INDEX_FIELD_JSON_KEY = "relativeIndex";
-    public static final String CURRENT_TIME_ATTRIBUTION_FIELD_JSON_KEY = "currentTimeAttribution";
-    public static final String OLD_VALUES_FIELD_JSON_KEY = "oldValues";
+    public static final String RELEVANT_ATTRIBUTION_FIELD_JSON_KEY = "relevantAttribution";
+    public static final String PAST_VALUES_FIELD_JSON_KEY = "pastValues";
     public static final String EXPECTED_VAL_LIST_FIELD_JSON_KEY = "expectedValuesList";
+    public static final String LIKELIHOOD_FIELD_JSON_KEY = "likelihoodOfValues";
     public static final String THRESHOLD_FIELD_JSON_KEY = "threshold";
 
     private Double anomalyGrade;
@@ -54,9 +59,10 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
     private Boolean startOfAnomaly;
     private Boolean inHighScoreRegion;
     private Integer relativeIndex;
-    private double[] currentTimeAttribution;
-    private double[] oldValues;
+    private double[] relevantAttribution;
+    private double[] pastValues;
     private double[][] expectedValuesList;
+    private double[] likelihoodOfValues;
     private Double threshold;
 
     // used when returning an error/exception or empty result
@@ -69,6 +75,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             error,
             rcfTotalUpdates,
             detectorIntervalInMinutes,
+            null,
             null,
             null,
             null,
@@ -93,8 +100,9 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         Boolean inHighScoreRegion,
         Integer relativeIndex,
         double[] currentTimeAttribution,
-        double[] oldValues,
+        double[] pastValues,
         double[][] expectedValuesList,
+        double[] likelihoodOfValues,
         Double threshold
     ) {
         this.anomalyGrade = anomalyGrade;
@@ -108,9 +116,10 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         this.startOfAnomaly = startOfAnomaly;
         this.inHighScoreRegion = inHighScoreRegion;
         this.relativeIndex = relativeIndex;
-        this.currentTimeAttribution = currentTimeAttribution;
-        this.oldValues = oldValues;
+        this.relevantAttribution = currentTimeAttribution;
+        this.pastValues = pastValues;
         this.expectedValuesList = expectedValuesList;
+        this.likelihoodOfValues = likelihoodOfValues;
         this.threshold = threshold;
     }
 
@@ -139,15 +148,15 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         // compiler error as readOptionalArray does not work for primitive array.
         // use readDoubleArray and readBoolean instead
         if (in.readBoolean()) {
-            this.currentTimeAttribution = in.readDoubleArray();
+            this.relevantAttribution = in.readDoubleArray();
         } else {
-            this.currentTimeAttribution = null;
+            this.relevantAttribution = null;
         }
 
         if (in.readBoolean()) {
-            this.oldValues = in.readDoubleArray();
+            this.pastValues = in.readDoubleArray();
         } else {
-            this.oldValues = null;
+            this.pastValues = null;
         }
 
         if (in.readBoolean()) {
@@ -158,6 +167,12 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             }
         } else {
             this.expectedValuesList = null;
+        }
+
+        if (in.readBoolean()) {
+            this.likelihoodOfValues = in.readDoubleArray();
+        } else {
+            this.likelihoodOfValues = null;
         }
 
         this.threshold = in.readOptionalDouble();
@@ -208,15 +223,19 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
     }
 
     public double[] getCurrentTimeAttribution() {
-        return currentTimeAttribution;
+        return relevantAttribution;
     }
 
     public double[] getOldValues() {
-        return oldValues;
+        return pastValues;
     }
 
     public double[][] getExpectedValuesList() {
         return expectedValuesList;
+    }
+
+    public double[] getLikelihoodOfValues() {
+        return likelihoodOfValues;
     }
 
     public Double getThreshold() {
@@ -243,16 +262,16 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
 
         // writeOptionalArray does not work for primitive array. Use WriteDoubleArray
         // instead.
-        if (currentTimeAttribution != null) {
+        if (relevantAttribution != null) {
             out.writeBoolean(true);
-            out.writeDoubleArray(currentTimeAttribution);
+            out.writeDoubleArray(relevantAttribution);
         } else {
             out.writeBoolean(false);
         }
 
-        if (oldValues != null) {
+        if (pastValues != null) {
             out.writeBoolean(true);
-            out.writeDoubleArray(oldValues);
+            out.writeDoubleArray(pastValues);
         } else {
             out.writeBoolean(false);
         }
@@ -264,6 +283,13 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             for (int i = 0; i < numberofExpectedVals; i++) {
                 out.writeDoubleArray(expectedValuesList[i]);
             }
+        } else {
+            out.writeBoolean(false);
+        }
+
+        if (likelihoodOfValues != null) {
+            out.writeBoolean(true);
+            out.writeDoubleArray(likelihoodOfValues);
         } else {
             out.writeBoolean(false);
         }
@@ -288,9 +314,10 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         builder.field(START_OF_ANOMALY_FIELD_JSON_KEY, startOfAnomaly);
         builder.field(IN_HIGH_SCORE_REGION_FIELD_JSON_KEY, inHighScoreRegion);
         builder.field(RELATIVE_INDEX_FIELD_JSON_KEY, relativeIndex);
-        builder.field(CURRENT_TIME_ATTRIBUTION_FIELD_JSON_KEY, currentTimeAttribution);
-        builder.field(OLD_VALUES_FIELD_JSON_KEY, oldValues);
+        builder.field(RELEVANT_ATTRIBUTION_FIELD_JSON_KEY, relevantAttribution);
+        builder.field(PAST_VALUES_FIELD_JSON_KEY, pastValues);
         builder.field(EXPECTED_VAL_LIST_FIELD_JSON_KEY, expectedValuesList);
+        builder.field(LIKELIHOOD_FIELD_JSON_KEY, likelihoodOfValues);
         builder.field(THRESHOLD_FIELD_JSON_KEY, threshold);
         builder.endObject();
         return builder;
@@ -309,5 +336,60 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         } catch (IOException e) {
             throw new IllegalArgumentException("failed to parse ActionResponse into AnomalyResultResponse", e);
         }
+    }
+
+    /**
+    *
+    * Convert AnomalyResultResponse to AnomalyResult
+    *
+    * @param detectorId Detector Id
+    * @param dataStartInstant data start time
+    * @param dataEndInstant data end time
+    * @param executionStartInstant  execution start time
+    * @param executionEndInstant execution end time
+    * @param schemaVersion Schema version
+    * @param user Detector author
+    * @param error Error
+    * @return converted AnomalyResult
+    */
+    public AnomalyResult toAnomalyResult(
+        String detectorId,
+        Instant dataStartInstant,
+        Instant dataEndInstant,
+        Instant executionStartInstant,
+        Instant executionEndInstant,
+        Integer schemaVersion,
+        User user,
+        String error
+    ) {
+        // Detector interval in milliseconds
+        long detectorIntervalMilli = Duration.between(dataStartInstant, dataEndInstant).toMillis();
+        return AnomalyResult
+            .fromRawTRCFResult(
+                detectorId,
+                detectorIntervalMilli,
+                null, // real time results have no task id
+                anomalyScore,
+                anomalyGrade,
+                confidence,
+                features,
+                dataStartInstant,
+                dataEndInstant,
+                executionStartInstant,
+                executionEndInstant,
+                error,
+                null,
+                user,
+                schemaVersion,
+                null, // single-stream real-time has no model id
+                startOfAnomaly,
+                inHighScoreRegion,
+                relevantAttribution,
+                relativeIndex,
+                pastValues,
+                expectedValuesList,
+                likelihoodOfValues,
+                threshold
+            );
     }
 }

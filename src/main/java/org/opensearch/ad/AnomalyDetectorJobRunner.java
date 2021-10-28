@@ -513,31 +513,19 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             if (response.getError() != null) {
                 log.info("Anomaly result action run successfully for {} with error {}", detectorId, response.getError());
             }
-            AnomalyResult anomalyResult = new AnomalyResult(
-                detectorId,
-                null, // real time results have no task id
-                response.getAnomalyScore(),
-                response.getAnomalyGrade(),
-                response.getConfidence(),
-                response.getFeatures(),
-                dataStartTime,
-                dataEndTime,
-                executionStartTime,
-                Instant.now(),
-                response.getError(),
-                null,
-                user,
-                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
-                null, // single-stream real-time has no model id
-                response.getRcfTotalUpdates(),
-                response.isStartOfAnomaly(),
-                response.isInHighScoreRegion(),
-                response.getRelativeIndex(),
-                response.getCurrentTimeAttribution(),
-                response.getOldValues(),
-                response.getExpectedValuesList(),
-                response.getThreshold()
-            );
+
+            AnomalyResult anomalyResult = response
+                .toAnomalyResult(
+                    detectorId,
+                    dataStartTime,
+                    dataEndTime,
+                    executionStartTime,
+                    Instant.now(),
+                    anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
+                    user,
+                    response.getError()
+                );
+
             String resultIndex = jobParameter.getResultIndex();
             anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             updateRealtimeTask(response, detectorId);

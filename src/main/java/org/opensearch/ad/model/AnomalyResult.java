@@ -18,12 +18,16 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParseField;
 import org.opensearch.common.io.stream.StreamInput;
@@ -40,10 +44,9 @@ import com.google.common.collect.ImmutableMap;
 
 /**
  * Include result returned from RCF model and feature data.
- * TODO: fix rotating anomaly result index
  */
 public class AnomalyResult implements ToXContentObject, Writeable {
-
+    private static final Logger LOG = LogManager.getLogger(ThresholdingResult.class);
     public static final String PARSE_FIELD_NAME = "AnomalyResult";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
         AnomalyResult.class,
@@ -89,10 +92,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String TOTAL_UPDATES_FIELD = "totalUpdates";
     public static final String START_OF_ANOMALY_FIELD = "startOfAnomaly";
     public static final String IN_HIGH_SCORE_REGION_FIELD = "inHighScoreRegion";
-    public static final String RELATIVE_INDEX_FIELD = "relativeIndex";
-    public static final String CURRENT_TIME_ATTRIBUTION_FIELD = "currentTimeAttribution";
-    public static final String OLD_VALUES_FIELD = "oldValues";
-    public static final String EXPECTED_VAL_LIST_FIELD = "expectedValuesList";
+    public static final String APPROX_ANOMALY_START_FIELD = "approx_anomaly_start_time";
+    public static final String RELEVANT_ATTRIBUTION_FIELD = "relavantAttribution";
+    public static final String PAST_VALUE_FIELD = "past_value";
+    public static final String EXPECTED_VALUE_FIELD = "expected_value";
     public static final String THRESHOLD_FIELD = "threshold";
 
     private final String detectorId;
@@ -121,31 +124,34 @@ public class AnomalyResult implements ToXContentObject, Writeable {
      */
     private final String modelId;
 
-    // sequence index (the number of updates to RCF) -- it is possible in imputation
-    // that
-    // the number of updates more than the input tuples seen by the overall program
-    private final Long totalUpdates;
-
     // flag indicating if the anomaly is the start of an anomaly or part of a run of
     // anomalies
     private final Boolean startOfAnomaly;
 
     // flag indicating if the time stamp is in elevated score region to be
-    // considered as anomaly
+    // considered as anomaly. This does not mean current data point is anomaly
+    // or not. Just means current rcf score is high.
     private final Boolean inHighScoreRegion;
 
     /**
-     * position of the anomaly vis a vis the current time (can be -ve) if anomaly is
-     * detected late, which can and should happen sometime; for shingle size 1; this
-     * is always 0
+     * the approximate time of current anomaly. We might detect anomaly late.  This field
+     * is the approximate anomaly time.  I called it approximate because rcf may
+     * not receive continuous data. To make it precise, I have to query previous
+     * anomaly results and find the what timestamp correspond to a few data points
+     * back. Instead, RCF returns the index of anomaly relative to current timestamp.
+     * So approAnomalyStartTime is current time + interval * relativeIndex
+     * Note {@code relativeIndex <= 0}.  If the shingle size is 4, for example shingle is
+     * [0, 0, 1, 0], and this shingle is detected as anomaly, and actually the
+     * anomaly is caused by the third item "1", then the relativeIndex will be
+     * -1.
      */
-    private final Integer relativeIndex;
+    private final Instant approxAnomalyStartTime;
 
     // a flattened version denoting the basic contribution of each input variable
-    private final double[] currentTimeAttribution;
+    private final List<DataByFeatureId> relavantAttribution;
 
     /*
-    oldValues is related to relativeIndex and startOfAnomaly.
+    relevantValues is related to relativeIndex, startOfAnomaly and anomaly grade.
     So if we detect anomaly late, we get the baseDimension values from the past (current is 0).
     That is, we look back relativeIndex * baseDimensions.
 
@@ -192,11 +198,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     71604.0,
     75236.0
     ],
-    Since relativeIndex is -2, we look back baseDimension * 2 and get the oldValues:
+    Since rcf returns relativeIndex is -2, we look back baseDimension * 2 and get the pastValues:
     "startOfAnomaly": true,
     "inHighScoreRegion": true,
-    "relativeIndex": -2,
-    "oldValues": [
+    "relevantValues": [
     17265.0,
     4113.142857142857,
     49.0,
@@ -204,16 +209,36 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     64878.0
     ],
 
-    So oldValues is null when relativeIndex is 0 or startOfAnomaly is true.*/
-    private final double[] oldValues;
+    So pastValues is null when relativeIndex is 0 or startOfAnomaly is true
+    or the current shingle is not an anomaly.
 
-    // expected values, currently set to maximum 1 expected. In the future, we
-    // might give different expected values with differently likelihood. So
-    // the two-dimensional array allows us to future-proof our applications.
-    // Also, expected values correspond to oldValues if present or current input
-    // point otherwise. If oldValues is present, it will take effort to show this
-    // on UX since we found an anomaly from the past (old values).
-    private final double[][] expectedValuesList;
+    In the UX, if pastValues value is null, we can just show attribution/expected
+    value and it is implicit this is due to current input; if pastValues is not
+    null, it means the the attribution/expected values are from an old value
+    (e.g., 2 steps ago with data [1,2,3]) and we can add a text to explain that.
+    */
+    private final List<DataByFeatureId> pastValues;
+
+    /*
+     expected values, currently set to maximum 1 expected. In the future, we
+     might give different expected values with differently likelihood. So
+     the list of list allows us to future-proof our applications.
+     Also, expected values correspond to relevantValues if present or current input
+     point otherwise.
+     Example:
+     "expected_value": [{
+        "likelihood": 0.8,
+        "value_list": [{
+                "feature_id": "blah",
+                "value": 1
+            },
+            {
+                "feature_id": "blah2",
+                "value": 1
+            }
+        ]
+    }]*/
+    private final List<ExpectedValueList> expectedValuesList;
 
     // rcf score threshold at the time of writing a result
     private final Double threshold;
@@ -255,7 +280,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             null,
             null,
             null,
-            null,
             null
         );
     }
@@ -276,13 +300,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         User user,
         Integer schemaVersion,
         String modelId,
-        Long totalUpdates,
         Boolean startOfAnomaly,
         Boolean inHighScoreRegion,
-        Integer relativeIndex,
-        double[] currentTimeAttribution,
-        double[] oldValues,
-        double[][] expectedValuesList,
+        Instant approAnomalyStartTime,
+        List<DataByFeatureId> relavantAttribution,
+        List<DataByFeatureId> pastValues,
+        List<ExpectedValueList> expectedValuesList,
         Double threshold
     ) {
         this.detectorId = detectorId;
@@ -300,14 +323,170 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.user = user;
         this.schemaVersion = schemaVersion;
         this.modelId = modelId;
-        this.totalUpdates = totalUpdates;
         this.startOfAnomaly = startOfAnomaly;
         this.inHighScoreRegion = inHighScoreRegion;
-        this.relativeIndex = relativeIndex;
-        this.currentTimeAttribution = currentTimeAttribution;
-        this.oldValues = oldValues;
+        this.approxAnomalyStartTime = approAnomalyStartTime;
+        this.relavantAttribution = relavantAttribution;
+        this.pastValues = pastValues;
         this.expectedValuesList = expectedValuesList;
         this.threshold = threshold;
+    }
+
+    /**
+     * Factory method that converts raw rcf results to an instance of AnomalyResult
+     * @param detectorId Detector Id
+     * @param intervalMillis Detector interval
+     * @param taskId Task Id
+     * @param rcfScore RCF score
+     * @param grade anomaly grade
+     * @param confidence data confidence
+     * @param featureData Feature data
+     * @param dataStartTime Data start time
+     * @param dataEndTime Data end time
+     * @param executionStartTime Execution start time
+     * @param executionEndTime Execution end time
+     * @param error Error
+     * @param entity Entity accessor
+     * @param user the user who created a detector
+     * @param schemaVersion Result schema version
+     * @param modelId Model Id
+     * @param startOfAnomaly Whether the current point is the start of an anomaly window
+     * @param inHighScoreRegion Whether the current point is in a high rcf score region
+     * @param relevantAttribution Attribution of the anomaly
+     * @param reletiveIndex The index of anomaly point relative to current point.
+     * @param pastValues The input that caused anomaly if we detector anomaly late
+     * @param expectedValuesList Expected values
+     * @param likelihoodOfValues Likelihood of the expected values
+     * @param threshold Current threshold
+     * @return the converted AnomalyResult instance
+     */
+    public static AnomalyResult fromRawTRCFResult(
+        String detectorId,
+        long intervalMillis,
+        String taskId,
+        Double rcfScore,
+        Double grade,
+        Double confidence,
+        List<FeatureData> featureData,
+        Instant dataStartTime,
+        Instant dataEndTime,
+        Instant executionStartTime,
+        Instant executionEndTime,
+        String error,
+        Entity entity,
+        User user,
+        Integer schemaVersion,
+        String modelId,
+        Boolean startOfAnomaly,
+        Boolean inHighScoreRegion,
+        double[] relevantAttribution,
+        int reletiveIndex,
+        double[] pastValues,
+        double[][] expectedValuesList,
+        double[] likelihoodOfValues,
+        Double threshold
+    ) {
+        List<DataByFeatureId> convertedRelevantAttribution = null;
+        List<DataByFeatureId> convertedPastValuesList = null;
+        List<ExpectedValueList> convertedExpectedValues = null;
+
+        if (grade > 0) {
+            int featureSize = featureData.size();
+            if (relevantAttribution != null) {
+                if (relevantAttribution.length == featureSize) {
+                    convertedRelevantAttribution = new ArrayList<>(featureSize);
+                    for (int j = 0; j < featureSize; j++) {
+                        convertedRelevantAttribution.add(new DataByFeatureId(featureData.get(j).getFeatureId(), relevantAttribution[j]));
+                    }
+                } else {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "Attribution array size does not match.  Expected [{}] but got [{}]",
+                                featureSize,
+                                relevantAttribution.length
+                            )
+                        );
+                }
+            }
+
+            if (pastValues != null) {
+                if (pastValues.length == featureSize) {
+                    convertedPastValuesList = new ArrayList<>(featureSize);
+                    for (int j = 0; j < featureSize; j++) {
+                        convertedPastValuesList.add(new DataByFeatureId(featureData.get(j).getFeatureId(), pastValues[j]));
+                    }
+                } else {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "Past value array size does not match.  Expected [{}] but got [{}]",
+                                featureSize,
+                                pastValues.length
+                            )
+                        );
+                }
+            }
+
+            if (expectedValuesList != null && expectedValuesList.length > 0) {
+                int numberOfExpectedLists = expectedValuesList.length;
+                int numberOfExpectedVals = expectedValuesList[0].length;
+                if (numberOfExpectedVals == featureSize && likelihoodOfValues.length == numberOfExpectedLists) {
+                    convertedExpectedValues = new ArrayList<>(numberOfExpectedLists);
+                    for (int j = 0; j < numberOfExpectedLists; j++) {
+                        List<DataByFeatureId> valueList = new ArrayList<>(featureSize);
+                        for (int k = 0; k < featureSize; k++) {
+                            valueList.add(new DataByFeatureId(featureData.get(k).getFeatureId(), expectedValuesList[j][k]));
+                        }
+                        convertedExpectedValues.add(new ExpectedValueList(likelihoodOfValues[j], valueList));
+                    }
+                } else if (numberOfExpectedVals != featureSize) {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "expected value array mismatch.  Expected [{}] actual [{}].",
+                                featureSize,
+                                numberOfExpectedVals
+                            )
+                        );
+                } else {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "likelihood and expected array mismatch: Likelihood [{}] expected value [{}].",
+                                likelihoodOfValues.length,
+                                numberOfExpectedLists
+                            )
+                        );
+                }
+            }
+        }
+
+        long dataStartMills = dataStartTime.toEpochMilli();
+        return new AnomalyResult(
+            detectorId,
+            taskId,
+            rcfScore,
+            grade,
+            confidence,
+            featureData,
+            dataStartTime,
+            dataEndTime,
+            executionStartTime,
+            executionEndTime,
+            error,
+            entity,
+            user,
+            schemaVersion,
+            modelId,
+            startOfAnomaly,
+            inHighScoreRegion,
+            Instant.ofEpochMilli(dataStartMills + reletiveIndex * intervalMillis),
+            convertedRelevantAttribution,
+            convertedPastValuesList,
+            convertedExpectedValues,
+            threshold
+        );
     }
 
     public AnomalyResult(StreamInput input) throws IOException {
@@ -339,34 +518,39 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.taskId = input.readOptionalString();
         this.modelId = input.readOptionalString();
 
-        this.totalUpdates = input.readOptionalLong();
         this.startOfAnomaly = input.readOptionalBoolean();
         this.inHighScoreRegion = input.readOptionalBoolean();
-        this.relativeIndex = input.readOptionalInt();
+        // if anomaly is caued by current input, we don't show approximate time
+        this.approxAnomalyStartTime = input.readOptionalInstant();
 
-        // input.readOptionalArray(i -> i.readDouble(), double[]::new) results in
-        // compiler error as readOptionalArray does not work for primitive array.
-        // use readDoubleArray and readBoolean instead
-        if (input.readBoolean()) {
-            this.currentTimeAttribution = input.readDoubleArray();
+        int attributeNumber = input.readVInt();
+        if (attributeNumber <= 0) {
+            this.relavantAttribution = null;
         } else {
-            this.currentTimeAttribution = null;
-        }
-
-        if (input.readBoolean()) {
-            this.oldValues = input.readDoubleArray();
-        } else {
-            this.oldValues = null;
-        }
-
-        if (input.readBoolean()) {
-            int numberofExpectedVals = input.readVInt();
-            this.expectedValuesList = new double[numberofExpectedVals][];
-            for (int i = 0; i < numberofExpectedVals; i++) {
-                expectedValuesList[i] = input.readDoubleArray();
+            this.relavantAttribution = new ArrayList<>(attributeNumber);
+            for (int i = 0; i < attributeNumber; i++) {
+                relavantAttribution.add(new DataByFeatureId(input));
             }
+        }
+
+        int pastValueNumber = input.readVInt();
+        if (pastValueNumber <= 0) {
+            this.pastValues = null;
         } else {
+            this.pastValues = new ArrayList<>(pastValueNumber);
+            for (int i = 0; i < pastValueNumber; i++) {
+                pastValues.add(new DataByFeatureId(input));
+            }
+        }
+
+        int expectedValuesNumber = input.readVInt();
+        if (expectedValuesNumber <= 0) {
             this.expectedValuesList = null;
+        } else {
+            this.expectedValuesList = new ArrayList<>();
+            for (int i = 0; i < expectedValuesNumber; i++) {
+                expectedValuesList.add(new ExpectedValueList(input));
+            }
         }
 
         this.threshold = input.readOptionalDouble();
@@ -427,35 +611,24 @@ public class AnomalyResult implements ToXContentObject, Writeable {
 
         // output extra fields such as attribution and expected only when this is an anomaly
         if (anomalyGrade != null && anomalyGrade > 0) {
-            if (totalUpdates != null) {
-                xContentBuilder.field(TOTAL_UPDATES_FIELD, totalUpdates);
-            }
             if (startOfAnomaly != null) {
                 xContentBuilder.field(START_OF_ANOMALY_FIELD, startOfAnomaly);
             }
             if (inHighScoreRegion != null) {
                 xContentBuilder.field(IN_HIGH_SCORE_REGION_FIELD, inHighScoreRegion);
             }
-            if (relativeIndex != null) {
-                xContentBuilder.field(RELATIVE_INDEX_FIELD, relativeIndex);
+            if (approxAnomalyStartTime != null) {
+                xContentBuilder.field(APPROX_ANOMALY_START_FIELD, approxAnomalyStartTime.toEpochMilli());
             }
-            if (currentTimeAttribution != null) {
-                xContentBuilder.array(CURRENT_TIME_ATTRIBUTION_FIELD, currentTimeAttribution);
+            if (relavantAttribution != null) {
+                xContentBuilder.array(RELEVANT_ATTRIBUTION_FIELD, relavantAttribution.toArray());
             }
-            if (oldValues != null) {
-                xContentBuilder.array(OLD_VALUES_FIELD, oldValues);
+            if (pastValues != null) {
+                xContentBuilder.array(PAST_VALUE_FIELD, pastValues.toArray());
             }
-            // In OpenSearch, an array of arrays like [ 1, [ 2, 3 ]] is the equivalent of [ 1, 2, 3 ]
-            // Also, even though expectedValuesList if a two-dimensional array, it has only one nested
-            // array inside in current implementation.
-            // Index the field by flattening the two-dimensional array expectedValuesList to
-            // a one-dimensional array.
+
             if (expectedValuesList != null) {
-                // int[2][] { int[5] { 1, 2, 6, 7, 2 }, int[5] {2,44,55,2, 3}}
-                // will be flattened to
-                // int[10] { 1, 2, 6, 7, 2, 2, 44, 55, 2, 3}
-                double[] flattenedExpectedVals = Arrays.stream(expectedValuesList).flatMapToDouble(Arrays::stream).toArray();
-                xContentBuilder.array(EXPECTED_VAL_LIST_FIELD, flattenedExpectedVals);
+                xContentBuilder.array(EXPECTED_VALUE_FIELD, expectedValuesList.toArray());
             }
         }
 
@@ -481,13 +654,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         String taskId = null;
         String modelId = null;
-        Long totalUpdates = null;
         Boolean startOfAnomaly = false;
         Boolean inHighScoreRegion = false;
-        Integer relativeIndex = 0;
-        double[] currentTimeAttribution = null;
-        double[] oldValues = null;
-        double[] flattenedExpectedValues = null;
+        Instant approAnomalyStartTime = null;
+        List<DataByFeatureId> relavantAttribution = new ArrayList<>();
+        List<DataByFeatureId> pastValues = new ArrayList<>();
+        List<ExpectedValueList> expectedValues = new ArrayList<>();
         Double threshold = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -544,26 +716,32 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 case MODEL_ID_FIELD:
                     modelId = parser.text();
                     break;
-                case TOTAL_UPDATES_FIELD:
-                    totalUpdates = parser.longValue();
-                    break;
                 case START_OF_ANOMALY_FIELD:
                     startOfAnomaly = parser.booleanValue();
                     break;
                 case IN_HIGH_SCORE_REGION_FIELD:
                     inHighScoreRegion = parser.booleanValue();
                     break;
-                case RELATIVE_INDEX_FIELD:
-                    relativeIndex = parser.intValue();
+                case APPROX_ANOMALY_START_FIELD:
+                    approAnomalyStartTime = ParseUtils.toInstant(parser);
                     break;
-                case CURRENT_TIME_ATTRIBUTION_FIELD:
-                    currentTimeAttribution = ParseUtils.parseDoubleArray(parser);
+                case RELEVANT_ATTRIBUTION_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        relavantAttribution.add(DataByFeatureId.parse(parser));
+                    }
                     break;
-                case OLD_VALUES_FIELD:
-                    oldValues = ParseUtils.parseDoubleArray(parser);
+                case PAST_VALUE_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        pastValues.add(DataByFeatureId.parse(parser));
+                    }
                     break;
-                case EXPECTED_VAL_LIST_FIELD:
-                    flattenedExpectedValues = ParseUtils.parseDoubleArray(parser);
+                case EXPECTED_VALUE_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        expectedValues.add(ExpectedValueList.parse(parser));
+                    }
                     break;
                 case THRESHOLD_FIELD:
                     threshold = parser.doubleValue();
@@ -571,26 +749,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 default:
                     parser.skipChildren();
                     break;
-            }
-        }
-
-        // unflatten flattenedExpectedValues
-        double[][] expectedValuesList = null;
-        if (currentTimeAttribution != null && flattenedExpectedValues != null) {
-            int dimension = currentTimeAttribution.length;
-            int numberOfExpectedVals = flattenedExpectedValues.length / dimension;
-            if (numberOfExpectedVals > 0) {
-                expectedValuesList = new double[numberOfExpectedVals][dimension];
-                if (numberOfExpectedVals == 1) {
-                    expectedValuesList[0] = flattenedExpectedValues;
-                } else {
-                    for (int i = 0; i < numberOfExpectedVals; i++) {
-                        int start = i * dimension;
-                        int end = start + dimension;
-                        expectedValuesList[i] = Arrays.copyOfRange(flattenedExpectedValues, start, end);
-                    }
-                }
-
             }
         }
 
@@ -610,13 +768,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             user,
             schemaVersion,
             modelId,
-            totalUpdates,
             startOfAnomaly,
             inHighScoreRegion,
-            relativeIndex,
-            currentTimeAttribution,
-            oldValues,
-            expectedValuesList,
+            approAnomalyStartTime,
+            relavantAttribution,
+            pastValues,
+            expectedValues,
             threshold
         );
     }
@@ -642,13 +799,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             && Objects.equal(error, that.error)
             && Objects.equal(entity, that.entity)
             && Objects.equal(modelId, that.modelId)
-            && Objects.equal(totalUpdates, that.totalUpdates)
             && Objects.equal(startOfAnomaly, that.startOfAnomaly)
             && Objects.equal(inHighScoreRegion, that.inHighScoreRegion)
-            && Objects.equal(relativeIndex, that.relativeIndex)
-            && Arrays.equals(currentTimeAttribution, currentTimeAttribution)
-            && Arrays.equals(oldValues, oldValues)
-            && Arrays.deepEquals(expectedValuesList, expectedValuesList)
+            && Objects.equal(approxAnomalyStartTime, that.approxAnomalyStartTime)
+            && Objects.equal(relavantAttribution, that.relavantAttribution)
+            && Objects.equal(pastValues, that.pastValues)
+            && Objects.equal(expectedValuesList, that.expectedValuesList)
             && Objects.equal(threshold, that.threshold);
     }
 
@@ -670,13 +826,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 error,
                 entity,
                 modelId,
-                totalUpdates,
                 startOfAnomaly,
                 inHighScoreRegion,
-                relativeIndex,
-                Arrays.hashCode(currentTimeAttribution),
-                Arrays.hashCode(oldValues),
-                Arrays.deepHashCode(expectedValuesList),
+                approxAnomalyStartTime,
+                relavantAttribution,
+                pastValues,
+                expectedValuesList,
                 threshold
             );
     }
@@ -698,13 +853,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .append("error", error)
             .append("entity", entity)
             .append("modelId", modelId)
-            .append("totalUpdates", totalUpdates)
             .append("startOfAnomaly", startOfAnomaly)
             .append("inHighScoreRegion", inHighScoreRegion)
-            .append("relativeIndex", relativeIndex)
-            .append("currentTimeAttribution", Arrays.toString(currentTimeAttribution))
-            .append("oldValues", Arrays.toString(oldValues))
-            .append("expectedValuesList", Arrays.deepToString(expectedValuesList))
+            .append("approAnomalyStartTime", approxAnomalyStartTime)
+            .append("relavantAttribution", relavantAttribution)
+            .append("pastValues", pastValues)
+            .append("expectedValuesList", StringUtils.join(expectedValuesList, "|"))
             .append("threshold", threshold)
             .toString();
     }
@@ -761,10 +915,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         return modelId;
     }
 
-    public Long getTotalUpdates() {
-        return totalUpdates;
-    }
-
     public Boolean isStartOfAnomaly() {
         return startOfAnomaly;
     }
@@ -773,19 +923,19 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         return inHighScoreRegion;
     }
 
-    public Integer getRelativeIndex() {
-        return relativeIndex;
+    public Instant getApproAnomalyStartTime() {
+        return approxAnomalyStartTime;
     }
 
-    public double[] getCurrentTimeAttribution() {
-        return currentTimeAttribution;
+    public List<DataByFeatureId> getRelavantAttribution() {
+        return relavantAttribution;
     }
 
-    public double[] getOldValues() {
-        return oldValues;
+    public List<DataByFeatureId> getPastValues() {
+        return pastValues;
     }
 
-    public double[][] getExpectedValuesList() {
+    public List<ExpectedValueList> getExpectedValuesList() {
         return expectedValuesList;
     }
 
@@ -835,36 +985,35 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeOptionalString(taskId);
         out.writeOptionalString(modelId);
 
-        out.writeOptionalLong(totalUpdates);
         out.writeOptionalBoolean(startOfAnomaly);
         out.writeOptionalBoolean(inHighScoreRegion);
-        out.writeOptionalInt(relativeIndex);
+        out.writeOptionalInstant(approxAnomalyStartTime);
 
-        // writeOptionalArray does not work for primitive array. Use WriteDoubleArray
-        // instead.
-        if (currentTimeAttribution != null) {
-            out.writeBoolean(true);
-            out.writeDoubleArray(currentTimeAttribution);
+        if (relavantAttribution != null) {
+            out.writeVInt(relavantAttribution.size());
+            for (DataByFeatureId attribution : relavantAttribution) {
+                attribution.writeTo(out);
+            }
         } else {
-            out.writeBoolean(false);
+            out.writeVInt(0);
         }
 
-        if (oldValues != null) {
-            out.writeBoolean(true);
-            out.writeDoubleArray(oldValues);
+        if (pastValues != null) {
+            out.writeVInt(pastValues.size());
+            for (DataByFeatureId value : pastValues) {
+                value.writeTo(out);
+            }
         } else {
-            out.writeBoolean(false);
+            out.writeVInt(0);
         }
 
         if (expectedValuesList != null) {
-            out.writeBoolean(true);
-            int numberofExpectedVals = expectedValuesList.length;
-            out.writeVInt(expectedValuesList.length);
-            for (int i = 0; i < numberofExpectedVals; i++) {
-                out.writeDoubleArray(expectedValuesList[i]);
+            out.writeVInt(expectedValuesList.size());
+            for (ExpectedValueList value : expectedValuesList) {
+                value.writeTo(out);
             }
         } else {
-            out.writeBoolean(false);
+            out.writeVInt(0);
         }
 
         out.writeOptionalDouble(threshold);

@@ -184,22 +184,23 @@ public class ModelManager implements DetectorModelSize {
         ThresholdedRandomCutForest trcf = modelState.getModel();
         try {
             AnomalyDescriptor result = trcf.process(point, 0);
-            double[] attribution = normalizeAttribution(trcf.getForest(), result.getCurrentTimeAttribution());
+            double[] attribution = normalizeAttribution(trcf.getForest(), result.getRelevantAttribution());
             listener
                 .onResponse(
                     new ThresholdingResult(
                         result.getAnomalyGrade(),
                         result.getDataConfidence(),
-                        result.getRcfScore(),
+                        result.getRCFScore(),
                         result.getTotalUpdates(),
                         result.isStartOfAnomaly(),
                         result.isInHighScoreRegion(),
                         result.getRelativeIndex(),
                         attribution,
-                        result.getOldValues(),
+                        result.getPastValues(),
                         result.getExpectedValuesList(),
+                        result.getLikelihoodOfValues(),
                         result.getThreshold(),
-                        result.getForestSize()
+                        result.getNumberOfTrees()
                     )
                 );
         } catch (Exception e) {
@@ -211,16 +212,19 @@ public class ModelManager implements DetectorModelSize {
      * normalize total attribution to 1
      *
      * @param forest rcf accessor
-     * @param rawAttribution raw attribution scores
+     * @param rawAttribution raw attribution scores.  Can be null when
+     * 1) the anomaly grade is 0;
+     * 2) there are missing values and we are using differenced transforms.
+     * Read RCF's ImputePreprocessor.postProcess.
      *
      * @return normalized attribution
      */
     public double[] normalizeAttribution(RandomCutForest forest, double[] rawAttribution) {
-        // result.getAttribution() is null when anomaly grade is less than or equals to 0
-        // need to create an empty array for bwc because the old node expects an non-empty array
         if (forest == null) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Empty forest"));
         }
+        // rawAttribution is null when anomaly grade is less than or equals to 0
+        // need to create an empty array for bwc because the old node expects an non-empty array
         double[] attribution = createEmptyAttribution(forest);
         if (rawAttribution != null && rawAttribution.length > 0) {
             double sum = Arrays.stream(rawAttribution).sum();
@@ -609,14 +613,15 @@ public class ModelManager implements DetectorModelSize {
             return new ThresholdingResult(
                 descriptor.getAnomalyGrade(),
                 descriptor.getDataConfidence(),
-                descriptor.getRcfScore(),
+                descriptor.getRCFScore(),
                 descriptor.getTotalUpdates(),
                 descriptor.isStartOfAnomaly(),
                 descriptor.isInHighScoreRegion(),
                 descriptor.getRelativeIndex(),
-                normalizeAttribution(trcf.getForest(), descriptor.getCurrentTimeAttribution()),
-                descriptor.getOldValues(),
+                normalizeAttribution(trcf.getForest(), descriptor.getRelevantAttribution()),
+                descriptor.getPastValues(),
                 descriptor.getExpectedValuesList(),
+                descriptor.getLikelihoodOfValues(),
                 descriptor.getThreshold(),
                 rcfNumTrees
             );
@@ -786,14 +791,15 @@ public class ModelManager implements DetectorModelSize {
         return new ThresholdingResult(
             anomalyDescriptor.getAnomalyGrade(),
             anomalyDescriptor.getDataConfidence(),
-            anomalyDescriptor.getRcfScore(),
+            anomalyDescriptor.getRCFScore(),
             anomalyDescriptor.getTotalUpdates(),
             anomalyDescriptor.isStartOfAnomaly(),
             anomalyDescriptor.isInHighScoreRegion(),
             anomalyDescriptor.getRelativeIndex(),
-            normalizeAttribution(rcf, anomalyDescriptor.getCurrentTimeAttribution()),
-            anomalyDescriptor.getOldValues(),
+            normalizeAttribution(rcf, anomalyDescriptor.getRelevantAttribution()),
+            anomalyDescriptor.getPastValues(),
             anomalyDescriptor.getExpectedValuesList(),
+            anomalyDescriptor.getLikelihoodOfValues(),
             anomalyDescriptor.getThreshold(),
             rcfNumTrees
         );

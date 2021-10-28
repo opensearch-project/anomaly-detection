@@ -68,6 +68,7 @@ public class RCFResultTests extends OpenSearchTestCase {
     private double grade = 0.5;
     private double[] oldValues = new double[] { 123, 456 };
     private double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
+    private double[] likelihood = new double[] { randomDouble() };
     private double threshold = 1.1d;
 
     @Override
@@ -118,6 +119,7 @@ public class RCFResultTests extends OpenSearchTestCase {
                         attribution,
                         oldValues,
                         expectedValuesList,
+                        likelihood,
                         threshold,
                         forestSize
                     )
@@ -184,6 +186,7 @@ public class RCFResultTests extends OpenSearchTestCase {
             0,
             null,
             null,
+            null,
             1.1
         );
         BytesStreamOutput output = new BytesStreamOutput();
@@ -208,6 +211,7 @@ public class RCFResultTests extends OpenSearchTestCase {
             false,
             false,
             0,
+            null,
             null,
             null,
             1.1
@@ -290,6 +294,7 @@ public class RCFResultTests extends OpenSearchTestCase {
                         attribution,
                         oldValues,
                         expectedValuesList,
+                        likelihood,
                         threshold,
                         30
                     )

@@ -1093,35 +1093,38 @@ public class ADBatchTaskRunner {
                 // 0 is placeholder for timestamp. In the future, we will add
                 // data time stamp there.
                 AnomalyDescriptor descriptor = trcf.process(point, 0);
-                double score = descriptor.getRcfScore();
+                double score = descriptor.getRCFScore();
                 if (!adTaskCacheManager.isThresholdModelTrained(taskId) && score > 0) {
                     adTaskCacheManager.setThresholdModelTrained(taskId, true);
                 }
-                AnomalyResult anomalyResult = new AnomalyResult(
-                    adTask.getDetectorId(),
-                    adTask.getDetectorLevelTaskId(),
-                    score,
-                    descriptor.getAnomalyGrade(),
-                    descriptor.getDataConfidence(),
-                    featureData,
-                    Instant.ofEpochMilli(intervalEndTime - interval),
-                    Instant.ofEpochMilli(intervalEndTime),
-                    executeStartTime,
-                    Instant.now(),
-                    null,
-                    adTask.getEntity(),
-                    adTask.getDetector().getUser(),
-                    anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
-                    adTask.getEntityModelId(),
-                    descriptor.getTotalUpdates(),
-                    descriptor.isStartOfAnomaly(),
-                    descriptor.isInHighScoreRegion(),
-                    descriptor.getRelativeIndex(),
-                    modelManager.normalizeAttribution(trcf.getForest(), descriptor.getCurrentTimeAttribution()),
-                    descriptor.getOldValues(),
-                    descriptor.getExpectedValuesList(),
-                    descriptor.getThreshold()
-                );
+
+                AnomalyResult anomalyResult = AnomalyResult
+                    .fromRawTRCFResult(
+                        adTask.getDetectorId(),
+                        adTask.getDetector().getDetectorIntervalInMilliseconds(),
+                        adTask.getDetectorLevelTaskId(),
+                        score,
+                        descriptor.getAnomalyGrade(),
+                        descriptor.getDataConfidence(),
+                        featureData,
+                        Instant.ofEpochMilli(intervalEndTime - interval),
+                        Instant.ofEpochMilli(intervalEndTime),
+                        executeStartTime,
+                        Instant.now(),
+                        null,
+                        adTask.getEntity(),
+                        adTask.getDetector().getUser(),
+                        anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
+                        adTask.getEntityModelId(),
+                        descriptor.isStartOfAnomaly(),
+                        descriptor.isInHighScoreRegion(),
+                        modelManager.normalizeAttribution(trcf.getForest(), descriptor.getRelevantAttribution()),
+                        descriptor.getRelativeIndex(),
+                        descriptor.getPastValues(),
+                        descriptor.getExpectedValuesList(),
+                        descriptor.getLikelihoodOfValues(),
+                        descriptor.getThreshold()
+                    );
                 anomalyResults.add(anomalyResult);
             }
         }

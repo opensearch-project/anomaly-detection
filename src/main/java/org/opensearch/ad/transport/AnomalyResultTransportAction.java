@@ -813,8 +813,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 response.getInHighScoreRegion(),
                                 response.getRelativeIndex(),
                                 response.getAttribution(),
-                                response.getOldValues(),
+                                response.getPastValues(),
                                 response.getExpectedValuesList(),
+                                response.getLikelihoodOfValues(),
                                 response.getThreshold()
                             )
                         );

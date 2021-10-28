@@ -80,15 +80,16 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                         result.getRcfScore(),
                                         result.getConfidence(),
                                         result.getForestSize(),
-                                        result.getCurrentTimeAttribution(),
+                                        result.getRelevantttribution(),
                                         result.getTotalUpdates(),
                                         result.getGrade(),
                                         remoteAdVersion,
                                         result.isStartOfAnomaly(),
                                         result.isInHighScoreRegion(),
                                         result.getRelativeIndex(),
-                                        result.getOldValues(),
+                                        result.getPastValues(),
                                         result.getExpectedValuesList(),
+                                        result.getLikelihoodOfValues(),
                                         result.getThreshold()
                                     )
                                 ),

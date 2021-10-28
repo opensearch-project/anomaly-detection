@@ -31,8 +31,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     public static final String START_OF_ANOMALY_FIELD_JSON_KEY = "startOfAnomaly";
     public static final String IN_HIGH_SCORE_REGION_FIELD_JSON_KEY = "inHighScoreRegion";
     public static final String RELATIVE_INDEX_FIELD_JSON_KEY = "relativeIndex";
-    public static final String OLD_VALUES_FIELD_JSON_KEY = "oldValues";
+    public static final String PAST_VALUES_FIELD_JSON_KEY = "pastValues";
     public static final String EXPECTED_VAL_LIST_FIELD_JSON_KEY = "expectedValuesList";
+    public static final String LIKELIHOOD_FIELD_JSON_KEY = "likelihoodOfValues";
     public static final String THRESHOLD_FIELD_JSON_KEY = "threshold";
 
     private Double rcfScore;
@@ -45,8 +46,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     private Boolean startOfAnomaly;
     private Boolean inHighScoreRegion;
     private Integer relativeIndex;
-    private double[] oldValues;
+    private double[] pastValues;
     private double[][] expectedValuesList;
+    private double[] likelihoodOfValues;
     private Double threshold;
 
     public RCFResultResponse(
@@ -62,6 +64,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         Integer relativeIndex,
         double[] oldValues,
         double[][] expectedValuesList,
+        double[] likelihoodOfValues,
         Double threshold
     ) {
         this.rcfScore = rcfScore;
@@ -74,8 +77,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         this.startOfAnomaly = startOfAnomaly;
         this.inHighScoreRegion = inHighScoreRegion;
         this.relativeIndex = relativeIndex;
-        this.oldValues = oldValues;
+        this.pastValues = oldValues;
         this.expectedValuesList = expectedValuesList;
+        this.likelihoodOfValues = likelihoodOfValues;
         this.threshold = threshold;
     }
 
@@ -93,9 +97,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
             this.relativeIndex = in.readOptionalInt();
 
             if (in.readBoolean()) {
-                this.oldValues = in.readDoubleArray();
+                this.pastValues = in.readDoubleArray();
             } else {
-                this.oldValues = null;
+                this.pastValues = null;
             }
 
             if (in.readBoolean()) {
@@ -106,6 +110,12 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
                 }
             } else {
                 this.expectedValuesList = null;
+            }
+
+            if (in.readBoolean()) {
+                this.likelihoodOfValues = in.readDoubleArray();
+            } else {
+                this.likelihoodOfValues = null;
             }
 
             this.threshold = in.readOptionalDouble();
@@ -154,12 +164,16 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         return relativeIndex;
     }
 
-    public double[] getOldValues() {
-        return oldValues;
+    public double[] getPastValues() {
+        return pastValues;
     }
 
     public double[][] getExpectedValuesList() {
         return expectedValuesList;
+    }
+
+    public double[] getLikelihoodOfValues() {
+        return likelihoodOfValues;
     }
 
     public Double getThreshold() {
@@ -179,9 +193,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
             out.writeOptionalBoolean(inHighScoreRegion);
             out.writeOptionalInt(relativeIndex);
 
-            if (oldValues != null) {
+            if (pastValues != null) {
                 out.writeBoolean(true);
-                out.writeDoubleArray(oldValues);
+                out.writeDoubleArray(pastValues);
             } else {
                 out.writeBoolean(false);
             }
@@ -193,6 +207,13 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
                 for (int i = 0; i < numberofExpectedVals; i++) {
                     out.writeDoubleArray(expectedValuesList[i]);
                 }
+            } else {
+                out.writeBoolean(false);
+            }
+
+            if (likelihoodOfValues != null) {
+                out.writeBoolean(true);
+                out.writeDoubleArray(likelihoodOfValues);
             } else {
                 out.writeBoolean(false);
             }
@@ -213,8 +234,9 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(START_OF_ANOMALY_FIELD_JSON_KEY, startOfAnomaly);
         builder.field(IN_HIGH_SCORE_REGION_FIELD_JSON_KEY, inHighScoreRegion);
         builder.field(RELATIVE_INDEX_FIELD_JSON_KEY, relativeIndex);
-        builder.field(OLD_VALUES_FIELD_JSON_KEY, oldValues);
+        builder.field(PAST_VALUES_FIELD_JSON_KEY, pastValues);
         builder.field(EXPECTED_VAL_LIST_FIELD_JSON_KEY, expectedValuesList);
+        builder.field(LIKELIHOOD_FIELD_JSON_KEY, likelihoodOfValues);
         builder.field(THRESHOLD_FIELD_JSON_KEY, threshold);
         builder.endObject();
         return builder;

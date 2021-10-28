@@ -503,6 +503,7 @@ public class BwcTests extends AbstractADTest {
             randomIntBetween(-3, 0),
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
             new double[][] { new double[] { randomDouble(), randomDouble() } },
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
             randomDoubleBetween(1.1, 10.0, true)
         );
         rcfResultResponse1_0 = new RCFResultResponse1_0(0.345, 0.123, 30, new double[] { 0.3, 0.7 });

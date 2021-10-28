@@ -157,7 +157,8 @@ public final class AnomalyDetectorRunner {
                 Map.Entry<Long, Long> timeRange = timeRanges.get(i);
 
                 List<FeatureData> featureDatas = new ArrayList<>();
-                for (int j = 0; j < featureAttributes.size(); j++) {
+                int featureSize = featureAttributes.size();
+                for (int j = 0; j < featureSize; j++) {
                     double value = unprocessedFeatures[i][j];
                     Feature feature = featureAttributes.get(j);
                     FeatureData data = new FeatureData(feature.getId(), feature.getName(), value);
@@ -167,31 +168,20 @@ public final class AnomalyDetectorRunner {
                 AnomalyResult result;
                 if (results != null && results.size() > i) {
                     ThresholdingResult thresholdingResult = results.get(i);
-                    result = new AnomalyResult(
-                        detector.getDetectorId(),
-                        null,
-                        null,
-                        thresholdingResult.getGrade(),
-                        thresholdingResult.getConfidence(),
-                        featureDatas,
-                        Instant.ofEpochMilli(timeRange.getKey()),
-                        Instant.ofEpochMilli(timeRange.getValue()),
-                        null,
-                        null,
-                        null,
-                        entity,
-                        detector.getUser(),
-                        CommonValue.NO_SCHEMA_VERSION,
-                        null,
-                        thresholdingResult.getTotalUpdates(),
-                        thresholdingResult.isStartOfAnomaly(),
-                        thresholdingResult.isInHighScoreRegion(),
-                        thresholdingResult.getRelativeIndex(),
-                        thresholdingResult.getCurrentTimeAttribution(),
-                        thresholdingResult.getOldValues(),
-                        thresholdingResult.getExpectedValuesList(),
-                        thresholdingResult.getThreshold()
-                    );
+                    result = thresholdingResult
+                        .toAnomalyResult(
+                            detector,
+                            Instant.ofEpochMilli(timeRange.getKey()),
+                            Instant.ofEpochMilli(timeRange.getValue()),
+                            null,
+                            null,
+                            featureDatas,
+                            entity,
+                            CommonValue.NO_SCHEMA_VERSION,
+                            null,
+                            null,
+                            null
+                        );
                 } else {
                     result = new AnomalyResult(
                         detector.getDetectorId(),

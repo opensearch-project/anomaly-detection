@@ -11,21 +11,14 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
 import static org.opensearch.test.OpenSearchTestCase.randomDouble;
-import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomLong;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Locale;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
@@ -35,7 +28,6 @@ import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 
 public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
 
@@ -70,37 +62,13 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testParseAnomalyDetectorWithoutNormalResult() throws IOException {
-        AnomalyResult detectResult = new AnomalyResult(
-            randomAlphaOfLength(5),
-            randomAlphaOfLength(5),
-            null,
-            null,
-            null,
-            null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            null,
-            null,
-            randomAlphaOfLength(5),
-            null,
-            TestHelpers.randomUser(),
-            CommonValue.NO_SCHEMA_VERSION,
-            null,
-            randomLong(),
-            randomBoolean(),
-            randomBoolean(),
-            randomIntBetween(-3, 0),
-            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
-            new double[] { randomDouble(), randomDouble() },
-            new double[][] { new double[] { randomDouble(), randomDouble() } },
-            randomDoubleBetween(1.1, 10.0, true)
-        );
+        AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(randomDouble(), randomDouble(), null);
+
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         detectResultString = detectResultString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
-        assertTrue(parsedDetectResult.getFeatureData().size() == 0);
         assertTrue(
             Objects.equal(detectResult.getDetectorId(), parsedDetectResult.getDetectorId())
                 && Objects.equal(detectResult.getTaskId(), parsedDetectResult.getTaskId())
@@ -113,35 +81,12 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
                 && Objects.equal(detectResult.getExecutionEndTime(), parsedDetectResult.getExecutionEndTime())
                 && Objects.equal(detectResult.getError(), parsedDetectResult.getError())
                 && Objects.equal(detectResult.getEntity(), parsedDetectResult.getEntity())
+                && Objects.equal(detectResult.getFeatureData(), parsedDetectResult.getFeatureData())
         );
     }
 
     public void testParseAnomalyDetectorWithNanAnomalyResult() throws IOException {
-        AnomalyResult detectResult = new AnomalyResult(
-            randomAlphaOfLength(5),
-            randomAlphaOfLength(5),
-            Double.NaN,
-            Double.NaN,
-            Double.NaN,
-            ImmutableList.of(),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            null,
-            null,
-            randomAlphaOfLength(5),
-            null,
-            null,
-            CommonValue.NO_SCHEMA_VERSION,
-            null,
-            randomLong(),
-            randomBoolean(),
-            randomBoolean(),
-            randomIntBetween(-3, 0),
-            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
-            new double[] { randomDouble(), randomDouble() },
-            new double[][] { new double[] { randomDouble(), randomDouble() } },
-            randomDoubleBetween(1.1, 10.0, true)
-        );
+        AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(Double.NaN, Double.NaN, null);
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         detectResultString = detectResultString
@@ -149,7 +94,6 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertNull(parsedDetectResult.getAnomalyGrade());
         assertNull(parsedDetectResult.getAnomalyScore());
-        assertNull(parsedDetectResult.getConfidence());
         assertTrue(
             Objects.equal(detectResult.getDetectorId(), parsedDetectResult.getDetectorId())
                 && Objects.equal(detectResult.getTaskId(), parsedDetectResult.getTaskId())
@@ -160,6 +104,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
                 && Objects.equal(detectResult.getExecutionEndTime(), parsedDetectResult.getExecutionEndTime())
                 && Objects.equal(detectResult.getError(), parsedDetectResult.getError())
                 && Objects.equal(detectResult.getEntity(), parsedDetectResult.getEntity())
+                && Objects.equal(detectResult.getConfidence(), parsedDetectResult.getConfidence())
         );
     }
 

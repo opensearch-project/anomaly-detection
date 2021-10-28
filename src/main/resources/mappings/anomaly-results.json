@@ -107,26 +107,56 @@
     "model_id": {
       "type": "keyword"
     },
-    "totalUpdates": {
-      "type": "long"
-    },
     "startOfAnomaly": {
       "type": "boolean"
     },
     "inHighScoreRegion": {
       "type": "boolean"
     },
-    "relativeIndex": {
-      "type": "integer"
+    "approx_anomaly_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
     },
-    "currentTimeAttribution": {
-      "type": "double"
+    "relevant_attribution": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
     },
-    "oldValues": {
-      "type": "double"
+    "past_value": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
     },
-    "expectedValuesList": {
-      "type": "double"
+    "expected_value": {
+      "type": "nested",
+      "properties": {
+        "likelihood": {
+          "type": "double"
+        },
+        "value_list": {
+          "type": "nested",
+          "properties": {
+            "feature_id": {
+              "type": "keyword"
+            },
+            "data": {
+              "type": "double"
+            }
+          }
+        }
+      }
     },
     "threshold": {
       "type": "double"

@@ -223,6 +223,7 @@ public class AnomalyResultTests extends AbstractADTest {
         double[] currentTimeAttribution = new double[] { 0.5, 0.5 };
         double[] oldValues = new double[] { 123, 456 };
         double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
+        double[] likelihood = new double[] { 1 };
         double threshold = 1.1d;
         doAnswer(invocation -> {
             ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
@@ -239,6 +240,7 @@ public class AnomalyResultTests extends AbstractADTest {
                         currentTimeAttribution,
                         oldValues,
                         expectedValuesList,
+                        likelihood,
                         threshold,
                         30
                     )
@@ -619,6 +621,7 @@ public class AnomalyResultTests extends AbstractADTest {
                             randomIntBetween(-3, 0),
                             new double[] { randomDouble(), randomDouble() },
                             new double[][] { new double[] { randomDouble(), randomDouble() } },
+                            new double[] { randomDouble() },
                             randomDoubleBetween(1.1, 10.0, true)
                         )
                     );
@@ -961,6 +964,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
             new double[] { randomDouble(), randomDouble() },
             new double[][] { new double[] { randomDouble(), randomDouble() } },
+            new double[] { randomDouble() },
             randomDoubleBetween(1.1, 10.0, true)
         );
         BytesStreamOutput output = new BytesStreamOutput();
@@ -987,6 +991,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
             new double[] { randomDouble(), randomDouble() },
             new double[][] { new double[] { randomDouble(), randomDouble() } },
+            new double[] { randomDouble() },
             randomDoubleBetween(1.1, 10.0, true)
         );
         XContentBuilder builder = jsonBuilder();
@@ -1020,6 +1025,7 @@ public class AnomalyResultTests extends AbstractADTest {
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
             new double[] { randomDouble(), randomDouble() },
             new double[][] { new double[] { randomDouble(), randomDouble() } },
+            new double[] { randomDouble() },
             randomDoubleBetween(1.1, 10.0, true)
         );
         assertAnomalyResultResponse(readResponse, readResponse.getAnomalyGrade(), readResponse.getConfidence(), 0d);
@@ -1523,7 +1529,7 @@ public class AnomalyResultTests extends AbstractADTest {
         ArgumentCaptor<AnomalyResultResponse> responseCaptor = ArgumentCaptor.forClass(AnomalyResultResponse.class);
         rcfListener
             .onResponse(
-                new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, false, false, 0, null, null, 1.1)
+                new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, false, false, 0, null, null, null, 1.1)
             );
         verify(listener, times(1)).onResponse(responseCaptor.capture());
         assertEquals(grade, responseCaptor.getValue().getAnomalyGrade(), 1e-10);
@@ -1559,7 +1565,7 @@ public class AnomalyResultTests extends AbstractADTest {
         ArgumentCaptor<Exception> failureCaptor = ArgumentCaptor.forClass(Exception.class);
         rcfListener
             .onResponse(
-                new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, false, false, 0, null, null, 1.1)
+                new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, false, false, 0, null, null, null, 1.1)
             );
         verify(listener, times(1)).onFailure(failureCaptor.capture());
         Exception failure = failureCaptor.getValue();
