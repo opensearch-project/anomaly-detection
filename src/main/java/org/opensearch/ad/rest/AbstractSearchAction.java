@@ -28,9 +28,11 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -51,11 +53,11 @@ import org.opensearch.search.builder.SearchSourceBuilder;
  */
 public abstract class AbstractSearchAction<T extends ToXContentObject> extends BaseRestHandler {
 
-    private final String index;
-    private final Class<T> clazz;
-    private final List<String> urlPaths;
-    private final List<Pair<String, String>> deprecatedPaths;
-    private final ActionType<SearchResponse> actionType;
+    protected final String index;
+    protected final Class<T> clazz;
+    protected final List<String> urlPaths;
+    protected final List<Pair<String, String>> deprecatedPaths;
+    protected final ActionType<SearchResponse> actionType;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
@@ -86,7 +88,24 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         return channel -> client.execute(actionType, searchRequest, search(channel));
     }
 
-    private RestResponseListener<SearchResponse> search(RestChannel channel) {
+    protected void executeWithAdmin(NodeClient client, AnomalyDetectorFunction function, RestChannel channel) {
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            function.execute();
+        } catch (Exception e) {
+            logger.error("Failed to execute with admin", e);
+            onFailure(channel, e);
+        }
+    }
+
+    protected void onFailure(RestChannel channel, Exception e) {
+        try {
+            channel.sendResponse(new BytesRestResponse(channel, e));
+        } catch (Exception exception) {
+            logger.error("Failed to send back failure response for search AD result", exception);
+        }
+    }
+
+    protected RestResponseListener<SearchResponse> search(RestChannel channel) {
         return new RestResponseListener<SearchResponse>(channel) {
             @Override
             public RestResponse buildResponse(SearchResponse response) throws Exception {

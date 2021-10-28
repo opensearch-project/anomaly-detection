@@ -11,23 +11,22 @@
 
 package org.opensearch.ad.transport.handler;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.util.List;
-import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
@@ -48,31 +47,44 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
         Client client,
         Settings settings,
         ThreadPool threadPool,
-        Consumer<ActionListener<CreateIndexResponse>> createIndex,
-        BooleanSupplier indexExists,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService,
         AnomalyDetectionIndices anomalyDetectionIndices
     ) {
-        super(client, settings, threadPool, ANOMALY_RESULT_INDEX_ALIAS, createIndex, indexExists, clientUtil, indexUtils, clusterService);
+        super(client, settings, threadPool, ANOMALY_RESULT_INDEX_ALIAS, anomalyDetectionIndices, clientUtil, indexUtils, clusterService);
         this.anomalyDetectionIndices = anomalyDetectionIndices;
     }
 
     /**
      * Bulk index anomaly results. Create anomaly result index first if it doesn't exist.
      *
+     * @param resultIndex anomaly result index
      * @param anomalyResults anomaly results
      * @param listener action listener
      */
-    public void bulkIndexAnomalyResult(List<AnomalyResult> anomalyResults, ActionListener<BulkResponse> listener) {
+    public void bulkIndexAnomalyResult(String resultIndex, List<AnomalyResult> anomalyResults, ActionListener<BulkResponse> listener) {
         if (anomalyResults == null || anomalyResults.size() == 0) {
             listener.onResponse(null);
             return;
         }
+        String detectorId = anomalyResults.get(0).getDetectorId();
         try {
-            if (!anomalyDetectionIndices.doesAnomalyResultIndexExist()) {
-                anomalyDetectionIndices.initAnomalyResultIndexDirectly(ActionListener.wrap(response -> {
+            if (resultIndex != null) {
+                // Only create custom AD result index when create detector, won’t recreate custom AD result index in realtime
+                // job and historical analysis later if it’s deleted. If user delete the custom AD result index, and AD plugin
+                // recreate it, that may bring confusion.
+                if (!anomalyDetectionIndices.doesIndexExist(resultIndex)) {
+                    throw new EndRunException(detectorId, CAN_NOT_FIND_RESULT_INDEX + resultIndex, true);
+                }
+                if (!anomalyDetectionIndices.isValidResultIndex(resultIndex)) {
+                    throw new EndRunException(detectorId, "wrong index mapping of custom AD result index", true);
+                }
+                bulkSaveDetectorResult(resultIndex, anomalyResults, listener);
+                return;
+            }
+            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
+                anomalyDetectionIndices.initDefaultAnomalyResultIndexDirectly(ActionListener.wrap(response -> {
                     if (response.isAcknowledged()) {
                         bulkSaveDetectorResult(anomalyResults, listener);
                     } else {
@@ -101,11 +113,14 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
     }
 
     private void bulkSaveDetectorResult(List<AnomalyResult> anomalyResults, ActionListener<BulkResponse> listener) {
-        LOG.debug("Start to bulk save {} anomaly results", anomalyResults.size());
+        bulkSaveDetectorResult(ANOMALY_RESULT_INDEX_ALIAS, anomalyResults, listener);
+    }
+
+    private void bulkSaveDetectorResult(String resultIndex, List<AnomalyResult> anomalyResults, ActionListener<BulkResponse> listener) {
         BulkRequestBuilder bulkRequestBuilder = client.prepareBulk();
         anomalyResults.forEach(anomalyResult -> {
             try (XContentBuilder builder = jsonBuilder()) {
-                IndexRequest indexRequest = new IndexRequest(ANOMALY_RESULT_INDEX_ALIAS)
+                IndexRequest indexRequest = new IndexRequest(resultIndex)
                     .source(anomalyResult.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
                 bulkRequestBuilder.add(indexRequest);
             } catch (Exception e) {
@@ -115,8 +130,14 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
             }
         });
         client.bulk(bulkRequestBuilder.request(), ActionListener.wrap(r -> {
-            LOG.debug("bulk index AD result successfully, took: {}", r.getTook().duration());
-            listener.onResponse(r);
+            if (r.hasFailures()) {
+                String failureMessage = r.buildFailureMessage();
+                LOG.warn("Failed to bulk index AD result " + failureMessage);
+                listener.onFailure(new AnomalyDetectionException(failureMessage));
+            } else {
+                listener.onResponse(r);
+            }
+
         }, e -> {
             LOG.error("bulk index ad result failed", e);
             listener.onFailure(e);

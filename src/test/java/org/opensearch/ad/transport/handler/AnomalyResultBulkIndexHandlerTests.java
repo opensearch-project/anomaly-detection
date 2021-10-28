@@ -25,20 +25,27 @@ import java.io.IOException;
 import java.time.Clock;
 
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.bulk.BulkAction;
+import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
-import org.opensearch.ad.util.ThrowingConsumerWrapper;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.index.Index;
+import org.opensearch.index.engine.VersionConflictEngineException;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
@@ -68,8 +75,6 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             client,
             settings,
             threadPool,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initDetectionStateIndex),
-            anomalyDetectionIndices::doesDetectorStateIndexExist,
             clientUtil,
             indexUtils,
             clusterService,
@@ -85,7 +90,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     }
 
     public void testNullAnomalyResults() {
-        bulkIndexHandler.bulkIndexAnomalyResult(null, listener);
+        bulkIndexHandler.bulkIndexAnomalyResult(null, null, listener);
         verify(listener, times(1)).onResponse(null);
         verify(anomalyDetectionIndices, never()).doesAnomalyDetectorIndexExist();
     }
@@ -95,25 +100,51 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onResponse(new CreateIndexResponse(false, false, ANOMALY_RESULT_INDEX_ALIAS));
             return null;
-        }).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());
-        bulkIndexHandler.bulkIndexAnomalyResult(ImmutableList.of(mock(AnomalyResult.class)), listener);
+        }).when(anomalyDetectionIndices).initDefaultAnomalyResultIndexDirectly(any());
+        bulkIndexHandler.bulkIndexAnomalyResult(null, ImmutableList.of(mock(AnomalyResult.class)), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals("Creating anomaly result index with mappings call not acknowledged", exceptionCaptor.getValue().getMessage());
     }
 
     public void testWrongAnomalyResult() {
-        BulkRequestBuilder bulkRequestBuilder = mock(BulkRequestBuilder.class);
+        BulkRequestBuilder bulkRequestBuilder = new BulkRequestBuilder(client, BulkAction.INSTANCE);
         doReturn(bulkRequestBuilder).when(client).prepareBulk();
-        doReturn(true).when(anomalyDetectionIndices).doesAnomalyResultIndexExist();
-        bulkIndexHandler.bulkIndexAnomalyResult(ImmutableList.of(wrongAnomalyResult(), TestHelpers.randomAnomalyDetectResult()), listener);
+        doReturn(true).when(anomalyDetectionIndices).doesDefaultAnomalyResultIndexExist();
+        doAnswer(invocation -> {
+            ActionListener<BulkResponse> listener = invocation.getArgument(1);
+            BulkItemResponse[] bulkItemResponses = new BulkItemResponse[2];
+            String indexName = ANOMALY_RESULT_INDEX_ALIAS;
+            String type = "_doc";
+            String idPrefix = "id";
+            String uuid = "uuid";
+            int shardIntId = 0;
+            ShardId shardId = new ShardId(new Index(indexName, uuid), shardIntId);
+            BulkItemResponse.Failure failure = new BulkItemResponse.Failure(
+                ANOMALY_RESULT_INDEX_ALIAS,
+                CommonName.MAPPING_TYPE,
+                randomAlphaOfLength(5),
+                new VersionConflictEngineException(new ShardId(ANOMALY_RESULT_INDEX_ALIAS, "", 1), "id", "test")
+            );
+            bulkItemResponses[0] = new BulkItemResponse(0, randomFrom(DocWriteRequest.OpType.values()), failure);
+            bulkItemResponses[1] = new BulkItemResponse(
+                1,
+                randomFrom(DocWriteRequest.OpType.values()),
+                new IndexResponse(shardId, "type", idPrefix + 1, 1, 1, randomInt(), true)
+            );
+            BulkResponse bulkResponse = new BulkResponse(bulkItemResponses, 10);
+            listener.onResponse(bulkResponse);
+            return null;
+        }).when(client).bulk(any(), any());
+        bulkIndexHandler
+            .bulkIndexAnomalyResult(null, ImmutableList.of(wrongAnomalyResult(), TestHelpers.randomAnomalyDetectResult()), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
-        assertEquals("Failed to prepare request to bulk index anomaly results", exceptionCaptor.getValue().getMessage());
+        assertTrue(exceptionCaptor.getValue().getMessage().contains("VersionConflictEngineException"));
     }
 
     public void testBulkSaveException() {
         BulkRequestBuilder bulkRequestBuilder = mock(BulkRequestBuilder.class);
         doReturn(bulkRequestBuilder).when(client).prepareBulk();
-        doReturn(true).when(anomalyDetectionIndices).doesAnomalyResultIndexExist();
+        doReturn(true).when(anomalyDetectionIndices).doesDefaultAnomalyResultIndexExist();
 
         String testError = randomAlphaOfLength(5);
         doAnswer(invocation -> {
@@ -122,7 +153,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             return null;
         }).when(client).bulk(any(), any());
 
-        bulkIndexHandler.bulkIndexAnomalyResult(ImmutableList.of(TestHelpers.randomAnomalyDetectResult()), listener);
+        bulkIndexHandler.bulkIndexAnomalyResult(null, ImmutableList.of(TestHelpers.randomAnomalyDetectResult()), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals(testError, exceptionCaptor.getValue().getMessage());
     }

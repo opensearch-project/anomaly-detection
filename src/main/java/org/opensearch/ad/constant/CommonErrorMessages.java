@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.constant;
 
+import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
+
 import java.util.Locale;
 
 public class CommonErrorMessages {
@@ -24,6 +26,7 @@ public class CommonErrorMessages {
     public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG = "AD memory circuit is broken.";
     public static final String DISABLED_ERR_MSG = "AD plugin is disabled. To enable update plugins.anomaly_detection.enabled to true";
     public static final String CAN_NOT_CHANGE_CATEGORY_FIELD = "Can't change detector category field";
+    public static final String CAN_NOT_CHANGE_RESULT_INDEX = "Can't change detector result index";
     public static final String CREATE_INDEX_NOT_ACKNOWLEDGED = "Create index %S not acknowledged";
     // We need this invalid query tag to show proper error message on frontend
     // refer to AD Dashboard code: https://tinyurl.com/8b5n8hat
@@ -83,4 +86,8 @@ public class CommonErrorMessages {
     public static String FAIL_TO_DELETE_AD_RESULT = "Fail to delete anomaly result";
     public static String FAIL_TO_GET_STATS = "Fail to get stats";
     public static String FAIL_TO_SEARCH = "Fail to search";
+
+    public static String CAN_NOT_FIND_RESULT_INDEX = "Can't find result index ";
+    public static String INVALID_RESULT_INDEX_PREFIX = "Result index must start with " + CUSTOM_RESULT_INDEX_PREFIX;
+    public static String CAN_NOT_FIND_INDEX = "Can't find index";
 }

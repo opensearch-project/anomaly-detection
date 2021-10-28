@@ -28,6 +28,8 @@ public abstract class QueuedRequest {
         this.priority = priority;
     }
 
+    protected QueuedRequest() {}
+
     public long getExpirationEpochMs() {
         return expirationEpochMs;
     }

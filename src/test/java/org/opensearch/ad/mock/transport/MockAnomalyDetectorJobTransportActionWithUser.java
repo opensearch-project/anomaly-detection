@@ -49,6 +49,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Boolean filterByEnabled;
+    private ThreadContext.StoredContext context;
     private final ADTaskManager adTaskManager;
     private final TransportService transportService;
 
@@ -73,6 +74,9 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         this.adTaskManager = adTaskManager;
         filterByEnabled = FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+
+        ThreadContext threadContext = new ThreadContext(settings);
+        context = threadContext.stashContext();
     }
 
     @Override
@@ -138,7 +142,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
             adTaskManager
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, listener);
+            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, context, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             // Stop detector
             adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);

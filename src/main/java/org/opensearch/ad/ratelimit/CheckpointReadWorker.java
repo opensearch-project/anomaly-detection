@@ -386,7 +386,8 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                                 detector.getUser(),
                                 indexUtil.getSchemaVersion(ADIndex.RESULT),
                                 modelState.getModelId()
-                            )
+                            ),
+                            detector.getResultIndex()
                         )
                     );
             }

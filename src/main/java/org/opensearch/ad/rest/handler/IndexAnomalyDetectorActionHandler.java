@@ -11,8 +11,6 @@
 
 package org.opensearch.ad.rest.handler;
 
-import java.io.IOException;
-
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -105,11 +103,9 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
 
     /**
      * Start function to process create/update anomaly detector request.
-     *
-     * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
      */
     @Override
-    public void start() throws IOException {
+    public void start() {
         super.start();
     }
 }

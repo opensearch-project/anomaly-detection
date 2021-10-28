@@ -237,7 +237,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     1,
                     Instant.now(),
                     null,
-                    TestHelpers.randomUser()
+                    TestHelpers.randomUser(),
+                    null
                 )
             );
     }
@@ -262,7 +263,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     1,
                     Instant.now(),
                     null,
-                    TestHelpers.randomUser()
+                    TestHelpers.randomUser(),
+                    null
                 )
             );
     }
@@ -287,7 +289,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     1,
                     Instant.now(),
                     null,
-                    TestHelpers.randomUser()
+                    TestHelpers.randomUser(),
+                    null
                 )
             );
     }
@@ -312,7 +315,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     1,
                     Instant.now(),
                     null,
-                    TestHelpers.randomUser()
+                    TestHelpers.randomUser(),
+                    null
                 )
             );
     }
@@ -337,7 +341,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     1,
                     Instant.now(),
                     null,
-                    TestHelpers.randomUser()
+                    TestHelpers.randomUser(),
+                    null
                 )
             );
     }
@@ -362,7 +367,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     1,
                     Instant.now(),
                     null,
-                    TestHelpers.randomUser()
+                    TestHelpers.randomUser(),
+                    null
                 )
             );
     }
@@ -387,7 +393,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     1,
                     Instant.now(),
                     null,
-                    TestHelpers.randomUser()
+                    TestHelpers.randomUser(),
+                    null
                 )
             );
     }
@@ -410,6 +417,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 null,
                 randomInt(),
                 Instant.now(),
+                null,
                 null,
                 null
             )
@@ -435,6 +443,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 null,
                 randomInt(),
                 Instant.now(),
+                null,
                 null,
                 null
             )
@@ -474,7 +483,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
             1,
             Instant.now(),
             null,
-            TestHelpers.randomUser()
+            TestHelpers.randomUser(),
+            null
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
@@ -496,7 +506,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
             1,
             Instant.now(),
             null,
-            TestHelpers.randomUser()
+            TestHelpers.randomUser(),
+            null
         );
         assertEquals((int) anomalyDetector.getShingleSize(), AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
     }
@@ -518,7 +529,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
             1,
             Instant.now(),
             null,
-            TestHelpers.randomUser()
+            TestHelpers.randomUser(),
+            null
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());

@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 4
+    "schema_version": 5
   },
   "properties": {
     "schema_version": {
@@ -30,6 +30,9 @@
           "ignore_above": 256
         }
       }
+    },
+    "result_index": {
+      "type": "keyword"
     },
     "filter_query": {
       "type": "object",

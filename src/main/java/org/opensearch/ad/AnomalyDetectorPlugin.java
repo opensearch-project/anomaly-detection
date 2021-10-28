@@ -160,7 +160,6 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
-import org.opensearch.ad.util.ThrowingConsumerWrapper;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
@@ -263,8 +262,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            anomalyDetectionIndices,
             this.clientUtil,
             this.indexUtils,
             clusterService
@@ -275,7 +273,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setThreadPool(threadPool);
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setSettings(settings);
-        jobRunner.setIndexUtil(anomalyDetectionIndices);
+        jobRunner.setAnomalyDetectionIndices(anomalyDetectionIndices);
         jobRunner.setNodeFilter(nodeFilter);
         jobRunner.setAdTaskManager(adTaskManager);
 
@@ -691,8 +689,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             client,
             settings,
             threadPool,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
             this.clientUtil,
             this.indexUtils,
             clusterService,

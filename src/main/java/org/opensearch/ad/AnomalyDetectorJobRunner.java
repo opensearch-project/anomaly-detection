@@ -90,7 +90,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private ThreadPool threadPool;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
-    private AnomalyDetectionIndices indexUtil;
+    private AnomalyDetectionIndices anomalyDetectionIndices;
     private DiscoveryNodeFilterer nodeFilter;
     private ADTaskManager adTaskManager;
 
@@ -133,8 +133,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.adTaskManager = adTaskManager;
     }
 
-    public void setIndexUtil(AnomalyDetectionIndices indexUtil) {
-        this.indexUtil = indexUtil;
+    public void setAnomalyDetectionIndices(AnomalyDetectionIndices anomalyDetectionIndices) {
+        this.anomalyDetectionIndices = anomalyDetectionIndices;
     }
 
     public void setNodeFilter(DiscoveryNodeFilterer nodeFilter) {
@@ -142,16 +142,16 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     @Override
-    public void runJob(ScheduledJobParameter jobParameter, JobExecutionContext context) {
-        String detectorId = jobParameter.getName();
+    public void runJob(ScheduledJobParameter scheduledJobParameter, JobExecutionContext context) {
+        String detectorId = scheduledJobParameter.getName();
         log.info("Start to run AD job {}", detectorId);
         adTaskManager.refreshRealtimeJobRunTime(detectorId);
-        if (!(jobParameter instanceof AnomalyDetectorJob)) {
+        if (!(scheduledJobParameter instanceof AnomalyDetectorJob)) {
             throw new IllegalArgumentException(
-                "Job parameter is not instance of AnomalyDetectorJob, type: " + jobParameter.getClass().getCanonicalName()
+                "Job parameter is not instance of AnomalyDetectorJob, type: " + scheduledJobParameter.getClass().getCanonicalName()
             );
         }
-
+        AnomalyDetectorJob jobParameter = (AnomalyDetectorJob) scheduledJobParameter;
         Instant executionStartTime = Instant.now();
         IntervalSchedule schedule = (IntervalSchedule) jobParameter.getSchedule();
         Instant detectionStartTime = executionStartTime.minus(schedule.getInterval(), schedule.getUnit());
@@ -197,7 +197,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
      * @param executionStartTime detection end time
      */
     protected void runAdJob(
-        ScheduledJobParameter jobParameter,
+        AnomalyDetectorJob jobParameter,
         LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
@@ -216,7 +216,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             );
             return;
         }
-        indexUtil.update();
+        anomalyDetectionIndices.update();
+
         /*
          * We need to handle 3 cases:
          * 1. Detectors created by older versions and never updated. These detectors wont have User details in the
@@ -229,14 +230,38 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
          */
         String user;
         List<String> roles;
-        AnomalyDetectorJob job = (AnomalyDetectorJob) jobParameter;
-        if (job.getUser() == null) {
+        if (jobParameter.getUser() == null) {
             user = "";
             roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
         } else {
-            user = job.getUser().getName();
-            roles = job.getUser().getRoles();
+            user = jobParameter.getUser().getName();
+            roles = jobParameter.getUser().getRoles();
         }
+        String resultIndex = jobParameter.getResultIndex();
+        if (resultIndex == null) {
+            runAnomalyDetectionJob(jobParameter, lockService, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
+            return;
+        }
+        ActionListener<Boolean> listener = ActionListener.wrap(r -> { log.debug("Custom index is valid"); }, e -> {
+            Exception exception = new EndRunException(detectorId, e.getMessage(), true);
+            handleAdException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, exception);
+        });
+        anomalyDetectionIndices.validateCustomIndexForBackendJob(resultIndex, detectorId, user, roles, () -> {
+            listener.onResponse(true);
+            runAnomalyDetectionJob(jobParameter, lockService, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
+        }, listener);
+    }
+
+    private void runAnomalyDetectionJob(
+        AnomalyDetectorJob jobParameter,
+        LockService lockService,
+        LockModel lock,
+        Instant detectionStartTime,
+        Instant executionStartTime,
+        String detectorId,
+        String user,
+        List<String> roles
+    ) {
 
         try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
             // Injecting user role to verify if the user has permissions for our API.
@@ -305,7 +330,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
      * @param exception exception
      */
     protected void handleAdException(
-        ScheduledJobParameter jobParameter,
+        AnomalyDetectorJob jobParameter,
         LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
@@ -376,7 +401,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     private void stopAdJobForEndRunException(
-        ScheduledJobParameter jobParameter,
+        AnomalyDetectorJob jobParameter,
         LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
@@ -425,7 +450,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                             Instant.now(),
                             Instant.now(),
                             job.getLockDurationSeconds(),
-                            job.getUser()
+                            job.getUser(),
+                            job.getResultIndex()
                         );
                         IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
                             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
@@ -457,7 +483,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     private void indexAnomalyResult(
-        ScheduledJobParameter jobParameter,
+        AnomalyDetectorJob jobParameter,
         LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
@@ -476,10 +502,10 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 updateRealtimeTask(response, detectorId);
                 return;
             }
-            IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
+            IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) jobParameter.getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
             Instant dataEndTime = executionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
-            User user = ((AnomalyDetectorJob) jobParameter).getUser();
+            User user = jobParameter.getUser();
 
             if (response.getError() != null) {
                 log.info("Anomaly result action run successfully for {} with error {}", detectorId, response.getError());
@@ -496,10 +522,13 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 Instant.now(),
                 response.getError(),
                 user,
-                indexUtil.getSchemaVersion(ADIndex.RESULT)
+                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
             );
-            anomalyResultHandler.index(anomalyResult, detectorId);
+            String resultIndex = jobParameter.getResultIndex();
+            anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             updateRealtimeTask(response, detectorId);
+        } catch (EndRunException e) {
+            handleAdException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, e);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
@@ -538,7 +567,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     private void indexAnomalyResultException(
-        ScheduledJobParameter jobParameter,
+        AnomalyDetectorJob jobParameter,
         LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
@@ -557,7 +586,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     private void indexAnomalyResultException(
-        ScheduledJobParameter jobParameter,
+        AnomalyDetectorJob jobParameter,
         LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
@@ -578,7 +607,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     private void indexAnomalyResultException(
-        ScheduledJobParameter jobParameter,
+        AnomalyDetectorJob jobParameter,
         LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
@@ -589,10 +618,10 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     ) {
         String detectorId = jobParameter.getName();
         try {
-            IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) ((AnomalyDetectorJob) jobParameter).getWindowDelay();
+            IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) jobParameter.getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
             Instant dataEndTime = executionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
-            User user = ((AnomalyDetectorJob) jobParameter).getUser();
+            User user = jobParameter.getUser();
 
             AnomalyResult anomalyResult = new AnomalyResult(
                 detectorId,
@@ -606,9 +635,16 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 Instant.now(),
                 errorMessage,
                 user,
-                indexUtil.getSchemaVersion(ADIndex.RESULT)
+                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
             );
-            anomalyResultHandler.index(anomalyResult, detectorId);
+            String resultIndex = jobParameter.getResultIndex();
+            if (resultIndex != null && !anomalyDetectionIndices.doesIndexExist(resultIndex)) {
+                // Set result index as null, will write exception to default result index.
+                anomalyResultHandler.index(anomalyResult, detectorId, null);
+            } else {
+                anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
+            }
+
             updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
@@ -650,7 +686,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             );
     }
 
-    private void releaseLock(ScheduledJobParameter jobParameter, LockService lockService, LockModel lock) {
+    private void releaseLock(AnomalyDetectorJob jobParameter, LockService lockService, LockModel lock) {
         lockService
             .release(
                 lock,
