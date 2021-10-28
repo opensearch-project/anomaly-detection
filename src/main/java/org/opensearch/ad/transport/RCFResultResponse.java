@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import java.io.IOException;
@@ -31,6 +16,7 @@ import java.io.IOException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.cluster.ADVersionUtil;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
@@ -48,10 +34,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     private double[] attribution;
     private long totalUpdates = 0;
     private Version remoteAdVersion;
-
-    public RCFResultResponse(double rcfScore, double confidence, int forestSize, double[] attribution) {
-        this(rcfScore, confidence, forestSize, attribution, 0, Version.CURRENT);
-    }
+    private double anomalyGrade;
 
     public RCFResultResponse(
         double rcfScore,
@@ -59,6 +42,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         int forestSize,
         double[] attribution,
         long totalUpdates,
+        double grade,
         Version remoteAdVersion
     ) {
         this.rcfScore = rcfScore;
@@ -66,6 +50,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         this.forestSize = forestSize;
         this.attribution = attribution;
         this.totalUpdates = totalUpdates;
+        this.anomalyGrade = grade;
         this.remoteAdVersion = remoteAdVersion;
     }
 
@@ -77,6 +62,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         attribution = in.readDoubleArray();
         if (in.available() > 0) {
             totalUpdates = in.readLong();
+            anomalyGrade = in.readDouble();
         }
     }
 
@@ -93,7 +79,8 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     }
 
     /**
-     * Returns RCF score attribution.
+     * Returns RCF score attribution. Can be null when anomaly grade is less than
+     * or equals to 0.
      *
      * @return RCF score attribution.
      */
@@ -105,6 +92,10 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         return totalUpdates;
     }
 
+    public double getAnomalyGrade() {
+        return anomalyGrade;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeDouble(rcfScore);
@@ -113,6 +104,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         out.writeDoubleArray(attribution);
         if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
             out.writeLong(totalUpdates);
+            out.writeDouble(anomalyGrade);
         }
     }
 
@@ -124,6 +116,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(FOREST_SIZE_JSON_KEY, forestSize);
         builder.field(ATTRIBUTION_JSON_KEY, attribution);
         builder.field(TOTAL_UPDATES_JSON_KEY, totalUpdates);
+        builder.field(CommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
         builder.endObject();
         return builder;
     }

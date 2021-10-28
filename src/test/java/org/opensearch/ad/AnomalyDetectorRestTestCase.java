@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad;
 
 import static org.opensearch.common.xcontent.json.JsonXContent.jsonXContent;
@@ -64,6 +49,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonArray;
 
 public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
+
+    public static final int MAX_RETRY_TIMES = 10;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -144,24 +131,25 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         Map<String, Object> detectorJson = jsonXContent
             .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getEntity().getContent())
             .map();
-        return new AnomalyDetector(
-            (String) detectorJson.get("_id"),
-            ((Integer) detectorJson.get("_version")).longValue(),
-            detector.getName(),
-            detector.getDescription(),
-            detector.getTimeField(),
-            detector.getIndices(),
-            detector.getFeatureAttributes(),
-            detector.getFilterQuery(),
-            detector.getDetectionInterval(),
-            detector.getWindowDelay(),
-            detector.getShingleSize(),
-            detector.getUiMetadata(),
-            detector.getSchemaVersion(),
-            detector.getLastUpdateTime(),
-            detector.getCategoryField(),
-            detector.getUser()
-        );
+        String detectorId = (String) detectorJson.get("_id");
+        AnomalyDetector detectorInIndex = null;
+        int i = 0;
+        do {
+            i++;
+            try {
+                detectorInIndex = getAnomalyDetector(detectorId, client);
+                assertNotNull(detectorInIndex);
+                break;
+            } catch (Exception e) {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ex) {
+                    logger.error("Failed to sleep after creating detector", ex);
+                }
+            }
+        } while (i < MAX_RETRY_TIMES);
+        assertNotNull("Can't get anomaly detector from index", detectorInIndex);
+        return detectorInIndex;
     }
 
     protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, RestClient client) throws IOException {
@@ -331,6 +319,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         request.setJsonEntity(Strings.toString(builder));
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        Thread.sleep(2000); // sleep some time to resolve flaky test
     }
 
     public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile, RestClient client) throws IOException {

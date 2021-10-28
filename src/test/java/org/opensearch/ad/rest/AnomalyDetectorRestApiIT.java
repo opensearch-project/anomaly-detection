@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.rest;
 
 import static org.hamcrest.Matchers.containsString;
@@ -241,7 +226,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers.assertFailWith(ResponseException.class, null, () -> getAnomalyDetector(randomAlphaOfLength(5), client()));
     }
 
-    public void testUpdateAnomalyDetectorA() throws Exception {
+    public void testUpdateAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         String newDescription = randomAlphaOfLength(5);
@@ -282,6 +267,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        Thread.sleep(2000);
 
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -365,6 +351,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUser()
         );
 
+        Thread.sleep(2000); // sleep some time before updating to avoid flaky test
         TestHelpers
             .makeRequest(
                 client(),
@@ -992,6 +979,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStopNonExistingAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
+        // sometimes it fails to start detector as not able to find detector, sleep 2 seconds
+        Thread.sleep(2000);
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),

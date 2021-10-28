@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
@@ -53,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -80,6 +66,7 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.ml.ThresholdingResult;
+import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -162,6 +149,9 @@ public class TestHelpers {
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
         .of(ADTaskState.CREATED.name(), ADTaskState.INIT.name(), ADTaskState.RUNNING.name());
+    // Task may fail if memory circuit breaker triggered.
+    public static final Set<String> HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS = ImmutableSet
+        .of(ADTaskState.FINISHED.name(), ADTaskState.FAILED.name());
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_DONE_STATS = ImmutableSet
         .of(ADTaskState.FAILED.name(), ADTaskState.FINISHED.name(), ADTaskState.STOPPED.name());
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
@@ -559,6 +549,14 @@ public class TestHelpers {
             logger.error("Fail to generate test aggregation");
             throw new RuntimeException();
         }
+        return new Feature(randomAlphaOfLength(5), featureName, enabled, testAggregation);
+    }
+
+    public static Feature randomFeature(String featureName, String fieldName, String aggregationMethod, boolean enabled)
+        throws IOException {
+        XContentParser parser = parser("{\"" + featureName + "\":{\"" + aggregationMethod + "\":{\"field\":\"" + fieldName + "\"}}}");
+        AggregatorFactories.Builder aggregators = AggregatorFactories.parseAggregators(parser);
+        AggregationBuilder testAggregation = aggregators.getAggregatorFactories().iterator().next();
         return new Feature(randomAlphaOfLength(5), featureName, enabled, testAggregation);
     }
 
@@ -983,6 +981,23 @@ public class TestHelpers {
         AnomalyDetector detector = withDetector
             ? randomAnomalyDetector(ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS), true)
             : null;
+        Entity entity = null;
+        if (withDetector && adTaskType.name().startsWith("HISTORICAL_HC")) {
+            String categoryField = randomAlphaOfLength(5);
+            detector = TestHelpers
+                .randomDetector(
+                    detector.getFeatureAttributes(),
+                    detector.getIndices().get(0),
+                    randomIntBetween(1, 10),
+                    MockSimpleLog.TIME_FIELD,
+                    ImmutableList.of(categoryField)
+                );
+            if (adTaskType.name().equals(ADTaskType.HISTORICAL_HC_ENTITY.name())) {
+                entity = Entity.createSingleAttributeEntity(categoryField, randomAlphaOfLength(5));
+            }
+
+        }
+
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
         ADTask task = ADTask
             .builder()
@@ -990,6 +1005,7 @@ public class TestHelpers {
             .taskType(adTaskType.name())
             .detectorId(randomAlphaOfLength(5))
             .detector(detector)
+            .entity(entity)
             .state(state.name())
             .taskProgress(0.5f)
             .initProgress(1.0f)

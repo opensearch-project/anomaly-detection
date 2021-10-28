@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad;
 
 import static java.util.Collections.unmodifiableList;
@@ -69,7 +54,6 @@ import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
@@ -205,9 +189,10 @@ import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
-import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
@@ -374,8 +359,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         mapper.setSaveExecutorContextEnabled(true);
         mapper.setSaveTreeStateEnabled(true);
         mapper.setPartialTreeStateEnabled(true);
-        Schema<RandomCutForestState> schema = AccessController
-            .doPrivileged((PrivilegedAction<Schema<RandomCutForestState>>) () -> RuntimeSchema.getSchema(RandomCutForestState.class));
         V1JsonToV2StateConverter converter = new V1JsonToV2StateConverter();
 
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
@@ -390,13 +373,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             adCircuitBreakerService
         );
 
-        ModelPartitioner modelPartitioner = new ModelPartitioner(
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            nodeFilter,
-            memoryTracker
-        );
-
         NodeStateManager stateManager = new NodeStateManager(
             client,
             xContentRegistry,
@@ -404,7 +380,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clientUtil,
             getClock(),
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner,
             clusterService
         );
 
@@ -455,13 +430,19 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,
             mapper,
-            schema,
             converter,
+            new ThresholdedRandomCutForestMapper(),
+            AccessController
+                .doPrivileged(
+                    (PrivilegedAction<Schema<ThresholdedRandomCutForestState>>) () -> RuntimeSchema
+                        .getSchema(ThresholdedRandomCutForestState.class)
+                ),
             HybridThresholdingModel.class,
             anomalyDetectionIndices,
             AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES,
             serializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES
+            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE
         );
 
         Random random = new Random(42);
@@ -518,11 +499,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             interpolator,
             searchFeatureDao,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             featureManager,
             settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
@@ -557,16 +533,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.TIME_DECAY,
             AnomalyDetectorSettings.NUM_MIN_SAMPLES,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             entityColdStarter,
-            modelPartitioner,
             featureManager,
             memoryTracker
         );
@@ -648,7 +618,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
-        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, dataMigrator);
+        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, dataMigrator, modelManager);
 
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
@@ -704,9 +674,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             nodeFilter,
             hashRing,
             adTaskCacheManager,
-            threadPool,
-            dataMigrator,
-            searchFeatureDao
+            threadPool
         );
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,
@@ -752,14 +720,13 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 featureManager,
                 modelManager,
                 stateManager,
-                new ADClusterEventListener(clusterService, hashRing, modelManager, nodeFilter),
+                new ADClusterEventListener(clusterService, hashRing),
                 adCircuitBreakerService,
                 adStats,
                 new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
                 nodeFilter,
                 multiEntityResultHandler,
                 checkpoint,
-                modelPartitioner,
                 cacheProvider,
                 adTaskManager,
                 adBatchTaskRunner,

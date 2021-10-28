@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_SEARCH_QUERY_MSG;
@@ -32,7 +17,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -45,7 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -79,9 +62,7 @@ import org.opensearch.ad.feature.CompositeRetriever.PageIterator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelPartitioner;
-import org.opensearch.ad.ml.RcfResult;
-import org.opensearch.ad.ml.rcf.CombinedRcfResult;
+import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.FeatureData;
@@ -90,6 +71,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
@@ -135,7 +117,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final TransportService transportService;
     private final NodeStateManager stateManager;
     private final FeatureManager featureManager;
-    private final ModelPartitioner modelPartitioner;
     private final ModelManager modelManager;
     private final HashRing hashRing;
     private final TransportRequestOptions option;
@@ -145,8 +126,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ThreadPool threadPool;
     private final Client client;
+    private final ADTaskManager adTaskManager;
 
-    // cache HC detector id
+    // Cache HC detector id. This is used to count HC failure stats. We can tell a detector
+    // is HC or not by checking if detector id exists in this field or not. Will add
+    // detector id to this field when start to run realtime detection and remove detector
+    // id once realtime detection done.
     private final Set<String> hcDetectors;
     private NamedXContentRegistry xContentRegistry;
     private Settings settings;
@@ -166,14 +151,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         NodeStateManager manager,
         FeatureManager featureManager,
         ModelManager modelManager,
-        ModelPartitioner modelPartitioner,
         HashRing hashRing,
         ClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
         ThreadPool threadPool,
-        NamedXContentRegistry xContentRegistry
+        NamedXContentRegistry xContentRegistry,
+        ADTaskManager adTaskManager
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.transportService = transportService;
@@ -181,7 +166,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.client = client;
         this.stateManager = manager;
         this.featureManager = featureManager;
-        this.modelPartitioner = modelPartitioner;
         this.modelManager = modelManager;
         this.hashRing = hashRing;
         this.option = TransportRequestOptions
@@ -203,6 +187,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         this.pageSize = PAGE_SIZE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> pageSize = it);
+        this.adTaskManager = adTaskManager;
     }
 
     /**
@@ -226,8 +211,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      *      are Double.NaN and feature array is empty.  Do so so that customer can write painless
      *       script.) otherwise.
      *
-     *  Also, AD is responsible for logging the stack trace.  To avoid bloating our logs, alerting
-     *   should always just log the message of an AnomalyDetectionException exception by default.
      *
      *  Known causes of EndRunException with endNow returning false:
      *   + training data for cold start not available
@@ -299,8 +282,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             listener.onFailure(e);
         }
     }
-
-    //
 
     /**
      * didn't use ActionListener.wrap so that I can
@@ -438,110 +419,132 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             long dataStartTime = request.getStart() - delayMillis;
             long dataEndTime = request.getEnd() - delayMillis;
 
-            // HC logic starts here
-            if (anomalyDetector.isMultientityDetector()) {
-                Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
-
-                if (previousException.isPresent()) {
-                    Exception exception = previousException.get();
-                    LOG.error("Previous exception of {}: {}", adID, exception);
-                    if (exception instanceof EndRunException) {
-                        EndRunException endRunException = (EndRunException) exception;
-                        if (endRunException.isEndNow()) {
-                            listener.onFailure(exception);
-                            return;
-                        }
-                    }
-                }
-
-                // assume request are in epoch milliseconds
-                long nextDetectionStartTime = request.getEnd() + (long) (anomalyDetector.getDetectorIntervalInMilliseconds()
-                    * intervalRatioForRequest);
-
-                CompositeRetriever compositeRetriever = new CompositeRetriever(
-                    dataStartTime,
-                    dataEndTime,
+            adTaskManager
+                .initRealtimeTaskCacheAndCleanupStaleCache(
+                    adID,
                     anomalyDetector,
-                    xContentRegistry,
-                    client,
-                    nextDetectionStartTime,
-                    settings,
-                    maxEntitiesPerInterval,
-                    pageSize
-                );
-
-                PageIterator pageIterator = null;
-
-                try {
-                    pageIterator = compositeRetriever.iterator();
-                } catch (Exception e) {
-                    listener
-                        .onFailure(
-                            new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false)
-                        );
-                    return;
-                }
-
-                PageListener getEntityFeatureslistener = new PageListener(pageIterator, adID, dataStartTime, dataEndTime);
-
-                if (pageIterator.hasNext()) {
-                    pageIterator.next(getEntityFeatureslistener);
-                }
-
-                // We don't know when the pagination will not finish. To not
-                // block the following interval request to start, we return immediately.
-                // Pagination will stop itself when the time is up.
-                if (previousException.isPresent()) {
-                    listener.onFailure(previousException.get());
-                } else {
-                    listener
-                        .onResponse(
-                            new AnomalyResultResponse(
-                                Double.NaN,
-                                Double.NaN,
-                                Double.NaN,
-                                new ArrayList<FeatureData>(),
-                                null,
-                                null,
-                                anomalyDetector.getDetectorIntervalInMinutes(),
-                                true
-                            )
-                        );
-                }
-                return;
-            }
-
-            // HC logic ends and single entity logic starts here
-            String thresholdModelID = modelPartitioner.getThresholdModelId(adID);
-            Optional<DiscoveryNode> asThresholdNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(thresholdModelID);
-            if (!asThresholdNode.isPresent()) {
-                listener.onFailure(new InternalFailure(adID, "Threshold model node is not available."));
-                return;
-            }
-
-            DiscoveryNode thresholdNode = asThresholdNode.get();
-
-            if (!shouldStart(listener, adID, anomalyDetector, thresholdNode.getId(), thresholdModelID)) {
-                return;
-            }
-
-            featureManager
-                .getCurrentFeatures(
-                    anomalyDetector,
-                    dataStartTime,
-                    dataEndTime,
-                    onFeatureResponseForSingleEntityDetector(
-                        adID,
-                        anomalyDetector,
-                        listener,
-                        thresholdModelID,
-                        thresholdNode,
-                        dataStartTime,
-                        dataEndTime
-                    )
+                    transportService,
+                    ActionListener
+                        .runAfter(
+                            initRealtimeTaskCacheListener(adID),
+                            () -> executeAnomalyDetection(listener, adID, request, anomalyDetector, dataStartTime, dataEndTime)
+                        )
                 );
         }, exception -> handleExecuteException(exception, listener, adID));
+    }
 
+    private ActionListener<Boolean> initRealtimeTaskCacheListener(String detectorId) {
+        return ActionListener.wrap(r -> {
+            if (r) {
+                LOG.debug("Realtime task cache initied for detector {}", detectorId);
+            }
+        }, e -> LOG.error("Failed to init realtime task cache for " + detectorId, e));
+    }
+
+    private void executeAnomalyDetection(
+        ActionListener<AnomalyResultResponse> listener,
+        String adID,
+        AnomalyResultRequest request,
+        AnomalyDetector anomalyDetector,
+        long dataStartTime,
+        long dataEndTime
+    ) {
+        // HC logic starts here
+        if (anomalyDetector.isMultientityDetector()) {
+            Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
+
+            if (previousException.isPresent()) {
+                Exception exception = previousException.get();
+                LOG.error(new ParameterizedMessage("Previous exception of [{}]", adID), exception);
+                if (exception instanceof EndRunException) {
+                    EndRunException endRunException = (EndRunException) exception;
+                    if (endRunException.isEndNow()) {
+                        listener.onFailure(exception);
+                        return;
+                    }
+                }
+            }
+
+            // assume request are in epoch milliseconds
+            long nextDetectionStartTime = request.getEnd() + (long) (anomalyDetector.getDetectorIntervalInMilliseconds()
+                * intervalRatioForRequest);
+
+            CompositeRetriever compositeRetriever = new CompositeRetriever(
+                dataStartTime,
+                dataEndTime,
+                anomalyDetector,
+                xContentRegistry,
+                client,
+                nextDetectionStartTime,
+                settings,
+                maxEntitiesPerInterval,
+                pageSize
+            );
+
+            PageIterator pageIterator = null;
+
+            try {
+                pageIterator = compositeRetriever.iterator();
+            } catch (Exception e) {
+                listener
+                    .onFailure(
+                        new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false)
+                    );
+                return;
+            }
+
+            PageListener getEntityFeatureslistener = new PageListener(pageIterator, adID, dataStartTime, dataEndTime);
+
+            if (pageIterator.hasNext()) {
+                pageIterator.next(getEntityFeatureslistener);
+            }
+
+            // We don't know when the pagination will not finish. To not
+            // block the following interval request to start, we return immediately.
+            // Pagination will stop itself when the time is up.
+            if (previousException.isPresent()) {
+                listener.onFailure(previousException.get());
+            } else {
+                listener
+                    .onResponse(
+                        new AnomalyResultResponse(
+                            Double.NaN,
+                            Double.NaN,
+                            Double.NaN,
+                            new ArrayList<FeatureData>(),
+                            null,
+                            null,
+                            anomalyDetector.getDetectorIntervalInMinutes(),
+                            true
+                        )
+                    );
+            }
+            return;
+        }
+
+        // HC logic ends and single entity logic starts here
+        // We are going to use only 1 model partition for a single stream detector.
+        // That's why we use 0 here.
+        String rcfModelID = SingleStreamModelIdMapper.getRcfModelId(adID, 0);
+        Optional<DiscoveryNode> asRCFNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
+        if (!asRCFNode.isPresent()) {
+            listener.onFailure(new InternalFailure(adID, "RCF model node is not available."));
+            return;
+        }
+
+        DiscoveryNode rcfNode = asRCFNode.get();
+
+        if (!shouldStart(listener, adID, anomalyDetector, rcfNode.getId(), rcfModelID)) {
+            return;
+        }
+
+        featureManager
+            .getCurrentFeatures(
+                anomalyDetector,
+                dataStartTime,
+                dataEndTime,
+                onFeatureResponseForSingleEntityDetector(adID, anomalyDetector, listener, rcfModelID, rcfNode, dataStartTime, dataEndTime)
+            );
     }
 
     // For single entity detector
@@ -549,8 +552,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         String adID,
         AnomalyDetector detector,
         ActionListener<AnomalyResultResponse> listener,
-        String thresholdModelID,
-        DiscoveryNode thresholdNode,
+        String rcfModelId,
+        DiscoveryNode rcfNode,
         long dataStartTime,
         long dataEndTime
     ) {
@@ -570,8 +573,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 if (!featureOptional.getUnprocessedFeatures().isPresent()) {
                     // Feature not available is common when we have data holes. Respond empty response
-                    // so that alerting will not print stack trace to avoid bloating our logs.
-                    LOG.info("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
+                    // and don't log to avoid bloating our logs.
+                    LOG.debug("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
                             new AnomalyResultResponse(
@@ -585,7 +588,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                             )
                         );
                 } else {
-                    LOG.info("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
+                    LOG.debug("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
                             new AnomalyResultResponse(
@@ -602,71 +605,28 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
-            // Can throw LimitExceededException when a single partition is more than X% of heap memory.
-            // Compute this number once and the value won't change unless the coordinating AD node for an
-            // detector changes or the cluster size changes.
-            int rcfPartitionNum = stateManager.getPartitionNumber(adID, detector);
-
-            List<RCFResultResponse> rcfResults = new ArrayList<>();
-
             final AtomicReference<Exception> failure = new AtomicReference<Exception>();
 
-            final AtomicInteger responseCount = new AtomicInteger();
+            LOG.info("Sending RCF request to {} for model {}", rcfNode.getId(), rcfModelId);
 
-            Map<String, Pair<String, DiscoveryNode>> modelIdToNodeId = new HashMap<>();
+            RCFActionListener rcfListener = new RCFActionListener(
+                rcfModelId,
+                failure,
+                rcfNode.getId(),
+                detector,
+                listener,
+                featureInResponse,
+                adID
+            );
 
-            for (int i = 0; i < rcfPartitionNum; i++) {
-                String rcfModelID = modelPartitioner.getRcfModelId(adID, i);
-
-                Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID.toString());
-                if (!rcfNode.isPresent()) {
-                    continue;
-                }
-
-                DiscoveryNode node = rcfNode.get();
-                String rcfNodeId = node.getId();
-                if (stateManager.isMuted(rcfNodeId, adID)) {
-                    LOG.info(String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for model %s", rcfNodeId, rcfModelID));
-                    continue;
-                }
-                modelIdToNodeId.put(rcfModelID, Pair.of(rcfNodeId, node));
-            }
-
-            int responsesToCollect = modelIdToNodeId.size();
-            for (Map.Entry<String, Pair<String, DiscoveryNode>> entry : modelIdToNodeId.entrySet()) {
-
-                String rcfModelId = entry.getKey();
-                Pair<String, DiscoveryNode> rcfNodePair = entry.getValue();
-                String rcfNodeId = rcfNodePair.getLeft();
-                DiscoveryNode rcfNode = rcfNodePair.getRight();
-
-                LOG.info("Sending RCF request to {} for model {}", rcfNodeId, rcfModelId);
-
-                RCFActionListener rcfListener = new RCFActionListener(
-                    rcfResults,
-                    rcfModelId.toString(),
-                    failure,
-                    rcfNodeId,
-                    detector,
-                    listener,
-                    thresholdModelID,
-                    thresholdNode,
-                    featureInResponse,
-                    responsesToCollect,
-                    responseCount,
-                    adID,
-                    detector.getEnabledFeatureIds().size()
+            transportService
+                .sendRequest(
+                    rcfNode,
+                    RCFResultAction.NAME,
+                    new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
+                    option,
+                    new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
                 );
-
-                transportService
-                    .sendRequest(
-                        rcfNode,
-                        RCFResultAction.NAME,
-                        new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
-                        option,
-                        new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
-                    );
-            }
         }, exception -> { handleQueryFailure(exception, listener, adID); });
     }
 
@@ -739,9 +699,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             return null;
         }
 
-        // rethrow exceptions like LimitExceededException to caller
+        // return exceptions like LimitExceededException to caller
         if (!(exp instanceof ResourceNotFoundException)) {
-            throw exp;
+            return exp;
         }
 
         // fetch previous cold start exception
@@ -808,14 +768,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
-    private CombinedRcfResult getCombinedResult(List<RCFResultResponse> rcfResults, int numFeatures) {
-        List<RcfResult> rcfResultLib = new ArrayList<>();
-        for (RCFResultResponse result : rcfResults) {
-            rcfResultLib.add(new RcfResult(result.getRCFScore(), result.getConfidence(), result.getForestSize(), result.getAttribution()));
-        }
-        return modelManager.combineRcfResults(rcfResultLib, numFeatures);
-    }
-
     void handleExecuteException(Exception ex, ActionListener<AnomalyResultResponse> listener, String adID) {
         if (ex instanceof ClientException) {
             listener.onFailure(ex);
@@ -840,48 +792,30 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     // For single entity detector
     class RCFActionListener implements ActionListener<RCFResultResponse> {
-        private List<RCFResultResponse> rcfResults;
         private String modelID;
         private AtomicReference<Exception> failure;
         private String rcfNodeID;
         private AnomalyDetector detector;
         private ActionListener<AnomalyResultResponse> listener;
-        private String thresholdModelID;
-        private DiscoveryNode thresholdNode;
         private List<FeatureData> featureInResponse;
-        private int nodeCount;
-        private final AtomicInteger responseCount;
         private final String adID;
-        private int numEnabledFeatures;
 
         RCFActionListener(
-            List<RCFResultResponse> rcfResults,
             String modelID,
             AtomicReference<Exception> failure,
             String rcfNodeID,
             AnomalyDetector detector,
             ActionListener<AnomalyResultResponse> listener,
-            String thresholdModelID,
-            DiscoveryNode thresholdNode,
             List<FeatureData> features,
-            int nodeCount,
-            AtomicInteger responseCount,
-            String adID,
-            int numEnabledFeatures
+            String adID
         ) {
-            this.rcfResults = rcfResults;
             this.modelID = modelID;
+            this.failure = failure;
             this.rcfNodeID = rcfNodeID;
             this.detector = detector;
             this.listener = listener;
-            this.thresholdNode = thresholdNode;
-            this.thresholdModelID = thresholdModelID;
             this.featureInResponse = features;
-            this.failure = failure;
-            this.nodeCount = nodeCount;
-            this.responseCount = responseCount;
             this.adID = adID;
-            this.numEnabledFeatures = numEnabledFeatures;
         }
 
         @Override
@@ -889,16 +823,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             try {
                 stateManager.resetBackpressureCounter(rcfNodeID, adID);
                 if (response != null) {
-                    rcfResults.add(response);
+                    listener
+                        .onResponse(
+                            new AnomalyResultResponse(
+                                response.getAnomalyGrade(),
+                                response.getConfidence(),
+                                response.getRCFScore(),
+                                featureInResponse,
+                                response.getTotalUpdates(),
+                                detector.getDetectorIntervalInMinutes()
+                            )
+                        );
                 } else {
                     LOG.warn(NULL_RESPONSE + " {} for {}", modelID, rcfNodeID);
+                    listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
                 }
             } catch (Exception ex) {
-                LOG.error("Unexpected exception: {} for {}", ex, adID);
-            } finally {
-                if (nodeCount == responseCount.incrementAndGet()) {
-                    handleRCFResults(numEnabledFeatures);
-                }
+                LOG.error(new ParameterizedMessage("Unexpected exception for [{}]", adID), ex);
+                handleExecuteException(ex, listener, adID);
             }
         }
 
@@ -906,159 +848,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         public void onFailure(Exception e) {
             try {
                 handlePredictionFailure(e, adID, rcfNodeID, failure);
-            } catch (Exception ex) {
-                LOG.error("Unexpected exception: {} for {}", ex, adID);
-            } finally {
-                if (nodeCount == responseCount.incrementAndGet()) {
-                    handleRCFResults(numEnabledFeatures);
-                }
-            }
-        }
-
-        private void handleRCFResults(int numFeatures) {
-            try {
                 Exception exception = coldStartIfNoModel(failure, detector);
                 if (exception != null) {
                     listener.onFailure(exception);
-                    return;
-                }
-
-                if (rcfResults.isEmpty()) {
-                    listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
-                    return;
-                }
-
-                CombinedRcfResult combinedResult = getCombinedResult(rcfResults, numFeatures);
-                double combinedScore = combinedResult.getScore();
-
-                final AtomicReference<AnomalyResultResponse> anomalyResultResponse = new AtomicReference<>();
-
-                String thresholdNodeId = thresholdNode.getId();
-                long rcfTotalUpdates = rcfResults.get(0).getTotalUpdates();
-                LOG.info("Sending threshold request to {} for model {}", thresholdNodeId, thresholdModelID);
-                ThresholdActionListener thresholdListener = new ThresholdActionListener(
-                    anomalyResultResponse,
-                    featureInResponse,
-                    thresholdNodeId,
-                    detector,
-                    combinedResult,
-                    listener,
-                    adID,
-                    rcfTotalUpdates,
-                    detector.getDetectorIntervalInMinutes()
-                );
-                transportService
-                    .sendRequest(
-                        thresholdNode,
-                        ThresholdResultAction.NAME,
-                        new ThresholdResultRequest(adID, thresholdModelID, combinedScore),
-                        option,
-                        new ActionListenerResponseHandler<>(thresholdListener, ThresholdResultResponse::new)
-                    );
-            } catch (Exception ex) {
-                handleExecuteException(ex, listener, adID);
-            }
-        }
-    }
-
-    // For single entity detector
-    class ThresholdActionListener implements ActionListener<ThresholdResultResponse> {
-        private AtomicReference<AnomalyResultResponse> anomalyResultResponse;
-        private List<FeatureData> features;
-        private AtomicReference<Exception> failure;
-        private String thresholdNodeID;
-        private ActionListener<AnomalyResultResponse> listener;
-        private AnomalyDetector detector;
-        private CombinedRcfResult combinedResult;
-        private String adID;
-        private long rcfTotalUpdates;
-        private long detectorIntervalInMinutes;
-
-        ThresholdActionListener(
-            AtomicReference<AnomalyResultResponse> anomalyResultResponse,
-            List<FeatureData> features,
-            String thresholdNodeID,
-            AnomalyDetector detector,
-            CombinedRcfResult combinedResult,
-            ActionListener<AnomalyResultResponse> listener,
-            String adID,
-            long rcfTotalUpdates,
-            long detectorIntervalInMinutes
-        ) {
-            this.anomalyResultResponse = anomalyResultResponse;
-            this.features = features;
-            this.thresholdNodeID = thresholdNodeID;
-            this.detector = detector;
-            this.combinedResult = combinedResult;
-            this.failure = new AtomicReference<Exception>();
-            this.listener = listener;
-            this.adID = adID;
-            this.rcfTotalUpdates = rcfTotalUpdates;
-            this.detectorIntervalInMinutes = detectorIntervalInMinutes;
-        }
-
-        @Override
-        public void onResponse(ThresholdResultResponse response) {
-            try {
-                anomalyResultResponse
-                    .set(
-                        new AnomalyResultResponse(
-                            response.getAnomalyGrade(),
-                            response.getConfidence(),
-                            Double.NaN,
-                            features,
-                            rcfTotalUpdates,
-                            detectorIntervalInMinutes
-                        )
-                    );
-                // A successful responses means the node is responsive and working.
-                // Thus, we can reset the backpressure router to stop muting a node.
-                stateManager.resetBackpressureCounter(thresholdNodeID, adID);
-
-            } catch (Exception ex) {
-                LOG.error("Unexpected exception: {} for {}", ex, adID);
-            } finally {
-                handleThresholdResult();
-            }
-        }
-
-        @Override
-        public void onFailure(Exception e) {
-            try {
-                handlePredictionFailure(e, adID, thresholdNodeID, failure);
-            } catch (Exception ex) {
-                LOG.error("Unexpected exception: {} for {}", ex, adID);
-            } finally {
-                handleThresholdResult();
-            }
-        }
-
-        private void handleThresholdResult() {
-            try {
-                Exception exception = coldStartIfNoModel(failure, detector);
-                if (exception != null) {
-                    listener.onFailure(exception);
-                    return;
-                }
-
-                if (anomalyResultResponse.get() != null) {
-                    AnomalyResultResponse response = anomalyResultResponse.get();
-                    double confidence = response.getConfidence() * combinedResult.getConfidence();
-                    response = new AnomalyResultResponse(
-                        response.getAnomalyGrade(),
-                        confidence,
-                        combinedResult.getScore(),
-                        response.getFeatures(),
-                        rcfTotalUpdates,
-                        detectorIntervalInMinutes
-                    );
-                    listener.onResponse(response);
-                } else if (failure.get() != null) {
-                    listener.onFailure(failure.get());
                 } else {
                     listener.onFailure(new InternalFailure(adID, "Node connection problem or unexpected exception"));
                 }
             } catch (Exception ex) {
+                LOG.error(new ParameterizedMessage("Unexpected exception for [{}]", adID), ex);
                 handleExecuteException(ex, listener, adID);
             }
         }
@@ -1151,16 +948,16 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      * @param listener listener to respond back to AnomalyResultRequest.
      * @param adID     detector ID
      * @param detector detector instance corresponds to adID
-     * @param thresholdNodeId the threshold model hosting node ID for adID
-     * @param thresholdModelID the threshold model ID for adID
+     * @param rcfNodeId the rcf model hosting node ID for adID
+     * @param rcfModelID the rcf model ID for adID
      * @return if we can start anomaly prediction.
      */
     private boolean shouldStart(
         ActionListener<AnomalyResultResponse> listener,
         String adID,
         AnomalyDetector detector,
-        String thresholdNodeId,
-        String thresholdModelID
+        String rcfNodeId,
+        String rcfModelID
     ) {
         ClusterState state = clusterService.state();
         if (checkGlobalBlock(state)) {
@@ -1168,18 +965,12 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             return false;
         }
 
-        if (stateManager.isMuted(thresholdNodeId, adID)) {
+        if (stateManager.isMuted(rcfNodeId, adID)) {
             listener
                 .onFailure(
                     new InternalFailure(
                         adID,
-                        String
-                            .format(
-                                Locale.ROOT,
-                                NODE_UNRESPONSIVE_ERR_MSG + " %s for threshold model %s",
-                                thresholdNodeId,
-                                thresholdModelID
-                            )
+                        String.format(Locale.ROOT, NODE_UNRESPONSIVE_ERR_MSG + " %s for rcf model %s", rcfNodeId, rcfModelID)
                     )
                 );
             return false;
@@ -1347,7 +1138,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
                 handleException(ex);
             } finally {
-                if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
+                if (nodeCount == responseCount.incrementAndGet() && pageIterator != null && pageIterator.hasNext()) {
                     pageIterator.next(pageListener);
                 }
             }
@@ -1365,7 +1156,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
                 handleException(ex);
             } finally {
-                if (nodeCount == responseCount.incrementAndGet() && pageIterator.hasNext()) {
+                if (nodeCount == responseCount.incrementAndGet() && pageIterator != null && pageIterator.hasNext()) {
                     pageIterator.next(pageListener);
                 }
             }

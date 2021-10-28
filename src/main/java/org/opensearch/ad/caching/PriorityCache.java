@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.caching;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEDICATED_CACHE_SIZE;
@@ -83,7 +68,7 @@ public class PriorityCache implements EntityCache {
     private final Map<String, CacheBuffer> activeEnities;
     private final CheckpointDao checkpointDao;
     private volatile int dedicatedCacheSize;
-    // LRU Cache
+    // LRU Cache, key is model id
     private Cache<String, ModelState<EntityModel>> inActiveEntities;
     private final MemoryTracker memoryTracker;
     private final ReentrantLock maintenanceLock;
@@ -92,7 +77,7 @@ public class PriorityCache implements EntityCache {
     private final Duration modelTtl;
     // A bloom filter placed in front of inactive entity cache to
     // filter out unpopular items that are not likely to appear more
-    // than once.
+    // than once. Key is detector id
     private Map<String, DoorKeeper> doorKeepers;
     private ThreadPool threadPool;
     private Random random;
@@ -171,7 +156,12 @@ public class PriorityCache implements EntityCache {
                 );
 
             // first hit, ignore
-            if (doorKeeper.mightContain(modelId) == false) {
+            // since door keeper may get reset during maintenance, it is possible
+            // the entity is still active even though door keeper has no record of
+            // this model Id. We have to call isActive method to make sure. Otherwise,
+            // the entity might miss an anomaly result every 60 intervals due to door keeper
+            // reset.
+            if (!doorKeeper.mightContain(modelId) && !isActive(detectorId, modelId)) {
                 doorKeeper.put(modelId);
                 return null;
             }
@@ -446,15 +436,15 @@ public class PriorityCache implements EntityCache {
     private CacheBuffer computeBufferIfAbsent(AnomalyDetector detector, String detectorId) {
         CacheBuffer buffer = activeEnities.get(detectorId);
         if (buffer == null) {
-            long requiredBytes = getReservedDetectorMemory(detector);
+            long requiredBytes = getRequiredMemory(detector, dedicatedCacheSize);
             if (memoryTracker.canAllocateReserved(requiredBytes)) {
                 memoryTracker.consumeMemory(requiredBytes, true, Origin.HC_DETECTOR);
                 long intervalSecs = detector.getDetectorIntervalInSeconds();
+
                 buffer = new CacheBuffer(
                     dedicatedCacheSize,
                     intervalSecs,
-                    memoryTracker
-                        .estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO),
+                    getRequiredMemory(detector, 1),
                     memoryTracker,
                     clock,
                     modelTtl,
@@ -475,9 +465,22 @@ public class PriorityCache implements EntityCache {
         return buffer;
     }
 
-    private long getReservedDetectorMemory(AnomalyDetector detector) {
-        return dedicatedCacheSize * memoryTracker
-            .estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO);
+    /**
+     *
+     * @param detector Detector config accessor
+     * @param numberOfEntity number of entities
+     * @return Memory in bytes required for hosting numberOfEntity entities
+     */
+    private long getRequiredMemory(AnomalyDetector detector, int numberOfEntity) {
+        int dimension = detector.getEnabledFeatureIds().size() * detector.getShingleSize();
+        return numberOfEntity * memoryTracker
+            .estimateTRCFModelSize(
+                dimension,
+                numberOfTrees,
+                AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO,
+                detector.getShingleSize().intValue(),
+                true
+            );
     }
 
     /**
@@ -629,7 +632,8 @@ public class PriorityCache implements EntityCache {
             doorKeepers.entrySet().stream().forEach(doorKeeperEntry -> {
                 String detectorId = doorKeeperEntry.getKey();
                 DoorKeeper doorKeeper = doorKeeperEntry.getValue();
-                if (doorKeeper.expired(modelTtl)) {
+                // doorKeeper has its own state ttl
+                if (doorKeeper.expired(null)) {
                     doorKeepers.remove(detectorId);
                 } else {
                     doorKeeper.maintenance();
@@ -707,7 +711,8 @@ public class PriorityCache implements EntityCache {
             Optional<EntityModel> modelOptional = cacheBuffer.getModel(entityModelId);
             // TODO: make it work for shingles. samples.size() is not the real shingle
             long accumulatedShingles = modelOptional
-                .map(model -> model.getRcf())
+                .flatMap(model -> model.getTrcf())
+                .map(trcf -> trcf.getForest())
                 .map(rcf -> rcf.getTotalUpdates())
                 .orElseGet(
                     () -> modelOptional.map(model -> model.getSamples()).map(samples -> samples.size()).map(Long::valueOf).orElse(0L)
@@ -772,14 +777,18 @@ public class PriorityCache implements EntityCache {
     @Override
     public long getLastActiveMs(String detectorId, String entityModelId) {
         CacheBuffer cacheBuffer = activeEnities.get(detectorId);
+        long lastUsedMs = -1;
         if (cacheBuffer != null) {
-            return cacheBuffer.getLastUsedTime(entityModelId);
+            lastUsedMs = cacheBuffer.getLastUsedTime(entityModelId);
+            if (lastUsedMs != -1) {
+                return lastUsedMs;
+            }
         }
         ModelState<EntityModel> stateInActive = inActiveEntities.getIfPresent(entityModelId);
         if (stateInActive != null) {
-            return stateInActive.getLastUsedTime().getEpochSecond();
+            lastUsedMs = stateInActive.getLastUsedTime().toEpochMilli();
         }
-        return -1L;
+        return lastUsedMs;
     }
 
     @Override
@@ -807,15 +816,8 @@ public class PriorityCache implements EntityCache {
         // // make sure no model has been stored due to bugs
         for (ModelState<EntityModel> state : inActiveEntities.asMap().values()) {
             EntityModel model = state.getModel();
-            if (model != null && (model.getRcf() != null || model.getThreshold() != null)) {
-                LOG
-                    .warn(
-                        new ParameterizedMessage(
-                            "Inactive entity's model is null: [{}], [{}]. Maybe there are bugs.",
-                            model.getRcf(),
-                            model.getThreshold()
-                        )
-                    );
+            if (model != null && model.getTrcf().isPresent()) {
+                LOG.warn(new ParameterizedMessage("Inactive entity's model is null: [{}]. Maybe there are bugs.", state.getModelId()));
                 state.setModel(null);
             }
         }

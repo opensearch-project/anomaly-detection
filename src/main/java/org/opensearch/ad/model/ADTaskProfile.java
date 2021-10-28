@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.model;
 
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -58,11 +43,13 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
     public static final String TASK_ID_FIELD = "task_id";
     public static final String AD_TASK_TYPE_FIELD = "task_type";
     public static final String DETECTOR_TASK_SLOTS_FIELD = "detector_task_slots";
+    public static final String TOTAL_ENTITIES_INITED_FIELD = "total_entities_inited";
     public static final String TOTAL_ENTITIES_COUNT_FIELD = "total_entities_count";
     public static final String PENDING_ENTITIES_COUNT_FIELD = "pending_entities_count";
     public static final String RUNNING_ENTITIES_COUNT_FIELD = "running_entities_count";
     public static final String RUNNING_ENTITIES_FIELD = "running_entities";
     public static final String ENTITY_TASK_PROFILE_FIELD = "entity_task_profiles";
+    public static final String LATEST_HC_TASK_RUN_TIME_FIELD = "latest_hc_task_run_time";
 
     private ADTask adTask;
     private Integer shingleSize;
@@ -74,10 +61,12 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
     private String taskId;
     private String adTaskType;
     private Integer detectorTaskSlots;
+    private Boolean totalEntitiesInited;
     private Integer totalEntitiesCount;
     private Integer pendingEntitiesCount;
     private Integer runningEntitiesCount;
     private List<String> runningEntities;
+    private Long latestHCTaskRunTime;
 
     private List<ADEntityTaskProfile> entityTaskProfiles;
 
@@ -118,10 +107,12 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         String taskId,
         String adTaskType,
         Integer detectorTaskSlots,
+        Boolean totalEntitiesInited,
         Integer totalEntitiesCount,
         Integer pendingEntitiesCount,
         Integer runningEntitiesCount,
-        List<String> runningEntities
+        List<String> runningEntities,
+        Long latestHCTaskRunTime
     ) {
         this.adTask = adTask;
         this.shingleSize = shingleSize;
@@ -133,10 +124,12 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         this.taskId = taskId;
         this.adTaskType = adTaskType;
         this.detectorTaskSlots = detectorTaskSlots;
+        this.totalEntitiesInited = totalEntitiesInited;
         this.totalEntitiesCount = totalEntitiesCount;
         this.pendingEntitiesCount = pendingEntitiesCount;
         this.runningEntitiesCount = runningEntitiesCount;
         this.runningEntities = runningEntities;
+        this.latestHCTaskRunTime = latestHCTaskRunTime;
     }
 
     public ADTaskProfile(StreamInput input) throws IOException {
@@ -155,6 +148,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             this.taskId = input.readOptionalString();
             this.adTaskType = input.readOptionalString();
             this.detectorTaskSlots = input.readOptionalInt();
+            this.totalEntitiesInited = input.readOptionalBoolean();
             this.totalEntitiesCount = input.readOptionalInt();
             this.pendingEntitiesCount = input.readOptionalInt();
             this.runningEntitiesCount = input.readOptionalInt();
@@ -164,6 +158,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             if (input.readBoolean()) {
                 this.entityTaskProfiles = input.readList(ADEntityTaskProfile::new);
             }
+            this.latestHCTaskRunTime = input.readOptionalLong();
         }
     }
 
@@ -190,6 +185,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             out.writeOptionalString(taskId);
             out.writeOptionalString(adTaskType);
             out.writeOptionalInt(detectorTaskSlots);
+            out.writeOptionalBoolean(totalEntitiesInited);
             out.writeOptionalInt(totalEntitiesCount);
             out.writeOptionalInt(pendingEntitiesCount);
             out.writeOptionalInt(runningEntitiesCount);
@@ -205,6 +201,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             } else {
                 out.writeBoolean(false);
             }
+            out.writeOptionalLong(latestHCTaskRunTime);
         }
     }
 
@@ -241,6 +238,9 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         if (detectorTaskSlots != null) {
             xContentBuilder.field(DETECTOR_TASK_SLOTS_FIELD, detectorTaskSlots);
         }
+        if (totalEntitiesInited != null) {
+            xContentBuilder.field(TOTAL_ENTITIES_INITED_FIELD, totalEntitiesInited);
+        }
         if (totalEntitiesCount != null) {
             xContentBuilder.field(TOTAL_ENTITIES_COUNT_FIELD, totalEntitiesCount);
         }
@@ -256,6 +256,9 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         if (entityTaskProfiles != null && entityTaskProfiles.size() > 0) {
             xContentBuilder.field(ENTITY_TASK_PROFILE_FIELD, entityTaskProfiles.toArray());
         }
+        if (latestHCTaskRunTime != null) {
+            xContentBuilder.field(ENTITY_TASK_PROFILE_FIELD, latestHCTaskRunTime);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -270,11 +273,13 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         String taskId = null;
         String taskType = null;
         Integer detectorTaskSlots = null;
+        Boolean totalEntitiesInited = null;
         Integer totalEntitiesCount = null;
         Integer pendingEntitiesCount = null;
         Integer runningEntitiesCount = null;
         List<String> runningEntities = null;
         List<ADEntityTaskProfile> entityTaskProfiles = null;
+        Long latestHCTaskRunTime = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -312,6 +317,9 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
                 case DETECTOR_TASK_SLOTS_FIELD:
                     detectorTaskSlots = parser.intValue();
                     break;
+                case TOTAL_ENTITIES_INITED_FIELD:
+                    totalEntitiesInited = parser.booleanValue();
+                    break;
                 case TOTAL_ENTITIES_COUNT_FIELD:
                     totalEntitiesCount = parser.intValue();
                     break;
@@ -335,6 +343,9 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
                         entityTaskProfiles.add(ADEntityTaskProfile.parse(parser));
                     }
                     break;
+                case LATEST_HC_TASK_RUN_TIME_FIELD:
+                    latestHCTaskRunTime = parser.longValue();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -351,10 +362,12 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             taskId,
             taskType,
             detectorTaskSlots,
+            totalEntitiesInited,
             totalEntitiesCount,
             pendingEntitiesCount,
             runningEntitiesCount,
-            runningEntities
+            runningEntities,
+            latestHCTaskRunTime
         );
     }
 
@@ -430,6 +443,22 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         this.adTaskType = adTaskType;
     }
 
+    public boolean getTotalEntitiesInited() {
+        return totalEntitiesInited != null && totalEntitiesInited.booleanValue();
+    }
+
+    public void setTotalEntitiesInited(Boolean totalEntitiesInited) {
+        this.totalEntitiesInited = totalEntitiesInited;
+    }
+
+    public Long getLatestHCTaskRunTime() {
+        return latestHCTaskRunTime;
+    }
+
+    public void setLatestHCTaskRunTime(Long latestHCTaskRunTime) {
+        this.latestHCTaskRunTime = latestHCTaskRunTime;
+    }
+
     public Integer getTotalEntitiesCount() {
         return totalEntitiesCount;
     }
@@ -496,10 +525,12 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             && Objects.equals(taskId, that.taskId)
             && Objects.equals(adTaskType, that.adTaskType)
             && Objects.equals(detectorTaskSlots, that.detectorTaskSlots)
+            && Objects.equals(totalEntitiesInited, that.totalEntitiesInited)
             && Objects.equals(totalEntitiesCount, that.totalEntitiesCount)
             && Objects.equals(pendingEntitiesCount, that.pendingEntitiesCount)
             && Objects.equals(runningEntitiesCount, that.runningEntitiesCount)
             && Objects.equals(runningEntities, that.runningEntities)
+            && Objects.equals(latestHCTaskRunTime, that.latestHCTaskRunTime)
             && Objects.equals(entityTaskProfiles, that.entityTaskProfiles);
     }
 
@@ -518,11 +549,56 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
                 taskId,
                 adTaskType,
                 detectorTaskSlots,
+                totalEntitiesInited,
                 totalEntitiesCount,
                 pendingEntitiesCount,
                 runningEntitiesCount,
                 runningEntities,
-                entityTaskProfiles
+                entityTaskProfiles,
+                latestHCTaskRunTime
             );
+    }
+
+    @Override
+    public String toString() {
+        return "ADTaskProfile{"
+            + "adTask="
+            + adTask
+            + ", shingleSize="
+            + shingleSize
+            + ", rcfTotalUpdates="
+            + rcfTotalUpdates
+            + ", thresholdModelTrained="
+            + thresholdModelTrained
+            + ", thresholdModelTrainingDataSize="
+            + thresholdModelTrainingDataSize
+            + ", modelSizeInBytes="
+            + modelSizeInBytes
+            + ", nodeId='"
+            + nodeId
+            + '\''
+            + ", taskId='"
+            + taskId
+            + '\''
+            + ", adTaskType='"
+            + adTaskType
+            + '\''
+            + ", detectorTaskSlots="
+            + detectorTaskSlots
+            + ", totalEntitiesInited="
+            + totalEntitiesInited
+            + ", totalEntitiesCount="
+            + totalEntitiesCount
+            + ", pendingEntitiesCount="
+            + pendingEntitiesCount
+            + ", runningEntitiesCount="
+            + runningEntitiesCount
+            + ", runningEntities="
+            + runningEntities
+            + ", latestHCTaskRunTime="
+            + latestHCTaskRunTime
+            + ", entityTaskProfiles="
+            + entityTaskProfiles
+            + '}';
     }
 }

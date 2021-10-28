@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.task;
 
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
@@ -44,9 +29,9 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.THRESHOLD_MODEL_TRAINING_SIZE;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
 import static org.opensearch.ad.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
+import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -55,6 +40,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -79,7 +65,6 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.ThresholdingModel;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -89,6 +74,7 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
@@ -122,6 +108,8 @@ import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -260,13 +248,14 @@ public class ADBatchTaskRunner {
         TransportService transportService,
         ActionListener<ADBatchAnomalyResultResponse> listener
     ) {
+        String taskId = adTask.getTaskId();
+        String detectorId = adTask.getDetectorId();
         ActionListener<String> actionListener = ActionListener.wrap(response -> {
-            adTaskCacheManager.setTopEntityInited(adTask.getDetectorId());
-            int totalEntities = adTaskCacheManager.getPendingEntityCount(adTask.getDetectorId());
-            logger.info("total top entities: {}", totalEntities);
+            adTaskCacheManager.setTopEntityInited(detectorId);
+            int totalEntities = adTaskCacheManager.getPendingEntityCount(detectorId);
+            logger.info("Total top entities: {} for detector {}, task {}", totalEntities, detectorId, taskId);
             hashRing.getNodesWithSameLocalAdVersion(dataNodes -> {
                 int numberOfEligibleDataNodes = dataNodes.length;
-                String detectorId = adTask.getDetectorId();
                 // maxAdBatchTaskPerNode means how many task can run on per data node, which is hard limitation per node.
                 // maxRunningEntitiesPerDetector means how many entities can run per detector on whole cluster, which is
                 // soft limit to control how many entities to run in parallel per HC detector.
@@ -289,13 +278,14 @@ public class ADBatchTaskRunner {
                     );
                 forwardOrExecuteADTask(adTask, transportService, listener);
                 // As we have started one entity task, need to minus 1 for max allowed running entities.
-                adTaskCacheManager.setAllowedRunningEntities(adTask.getDetectorId(), maxRunningEntities - 1);
+                adTaskCacheManager.setAllowedRunningEntities(detectorId, maxRunningEntities - 1);
             }, listener);
         }, e -> {
-            logger.debug("Failed to run task " + adTask.getTaskId(), e);
+            logger.debug("Failed to run task " + taskId, e);
             if (adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
                 adTaskManager.entityTaskDone(adTask, e, transportService);
             }
+            listener.onFailure(e);
         });
         ThreadedActionListener<String> threadedActionListener = new ThreadedActionListener<>(
             logger,
@@ -368,7 +358,7 @@ public class ADBatchTaskRunner {
         long dataEndTime,
         ActionListener<String> internalHCListener
     ) {
-        checkIfADTaskCancelled(adTask.getTaskId());
+        checkIfADTaskCancelledAndCleanupCache(adTask);
         ActionListener<List<Entity>> topEntitiesListener = ActionListener.wrap(topEntities -> {
             topEntities
                 .forEach(entity -> priorityTracker.updatePriority(adTaskManager.convertEntityToString(entity, adTask.getDetector())));
@@ -421,7 +411,7 @@ public class ADBatchTaskRunner {
         long dataEndTime,
         ActionListener<String> internalHCListener
     ) {
-        checkIfADTaskCancelled(adTask.getTaskId());
+        checkIfADTaskCancelledAndCleanupCache(adTask);
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
         RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(adTask.getDetector().getTimeField())
@@ -495,104 +485,112 @@ public class ADBatchTaskRunner {
         TransportService transportService,
         ActionListener<ADBatchAnomalyResultResponse> listener
     ) {
-        String detectorId = adTask.getDetectorId();
-        AnomalyDetector detector = adTask.getDetector();
-        boolean isHCDetector = detector.isMultientityDetector();
-        if (isHCDetector) {
-            String entityString = adTaskCacheManager.pollEntity(detectorId);
-            logger.debug("Start to run entity: {} of detector {}", entityString, detectorId);
-            if (entityString == null) {
-                listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), false));
-                return;
-            }
-            ActionListener<Object> wrappedListener = ActionListener.wrap(r -> logger.debug("Entity task created successfully"), e -> {
-                logger.error("Failed to start entity task for detector: {}, entity: {}", detectorId, entityString);
-                // If fail, move the entity into pending task queue
-                adTaskCacheManager.addPendingEntity(detectorId, entityString);
-            });
-            // This is to handle retry case. To retry entity, we need to get the old entity task created before.
-            adTaskManager
-                .getAndExecuteOnLatestADTask(
-                    detectorId,
-                    entityString,
-                    ImmutableList.of(ADTaskType.HISTORICAL_HC_ENTITY),
-                    existingEntityTask -> {
-                        if (existingEntityTask.isPresent()) { // retry failed entity caused by limit exceed exception
-                            // TODO: if task failed due to limit exceed exception in half way, resume from the break point or just clear the
-                            // old AD tasks and rerun it? Currently we just support rerunning task failed due to limit exceed exception
-                            // before starting.
-                            ADTask adEntityTask = existingEntityTask.get();
-                            logger
-                                .debug(
-                                    "Rerun entity task for task id: {}, error of last run: {}",
-                                    adEntityTask.getTaskId(),
-                                    adEntityTask.getError()
-                                );
-                            ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
-                                adEntityTask,
-                                transportService,
-                                listener
-                            );
-                            forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
-                        } else {
-                            logger.info("Create entity task for entity:{}", entityString);
-                            Instant now = Instant.now();
-                            String parentTaskId = adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY.name())
-                                ? adTask.getParentTaskId()
-                                : adTask.getTaskId();
-                            Entity entity = adTaskManager.parseEntityFromString(entityString, adTask);
-                            ADTask adEntityTask = new ADTask.Builder()
-                                .detectorId(adTask.getDetectorId())
-                                .detector(detector)
-                                .isLatest(true)
-                                .taskType(ADTaskType.HISTORICAL_HC_ENTITY.name())
-                                .executionStartTime(now)
-                                .taskProgress(0.0f)
-                                .initProgress(0.0f)
-                                .state(ADTaskState.INIT.name())
-                                .initProgress(0.0f)
-                                .lastUpdateTime(now)
-                                .startedBy(adTask.getStartedBy())
-                                .coordinatingNode(clusterService.localNode().getId())
-                                .detectionDateRange(adTask.getDetectionDateRange())
-                                .user(adTask.getUser())
-                                .entity(entity)
-                                .parentTaskId(parentTaskId)
-                                .build();
-                            adTaskManager.createADTaskDirectly(adEntityTask, r -> {
-                                adEntityTask.setTaskId(r.getId());
+        try {
+            checkIfADTaskCancelledAndCleanupCache(adTask);
+            String detectorId = adTask.getDetectorId();
+            AnomalyDetector detector = adTask.getDetector();
+            boolean isHCDetector = detector.isMultientityDetector();
+            if (isHCDetector) {
+                String entityString = adTaskCacheManager.pollEntity(detectorId);
+                logger.debug("Start to run entity: {} of detector {}", entityString, detectorId);
+                if (entityString == null) {
+                    listener.onResponse(new ADBatchAnomalyResultResponse(clusterService.localNode().getId(), false));
+                    return;
+                }
+                ActionListener<Object> wrappedListener = ActionListener.wrap(r -> logger.debug("Entity task created successfully"), e -> {
+                    logger.error("Failed to start entity task for detector: {}, entity: {}", detectorId, entityString);
+                    // If fail, move the entity into pending task queue
+                    adTaskCacheManager.addPendingEntity(detectorId, entityString);
+                });
+                // This is to handle retry case. To retry entity, we need to get the old entity task created before.
+                Entity entity = adTaskManager.parseEntityFromString(entityString, adTask);
+                String parentTaskId = adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_ENTITY.name())
+                    ? adTask.getParentTaskId() // For HISTORICAL_HC_ENTITY task, return its parent task id
+                    : adTask.getTaskId(); // For HISTORICAL_HC_DETECTOR task, its task id is parent task id
+                adTaskManager
+                    .getAndExecuteOnLatestADTask(
+                        detectorId,
+                        parentTaskId,
+                        entity,
+                        ImmutableList.of(ADTaskType.HISTORICAL_HC_ENTITY),
+                        existingEntityTask -> {
+                            if (existingEntityTask.isPresent()) { // retry failed entity caused by limit exceed exception
+                                // TODO: if task failed due to limit exceed exception in half way, resume from the break point or just clear
+                                // the
+                                // old AD tasks and rerun it? Currently we just support rerunning task failed due to limit exceed exception
+                                // before starting.
+                                ADTask adEntityTask = existingEntityTask.get();
+                                logger
+                                    .debug(
+                                        "Rerun entity task for task id: {}, error of last run: {}",
+                                        adEntityTask.getTaskId(),
+                                        adEntityTask.getError()
+                                    );
                                 ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
                                     adEntityTask,
                                     transportService,
                                     listener
                                 );
                                 forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
-                            }, wrappedListener);
-                        }
-                    },
+                            } else {
+                                logger.info("Create entity task for entity:{}", entityString);
+                                Instant now = Instant.now();
+                                ADTask adEntityTask = new ADTask.Builder()
+                                    .detectorId(adTask.getDetectorId())
+                                    .detector(detector)
+                                    .isLatest(true)
+                                    .taskType(ADTaskType.HISTORICAL_HC_ENTITY.name())
+                                    .executionStartTime(now)
+                                    .taskProgress(0.0f)
+                                    .initProgress(0.0f)
+                                    .state(ADTaskState.INIT.name())
+                                    .initProgress(0.0f)
+                                    .lastUpdateTime(now)
+                                    .startedBy(adTask.getStartedBy())
+                                    .coordinatingNode(clusterService.localNode().getId())
+                                    .detectionDateRange(adTask.getDetectionDateRange())
+                                    .user(adTask.getUser())
+                                    .entity(entity)
+                                    .parentTaskId(parentTaskId)
+                                    .build();
+                                adTaskManager.createADTaskDirectly(adEntityTask, r -> {
+                                    adEntityTask.setTaskId(r.getId());
+                                    ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
+                                        adEntityTask,
+                                        transportService,
+                                        listener
+                                    );
+                                    forwardOrExecuteEntityTask(adEntityTask, transportService, workerNodeResponseListener);
+                                }, wrappedListener);
+                            }
+                        },
+                        transportService,
+                        false,
+                        wrappedListener
+                    );
+            } else {
+                Map<String, Object> updatedFields = new HashMap<>();
+                updatedFields.put(STATE_FIELD, ADTaskState.INIT.name());
+                updatedFields.put(INIT_PROGRESS_FIELD, 0.0f);
+                ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
+                    adTask,
                     transportService,
-                    false,
-                    wrappedListener
+                    listener
                 );
-        } else {
-            Map<String, Object> updatedFields = new HashMap<>();
-            updatedFields.put(STATE_FIELD, ADTaskState.INIT.name());
-            updatedFields.put(INIT_PROGRESS_FIELD, 0.0f);
-            ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener = workerNodeResponseListener(
-                adTask,
-                transportService,
-                listener
-            );
-            adTaskManager
-                .updateADTask(
-                    adTask.getTaskId(),
-                    updatedFields,
-                    ActionListener
-                        .wrap(
-                            r -> forwardOrExecuteEntityTask(adTask, transportService, workerNodeResponseListener),
-                            e -> { workerNodeResponseListener.onFailure(e); }
-                        )
-                );
+                adTaskManager
+                    .updateADTask(
+                        adTask.getTaskId(),
+                        updatedFields,
+                        ActionListener
+                            .wrap(
+                                r -> forwardOrExecuteEntityTask(adTask, transportService, workerNodeResponseListener),
+                                e -> { workerNodeResponseListener.onFailure(e); }
+                            )
+                    );
+            }
+        } catch (Exception e) {
+            logger.error("Failed to forward or execute AD task " + adTask.getTaskId(), e);
+            listener.onFailure(e);
         }
     }
 
@@ -625,8 +623,7 @@ public class ADBatchTaskRunner {
             handleException(adTask, e);
 
             if (adTask.getDetector().isMultientityDetector()) {
-                // For HC detector, the first task is not entity task, it's HC detector task. But no matter it's entity
-                // or detector level task, we should always send back entity task done message for HC detector.
+                // Entity task done on worker node. Send entity task done message to coordinating node to poll next entity.
                 adTaskManager.entityTaskDone(adTask, e, transportService);
                 if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getDetectorId()) > 0) {
                     // When reach this line, it means entity task failed to start on worker node
@@ -656,6 +653,7 @@ public class ADBatchTaskRunner {
         TransportService transportService,
         ActionListener<ADBatchAnomalyResultResponse> workerNodeResponseListener
     ) {
+        checkIfADTaskCancelledAndCleanupCache(adTask);
         dispatchTask(adTask, ActionListener.wrap(node -> {
             if (clusterService.localNode().getId().equals(node.getId())) {
                 // Execute batch task locally
@@ -775,9 +773,11 @@ public class ADBatchTaskRunner {
 
     private ActionListener<String> internalBatchTaskListener(ADTask adTask, TransportService transportService) {
         String taskId = adTask.getTaskId();
+        String detectorTaskId = adTask.getDetectorLevelTaskId();
+        String detectorId = adTask.getDetectorId();
         ActionListener<String> listener = ActionListener.wrap(response -> {
             // If batch task finished normally, remove task from cache and decrease executing task count by 1.
-            adTaskCacheManager.remove(taskId);
+            adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
             if (!adTask.getDetector().isMultientityDetector()) {
                 // Set single-entity detector task as FINISHED here
@@ -794,7 +794,7 @@ public class ADBatchTaskRunner {
             }
         }, e -> {
             // If batch task failed, remove task from cache and decrease executing task count by 1.
-            adTaskCacheManager.remove(taskId);
+            adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
             if (!adTask.getDetector().isMultientityDetector()) {
                 adTaskManager.cleanDetectorCache(adTask, transportService, () -> handleException(adTask, e));
@@ -882,7 +882,7 @@ public class ADBatchTaskRunner {
                         ),
                     ActionListener.wrap(r -> {
                         try {
-                            checkIfADTaskCancelled(adTask.getTaskId());
+                            checkIfADTaskCancelledAndCleanupCache(adTask);
                             getDateRangeOfSourceData(adTask, (dataStartTime, dataEndTime) -> {
                                 long interval = ((IntervalTimeConfiguration) adTask.getDetector().getDetectionInterval())
                                     .toDuration()
@@ -976,7 +976,7 @@ public class ADBatchTaskRunner {
             dataStartTime = dataStartTime - dataStartTime % interval;
             dataEndTime = dataEndTime - dataEndTime % interval;
             logger.debug("adjusted date range: start: {}, end: {}, taskId: {}", dataStartTime, dataEndTime, taskId);
-            if ((dataEndTime - dataStartTime) < THRESHOLD_MODEL_TRAINING_SIZE * interval) {
+            if ((dataEndTime - dataStartTime) < NUM_MIN_SAMPLES * interval) {
                 internalListener.onFailure(new AnomalyDetectionException("There is no enough data to train model").countedInStats(false));
                 return;
             }
@@ -1046,8 +1046,7 @@ public class ADBatchTaskRunner {
         ActionListener<String> internalListener
     ) {
         String taskId = adTask.getTaskId();
-        RandomCutForest rcf = adTaskCacheManager.getRcfModel(taskId);
-        ThresholdingModel threshold = adTaskCacheManager.getThresholdModel(taskId);
+        ThresholdedRandomCutForest trcf = adTaskCacheManager.getTRcfModel(taskId);
         Deque<Map.Entry<Long, Optional<double[]>>> shingle = adTaskCacheManager.getShingle(taskId);
 
         List<AnomalyResult> anomalyResults = new ArrayList<>();
@@ -1086,26 +1085,14 @@ public class ADBatchTaskRunner {
                 anomalyResults.add(anomalyResult);
             } else {
                 double[] point = feature.getProcessedFeatures().get();
-                double score = rcf.getAnomalyScore(point);
-                rcf.update(point);
-                double grade = 0d;
-                double confidence = 0d;
-                if (!adTaskCacheManager.isThresholdModelTrained(taskId)) {
-                    if (adTaskCacheManager.getThresholdModelTrainingDataSize(taskId) < THRESHOLD_MODEL_TRAINING_SIZE) {
-                        if (score > 0) {
-                            adTaskCacheManager.addThresholdModelTrainingData(taskId, score);
-                        }
-                    } else {
-                        logger.debug("training threshold model");
-                        threshold.train(adTaskCacheManager.getThresholdModelTrainingData(taskId));
-                        adTaskCacheManager.setThresholdModelTrained(taskId, true);
-                    }
-                } else {
-                    grade = threshold.grade(score);
-                    confidence = threshold.confidence();
-                    if (score > 0) {
-                        threshold.update(score);
-                    }
+                // 0 is placeholder for timestamp. In the future, we will add
+                // data time stamp there.
+                AnomalyDescriptor descriptor = trcf.process(point, 0);
+                double score = descriptor.getRcfScore();
+                double grade = descriptor.getAnomalyGrade();
+                double confidence = descriptor.getDataConfidence();
+                if (!adTaskCacheManager.isThresholdModelTrained(taskId) && score > 0) {
+                    adTaskCacheManager.setThresholdModelTrained(taskId, true);
                 }
                 AnomalyResult anomalyResult = new AnomalyResult(
                     adTask.getDetectorId(),
@@ -1154,16 +1141,18 @@ public class ADBatchTaskRunner {
         ActionListener<String> internalListener
     ) {
         String taskId = adTask.getTaskId();
+        String detectorId = adTask.getDetectorId();
+        String detectorTaskId = adTask.getDetectorLevelTaskId();
         float initProgress = calculateInitProgress(taskId);
         String taskState = initProgress >= 1.0f ? ADTaskState.RUNNING.name() : ADTaskState.INIT.name();
         logger.debug("Init progress: {}, taskState:{}, task id: {}", initProgress, taskState, taskId);
 
         if (initProgress >= 1.0f && adTask.isEntityTask()) {
-            updateDetectorLevelTaskState(adTask.getDetectorId(), adTask.getParentTaskId(), ADTaskState.RUNNING.name());
+            updateDetectorLevelTaskState(detectorId, adTask.getParentTaskId(), ADTaskState.RUNNING.name());
         }
 
         if (pieceStartTime < dataEndTime) {
-            checkIfADTaskCancelled(adTask.getTaskId());
+            checkIfADTaskCancelledAndCleanupCache(adTask);
             threadPool.schedule(() -> {
                 checkClusterState(adTask);
                 long expectedPieceEndTime = pieceStartTime + pieceSize * interval;
@@ -1177,7 +1166,7 @@ public class ADBatchTaskRunner {
                         interval
                     );
                 float taskProgress = (float) (pieceStartTime - dataStartTime) / (dataEndTime - dataStartTime);
-                logger.debug("Task progress: {}, task id:{}, detector id:{}", taskProgress, taskId, adTask.getDetectorId());
+                logger.debug("Task progress: {}, task id:{}, detector id:{}", taskProgress, taskId, detectorId);
                 adTaskManager
                     .updateADTask(
                         taskId,
@@ -1209,8 +1198,8 @@ public class ADBatchTaskRunner {
                     );
             }, TimeValue.timeValueSeconds(pieceIntervalSeconds), AD_BATCH_TASK_THREAD_POOL_NAME);
         } else {
-            logger.info("AD task finished for detector {}, task id: {}", adTask.getDetectorId(), taskId);
-            adTaskCacheManager.remove(taskId);
+            logger.info("AD task finished for detector {}, task id: {}", detectorId, taskId);
+            adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adTaskManager
                 .updateADTask(
                     taskId,
@@ -1233,31 +1222,28 @@ public class ADBatchTaskRunner {
     }
 
     private void updateDetectorLevelTaskState(String detectorId, String detectorTaskId, String newState) {
-        adTaskManager.getADTask(detectorTaskId, ActionListener.wrap(task -> {
-            if (task.isPresent()) {
-                adTaskCacheManager.updateDetectorTaskState(detectorId, task.get().getState());
-                if (adTaskCacheManager.isDetectorTaskStateChanged(detectorId, newState)) {
-                    adTaskManager
-                        .updateADTask(
-                            detectorTaskId,
-                            ImmutableMap.of(STATE_FIELD, newState),
-                            ActionListener
-                                .wrap(
-                                    r -> { adTaskCacheManager.updateDetectorTaskState(detectorId, newState); },
-                                    e -> { logger.error("Failed to update detector level task " + detectorTaskId, e); }
-                                )
-                        );
-                }
+        AnomalyDetectorFunction function = () -> adTaskManager
+            .updateADTask(detectorTaskId, ImmutableMap.of(STATE_FIELD, newState), ActionListener.wrap(r -> {
+                logger.info("Updated HC detector task: {} state as: {} for detector: {}", detectorTaskId, newState, detectorId);
+                adTaskCacheManager.updateDetectorTaskState(detectorId, detectorTaskId, newState);
+            }, e -> { logger.error("Failed to update HC detector task: {} for detector: {}", detectorTaskId, detectorId); }));
+        if (adTaskCacheManager.detectorTaskStateExists(detectorId, detectorTaskId)) {
+            if (!Objects.equals(adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId), newState)) {
+                function.execute();
             }
-        }, exception -> { logger.error("failed to get detector level task " + detectorTaskId, exception); }));
-
-        if (adTaskCacheManager.isDetectorTaskStateChanged(detectorId, newState)) {
-            adTaskManager.updateADTask(detectorTaskId, ImmutableMap.of(STATE_FIELD, newState), ActionListener.wrap(r -> {}, e -> {}));
+        } else if (!adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId)) {
+            adTaskManager.getADTask(detectorTaskId, ActionListener.wrap(task -> {
+                if (task.isPresent()) {
+                    if (!Objects.equals(task.get().getState(), newState)) {
+                        function.execute();
+                    }
+                }
+            }, exception -> { logger.error("failed to get detector level task " + detectorTaskId, exception); }));
         }
     }
 
     private float calculateInitProgress(String taskId) {
-        RandomCutForest rcf = adTaskCacheManager.getRcfModel(taskId);
+        RandomCutForest rcf = adTaskCacheManager.getTRcfModel(taskId).getForest();
         if (rcf == null) {
             return 0.0f;
         }
@@ -1266,10 +1252,37 @@ public class ADBatchTaskRunner {
         return initProgress > 1.0f ? 1.0f : initProgress;
     }
 
-    private void checkIfADTaskCancelled(String taskId) {
+    private void checkIfADTaskCancelledAndCleanupCache(ADTask adTask) {
+        String taskId = adTask.getTaskId();
+        String detectorId = adTask.getDetectorId();
+        String detectorTaskId = adTask.getDetectorLevelTaskId();
+        // refresh latest HC task run time
+        adTaskCacheManager.refreshLatestHCTaskRunTime(detectorId);
+        if (adTask.getDetector().isMultientityDetector()
+            && adTaskCacheManager.isHCTaskCoordinatingNode(detectorId)
+            && adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId)) {
+            // clean up pending and running entity on coordinating node
+            adTaskCacheManager.clearPendingEntities(detectorId);
+            adTaskCacheManager.removeRunningEntity(detectorId, adTaskManager.convertEntityToString(adTask));
+            throw new ADTaskCancelledException(
+                adTaskCacheManager.getCancelReasonForHC(detectorId, detectorTaskId),
+                adTaskCacheManager.getCancelledByForHC(detectorId, detectorTaskId)
+            );
+        }
+
         if (adTaskCacheManager.contains(taskId) && adTaskCacheManager.isCancelled(taskId)) {
             logger.info("AD task cancelled, stop running task {}", taskId);
-            throw new ADTaskCancelledException(adTaskCacheManager.getCancelReason(taskId), adTaskCacheManager.getCancelledBy(taskId));
+            String cancelReason = adTaskCacheManager.getCancelReason(taskId);
+            String cancelledBy = adTaskCacheManager.getCancelledBy(taskId);
+            adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
+            if (!adTaskCacheManager.isHCTaskCoordinatingNode(detectorId)
+                && isNullOrEmpty(adTaskCacheManager.getTasksOfDetector(detectorId))) {
+                // Clean up historical task cache for HC detector on worker node if no running entity task.
+                logger.info("All AD task cancelled, cleanup historical task cache for detector {}", detectorId);
+                adTaskCacheManager.removeHistoricalTaskCache(detectorId);
+            }
+
+            throw new ADTaskCancelledException(cancelReason, cancelledBy);
         }
     }
 

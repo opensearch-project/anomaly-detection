@@ -20,21 +20,19 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.lucene.util.SetOnce;
-import org.opensearch.ad.model.ADTaskState;
-
 /**
- * AD HC detector batch task cache which will mainly hold these for HC detector
- * 1. pending entities queue
- * 2. running entities queue
- * 3. temp entities queue
- * 4. task retry times
- * 5. task rate limiters
- * 6. top entities inited or not
- * 7. top entities count
- * 8. is current node coordinating node
- * 9. is historical analysis cancelled for this HC detector
- * 10. detector task update semaphore to control only 1 thread update detector level task
+ * AD HC detector batch task cache which will mainly hold these for HC detector on
+ * coordinating node.
+ * <ul>
+ *    <li>pending entities queue</li>
+ *    <li>running entities queue</li>
+ *    <li>temp entities queue</li>
+ *    <li>entity task lanes</li>
+ *    <li>top entities count</li>
+ *    <li>top entities inited or not</li>
+ *    <li>task retry times</li>
+ *    <li>detector task update semaphore to control only 1 thread update detector level task</li>
+ * </ul>
  */
 public class ADHCBatchTaskCache {
 
@@ -68,16 +66,11 @@ public class ADHCBatchTaskCache {
     // Record how many times the task has retried. Key is task id.
     private Map<String, AtomicInteger> taskRetryTimes;
 
-    // detector level task state
-    private String detectorTaskState;
-
-    private SetOnce<Boolean> isCoordinatingNode;
     // record last time when HC detector scales entity task slots
     private Instant lastScaleEntityTaskSlotsTime;
 
-    // record if HC detector historical analysis cancelled/stopped. Every entity task should
-    // recheck this field and stop if it's true.
-    private boolean isHistoricalAnalysisCancelled;
+    // record lastest HC detector task run time, will use this field to check if task is running or not.
+    private Instant latestTaskRunTime;
 
     public ADHCBatchTaskCache() {
         this.pendingEntities = new ConcurrentLinkedQueue<>();
@@ -86,21 +79,12 @@ public class ADHCBatchTaskCache {
         this.taskRetryTimes = new ConcurrentHashMap<>();
         this.detectorTaskUpdatingSemaphore = new Semaphore(1);
         this.topEntitiesInited = false;
-        this.detectorTaskState = ADTaskState.INIT.name();
-        this.isCoordinatingNode = new SetOnce<>();
         this.lastScaleEntityTaskSlotsTime = Instant.now();
-    }
-
-    public void setIsCoordinatingNode(boolean isCoordinatingNode) {
-        this.isCoordinatingNode.set(isCoordinatingNode);
-    }
-
-    public boolean isCoordinatingNode() {
-        Boolean isCoordinating = this.isCoordinatingNode.get();
-        return isCoordinating != null && isCoordinating.booleanValue();
+        this.latestTaskRunTime = Instant.now();
     }
 
     public void setTopEntityCount(Integer topEntityCount) {
+        this.refreshLatestTaskRunTime();
         this.topEntityCount = topEntityCount;
     }
 
@@ -133,6 +117,7 @@ public class ADHCBatchTaskCache {
     }
 
     public void setEntityTaskLanes(int entityTaskLanes) {
+        this.refreshLatestTaskRunTime();
         this.entityTaskLanes = new AtomicInteger(entityTaskLanes);
     }
 
@@ -152,32 +137,25 @@ public class ADHCBatchTaskCache {
         return taskRetryTimes.computeIfAbsent(taskId, id -> new AtomicInteger(0)).get();
     }
 
-    public String getDetectorTaskState() {
-        return detectorTaskState;
-    }
-
-    public void setDetectorTaskState(String detectorTaskState) {
-        this.detectorTaskState = detectorTaskState;
-    }
-
     /**
-     * Add list of entities into pending entity queue. Will check if these entities exists
-     * in temp entities queue first. If yes, will remove from temp entities queue.
+     * Remove entities from both temp and running entities queue and add list of entities into pending entity queue.
      * @param entities a list of entity
      */
-    public void addEntities(List<String> entities) {
+    public void addPendingEntities(List<String> entities) {
+        this.refreshLatestTaskRunTime();
         if (entities == null || entities.size() == 0) {
             return;
         }
         for (String entity : entities) {
-            if (entity != null && tempEntities.contains(entity)) {
+            if (entity != null) {
+                // make sure we delete from temp and running queue first before adding the entity to pending queue
                 tempEntities.remove(entity);
-            }
-            if (entity != null && !pendingEntities.contains(entity)) {
-                pendingEntities.add(entity);
+                runningEntities.remove(entity);
+                if (!pendingEntities.contains(entity)) {
+                    pendingEntities.add(entity);
+                }
             }
         }
-
     }
 
     /**
@@ -185,24 +163,17 @@ public class ADHCBatchTaskCache {
      * @param entity entity value
      */
     public void moveToRunningEntity(String entity) {
+        this.refreshLatestTaskRunTime();
         if (entity == null) {
             return;
         }
-        this.tempEntities.remove(entity);
-        if (!this.runningEntities.contains(entity)) {
+        boolean removed = this.tempEntities.remove(entity);
+        // It's possible that entity was removed before this function. Should check if
+        // task in temp queue or not before adding it to running queue.
+        if (removed && !this.runningEntities.contains(entity)) {
             this.runningEntities.add(entity);
-        }
-    }
-
-    private void moveToTempEntity(String entity) {
-        if (entity != null && !this.tempEntities.contains(entity)) {
-            this.tempEntities.add(entity);
-        }
-    }
-
-    private void removeFromTempEntity(String entity) {
-        if (entity != null && !this.tempEntities.contains(entity)) {
-            this.tempEntities.remove(entity);
+            // clean it from pending queue to make sure entity only exists in running queue
+            this.pendingEntities.remove(entity);
         }
     }
 
@@ -230,20 +201,29 @@ public class ADHCBatchTaskCache {
         this.lastScaleEntityTaskSlotsTime = lastScaleEntityTaskSlotsTime;
     }
 
-    public boolean getHistoricalAnalysisCancelled() {
-        return isHistoricalAnalysisCancelled;
+    public Instant getLatestTaskRunTime() {
+        return latestTaskRunTime;
     }
 
-    public void setHistoricalAnalysisCancelled(boolean historicalAnalysisCancelled) {
-        isHistoricalAnalysisCancelled = historicalAnalysisCancelled;
+    public void refreshLatestTaskRunTime() {
+        this.latestTaskRunTime = Instant.now();
     }
 
     public boolean hasEntity() {
         return !this.pendingEntities.isEmpty() || !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
     }
 
+    public boolean hasRunningEntity() {
+        return !this.runningEntities.isEmpty() || !this.tempEntities.isEmpty();
+    }
+
     public boolean removeRunningEntity(String entity) {
-        return this.runningEntities.remove(entity);
+        // In normal case, the entity will be moved to running queue if entity task dispatched
+        // to worker node successfully. If failed to dispatch to worker node, it will still stay
+        // in temp queue, check ADBatchTaskRunner#workerNodeResponseListener. Then will send
+        // entity task done message to coordinating node to move to pending queue if exception
+        // is retryable or remove entity from cache if not retryable.
+        return this.runningEntities.remove(entity) || this.tempEntities.remove(entity);
     }
 
     /**
@@ -262,9 +242,10 @@ public class ADHCBatchTaskCache {
      * @return entity value
      */
     public String pollEntity() {
+        this.refreshLatestTaskRunTime();
         String entity = this.pendingEntities.poll();
-        if (entity != null) {
-            this.moveToTempEntity(entity);
+        if (entity != null && !this.tempEntities.contains(entity)) {
+            this.tempEntities.add(entity);
         }
         return entity;
     }
@@ -289,19 +270,16 @@ public class ADHCBatchTaskCache {
      * Check if entity exists in temp entities queue, pending entities queue or running
      * entities queue. If exists, remove from these queues.
      * @param entity entity value
+     * @return true if entity exists and removed
      */
-    public void removeEntity(String entity) {
+    public boolean removeEntity(String entity) {
+        this.refreshLatestTaskRunTime();
         if (entity == null) {
-            return;
+            return false;
         }
-        if (tempEntities.contains(entity)) {
-            tempEntities.remove(entity);
-        }
-        if (pendingEntities.contains(entity)) {
-            pendingEntities.remove(entity);
-        }
-        if (runningEntities.contains(entity)) {
-            runningEntities.remove(entity);
-        }
+        boolean removedFromTempQueue = tempEntities.remove(entity);
+        boolean removedFromPendingQueue = pendingEntities.remove(entity);
+        boolean removedFromRunningQueue = runningEntities.remove(entity);
+        return removedFromTempQueue || removedFromPendingQueue || removedFromRunningQueue;
     }
 }

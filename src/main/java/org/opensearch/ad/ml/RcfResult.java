@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.ml;
 
 import java.util.Arrays;
@@ -39,6 +24,7 @@ public class RcfResult {
     private final int forestSize;
     private final double[] attribution;
     private final long totalUpdates;
+    private final double grade;
 
     /**
      * Constructor with all arguments.
@@ -47,17 +33,16 @@ public class RcfResult {
      * @param confidence RCF confidence
      * @param forestSize number of RCF trees used for the score
      * @param attribution anomaly score attribution
+     * @param totalUpdates total updates
+     * @param grade Anomaly grade
      */
-    public RcfResult(double score, double confidence, int forestSize, double[] attribution) {
-        this(score, confidence, forestSize, attribution, 0);
-    }
-
-    public RcfResult(double score, double confidence, int forestSize, double[] attribution, long totalUpdates) {
+    public RcfResult(double score, double confidence, int forestSize, double[] attribution, long totalUpdates, double grade) {
         this.score = score;
         this.confidence = confidence;
         this.forestSize = forestSize;
         this.attribution = attribution;
         this.totalUpdates = totalUpdates;
+        this.grade = grade;
     }
 
     /**
@@ -100,6 +85,10 @@ public class RcfResult {
         return totalUpdates;
     }
 
+    public double getGrade() {
+        return grade;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o)
@@ -111,11 +100,12 @@ public class RcfResult {
             && Objects.equals(this.confidence, that.confidence)
             && Objects.equals(this.forestSize, that.forestSize)
             && Arrays.equals(this.attribution, that.attribution)
-            && Objects.equals(this.totalUpdates, that.totalUpdates);
+            && Objects.equals(this.totalUpdates, that.totalUpdates)
+            && Objects.equals(this.grade, that.grade);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(score, confidence, forestSize, attribution, totalUpdates);
+        return Objects.hash(score, confidence, forestSize, attribution, totalUpdates, grade);
     }
 }

@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.settings;
 
 import org.opensearch.common.settings.Setting;
@@ -281,7 +266,7 @@ public class LegacyOpenDistroAnomalyDetectorSettings {
     public static final Setting<Integer> MAX_BATCH_TASK_PER_NODE = Setting
         .intSetting(
             "opendistro.anomaly_detection.max_batch_task_per_node",
-            2,
+            10,
             1,
             100,
             Setting.Property.NodeScope,
@@ -295,7 +280,7 @@ public class LegacyOpenDistroAnomalyDetectorSettings {
             // One AD task is roughly 1.5KB for normal case. Suppose task's size
             // is 2KB conservatively. If we store 1000 AD tasks for one detector,
             // and have 1000 detectors, that will be 2GB.
-            2,
+            1, // keep 1 old task by default to avoid consuming too much resource
             1, // keep at least 1 old AD task per detector
             1000,
             Setting.Property.NodeScope,

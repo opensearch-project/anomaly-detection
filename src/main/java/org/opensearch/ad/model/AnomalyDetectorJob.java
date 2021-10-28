@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.model;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
@@ -71,11 +56,11 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     public static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String LOCK_DURATION_SECONDS = "lock_duration_seconds";
 
-    private static final String SCHEDULE_FIELD = "schedule";
-    private static final String WINDOW_DELAY_FIELD = "window_delay";
-    private static final String IS_ENABLED_FIELD = "enabled";
-    private static final String ENABLED_TIME_FIELD = "enabled_time";
-    private static final String DISABLED_TIME_FIELD = "disabled_time";
+    public static final String SCHEDULE_FIELD = "schedule";
+    public static final String WINDOW_DELAY_FIELD = "window_delay";
+    public static final String IS_ENABLED_FIELD = "enabled";
+    public static final String ENABLED_TIME_FIELD = "enabled_time";
+    public static final String DISABLED_TIME_FIELD = "disabled_time";
     public static final String USER_FIELD = "user";
 
     private final String name;
@@ -160,6 +145,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         }
         schedule.writeTo(output);
         windowDelay.writeTo(output);
+        output.writeBoolean(isEnabled);
         output.writeInstant(enabledTime);
         output.writeInstant(disabledTime);
         output.writeInstant(lastUpdateTime);

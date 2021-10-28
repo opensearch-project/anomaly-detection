@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.ml;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -56,7 +41,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.commons.lang3.tuple.Triple;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
@@ -84,6 +68,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -94,8 +79,9 @@ import org.opensearch.threadpool.ThreadPool;
 
 import test.org.opensearch.ad.util.MLUtil;
 
-import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class EntityColdStarterTests extends AbstractADTest {
     int numMinSamples;
@@ -146,8 +132,6 @@ public class EntityColdStarterTests extends AbstractADTest {
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
-        ModelPartitioner modelPartitioner = mock(ModelPartitioner.class);
-
         Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
         nodestateSetting.add(BACKOFF_MINUTES);
@@ -170,7 +154,6 @@ public class EntityColdStarterTests extends AbstractADTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner,
             clusterService
         );
 
@@ -214,11 +197,6 @@ public class EntityColdStarterTests extends AbstractADTest {
             interpolator,
             searchFeatureDao,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             featureManager,
             settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
@@ -250,20 +228,19 @@ public class EntityColdStarterTests extends AbstractADTest {
     // train using samples directly
     public void testTrainUsingSamples() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(numMinSamples);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
-        assertEquals(numMinSamples, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
+        assertEquals(numMinSamples, ercf.getForest().getTotalUpdates());
 
         checkSemaphoreRelease();
     }
 
     public void testColdStart() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -285,11 +262,10 @@ public class EntityColdStarterTests extends AbstractADTest {
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         waitForColdStartFinish();
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
         // maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 2 + 1 = 129
-        assertEquals(129, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertEquals(129, ercf.getForest().getTotalUpdates());
 
         // sleep 1 secs to give time for the last timestamp record to expire when superShortLastColdStartTimeState = true
         Thread.sleep(1000L);
@@ -298,14 +274,11 @@ public class EntityColdStarterTests extends AbstractADTest {
         released.set(false);
         // too frequent cold start of the same detector will fail
         samples = MLUtil.createQueueSamples(1);
-        model = new EntityModel(entity, samples, null, null);
+        model = new EntityModel(entity, samples, null);
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         waitForColdStartFinish();
 
-        forest = model.getRcf();
-
-        assertTrue(forest == null);
-        assertTrue(model.getThreshold() == null);
+        assertFalse(model.getTrcf().isPresent());
         checkSemaphoreRelease();
     }
 
@@ -322,7 +295,7 @@ public class EntityColdStarterTests extends AbstractADTest {
     // min max: miss one
     public void testMissMin() throws IOException, InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -335,16 +308,14 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         verify(searchFeatureDao, never()).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest == null);
-        assertTrue(model.getThreshold() == null);
+        assertTrue(!model.getTrcf().isPresent());
         checkSemaphoreRelease();
     }
 
     // two segments of samples, one segment has 3 samples, while another one has only 1
     public void testTwoSegmentsWithSingleSample() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -374,19 +345,19 @@ public class EntityColdStarterTests extends AbstractADTest {
             Thread.sleep(500L);
             i++;
         }
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
+
         // 1st segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 2 + 1 = 129
         // 2nd segment: 1
-        assertEquals(130, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertEquals(130, ercf.getForest().getTotalUpdates());
         checkSemaphoreRelease();
     }
 
     // two segments of samples, one segment has 3 samples, while another one 2 samples
     public void testTwoSegments() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -417,18 +388,17 @@ public class EntityColdStarterTests extends AbstractADTest {
             Thread.sleep(500L);
             i++;
         }
-        RandomCutForest forest = model.getRcf();
-        assertTrue(forest != null);
+        assertTrue(model.getTrcf().isPresent());
+        ThresholdedRandomCutForest ercf = model.getTrcf().get();
         // 1st segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 2 + 1 = 129
         // 2nd segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 1 + 1 = 65
-        assertEquals(194, forest.getTotalUpdates());
-        assertTrue(model.getThreshold() != null);
+        assertEquals(194, ercf.getForest().getTotalUpdates());
         checkSemaphoreRelease();
     }
 
     public void testThrottledColdStart() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -448,7 +418,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
     public void testColdStartException() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -465,7 +435,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
     public void testNotEnoughSamples() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -492,8 +462,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             Thread.sleep(500L);
             i++;
         }
-        assertTrue(model.getRcf() == null);
-        assertTrue(model.getThreshold() == null);
+        assertTrue(!model.getTrcf().isPresent());
         // 1st segment: maxSampleStride * (continuousSampledArray.length - 1) + 1 = 64 * 1 + 1 = 65
         // 65 + origin 1 data points
         assertEquals("real sample size is " + model.getSamples().size(), 66, model.getSamples().size());
@@ -501,7 +470,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
     public void testEmptyDataRange() throws InterruptedException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
@@ -513,8 +482,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         waitForColdStartFinish();
 
-        assertTrue(model.getRcf() == null);
-        assertTrue(model.getThreshold() == null);
+        assertTrue(!model.getTrcf().isPresent());
         // the min-max range is too small and thus no data range can be found
         assertEquals("real sample size is " + model.getSamples().size(), 1, model.getSamples().size());
     }
@@ -523,7 +491,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         int inputDimension = 2;
         int dimensions = inputDimension * detector.getShingleSize();
 
-        RandomCutForest.Builder<?> rcfConfig = RandomCutForest
+        ThresholdedRandomCutForest.Builder<?> rcfConfig = ThresholdedRandomCutForest
             .builder()
             .compact(true)
             .dimensions(dimensions)
@@ -536,13 +504,13 @@ public class EntityColdStarterTests extends AbstractADTest {
             .outputAfter(numMinSamples)
             .parallelExecutionEnabled(false)
             .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
-            .internalShinglingEnabled(true);
-        Triple<Queue<double[]>, RandomCutForest, ThresholdingModel> models = MLUtil.prepareModel(inputDimension, rcfConfig);
-        Queue<double[]> samples = models.getLeft();
-        RandomCutForest rcf = models.getMiddle();
-        ThresholdingModel threshold = models.getRight();
+            .internalShinglingEnabled(true)
+            .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE);
+        Tuple<Queue<double[]>, ThresholdedRandomCutForest> models = MLUtil.prepareModel(inputDimension, rcfConfig);
+        Queue<double[]> samples = models.v1();
+        ThresholdedRandomCutForest rcf = models.v2();
 
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         ModelManager modelManager = new ModelManager(
@@ -553,16 +521,10 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.TIME_DECAY,
             AnomalyDetectorSettings.NUM_MIN_SAMPLES,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.THRESHOLD_MAX_RANK_ERROR,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SCORE,
-            AnomalyDetectorSettings.THRESHOLD_NUM_LOGNORMAL_QUANTILES,
-            AnomalyDetectorSettings.THRESHOLD_DOWNSAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MAX_SAMPLES,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             entityColdStarter,
-            mock(ModelPartitioner.class),
             mock(FeatureManager.class),
             mock(MemoryTracker.class)
         );
@@ -572,25 +534,19 @@ public class EntityColdStarterTests extends AbstractADTest {
         // make sure we trained the expected models
         for (int i = 0; i < 100; i++) {
             double[] point = r.ints(inputDimension, 0, 50).asDoubleStream().toArray();
-            double score = rcf.getAnomalyScore(point);
+            AnomalyDescriptor descriptor = rcf.process(point, 0);
             ThresholdingResult result = modelManager
                 .getAnomalyResultForEntity(point, modelState, modelId, entity, detector.getShingleSize());
-            assertEquals(score, result.getRcfScore(), 1e-10);
-            assertEquals(threshold.grade(score), result.getGrade(), 1e-10);
-            assertEquals(modelManager.computeRcfConfidence(rcf) * threshold.confidence(), result.getConfidence(), 1e-10);
-            rcf.update(point);
-            threshold.update(score);
+            assertEquals(descriptor.getRcfScore(), result.getRcfScore(), 1e-10);
+            assertEquals(descriptor.getAnomalyGrade(), result.getGrade(), 1e-10);
         }
     }
 
     public void testTrainModelFromExistingSamplesNotEnoughSamples() {
         Queue<double[]> samples = new ArrayDeque<>();
-        EntityModel model = new EntityModel(entity, samples, null, null);
+        EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
         entityColdStarter.trainModelFromExistingSamples(modelState, detector.getShingleSize());
-        RandomCutForest adRCF = modelState.getModel().getRcf();
-        ThresholdingModel adThreshold = modelState.getModel().getThreshold();
-        assertTrue(adRCF == null);
-        assertTrue(adThreshold == null);
+        assertTrue(!modelState.getModel().getTrcf().isPresent());
     }
 }

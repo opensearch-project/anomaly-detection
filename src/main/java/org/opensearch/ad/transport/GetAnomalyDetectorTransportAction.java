@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
@@ -228,7 +213,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                 }
             } else {
                 if (returnTask) {
-                    adTaskManager.getAndExecuteOnLatestADTasks(detectorID, null, ALL_DETECTOR_TASK_TYPES, (taskList) -> {
+                    adTaskManager.getAndExecuteOnLatestADTasks(detectorID, null, null, ALL_DETECTOR_TASK_TYPES, (taskList) -> {
                         Optional<ADTask> realtimeAdTask = Optional.empty();
                         Optional<ADTask> historicalAdTask = Optional.empty();
 

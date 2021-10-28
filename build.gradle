@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *   
- *   Licensed under the Apache License, Version 2.0 (the "License").
- *   You may not use this file except in compliance with the License.
- *   A copy of the License is located at
- *   
- *       http://www.apache.org/licenses/LICENSE-2.0
- *   
- *   or in the "license" file accompanying this file. This file is distributed 
- *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
- *   express or implied. See the License for the specific language governing 
- *   permissions and limitations under the License.
- */
-
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
@@ -54,6 +39,16 @@ plugins {
     id "com.diffplug.gradle.spotless" version "3.26.1"
     id 'java-library'
     id 'checkstyle'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+tasks.withType(Test) {
+    systemProperty "file.encoding", "UTF-8"
+}
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
 }
 
 repositories {
@@ -496,35 +491,10 @@ List<String> jacocoExclusions = [
 
 
         // TODO: unified flow caused coverage drop
-        'org.opensearch.ad.transport.AnomalyDetectorJobRequest',
-        'org.opensearch.ad.transport.ADTaskProfileTransportAction',
-        'org.opensearch.ad.transport.ADCancelTaskRequest',
-        'org.opensearch.ad.transport.ADTaskProfileNodeRequest',
-        'org.opensearch.ad.transport.ADCancelTaskTransportAction',
-        'org.opensearch.ad.transport.ADTaskProfileRequest',
-        'org.opensearch.ad.transport.ADCancelTaskNodeRequest',
-        'org.opensearch.ad.task.ADTaskManager',
-        'org.opensearch.ad.transport.ForwardADTaskTransportAction',
-        'org.opensearch.ad.task.ADHCBatchTaskCache',
-        'org.opensearch.ad.task.ADBatchTaskRunner',
-        'org.opensearch.ad.transport.ForwardADTaskRequest',
-        'org.opensearch.ad.task.ADBatchTaskCache',
-        'org.opensearch.ad.transport.ADBatchAnomalyResultResponse',
-        'org.opensearch.ad.transport.AnomalyDetectorJobTransportAction',
-        'org.opensearch.ad.transport.CronNodeRequest',
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
-        'org.opensearch.ad.transport.GetAnomalyDetectorResponse',
-        'org.opensearch.ad.transport.ADBatchAnomalyResultRequest',
-        'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction',
-        'org.opensearch.ad.common.exception.ADVersionException',
-        'org.opensearch.ad.cluster.ADVersionUtil',
-        'org.opensearch.ad.cluster.ADDataMigrator',
-        'org.opensearch.ad.transport.RCFResultResponse',
-        'org.opensearch.ad.transport.ADTaskProfileResponse',
-        'org.opensearch.ad.feature.SearchFeatureDao',
-        'org.opensearch.ad.common.exception.ResourceNotFoundException',
-        'org.opensearch.ad.task.ADTaskSlotLimit',
-        'org.opensearch.ad.task.ADTaskCacheManager',
+        // TODO: fix unstable code coverage caused by null NodeClient issue
+        // https://github.com/opensearch-project/anomaly-detection/issues/241
+        'org.opensearch.ad.task.ADBatchTaskRunner'
 ]
 
 jacocoTestCoverageVerification {
@@ -587,11 +557,12 @@ dependencies {
     // implementation scope let the dependency in both compiling and running classpath, but
     // not leaked through to clients (Opensearch). Here we force the jackson version to whatever
     // opensearch uses.
-    compile 'software.amazon.randomcutforest:randomcutforest-core:2.0.1'
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
     implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
     implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
     implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
+    compile files('lib/randomcutforest-parkservices-2.0.1.jar')
+    compile files('lib/randomcutforest-core-2.0.1.jar')
 
     // used for serializing/deserializing rcf models.
     compile group: 'io.protostuff', name: 'protostuff-core', version: '1.7.4'

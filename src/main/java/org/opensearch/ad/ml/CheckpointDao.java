@@ -9,25 +9,9 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.ml;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Instant;
@@ -35,9 +19,11 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -74,7 +60,6 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
-import org.opensearch.common.Strings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.reindex.BulkByScrollResponse;
@@ -84,14 +69,15 @@ import org.opensearch.index.reindex.ScrollableHitSource;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
 
 import io.protostuff.LinkedBuffer;
 import io.protostuff.ProtostuffIOUtil;
@@ -116,6 +102,7 @@ public class CheckpointDao {
     public static final String ENTITY_SAMPLE = "sp";
     public static final String ENTITY_RCF = "rcf";
     public static final String ENTITY_THRESHOLD = "th";
+    public static final String ENTITY_TRCF = "trcf";
     public static final String FIELD_MODEL = "model";
     public static final String FIELD_MODELV2 = "modelV2";
     public static final String TIMESTAMP = "timestamp";
@@ -130,8 +117,9 @@ public class CheckpointDao {
 
     private Gson gson;
     private RandomCutForestMapper mapper;
-    private Schema<RandomCutForestState> schema;
     private V1JsonToV2StateConverter converter;
+    private ThresholdedRandomCutForestMapper trcfMapper;
+    private Schema<ThresholdedRandomCutForestState> trcfSchema;
 
     private final Class<? extends ThresholdingModel> thresholdingModelClass;
 
@@ -140,9 +128,10 @@ public class CheckpointDao {
     // we won't read/write a checkpoint larger than a threshold
     private final int maxCheckpointBytes;
 
-    private final TypeAdapter<JsonObject> strictGsonObjectAdapter;
     private final GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
     private final int serializeRCFBufferSize;
+    // anomaly rate
+    private double anomalyRate;
 
     /**
      * Constructor with dependencies and configuration.
@@ -152,13 +141,15 @@ public class CheckpointDao {
      * @param indexName name of the index for model checkpoints
      * @param gson accessor to Gson functionality
      * @param mapper RCF model serialization utility
-     * @param schema RandomCutForestState schema used by ProtoStuff
      * @param converter converter from rcf v1 serde to protostuff based format
+     * @param trcfMapper TRCF serialization mapper
+     * @param trcfSchema TRCF serialization schema
      * @param thresholdingModelClass thresholding model's class
      * @param indexUtil Index utility methods
      * @param maxCheckpointBytes max checkpoint size in bytes
      * @param serializeRCFBufferPool object pool for serializing rcf models
      * @param serializeRCFBufferSize the size of the buffer for RCF serialization
+     * @param anomalyRate anomaly rate
      */
     public CheckpointDao(
         Client client,
@@ -166,27 +157,30 @@ public class CheckpointDao {
         String indexName,
         Gson gson,
         RandomCutForestMapper mapper,
-        Schema<RandomCutForestState> schema,
         V1JsonToV2StateConverter converter,
+        ThresholdedRandomCutForestMapper trcfMapper,
+        Schema<ThresholdedRandomCutForestState> trcfSchema,
         Class<? extends ThresholdingModel> thresholdingModelClass,
         AnomalyDetectionIndices indexUtil,
         int maxCheckpointBytes,
         GenericObjectPool<LinkedBuffer> serializeRCFBufferPool,
-        int serializeRCFBufferSize
+        int serializeRCFBufferSize,
+        double anomalyRate
     ) {
         this.client = client;
         this.clientUtil = clientUtil;
         this.indexName = indexName;
         this.gson = gson;
         this.mapper = mapper;
-        this.schema = schema;
         this.converter = converter;
+        this.trcfMapper = trcfMapper;
+        this.trcfSchema = trcfSchema;
         this.thresholdingModelClass = thresholdingModelClass;
         this.indexUtil = indexUtil;
         this.maxCheckpointBytes = maxCheckpointBytes;
-        this.strictGsonObjectAdapter = new Gson().getAdapter(JsonObject.class);
         this.serializeRCFBufferPool = serializeRCFBufferPool;
         this.serializeRCFBufferSize = serializeRCFBufferSize;
+        this.anomalyRate = anomalyRate;
     }
 
     private void saveModelCheckpointSync(Map<String, Object> source, String modelId) {
@@ -208,9 +202,9 @@ public class CheckpointDao {
      * @param forest the rcf model
      * @param listener onResponse is called with null when the operation is completed
      */
-    public void putRCFCheckpoint(String modelId, RandomCutForest forest, ActionListener<Void> listener) {
+    public void putTRCFCheckpoint(String modelId, ThresholdedRandomCutForest forest, ActionListener<Void> listener) {
         Map<String, Object> source = new HashMap<>();
-        String modelCheckpoint = rcfModelToCheckpoint(forest);
+        String modelCheckpoint = toCheckpoint(forest);
         if (modelCheckpoint != null) {
             source.put(FIELD_MODELV2, modelCheckpoint);
             source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
@@ -293,21 +287,22 @@ public class CheckpointDao {
     public Map<String, Object> toIndexSource(ModelState<EntityModel> modelState) throws IOException {
         Map<String, Object> source = new HashMap<>();
         EntityModel model = modelState.getModel();
-        String serializedModel = toCheckpoint(model);
-        if (serializedModel == null || serializedModel.length() > maxCheckpointBytes) {
+        Optional<String> serializedModel = toCheckpoint(model, modelState.getModelId());
+        if (!serializedModel.isPresent() || serializedModel.get().length() > maxCheckpointBytes) {
             logger
                 .warn(
                     new ParameterizedMessage(
-                        "[{}]'s model empty or too large: [{}] bytes",
+                        "[{}]'s model is empty or too large: [{}] bytes",
                         modelState.getModelId(),
-                        serializedModel == null ? 0 : serializedModel.length()
+                        serializedModel.isPresent() ? serializedModel.get().length() : 0
                     )
                 );
             return source;
         }
         String detectorId = modelState.getDetectorId();
         source.put(DETECTOR_ID, detectorId);
-        source.put(FIELD_MODELV2, serializedModel);
+        // we cannot pass Optional as OpenSearch does not know how to serialize an Optional value
+        source.put(FIELD_MODELV2, serializedModel.get());
         source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
         source.put(CommonName.SCHEMA_VERSION_FIELD, indexUtil.getSchemaVersion(ADIndex.CHECKPOINT));
         Optional<Entity> entity = model.getEntity();
@@ -318,64 +313,93 @@ public class CheckpointDao {
         return source;
     }
 
-    public String toCheckpoint(EntityModel model) {
-        return AccessController.doPrivileged((PrivilegedAction<String>) () -> {
+    /**
+     * Serialized an EntityModel
+     * @param model input model
+     * @param modelId model id
+     * @return serialized string
+     */
+    public Optional<String> toCheckpoint(EntityModel model, String modelId) {
+        return AccessController.doPrivileged((PrivilegedAction<Optional<String>>) () -> {
             if (model == null) {
                 logger.warn("Empty model");
-                return null;
+                return Optional.empty();
             }
-            JsonObject json = new JsonObject();
-            if (model.getSamples() != null && !(model.getSamples().isEmpty())) {
-                json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
-            }
-            if (model.getRcf() != null) {
-                String serializedRCF = rcfModelToCheckpoint(model.getRcf());
-                if (!Strings.isEmpty(serializedRCF)) {
-                    json.addProperty(ENTITY_RCF, serializedRCF);
+            try {
+                JsonObject json = new JsonObject();
+                if (model.getSamples() != null && !(model.getSamples().isEmpty())) {
+                    json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
                 }
+                if (model.getTrcf().isPresent()) {
+                    json.addProperty(ENTITY_TRCF, toCheckpoint(model.getTrcf().get()));
+                }
+                // if json is empty, it will be an empty Json string {}. No need to save it on disk.
+                return json.entrySet().isEmpty() ? Optional.empty() : Optional.ofNullable(gson.toJson(json));
+            } catch (Exception ex) {
+                logger.warn(new ParameterizedMessage("fail to generate checkpoint for [{}]", modelId), ex);
             }
-            if (model.getThreshold() != null) {
-                json.addProperty(ENTITY_THRESHOLD, gson.toJson(model.getThreshold()));
-            }
-            return gson.toJson(json);
+            return Optional.empty();
         });
     }
 
-    private String rcfModelToCheckpoint(RandomCutForest model) {
-        LinkedBuffer borrowedBuffer = null;
+    private String toCheckpoint(ThresholdedRandomCutForest trcf) {
+        String checkpoint = null;
+        Map.Entry<LinkedBuffer, Boolean> result = checkoutOrNewBuffer();
+        LinkedBuffer buffer = result.getKey();
+        boolean needCheckin = result.getValue();
         try {
-            borrowedBuffer = serializeRCFBufferPool.borrowObject();
-            try {
-                return rcfModelToCheckpoint(model, borrowedBuffer);
-            } catch (Exception e) {
-                if (borrowedBuffer != null) {
-                    serializeRCFBufferPool.invalidateObject(borrowedBuffer);
-                    borrowedBuffer = null;
+            checkpoint = toCheckpoint(trcf, buffer);
+        } catch (Exception e) {
+            logger.error("Failed to serialize model", e);
+            if (needCheckin) {
+                try {
+                    serializeRCFBufferPool.invalidateObject(buffer);
+                    needCheckin = false;
+                } catch (Exception x) {
+                    logger.warn("Failed to invalidate buffer", x);
                 }
-                // return null when we successfully borrow an object but fail to
-                // create a serialized model
-                return null;
-            } finally {
-                if (borrowedBuffer != null) {
-                    serializeRCFBufferPool.returnObject(borrowedBuffer);
+                try {
+                    checkpoint = toCheckpoint(trcf, LinkedBuffer.allocate(serializeRCFBufferSize));
+                } catch (Exception ex) {
+                    logger.warn("Failed to generate checkpoint", ex);
                 }
             }
-        } catch (Exception e) {
-            logger.error("Failed to borrow an buffer from object pool", e);
-            // allocate a new LinkedBuffer and create a serialized model
-            return rcfModelToCheckpoint(model, null);
+        } finally {
+            if (needCheckin) {
+                try {
+                    serializeRCFBufferPool.returnObject(buffer);
+                } catch (Exception e) {
+                    logger.warn("Failed to return buffer to pool", e);
+                }
+            }
         }
+        return checkpoint;
     }
 
-    String rcfModelToCheckpoint(RandomCutForest model, LinkedBuffer buffer) {
-        final LinkedBuffer serializationBuffer = buffer == null ? LinkedBuffer.allocate(serializeRCFBufferSize) : buffer;
+    private Map.Entry<LinkedBuffer, Boolean> checkoutOrNewBuffer() {
+        LinkedBuffer buffer = null;
+        boolean isCheckout = true;
         try {
-            RandomCutForestState state = mapper.toState(model);
-            byte[] bytes = AccessController
-                .doPrivileged((PrivilegedAction<byte[]>) () -> ProtostuffIOUtil.toByteArray(state, schema, serializationBuffer));
+            buffer = serializeRCFBufferPool.borrowObject();
+        } catch (Exception e) {
+            logger.warn("Failed to borrow a buffer from pool", e);
+        }
+        if (buffer == null) {
+            buffer = LinkedBuffer.allocate(serializeRCFBufferSize);
+            isCheckout = false;
+        }
+        return new SimpleImmutableEntry<LinkedBuffer, Boolean>(buffer, isCheckout);
+    }
+
+    private String toCheckpoint(ThresholdedRandomCutForest trcf, LinkedBuffer buffer) {
+        try {
+            byte[] bytes = AccessController.doPrivileged((PrivilegedAction<byte[]>) () -> {
+                ThresholdedRandomCutForestState trcfState = trcfMapper.toState(trcf);
+                return ProtostuffIOUtil.toByteArray(trcfState, trcfSchema, buffer);
+            });
             return Base64.getEncoder().encodeToString(bytes);
         } finally {
-            serializationBuffer.clear();
+            buffer.clear();
         }
     }
 
@@ -466,7 +490,6 @@ public class CheckpointDao {
                     logger.warn(new ParameterizedMessage("Empty model for [{}]", modelId));
                     return Optional.empty();
                 }
-
                 String model = (String) modelObj;
                 if (model.length() > maxCheckpointBytes) {
                     logger.warn(new ParameterizedMessage("[{}]'s model too large: [{}] bytes", modelId, model.length()));
@@ -483,15 +506,32 @@ public class CheckpointDao {
                     // avoid possible null pointer exception
                     samples = new ArrayDeque<>();
                 }
-                RandomCutForest rcf = null;
-                if (json.has(ENTITY_RCF)) {
-                    String serializedRCF = json.getAsJsonPrimitive(ENTITY_RCF).getAsString();
-                    rcf = deserializeRCFModel(serializedRCF);
-                }
-                ThresholdingModel threshold = null;
-                if (json.has(ENTITY_THRESHOLD)) {
-                    // verified, don't need privileged call to get permission
-                    threshold = this.gson.fromJson(json.getAsJsonPrimitive(ENTITY_THRESHOLD).getAsString(), thresholdingModelClass);
+                ThresholdedRandomCutForest trcf = null;
+
+                if (json.has(ENTITY_TRCF)) {
+                    trcf = toTrcf(json.getAsJsonPrimitive(ENTITY_TRCF).getAsString());
+                } else {
+                    Optional<RandomCutForest> rcf = Optional.empty();
+                    Optional<ThresholdingModel> threshold = Optional.empty();
+                    if (json.has(ENTITY_RCF)) {
+                        String serializedRCF = json.getAsJsonPrimitive(ENTITY_RCF).getAsString();
+                        rcf = deserializeRCFModel(serializedRCF, modelId);
+                    }
+                    if (json.has(ENTITY_THRESHOLD)) {
+                        // verified, don't need privileged call to get permission
+                        threshold = Optional
+                            .ofNullable(
+                                this.gson.fromJson(json.getAsJsonPrimitive(ENTITY_THRESHOLD).getAsString(), thresholdingModelClass)
+                            );
+                    }
+
+                    Optional<ThresholdedRandomCutForest> convertedTRCF = convertToTRCF(rcf, threshold);
+                    // if checkpoint is corrupted (e.g., some unexpected checkpoint when we missed
+                    // the mark in backward compatibility), we are not gonna load the model part
+                    // the model will have to use live data to initialize
+                    if (convertedTRCF.isPresent()) {
+                        trcf = convertedTRCF.get();
+                    }
                 }
 
                 String lastCheckpointTimeString = (String) (checkpoint.get(TIMESTAMP));
@@ -505,66 +545,86 @@ public class CheckpointDao {
                         logger.error(new ParameterizedMessage("fail to parse entity", serializedEntity), e);
                     }
                 }
-                return Optional.of(new SimpleImmutableEntry<>(new EntityModel(entity, samples, rcf, threshold), timestamp));
+                EntityModel entityModel = new EntityModel(entity, samples, trcf);
+                return Optional.of(new SimpleImmutableEntry<>(entityModel, timestamp));
             });
         } catch (Exception e) {
-            logger.warn("Exception while deserializing checkpoint", e);
-            throw e;
+            logger.warn("Exception while deserializing checkpoint " + modelId, e);
+            // checkpoint corrupted (e.g., a checkpoint not recognized by current code
+            // due to bugs). Better redo training.
+            return Optional.empty();
         }
     }
 
-    private RandomCutForest deserializeRCFModel(String rcfCheckpoint) {
-        if (Strings.isEmpty(rcfCheckpoint)) {
-            return null;
-        }
-
-        String checkpoint = rcfCheckpoint.trim();
-        RandomCutForest forest = null;
-        try {
-            if (isVersionEqualsOne(checkpoint)) {
-                RandomCutForestState state = converter.convert(checkpoint, Precision.FLOAT_32);
-                forest = mapper.toModel(state);
-            } else {
+    private ThresholdedRandomCutForest toTrcf(String checkpoint) {
+        ThresholdedRandomCutForest trcf = null;
+        if (checkpoint != null && !checkpoint.isEmpty()) {
+            try {
                 byte[] bytes = Base64.getDecoder().decode(checkpoint);
-                RandomCutForestState state = schema.newMessage();
+                ThresholdedRandomCutForestState state = trcfSchema.newMessage();
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                    ProtostuffIOUtil.mergeFrom(bytes, state, schema);
+                    ProtostuffIOUtil.mergeFrom(bytes, state, trcfSchema);
                     return null;
                 });
-                forest = mapper.toModel(state);
+                trcf = trcfMapper.toModel(state);
+            } catch (RuntimeException e) {
+                logger.error("Failed to deserialize TRCF model", e);
             }
-        } catch (Exception e) {
-            logger.error("Unexpected deserialization error", e);
         }
-        return forest;
+        return trcf;
     }
 
-    /**
-     * Whether the input checkpoint has version 1.0
-     *
-     * @param checkpoint the checkpoint to check
-     * @return whether the input checkpoint has version 1.0, where we serialize
-     *  rcf model to Json, and when needed deserializing a forest from JSON.
-     */
-    private boolean isVersionEqualsOne(String checkpoint) {
-        // Pre-checking that the first character is '{' and the last is '}'. If it's not the case,
-        // it is the new serialization format
-        // To make sure, a more expensive way that parses the JSON and check exception is done after
-        // the pre-checks.
-        return checkpoint.charAt(0) == '{' && checkpoint.charAt(checkpoint.length() - 1) == '}' && isJson(checkpoint);
+    private Optional<RandomCutForest> deserializeRCFModel(String checkpoint, String modelId) {
+        if (checkpoint == null || checkpoint.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> {
+            try {
+                RandomCutForestState state = converter.convert(checkpoint, Precision.FLOAT_32);
+                return mapper.toModel(state);
+            } catch (Exception e) {
+                logger.error("Unexpected error when deserializing " + modelId, e);
+                return null;
+            }
+        }));
     }
 
-    /**
-     * @param testString test string
-     * @return if the given string is json or not
-     */
-    private boolean isJson(String testString) {
-        try (JsonReader reader = new JsonReader(new StringReader(testString))) {
-            strictGsonObjectAdapter.read(reader);
-            reader.hasNext(); // throws on multiple top level values
-            return true;
-        } catch (IOException e) {
-            return false;
+    private void deserializeTRCFModel(
+        GetResponse response,
+        String rcfModelId,
+        ActionListener<Optional<ThresholdedRandomCutForest>> listener
+    ) {
+        Object model = null;
+        if (response.isExists()) {
+            try {
+                model = response.getSource().get(FIELD_MODELV2);
+                if (model != null) {
+                    listener.onResponse(Optional.ofNullable(toTrcf((String) model)));
+                } else {
+                    Object modelV1 = response.getSource().get(FIELD_MODEL);
+                    Optional<RandomCutForest> forest = deserializeRCFModel((String) modelV1, rcfModelId);
+                    if (!forest.isPresent()) {
+                        logger.error("Unexpected error when deserializing [{}]", rcfModelId);
+                        listener.onResponse(Optional.empty());
+                        return;
+                    }
+                    String thresholdingModelId = SingleStreamModelIdMapper.getThresholdModelIdFromRCFModelId(rcfModelId);
+                    // query for threshold model and combinne rcf and threshold model into a ThresholdedRandomCutForest
+                    getThresholdModel(
+                        thresholdingModelId,
+                        ActionListener
+                            .wrap(
+                                thresholdingModel -> { listener.onResponse(convertToTRCF(forest, thresholdingModel)); },
+                                listener::onFailure
+                            )
+                    );
+                }
+            } catch (Exception e) {
+                logger.error(new ParameterizedMessage("Unexpected error when deserializing [{}]", rcfModelId), e);
+                listener.onResponse(Optional.empty());
+            }
+        } else {
+            listener.onResponse(Optional.empty());
         }
     }
 
@@ -603,22 +663,24 @@ public class CheckpointDao {
      * @param modelId id of the model
      * @param listener onResponse is called with the model checkpoint, or empty for no such model
      */
-    public void getRCFModel(String modelId, ActionListener<Optional<RandomCutForest>> listener) {
-        clientUtil.<GetRequest, GetResponse>asyncRequest(new GetRequest(indexName, modelId), client::get, ActionListener.wrap(response -> {
-            Optional<Object> rcfCheckpoint = processRCFModelCheckpoint(response);
-            if (!rcfCheckpoint.isPresent()) {
-                listener.onFailure(new ResourceNotFoundException("", "Fail to find model " + modelId));
-                return;
-            }
-            listener
-                .onResponse(
-                    rcfCheckpoint
-                        .map(
-                            checkpoint -> AccessController
-                                .doPrivileged((PrivilegedAction<RandomCutForest>) () -> deserializeRCFModel((String) checkpoint))
-                        )
-                );
-        }, listener::onFailure));
+    public void getTRCFModel(String modelId, ActionListener<Optional<ThresholdedRandomCutForest>> listener) {
+        clientUtil
+            .<GetRequest, GetResponse>asyncRequest(
+                new GetRequest(indexName, modelId),
+                client::get,
+                ActionListener
+                    .wrap(
+                        response -> deserializeTRCFModel(response, modelId, listener),
+                        exception -> {
+                            // expected exception, don't print stack trace
+                            if (exception instanceof IndexNotFoundException) {
+                                listener.onResponse(Optional.empty());
+                            } else {
+                                listener.onFailure(exception);
+                            }
+                        }
+                    )
+            );
     }
 
     /**
@@ -642,18 +704,16 @@ public class CheckpointDao {
                         )
                 );
             listener.onResponse(model);
-        }, listener::onFailure));
-    }
-
-    private Optional<Object> processRCFModelCheckpoint(GetResponse response) {
-        Object model = null;
-        if (response.isExists()) {
-            model = response.getSource().get(FIELD_MODELV2);
-            if (model == null) {
-                model = response.getSource().get(FIELD_MODEL);
+        },
+            exception -> {
+                // expected exception, don't print stack trace
+                if (exception instanceof IndexNotFoundException) {
+                    listener.onResponse(Optional.empty());
+                } else {
+                    listener.onFailure(exception);
+                }
             }
-        }
-        return Optional.ofNullable(model);
+        ));
     }
 
     private Optional<Object> processThresholdModelCheckpoint(GetResponse response) {
@@ -693,5 +753,18 @@ public class CheckpointDao {
                 }
             }));
         }
+    }
+
+    private Optional<ThresholdedRandomCutForest> convertToTRCF(Optional<RandomCutForest> rcf, Optional<ThresholdingModel> kllThreshold) {
+        if (!rcf.isPresent()) {
+            return Optional.empty();
+        }
+        // if there is no threshold model (e.g., threshold model is deleted by HourlyCron), we are gonna
+        // start with empty list of rcf scores
+        List<Double> scores = new ArrayList<>();
+        if (kllThreshold.isPresent()) {
+            scores = kllThreshold.get().extractScores();
+        }
+        return Optional.of(new ThresholdedRandomCutForest(rcf.get(), anomalyRate, scores));
     }
 }

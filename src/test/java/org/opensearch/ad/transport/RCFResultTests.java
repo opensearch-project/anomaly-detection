@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -43,6 +28,7 @@ import java.util.Optional;
 
 import org.hamcrest.Matchers;
 import org.junit.Before;
+import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
@@ -78,7 +64,10 @@ public class RCFResultTests extends OpenSearchTestCase {
     private double[] attribution = new double[] { 1. };
     private HashRing hashRing;
     private DiscoveryNode node;
+    private long totalUpdates = 32;
+    private double grade = 0.5;
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -110,7 +99,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         );
         doAnswer(invocation -> {
             ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(0, 0, 25, attribution));
+            listener.onResponse(new RcfResult(0, 0, 25, attribution, totalUpdates, grade));
             return null;
         }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
@@ -160,7 +149,7 @@ public class RCFResultTests extends OpenSearchTestCase {
     }
 
     public void testSerialzationResponse() throws IOException {
-        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution);
+        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT);
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
 
@@ -172,7 +161,7 @@ public class RCFResultTests extends OpenSearchTestCase {
     }
 
     public void testJsonResponse() throws IOException, JsonPathNotFoundException {
-        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution);
+        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT);
         XContentBuilder builder = jsonBuilder();
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
@@ -238,7 +227,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         );
         doAnswer(invocation -> {
             ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(0, 0, 25, attribution));
+            listener.onResponse(new RcfResult(0, 0, 25, attribution, totalUpdates, grade));
             return null;
         }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(breakerService.isOpen()).thenReturn(true);

@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.cluster;
 
 import static java.util.Arrays.asList;
@@ -53,6 +38,7 @@ import org.opensearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
@@ -87,6 +73,7 @@ public class HashRingTests extends ADUnitTestCase {
     private DiscoveryNode localNode;
     private DiscoveryNode newNode;
     private DiscoveryNode warmNode;
+    private ModelManager modelManager;
 
     @Override
     @Before
@@ -118,7 +105,15 @@ public class HashRingTests extends ADUnitTestCase {
         clusterAdminClient = mock(ClusterAdminClient.class);
         when(adminClient.cluster()).thenReturn(clusterAdminClient);
 
-        hashRing = spy(new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator));
+        String modelId = "123_model_threshold";
+        modelManager = mock(ModelManager.class);
+        doAnswer(invocation -> {
+            Set<String> res = new HashSet<>();
+            res.add(modelId);
+            return res;
+        }).when(modelManager).getAllModelIds();
+
+        hashRing = spy(new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator, modelManager));
     }
 
     public void testGetOwningNodeWithEmptyResult() throws UnknownHostException {
@@ -230,6 +225,7 @@ public class HashRingTests extends ADUnitTestCase {
         setupClusterAdminClient(localNode, newNode, warmNode);
 
         doReturn(new DiscoveryNode[] { localNode, newNode }).when(nodeFilter).getEligibleDataNodes();
+        doReturn(new DiscoveryNode[] { localNode, newNode, warmNode }).when(nodeFilter).getAllNodes();
         return addedNodes;
     }
 

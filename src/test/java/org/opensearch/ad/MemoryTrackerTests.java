@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad;
 
 import static org.mockito.Mockito.mock;
@@ -46,23 +31,25 @@ import org.opensearch.monitor.jvm.JvmInfo.Mem;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.test.OpenSearchTestCase;
 
-import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class MemoryTrackerTests extends OpenSearchTestCase {
 
-    int rcfNumFeatures;
+    int inputFeatures;
     int rcfSampleSize;
     int numberOfTrees;
     double rcfTimeDecay;
     int numMinSamples;
+    int shingleSize;
+    int dimension;
     MemoryTracker tracker;
     long expectedRCFModelSize;
     String detectorId;
     long largeHeapSize;
     long smallHeapSize;
     Mem mem;
-    RandomCutForest rcf;
+    ThresholdedRandomCutForest trcf;
     float modelMaxPercen;
     ClusterService clusterService;
     double modelMaxSizePercentage;
@@ -74,11 +61,13 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        rcfNumFeatures = 1;
+        inputFeatures = 1;
         rcfSampleSize = 256;
         numberOfTrees = 30;
         rcfTimeDecay = 0.2;
         numMinSamples = 128;
+        shingleSize = 8;
+        dimension = inputFeatures * shingleSize;
 
         jvmService = mock(JvmService.class);
         JvmInfo info = mock(JvmInfo.class);
@@ -105,9 +94,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         expectedRCFModelSize = 382784;
         detectorId = "123";
 
-        rcf = RandomCutForest
+        trcf = ThresholdedRandomCutForest
             .builder()
-            .dimensions(rcfNumFeatures)
+            .dimensions(dimension)
             .sampleSize(rcfSampleSize)
             .numberOfTrees(numberOfTrees)
             .timeDecay(rcfTimeDecay)
@@ -116,8 +105,8 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
-            // same with dimension for opportunistic memory saving
-            .shingleSize(rcfNumFeatures)
+            .shingleSize(shingleSize)
+            .internalShinglingEnabled(true)
             .build();
 
         detector = mock(AnomalyDetector.class);
@@ -143,15 +132,10 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     public void testEstimateModelSize() {
         setUpBigHeap();
 
-        assertEquals(expectedRCFModelSize + tracker.getThresholdModelBytes(), tracker.estimateTotalModelSize(rcf));
-        assertTrue(tracker.isHostingAllowed(detectorId, rcf));
+        assertEquals(403491, tracker.estimateTRCFModelSize(trcf));
+        assertTrue(tracker.isHostingAllowed(detectorId, trcf));
 
-        assertEquals(
-            expectedRCFModelSize + tracker.getThresholdModelBytes(),
-            tracker.estimateTotalModelSize(detector, numberOfTrees, AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
-        );
-
-        RandomCutForest rcf2 = RandomCutForest
+        ThresholdedRandomCutForest rcf2 = ThresholdedRandomCutForest
             .builder()
             .dimensions(32) // 32 to trigger another calculation of point store usage
             .sampleSize(rcfSampleSize)
@@ -162,11 +146,148 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
-            .shingleSize(rcfNumFeatures)
+            .shingleSize(shingleSize)
             .build();
-        assertEquals(423733 + tracker.getThresholdModelBytes(), tracker.estimateTotalModelSize(rcf2));
+        assertEquals(603708, tracker.estimateTRCFModelSize(rcf2));
         assertTrue(tracker.isHostingAllowed(detectorId, rcf2));
+
+        ThresholdedRandomCutForest rcf3 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(9)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(false)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(1)
+            .build();
+        assertEquals(1685208, tracker.estimateTRCFModelSize(rcf3));
+
+        ThresholdedRandomCutForest rcf4 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(6)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(1)
+            .build();
+        assertEquals(521304, tracker.estimateTRCFModelSize(rcf4));
+
+        ThresholdedRandomCutForest rcf5 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(8)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(2)
+            .build();
+        assertEquals(467340, tracker.estimateTRCFModelSize(rcf5));
+
+        ThresholdedRandomCutForest rcf6 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(32)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(4)
+            .build();
+        assertEquals(603676, tracker.estimateTRCFModelSize(rcf6));
+
+        ThresholdedRandomCutForest rcf7 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(16)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(16)
+            .build();
+        assertEquals(401481, tracker.estimateTRCFModelSize(rcf7));
+
+        ThresholdedRandomCutForest rcf8 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(320)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(32)
+            .build();
+        assertEquals(1040432, tracker.estimateTRCFModelSize(rcf8));
+
+        ThresholdedRandomCutForest rcf9 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(320)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(64)
+            .build();
+        assertEquals(1040688, tracker.estimateTRCFModelSize(rcf9));
+
+        ThresholdedRandomCutForest rcf10 = ThresholdedRandomCutForest
+            .builder()
+            .dimensions(325)
+            .sampleSize(rcfSampleSize)
+            .numberOfTrees(numberOfTrees)
+            .timeDecay(rcfTimeDecay)
+            .outputAfter(numMinSamples)
+            .parallelExecutionEnabled(false)
+            .compact(true)
+            .precision(Precision.FLOAT_32)
+            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .internalShinglingEnabled(true)
+            // same with dimension for opportunistic memory saving
+            .shingleSize(65)
+            .build();
+        expectThrows(IllegalArgumentException.class, () -> tracker.estimateTRCFModelSize(rcf10));
     }
 
     public void testCanAllocate() {
@@ -185,7 +306,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
 
     public void testCannotHost() {
         setUpSmallHeap();
-        expectThrows(LimitExceededException.class, () -> tracker.isHostingAllowed(detectorId, rcf));
+        expectThrows(LimitExceededException.class, () -> tracker.isHostingAllowed(detectorId, trcf));
     }
 
     public void testMemoryToShed() {

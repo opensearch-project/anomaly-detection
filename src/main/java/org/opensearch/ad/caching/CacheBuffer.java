@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.caching;
 
 import java.time.Clock;
@@ -78,7 +63,7 @@ public class CacheBuffer implements ExpiringState {
     // keep the size for minimum capacity entities
     private int minimumCapacity;
 
-    // key -> value
+    // key is model id
     private final ConcurrentHashMap<String, ModelState<EntityModel>> items;
     // memory consumption per entity
     private final long memoryConsumptionPerEntity;
@@ -253,7 +238,7 @@ public class CacheBuffer implements ExpiringState {
                 // null model has only samples. For null model we save a checkpoint
                 // regardless of last checkpoint time. whether If we don't save,
                 // we throw the new samples and might never be able to initialize the model
-                boolean isNullModel = modelRemoved.getRcf() == null || modelRemoved.getThreshold() == null;
+                boolean isNullModel = !modelRemoved.getTrcf().isPresent();
                 checkpointWriteQueue.write(valueRemoved, isNullModel, RequestPriority.MEDIUM);
 
                 modelRemoved.clear();
@@ -326,7 +311,6 @@ public class CacheBuffer implements ExpiringState {
             try {
                 ModelState<EntityModel> modelState = entry.getValue();
                 Instant now = clock.instant();
-
                 if (modelState.getLastUsedTime().plus(modelTtl).isBefore(now)) {
                     // race conditions can happen between the put and one of the following operations:
                     // remove: not a problem as all of the data structures are concurrent.

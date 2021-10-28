@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
@@ -31,6 +16,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIEC
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,6 +43,7 @@ import com.google.common.collect.ImmutableMap;
 
 public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRestTestCase {
 
+    public static final int MAX_RETRY_TIMES = 200;
     protected String historicalAnalysisTestIndex = "test_historical_analysis_data";
     protected int detectionIntervalInMinutes = 1;
     protected int categoryFieldDocCount = 2;
@@ -231,14 +218,17 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return adTaskProfile;
     }
 
-    protected ADTaskProfile waitUntilTaskDone(String detectorId) throws InterruptedException {
+    // TODO: change response to pair
+    protected List<Object> waitUntilTaskDone(String detectorId) throws InterruptedException {
         return waitUntilTaskReachState(detectorId, TestHelpers.HISTORICAL_ANALYSIS_DONE_STATS);
     }
 
-    protected ADTaskProfile waitUntilTaskReachState(String detectorId, Set<String> targetStates) throws InterruptedException {
+    protected List<Object> waitUntilTaskReachState(String detectorId, Set<String> targetStates) throws InterruptedException {
+        List<Object> results = new ArrayList<>();
         int i = 0;
         ADTaskProfile adTaskProfile = null;
-        while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getAdTask().getState())) && i < 60) {
+        // Increase retryTimes if some task can't reach done state
+        while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getAdTask().getState())) && i < MAX_RETRY_TIMES) {
             try {
                 adTaskProfile = getADTaskProfile(detectorId);
             } catch (Exception e) {
@@ -249,6 +239,8 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
             i++;
         }
         assertNotNull(adTaskProfile);
-        return adTaskProfile;
+        results.add(adTaskProfile);
+        results.add(i);
+        return results;
     }
 }

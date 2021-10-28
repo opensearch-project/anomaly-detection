@@ -30,10 +30,6 @@ public class ADTaskSlotLimit {
         this.detectorTaskSlots = detectorTaskSlots;
     }
 
-    public Integer getDetectorTaskLaneLimit() {
-        return detectorTaskLaneLimit;
-    }
-
     public void setDetectorTaskLaneLimit(Integer detectorTaskLaneLimit) {
         this.detectorTaskLaneLimit = detectorTaskLaneLimit;
     }

@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import static org.hamcrest.Matchers.containsString;
@@ -99,7 +84,6 @@ import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelPartitioner;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
@@ -113,6 +97,7 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.Bwc;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
@@ -160,7 +145,6 @@ public class MultiEntityResultTests extends AbstractADTest {
     private Client client;
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
-    private ModelPartitioner normalModelPartitioner;
     private HashRing hashRing;
     private ClusterService clusterService;
     private IndexNameExpressionResolver indexNameResolver;
@@ -182,6 +166,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     private String hostField = "host";
     private Map<String, Object> attrs1, attrs2, attrs3;
     private EntityCache entityCache;
+    private ADTaskManager adTaskManager;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -233,8 +218,6 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         normalModelManager = mock(ModelManager.class);
 
-        normalModelPartitioner = mock(ModelPartitioner.class);
-
         hashRing = mock(HashRing.class);
 
         Set<Setting<?>> anomalyResultSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
@@ -269,6 +252,20 @@ public class MultiEntityResultTests extends AbstractADTest {
         };
         adStats = new ADStats(statsMap);
 
+        adTaskManager = mock(ADTaskManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(3);
+            listener.onResponse(true);
+            return null;
+        })
+            .when(adTaskManager)
+            .initRealtimeTaskCacheAndCleanupStaleCache(
+                anyString(),
+                any(AnomalyDetector.class),
+                any(TransportService.class),
+                any(ActionListener.class)
+            );
+
         action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
@@ -277,14 +274,14 @@ public class MultiEntityResultTests extends AbstractADTest {
             stateManager,
             featureQuery,
             normalModelManager,
-            normalModelPartitioner,
             hashRing,
             clusterService,
             indexNameResolver,
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
 
         provider = mock(CacheProvider.class);
@@ -428,7 +425,6 @@ public class MultiEntityResultTests extends AbstractADTest {
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
-        ModelPartitioner modelPartitioner = mock(ModelPartitioner.class);
         stateManager = new NodeStateManager(
             client,
             xContentRegistry(),
@@ -436,7 +432,6 @@ public class MultiEntityResultTests extends AbstractADTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner,
             clusterService
         );
 
@@ -448,14 +443,14 @@ public class MultiEntityResultTests extends AbstractADTest {
             stateManager,
             featureQuery,
             normalModelManager,
-            normalModelPartitioner,
             hashRing,
             clusterService,
             indexNameResolver,
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
     }
 
@@ -687,14 +682,14 @@ public class MultiEntityResultTests extends AbstractADTest {
             stateManager,
             featureQuery,
             normalModelManager,
-            normalModelPartitioner,
             hashRing,
             realClusterService,
             indexNameResolver,
             adCircuitBreakerService,
             adStats,
             threadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
     }
 
@@ -728,7 +723,6 @@ public class MultiEntityResultTests extends AbstractADTest {
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
-        ModelPartitioner modelPartitioner = mock(ModelPartitioner.class);
         stateManager = new NodeStateManager(
             client,
             xContentRegistry(),
@@ -736,7 +730,6 @@ public class MultiEntityResultTests extends AbstractADTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            modelPartitioner,
             clusterService
         );
 
@@ -748,14 +741,14 @@ public class MultiEntityResultTests extends AbstractADTest {
             stateManager,
             featureQuery,
             normalModelManager,
-            normalModelPartitioner,
             hashRing,
             clusterService,
             indexNameResolver,
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry()
+            xContentRegistry(),
+            adTaskManager
         );
 
         CountDownLatch inProgress = setUpSearchResponse();

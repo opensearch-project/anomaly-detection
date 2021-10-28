@@ -9,25 +9,9 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -52,7 +36,7 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelPartitioner;
+import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.StreamInput;
@@ -79,14 +63,13 @@ import com.google.gson.GsonBuilder;
 public class RCFPollingTests extends AbstractADTest {
     Gson gson = new GsonBuilder().create();
     private String detectorId = "jqIG6XIBEyaF3zCMZfcB";
-    private String model0Id = detectorId + "_rcf_0";
+    private String model0Id;
     private long totalUpdates = 3L;
     private String nodeId = "abc";
     private ClusterService clusterService;
     private HashRing hashRing;
     private TransportAddress transportAddress1;
     private ModelManager manager;
-    private ModelPartitioner modelPartitioner;
     private TransportService transportService;
     private PlainActionFuture<RCFPollingResponse> future;
     private RCFPollingTransportAction action;
@@ -109,7 +92,6 @@ public class RCFPollingTests extends AbstractADTest {
             node.transportService,
             Settings.EMPTY,
             manager,
-            modelPartitioner,
             hashRing,
             node.clusterService
         );
@@ -135,8 +117,7 @@ public class RCFPollingTests extends AbstractADTest {
         future = new PlainActionFuture<>();
 
         request = new RCFPollingRequest(detectorId);
-        modelPartitioner = mock(ModelPartitioner.class);
-        when(modelPartitioner.getRcfModelId(any(String.class), anyInt())).thenReturn(model0Id);
+        model0Id = SingleStreamModelIdMapper.getRcfModelId(detectorId, 0);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -217,7 +198,6 @@ public class RCFPollingTests extends AbstractADTest {
             transportService,
             Settings.EMPTY,
             manager,
-            modelPartitioner,
             hashRing,
             clusterService
         );
@@ -228,14 +208,12 @@ public class RCFPollingTests extends AbstractADTest {
     }
 
     public void testNoNodeFoundForModel() {
-        when(modelPartitioner.getRcfModelId(any(String.class), anyInt())).thenReturn(model0Id);
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class))).thenReturn(Optional.empty());
         action = new RCFPollingTransportAction(
             mock(ActionFilters.class),
             transportService,
             Settings.EMPTY,
             manager,
-            modelPartitioner,
             hashRing,
             clusterService
         );
@@ -323,7 +301,6 @@ public class RCFPollingTests extends AbstractADTest {
                 realTransportService,
                 Settings.EMPTY,
                 manager,
-                modelPartitioner,
                 hashRing,
                 clusterService
             );
@@ -352,7 +329,6 @@ public class RCFPollingTests extends AbstractADTest {
                 realTransportService,
                 Settings.EMPTY,
                 manager,
-                modelPartitioner,
                 hashRing,
                 clusterService
             );

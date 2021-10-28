@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -137,9 +122,14 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
     }
 
-    public void testEmptyID() {
+    public void testEmptyDetectorID() {
         ActionRequestValidationException e = new ThresholdResultRequest(null, "123-threshold", 2).validate();
         assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+    }
+
+    public void testEmptyModelID() {
+        ActionRequestValidationException e = new ThresholdResultRequest("123", "", 2).validate();
+        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.MODEL_ID_MISSING_MSG));
     }
 
     public void testSerialzationRequest() throws IOException {

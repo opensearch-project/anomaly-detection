@@ -9,21 +9,6 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.ml;
 
 import static org.junit.Assert.assertEquals;
@@ -43,8 +28,10 @@ public class RcfResultTests {
     private double score = 1.;
     private double confidence = 0;
     private int forestSize = 10;
+    private int totalUpdate = 32;
+    private double grade = 0.1;
     private double[] attribution = new double[] { 1. };
-    private RcfResult rcfResult = new RcfResult(score, confidence, forestSize, attribution);
+    private RcfResult rcfResult = new RcfResult(score, confidence, forestSize, attribution, totalUpdate, grade);
 
     @Test
     public void getters_returnExcepted() {
@@ -58,12 +45,12 @@ public class RcfResultTests {
             new Object[] { rcfResult, null, false },
             new Object[] { rcfResult, rcfResult, true },
             new Object[] { rcfResult, 1, false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution), true },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence + 1, forestSize, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }), false }, };
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution, totalUpdate, grade), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence + 1, forestSize, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }, totalUpdate, grade), false }, };
     }
 
     @Test
@@ -74,11 +61,11 @@ public class RcfResultTests {
 
     private Object[] hashCodeData() {
         return new Object[] {
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution), true },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution), false },
-            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }), false }, };
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, attribution, totalUpdate, grade), true },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score + 1, confidence, forestSize + 1, attribution, totalUpdate, grade), false },
+            new Object[] { rcfResult, new RcfResult(score, confidence, forestSize, new double[] { 2. }, totalUpdate, grade), false }, };
     }
 
     @Test

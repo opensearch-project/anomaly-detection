@@ -9,23 +9,9 @@
  * GitHub history for details.
  */
 
-/*
- * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.EnabledSetting.AD_PLUGIN_ENABLED;
@@ -43,7 +29,6 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.util.ExceptionUtil;
@@ -117,7 +102,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(20000);
         GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
-        assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
+        assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(ADTask.STATE_FIELD)));
     }
 
     public void testHistoricalAnalysisWithNonExistingIndex() throws IOException {
@@ -176,7 +161,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(25000);
         GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
-        assertEquals(ADTaskState.FINISHED.name(), doc.getSourceAsMap().get(ADTask.STATE_FIELD));
+        assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(ADTask.STATE_FIELD)));
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
     }
 
