@@ -156,7 +156,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         User user
     ) {
         if (Strings.isBlank(name)) {
-            throw new ADValidationException("Detector name should be set", DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
+            throw new ADValidationException(
+                CommonErrorMessages.EMPTY_DETECTOR_NAME,
+                DetectorValidationIssueType.NAME,
+                ValidationAspect.DETECTOR
+            );
         } else if (!name.matches(NAME_REGEX)) {
             throw new ADValidationException(
                 CommonErrorMessages.INVALID_DETECTOR_NAME,
@@ -172,17 +176,21 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (Strings.isBlank(timeField)) {
             throw new ADValidationException(
-                "Time field should be set",
+                CommonErrorMessages.NULL_TIME_FIELD,
                 DetectorValidationIssueType.TIMEFIELD_FIELD,
                 ValidationAspect.DETECTOR
             );
         }
         if (indices == null || indices.isEmpty()) {
-            throw new ADValidationException("Indices should be set", DetectorValidationIssueType.INDICES, ValidationAspect.DETECTOR);
+            throw new ADValidationException(
+                CommonErrorMessages.EMPTY_INDICES,
+                DetectorValidationIssueType.INDICES,
+                ValidationAspect.DETECTOR
+            );
         }
         if (detectionInterval == null) {
             throw new ADValidationException(
-                "Detection interval should be set",
+                CommonErrorMessages.NULL_DETECTION_INTERVAL,
                 DetectorValidationIssueType.DETECTION_INTERVAL,
                 ValidationAspect.DETECTOR
             );
@@ -207,7 +215,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
             throw new ADValidationException(
-                "Detection interval must be a positive integer",
+                CommonErrorMessages.INVALID_DETECTION_INTERVAL,
                 DetectorValidationIssueType.DETECTION_INTERVAL,
                 ValidationAspect.DETECTOR
             );
