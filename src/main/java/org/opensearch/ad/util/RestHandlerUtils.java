@@ -70,6 +70,8 @@ public final class RestHandlerUtils {
     public static final String ENTITY = "entity";
     public static final String COUNT = "count";
     public static final String MATCH = "match";
+    public static final String RESULTS = "results";
+    public static final String TOP_ANOMALIES = "_topAnomalies";
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";
