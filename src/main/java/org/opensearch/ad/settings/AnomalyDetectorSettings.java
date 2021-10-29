@@ -738,6 +738,11 @@ public final class AnomalyDetectorSettings {
     public static final long PREVIEW_TIMEOUT_IN_MILLIS = 60_000;
 
     // ======================================
+    // top anomaly result API setting
+    // ======================================
+    public static final long TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS = 60_000;
+
+    // ======================================
     // cleanup resouce setting
     // ======================================
     public static final Setting<Boolean> DELETE_AD_RESULT_WHEN_DELETE_DETECTOR = Setting
