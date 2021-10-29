@@ -495,7 +495,12 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
         // TODO: fix unstable code coverage caused by null NodeClient issue
         // https://github.com/opensearch-project/anomaly-detection/issues/241
-        'org.opensearch.ad.task.ADBatchTaskRunner'
+        'org.opensearch.ad.task.ADBatchTaskRunner',
+
+        // TODO: add tests for multi-category API
+        'org.opensearch.ad.transport.SearchTopAnomalyResult*',
+        'org.opensearch.ad.rest.RestSearchTopAnomalyResultAction',
+        'org.opensearch.ad.model.AnomalyResultBucket',
 ]
 
 jacocoTestCoverageVerification {
