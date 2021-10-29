@@ -256,6 +256,8 @@ public class EntityColdStarter implements MaintenanceState {
                         Queue<double[]> samples = modelState.getModel().getSamples();
                         // only train models if we have enough samples
                         if (samples.size() >= numMinSamples) {
+                            // The function trainModelFromDataSegments will save a trained a model. trainModelFromDataSegments is called by
+                            // multiple places so I want to make the saving model implicit just in case I forgot.
                             trainModelFromDataSegments(samples, entity, modelState, detector.getShingleSize());
                             logger.info("Succeeded in training entity: {}", modelId);
                         } else {
@@ -314,7 +316,7 @@ public class EntityColdStarter implements MaintenanceState {
     }
 
     /**
-     * Train model using given data points.
+     * Train model using given data points and save the trained model.
      *
      * @param dataPoints Queue of continuous data points, in ascending order of timestamps
      * @param entity Entity instance
