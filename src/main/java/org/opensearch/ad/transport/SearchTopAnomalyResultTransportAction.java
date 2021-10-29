@@ -218,6 +218,7 @@ public class SearchTopAnomalyResultTransportAction
 
         GetAnomalyDetectorRequest getAdRequest = new GetAnomalyDetectorRequest(
                 request.getDetectorId(),
+                // The default version value used in org.opensearch.rest.action.RestActions.parseVersion()
                 -3L,
                 false,
                 true,

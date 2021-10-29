@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
+import static org.opensearch.action.ValidateActions.addValidationError;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 /**
@@ -187,10 +188,10 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
     @Override
     public ActionRequestValidationException validate() {
         if (startTime == null || endTime == null) {
-            throw new IllegalArgumentException("Must set both start time and end time with epoch of milliseconds");
+            return addValidationError("Must set both start time and end time with epoch of milliseconds", null);
         }
         if (!startTime.isBefore(endTime)) {
-            throw new IllegalArgumentException("Start time should be before end time");
+            return addValidationError("Start time should be before end time", null);
         }
         return null;
     }
