@@ -11,15 +11,15 @@
 
 package org.opensearch.ad.transport;
 
+import java.io.IOException;
+import java.util.List;
+
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
-
-import java.io.IOException;
-import java.util.List;
 
 /**
  * Response for getting the top anomaly results for HC detectors

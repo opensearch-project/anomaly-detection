@@ -11,7 +11,20 @@
 
 package org.opensearch.ad.transport;
 
-import com.google.common.collect.ImmutableMap;
+import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS;
+
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.stream.Collectors;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
@@ -52,19 +65,7 @@ import org.opensearch.search.sort.SortOrder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-import java.time.Clock;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.stream.Collectors;
-
-import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Transport action to fetch top anomaly results for some HC detector. Generates a
@@ -75,103 +76,103 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.TOP_ANOMALY_RES
 // a historical task ID:
 //
 // {
-//   "query": {
-//     "bool": {
-//       "filter": [
-//         {
-//           "range": {
-//             "data_end_time": {
-//               "from": "2021-09-10T07:00:00.000Z",
-//               "to": "2021-09-30T07:00:00.000Z",
-//               "include_lower": true,
-//               "include_upper": true,
-//               "boost": 1.0
-//             }
-//           }
-//         },
-//         {
-//           "range": {
-//             "anomaly_grade": {
-//               "from": 0,
-//               "include_lower": false,
-//               "include_upper": true,
-//               "boost": 1.0
-//             }
-//           }
-//         },
-//         {
-//           "term": {
-//             "task_id": {
-//               "value": "2AwACXwBM-RcgLq7Za87",
-//               "boost": 1.0
-//             }
-//           }
-//         }
-//       ],
-//       "adjust_pure_negative": true,
-//       "boost": 1.0
-//     }
-//   },
-//   "aggregations": {
-//     "multi_buckets": {
-//       "composite": {
-//         "size": 100,
-//         "sources": [
-//           {
-//             "Carrier": {
-//               "terms": {
-//                 "script": {
-//                   "source": """
-//                      String value = null;
-//                      if (params == null || params._source == null || params._source.entity == null) {
-//                          return "";
-//                      }
-//                      for (item in params._source.entity) {
-//                          if (item["name"] == params["categoryField"]) {
-//                              value = item['value'];
-//                              break;
-//                          }
-//                      }
-//                      return value;
-//                      """,
-//                   "lang": "painless",
-//                   "params": {
-//                     "categoryField": "Carrier"
-//                   }
-//                 },
-//                 "missing_bucket": false,
-//                 "order": "asc"
-//               }
-//             }
-//           }
-//         ]
-//       },
-//       "aggregations": {
-//         "max_anomaly_grade": {
-//           "max": {
-//             "field": "anomaly_grade"
-//           }
-//         },
-//         "bucket_sort": {
-//           "bucket_sort": {
-//             "sort": [
-//               {
-//                 "max_anomaly_grade": {
-//                   "order": "desc"
-//                 }
-//               }
-//             ],
-//             "from": 0,
-//             "gap_policy": "SKIP"
-//           }
-//         }
-//       }
-//     }
-//   }
+// "query": {
+// "bool": {
+// "filter": [
+// {
+// "range": {
+// "data_end_time": {
+// "from": "2021-09-10T07:00:00.000Z",
+// "to": "2021-09-30T07:00:00.000Z",
+// "include_lower": true,
+// "include_upper": true,
+// "boost": 1.0
+// }
+// }
+// },
+// {
+// "range": {
+// "anomaly_grade": {
+// "from": 0,
+// "include_lower": false,
+// "include_upper": true,
+// "boost": 1.0
+// }
+// }
+// },
+// {
+// "term": {
+// "task_id": {
+// "value": "2AwACXwBM-RcgLq7Za87",
+// "boost": 1.0
+// }
+// }
+// }
+// ],
+// "adjust_pure_negative": true,
+// "boost": 1.0
+// }
+// },
+// "aggregations": {
+// "multi_buckets": {
+// "composite": {
+// "size": 100,
+// "sources": [
+// {
+// "Carrier": {
+// "terms": {
+// "script": {
+// "source": """
+// String value = null;
+// if (params == null || params._source == null || params._source.entity == null) {
+// return "";
+// }
+// for (item in params._source.entity) {
+// if (item["name"] == params["categoryField"]) {
+// value = item['value'];
+// break;
+// }
+// }
+// return value;
+// """,
+// "lang": "painless",
+// "params": {
+// "categoryField": "Carrier"
+// }
+// },
+// "missing_bucket": false,
+// "order": "asc"
+// }
+// }
+// }
+// ]
+// },
+// "aggregations": {
+// "max_anomaly_grade": {
+// "max": {
+// "field": "anomaly_grade"
+// }
+// },
+// "bucket_sort": {
+// "bucket_sort": {
+// "sort": [
+// {
+// "max_anomaly_grade": {
+// "order": "desc"
+// }
+// }
+// ],
+// "from": 0,
+// "gap_policy": "SKIP"
+// }
+// }
+// }
+// }
+// }
 // }
 
-public class SearchTopAnomalyResultTransportAction
-        extends HandledTransportAction<SearchTopAnomalyResultRequest, SearchTopAnomalyResultResponse> {
+public class SearchTopAnomalyResultTransportAction extends
+    HandledTransportAction<SearchTopAnomalyResultRequest, SearchTopAnomalyResultResponse> {
     private ADSearchHandler searchHandler;
     // Number of buckets to return per page
     private static final int PAGE_SIZE = 1000;
@@ -189,6 +190,7 @@ public class SearchTopAnomalyResultTransportAction
     private enum OrderType {
         SEVERITY("severity"),
         OCCURRENCE("occurrence");
+
         private String name;
 
         OrderType(String name) {
@@ -202,10 +204,10 @@ public class SearchTopAnomalyResultTransportAction
 
     @Inject
     public SearchTopAnomalyResultTransportAction(
-            TransportService transportService,
-            ActionFilters actionFilters,
-            ADSearchHandler searchHandler,
-            Client client
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ADSearchHandler searchHandler,
+        Client client
     ) {
         super(SearchTopAnomalyResultAction.NAME, transportService, actionFilters, SearchTopAnomalyResultRequest::new);
         this.searchHandler = searchHandler;
@@ -217,33 +219,29 @@ public class SearchTopAnomalyResultTransportAction
     protected void doExecute(Task task, SearchTopAnomalyResultRequest request, ActionListener<SearchTopAnomalyResultResponse> listener) {
 
         GetAnomalyDetectorRequest getAdRequest = new GetAnomalyDetectorRequest(
-                request.getDetectorId(),
-                // The default version value used in org.opensearch.rest.action.RestActions.parseVersion()
-                -3L,
-                false,
-                true,
-                "",
-                "",
-                false,
-                null
+            request.getDetectorId(),
+            // The default version value used in org.opensearch.rest.action.RestActions.parseVersion()
+            -3L,
+            false,
+            true,
+            "",
+            "",
+            false,
+            null
         );
         client.execute(GetAnomalyDetectorAction.INSTANCE, getAdRequest, ActionListener.wrap(getAdResponse -> {
             // Make sure detector exists
             if (getAdResponse.getDetector() == null) {
-                throw new IllegalArgumentException(String.format(
-                        Locale.ROOT,
-                        "No anomaly detector found with ID %s",
-                        request.getDetectorId())
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "No anomaly detector found with ID %s", request.getDetectorId())
                 );
             }
 
             // Make sure detector is HC
             List<String> categoryFieldsFromResponse = getAdResponse.getDetector().getCategoryField();
             if (categoryFieldsFromResponse == null || categoryFieldsFromResponse.isEmpty()) {
-                throw new IllegalArgumentException(String.format(
-                        Locale.ROOT,
-                        "No category fields found for detector ID %s",
-                        request.getDetectorId())
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "No category fields found for detector ID %s", request.getDetectorId())
                 );
             }
 
@@ -254,11 +252,14 @@ public class SearchTopAnomalyResultTransportAction
             } else {
                 for (String categoryField : request.getCategoryFields()) {
                     if (!categoryFieldsFromResponse.contains(categoryField)) {
-                        throw new IllegalArgumentException(String.format(
-                                Locale.ROOT,
-                                "Category field %s doesn't exist for detector ID %s",
-                                categoryField,
-                                request.getDetectorId())
+                        throw new IllegalArgumentException(
+                            String
+                                .format(
+                                    Locale.ROOT,
+                                    "Category field %s doesn't exist for detector ID %s",
+                                    categoryField,
+                                    request.getDetectorId()
+                                )
                         );
                     }
                 }
@@ -270,7 +271,7 @@ public class SearchTopAnomalyResultTransportAction
                 ADTask historicalTask = getAdResponse.getHistoricalAdTask();
                 if (historicalTask == null) {
                     throw new ResourceNotFoundException(
-                            String.format(Locale.ROOT, "No historical tasks found for detector ID %s", request.getDetectorId())
+                        String.format(Locale.ROOT, "No historical tasks found for detector ID %s", request.getDetectorId())
                     );
                 }
                 if (Strings.isNullOrEmpty(request.getTaskId())) {
@@ -312,11 +313,17 @@ public class SearchTopAnomalyResultTransportAction
             // returned as a failure in this Listener.
             // This same method is used for security handling for the search results action. Since this action
             // is doing fundamentally the same thing, we can reuse the security logic here.
-            searchHandler.search(searchRequest, new TopAnomalyResultListener(listener,
-                    searchRequest.source(),
-                    clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
-                    request.getSize(),
-                    orderType));
+            searchHandler
+                .search(
+                    searchRequest,
+                    new TopAnomalyResultListener(
+                        listener,
+                        searchRequest.source(),
+                        clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
+                        request.getSize(),
+                        orderType
+                    )
+                );
 
         }, exception -> {
             logger.error("Failed to get top anomaly results", exception);
@@ -342,11 +349,11 @@ public class SearchTopAnomalyResultTransportAction
         private PriorityQueue<AnomalyResultBucket> topResultsHeap;
 
         TopAnomalyResultListener(
-                ActionListener<SearchTopAnomalyResultResponse> listener,
-                SearchSourceBuilder searchSourceBuilder,
-                long expirationEpochMs,
-                int maxResults,
-                OrderType orderType
+            ActionListener<SearchTopAnomalyResultResponse> listener,
+            SearchSourceBuilder searchSourceBuilder,
+            long expirationEpochMs,
+            int maxResults,
+            OrderType orderType
         ) {
             this.listener = listener;
             this.searchSourceBuilder = searchSourceBuilder;
@@ -386,10 +393,10 @@ public class SearchTopAnomalyResultTransportAction
 
                 CompositeAggregation compositeAgg = (CompositeAggregation) aggResults;
                 List<AnomalyResultBucket> bucketResults = compositeAgg
-                        .getBuckets()
-                        .stream()
-                        .map(bucket -> AnomalyResultBucket.createAnomalyResultBucket(bucket))
-                        .collect(Collectors.toList());
+                    .getBuckets()
+                    .stream()
+                    .map(bucket -> AnomalyResultBucket.createAnomalyResultBucket(bucket))
+                    .collect(Collectors.toList());
 
                 // Add all of the results to the heap, and only keep the top maxResults buckets.
                 // Note that the top results heap is implemented as a min heap, so by polling
@@ -411,16 +418,15 @@ public class SearchTopAnomalyResultTransportAction
                         listener.onResponse(new SearchTopAnomalyResultResponse(getDescendingOrderListFromHeap(topResultsHeap)));
                     }
                 } else {
-                    CompositeAggregationBuilder aggBuilder = (CompositeAggregationBuilder) searchSourceBuilder.aggregations().
-                            getAggregatorFactories().iterator().next();
+                    CompositeAggregationBuilder aggBuilder = (CompositeAggregationBuilder) searchSourceBuilder
+                        .aggregations()
+                        .getAggregatorFactories()
+                        .iterator()
+                        .next();
                     aggBuilder.aggregateAfter(afterKey);
 
                     // Searching more, using an updated source with an after_key
-                    searchHandler
-                            .search(
-                                    new SearchRequest().indices(index).source(searchSourceBuilder),
-                                    this
-                            );
+                    searchHandler.search(new SearchRequest().indices(index).source(searchSourceBuilder), this);
                 }
 
             } catch (Exception e) {
@@ -466,9 +472,9 @@ public class SearchTopAnomalyResultTransportAction
 
         // Adding the date range and anomaly grade filters (needed regardless of real-time or historical)
         RangeQueryBuilder dateRangeFilter = QueryBuilders
-                .rangeQuery(AnomalyResult.DATA_END_TIME_FIELD)
-                .gte(request.getStartTime())
-                .lte(request.getEndTime());
+            .rangeQuery(AnomalyResult.DATA_END_TIME_FIELD)
+            .gte(request.getStartTime())
+            .lte(request.getEndTime());
         RangeQueryBuilder anomalyGradeFilter = QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_GRADE_FIELD).gt(0);
         query.filter(dateRangeFilter).filter(anomalyGradeFilter);
 
@@ -499,21 +505,21 @@ public class SearchTopAnomalyResultTransportAction
 
         // Generate the max anomaly grade aggregation
         AggregationBuilder maxAnomalyGradeAggregation = AggregationBuilders
-                .max(AnomalyResultBucket.MAX_ANOMALY_GRADE_FIELD)
-                .field(AnomalyResult.ANOMALY_GRADE_FIELD);
+            .max(AnomalyResultBucket.MAX_ANOMALY_GRADE_FIELD)
+            .field(AnomalyResult.ANOMALY_GRADE_FIELD);
 
         // Generate the bucket sort aggregation (depends on order type)
         String sortField = request.getOrder().equals(OrderType.SEVERITY.getName())
-                ? AnomalyResultBucket.MAX_ANOMALY_GRADE_FIELD
-                : COUNT_FIELD;
+            ? AnomalyResultBucket.MAX_ANOMALY_GRADE_FIELD
+            : COUNT_FIELD;
         BucketSortPipelineAggregationBuilder bucketSort = PipelineAggregatorBuilders
-                .bucketSort(BUCKET_SORT_FIELD, new ArrayList<>(Arrays.asList(new FieldSortBuilder(sortField).order(SortOrder.DESC))));
+            .bucketSort(BUCKET_SORT_FIELD, new ArrayList<>(Arrays.asList(new FieldSortBuilder(sortField).order(SortOrder.DESC))));
 
         return AggregationBuilders
-                .composite(MULTI_BUCKETS_FIELD, sources)
-                .size(PAGE_SIZE)
-                .subAggregation(maxAnomalyGradeAggregation)
-                .subAggregation(bucketSort);
+            .composite(MULTI_BUCKETS_FIELD, sources)
+            .size(PAGE_SIZE)
+            .subAggregation(maxAnomalyGradeAggregation)
+            .subAggregation(bucketSort);
     }
 
     /**
@@ -524,24 +530,25 @@ public class SearchTopAnomalyResultTransportAction
      */
     private Script getScriptForCategoryField(String categoryField) {
         StringBuilder builder = new StringBuilder()
-                .append("String value = null;")
-                .append("if (params == null || params._source == null || params._source.entity == null) {")
-                .append("return \"\"")
-                .append("}")
-                .append("for (item in params._source.entity) {")
-                .append("if (item[\"name\"] == params[\"categoryField\"]) {")
-                .append("value = item['value'];")
-                .append("break;")
-                .append("}")
-                .append("}")
-                .append("return value;");
+            .append("String value = null;")
+            .append("if (params == null || params._source == null || params._source.entity == null) {")
+            .append("return \"\"")
+            .append("}")
+            .append("for (item in params._source.entity) {")
+            .append("if (item[\"name\"] == params[\"categoryField\"]) {")
+            .append("value = item['value'];")
+            .append("break;")
+            .append("}")
+            .append("}")
+            .append("return value;");
 
         // The last argument contains the K/V pair to inject the categoryField value into the script
         return new Script(
-                ScriptType.INLINE,
-                "painless", builder.toString(),
-                Collections.emptyMap(),
-                ImmutableMap.of("categoryField", categoryField)
+            ScriptType.INLINE,
+            "painless",
+            builder.toString(),
+            Collections.emptyMap(),
+            ImmutableMap.of("categoryField", categoryField)
         );
     }
 

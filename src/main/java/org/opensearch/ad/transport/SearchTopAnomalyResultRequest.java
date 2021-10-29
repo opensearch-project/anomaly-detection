@@ -11,19 +11,19 @@
 
 package org.opensearch.ad.transport;
 
+import static org.opensearch.action.ValidateActions.addValidationError;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.List;
+
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.XContentParser;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.util.List;
-
-import static org.opensearch.action.ValidateActions.addValidationError;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 /**
  * Request for getting the top anomaly results for HC detectors.
@@ -59,14 +59,14 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
     }
 
     public SearchTopAnomalyResultRequest(
-            String detectorId,
-            String taskId,
-            boolean historical,
-            Integer size,
-            List<String> categoryFields,
-            String order,
-            Instant startTime,
-            Instant endTime
+        String detectorId,
+        String taskId,
+        boolean historical,
+        Integer size,
+        List<String> categoryFields,
+        String order,
+        Instant startTime,
+        Instant endTime
     ) {
         super();
         this.detectorId = detectorId;

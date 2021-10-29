@@ -11,6 +11,9 @@
 
 package org.opensearch.ad.model;
 
+import java.io.IOException;
+import java.util.Map;
+
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -18,9 +21,6 @@ import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation.Bucket;
 import org.opensearch.search.aggregations.metrics.InternalMax;
-
-import java.io.IOException;
-import java.util.Map;
 
 /**
  * Represents a single bucket when retrieving top anomaly results for HC detectors
@@ -35,16 +35,11 @@ public class AnomalyResultBucket implements ToXContentObject, Writeable {
     private final int docCount;
     private final double maxAnomalyGrade;
 
-    public AnomalyResultBucket(
-            Map<String, Object> key,
-            int docCount,
-            double maxAnomalyGrade
-    ) {
+    public AnomalyResultBucket(Map<String, Object> key, int docCount, double maxAnomalyGrade) {
         this.key = key;
         this.docCount = docCount;
         this.maxAnomalyGrade = maxAnomalyGrade;
     }
-
 
     public AnomalyResultBucket(StreamInput input) throws IOException {
         this.key = input.readMap();
@@ -54,19 +49,19 @@ public class AnomalyResultBucket implements ToXContentObject, Writeable {
 
     public static AnomalyResultBucket createAnomalyResultBucket(Bucket bucket) {
         return new AnomalyResultBucket(
-                bucket.getKey(),
-                (int) bucket.getDocCount(),
-                ((InternalMax) bucket.getAggregations().get(MAX_ANOMALY_GRADE_FIELD)).getValue()
+            bucket.getKey(),
+            (int) bucket.getDocCount(),
+            ((InternalMax) bucket.getAggregations().get(MAX_ANOMALY_GRADE_FIELD)).getValue()
         );
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder
-                .startObject()
-                .field(KEY_FIELD, key)
-                .field(DOC_COUNT_FIELD, docCount)
-                .field(MAX_ANOMALY_GRADE_FIELD, maxAnomalyGrade);
+            .startObject()
+            .field(KEY_FIELD, key)
+            .field(DOC_COUNT_FIELD, docCount)
+            .field(MAX_ANOMALY_GRADE_FIELD, maxAnomalyGrade);
         return xContentBuilder.endObject();
     }
 

@@ -737,7 +737,6 @@ public final class AnomalyDetectorSettings {
     // preview timeout in terms of milliseconds
     public static final long PREVIEW_TIMEOUT_IN_MILLIS = 60_000;
 
-
     // ======================================
     // top anomaly result API setting
     // ======================================
