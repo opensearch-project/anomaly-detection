@@ -190,30 +190,6 @@ public class AnomalyDetectorTests extends AbstractADTest {
         TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
-    public void testParseAnomalyDetectorWithIncorrectNameRegex() throws Exception {
-        String detectorString = "{\"name\":\"todagtC@#@!MkwpcaedpyYUM\",\"description\":"
-            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
-            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
-            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
-            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
-            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
-            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
-            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
-    }
-
-    public void testParseAnomalyDetectorWithNameThatIsTooLong() throws Exception {
-        String detectorString = "{\"name\":\"todagtpcaedpyYUMtodagtpcaedpyYUMtodagtpcaedpyYUM\",\"description\":"
-            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
-            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
-            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
-            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
-            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
-            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
-            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
-    }
-
     public void testParseAnomalyDetectorWithIncorrectFeatureQuery() throws Exception {
         String detectorString = "{\"name\":\"todagdpyYUM\",\"description\":"
             + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
