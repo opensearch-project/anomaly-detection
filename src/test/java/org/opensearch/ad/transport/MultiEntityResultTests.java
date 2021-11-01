@@ -133,6 +133,8 @@ import org.opensearch.transport.TransportService;
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
+import com.google.common.collect.ImmutableList;
+
 public class MultiEntityResultTests extends AbstractADTest {
     private AnomalyResultTransportAction action;
     private AnomalyResultRequest request;
@@ -417,8 +419,11 @@ public class MultiEntityResultTests extends AbstractADTest {
     public void setUpNormlaStateManager() throws IOException {
         ClientUtil clientUtil = mock(ClientUtil.class);
 
-        AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), true, true);
+        AnomalyDetector detector = TestHelpers.AnomalyDetectorBuilder
+            .newInstance()
+            .setDetectionInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES))
+            .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
+            .build();
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
             listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
