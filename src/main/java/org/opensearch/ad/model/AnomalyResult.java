@@ -247,6 +247,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .startObject()
             .field(DETECTOR_ID_FIELD, detectorId)
             .field(SCHEMA_VERSION_FIELD, schemaVersion);
+        // In normal AD result, we always pass data start/end times. In custom result index,
+        // we need to write/delete a dummy AD result to verify if user has write permission
+        // to the custom result index. Just pass in null start/end time for this dummy anomaly
+        // result to make sure it won't be queried by mistake.
         if (dataStartTime != null) {
             xContentBuilder.field(DATA_START_TIME_FIELD, dataStartTime.toEpochMilli());
         }

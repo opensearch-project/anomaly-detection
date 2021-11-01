@@ -16,7 +16,6 @@ import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_I
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_DETECTOR_UPPER_LIMIT;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -145,11 +144,8 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
                             String indexName = targetIndices.get(i);
                             if (item.getFailure() == null) {
                                 readableIndices.add(indexName);
-                            } else {
-                                logger.debug("Failed to search custom AD result index {}, {}", indexName, item.getFailureMessage());
                             }
                         }
-                        logger.debug("Search anomaly result from indices: {}", Arrays.toString(readableIndices.toArray(new String[0])));
                         request.indices(readableIndices.toArray(new String[0]));
                         searchHandler.search(request, listener);
                     }, multiSearchException -> {
