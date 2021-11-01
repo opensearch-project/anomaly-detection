@@ -438,27 +438,132 @@ public class TestHelpers {
         );
     }
 
-    public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval, boolean hcDetector, boolean featureEnabled)
-        throws IOException {
-        List<String> categoryField = hcDetector ? ImmutableList.of(randomAlphaOfLength(5)) : null;
-        return new AnomalyDetector(
-            randomAlphaOfLength(10),
-            randomLong(),
-            randomAlphaOfLength(20),
-            randomAlphaOfLength(30),
-            randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
-            ImmutableList.of(randomFeature(featureEnabled)),
-            randomQuery(),
-            interval,
-            randomIntervalTimeConfiguration(),
-            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
-            null,
-            randomInt(),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            categoryField,
-            randomUser()
-        );
+    public static class AnomalyDetectorBuilder {
+        private String detectorId = randomAlphaOfLength(10);
+        private Long version = randomLong();
+        private String name = randomAlphaOfLength(20);
+        private String description = randomAlphaOfLength(30);
+        private String timeField = randomAlphaOfLength(5);
+        private List<String> indices = ImmutableList.of(randomAlphaOfLength(10).toLowerCase());
+        private List<Feature> featureAttributes = ImmutableList.of(randomFeature(true));
+        private QueryBuilder filterQuery;
+        private TimeConfiguration detectionInterval = randomIntervalTimeConfiguration();
+        private TimeConfiguration windowDelay = randomIntervalTimeConfiguration();
+        private Integer shingleSize = randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE);
+        private Map<String, Object> uiMetadata = null;
+        private Integer schemaVersion = randomInt();
+        private Instant lastUpdateTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private List<String> categoryFields = null;
+        private User user = randomUser();
+
+        public static AnomalyDetectorBuilder newInstance() throws IOException {
+            return new AnomalyDetectorBuilder();
+        }
+
+        private AnomalyDetectorBuilder() throws IOException {
+            filterQuery = randomQuery();
+        }
+
+        public AnomalyDetectorBuilder setDetectorId(String detectorId) {
+            this.detectorId = detectorId;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setVersion(Long version) {
+            this.version = version;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setDescription(String description) {
+            this.description = description;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setTimeField(String timeField) {
+            this.timeField = timeField;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setIndices(List<String> indices) {
+            this.indices = indices;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setFeatureAttributes(List<Feature> featureAttributes) {
+            this.featureAttributes = featureAttributes;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setFilterQuery(QueryBuilder filterQuery) {
+            this.filterQuery = filterQuery;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setDetectionInterval(TimeConfiguration detectionInterval) {
+            this.detectionInterval = detectionInterval;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setWindowDelay(TimeConfiguration windowDelay) {
+            this.windowDelay = windowDelay;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setShingleSize(Integer shingleSize) {
+            this.shingleSize = shingleSize;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setUiMetadata(Map<String, Object> uiMetadata) {
+            this.uiMetadata = uiMetadata;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setSchemaVersion(Integer schemaVersion) {
+            this.schemaVersion = schemaVersion;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setLastUpdateTime(Instant lastUpdateTime) {
+            this.lastUpdateTime = lastUpdateTime;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setCategoryFields(List<String> categoryFields) {
+            this.categoryFields = categoryFields;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setUser(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public AnomalyDetector build() {
+            return new AnomalyDetector(
+                detectorId,
+                version,
+                name,
+                description,
+                timeField,
+                indices,
+                featureAttributes,
+                filterQuery,
+                detectionInterval,
+                windowDelay,
+                shingleSize,
+                uiMetadata,
+                schemaVersion,
+                lastUpdateTime,
+                categoryFields,
+                user
+            );
+        }
     }
 
     public static SearchSourceBuilder randomFeatureQuery() throws IOException {

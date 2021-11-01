@@ -11,19 +11,19 @@
 
 package org.opensearch.ad.feature;
 
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,11 +32,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -49,10 +52,12 @@ import org.opensearch.action.search.SearchResponse.Clusters;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
@@ -60,6 +65,8 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.time.DateFormatter;
+import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
@@ -71,8 +78,12 @@ import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.InternalOrder;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
+import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.InternalMax;
+import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
+import org.opensearch.search.internal.InternalSearchResponse;
 
 import com.google.common.collect.ImmutableList;
 
@@ -133,7 +144,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
 
         searchFeatureDao = new SearchFeatureDao(
             client,
-            xContentRegistry(),
+            xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
             interpolator,
             clientUtil,
             settings,
@@ -403,5 +414,161 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         assertEquals(1, inProgress.getCount());
         // first called to create expired time; second called to check if time has expired
         assertTrue(clockInvoked.await(10000L, TimeUnit.MILLISECONDS));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void getColdStartSamplesForPeriodsTemplate(DocValueFormat format) throws IOException, InterruptedException {
+        detector = TestHelpers.AnomalyDetectorBuilder
+            .newInstance()
+            .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
+            .setFeatureAttributes(
+                Collections.singletonList(new Feature("deny_sum", "deny sum", true, new SumAggregationBuilder("deny_sum").field("deny")))
+            )
+            .build();
+
+        InternalDateRange.Factory factory = new InternalDateRange.Factory();
+        InternalDateRange.Bucket bucket1 = factory
+            .createBucket(
+                "1634786770964-1634786830964",
+                1634786770964L,
+                1634786830964L,
+                1,
+                InternalAggregations.from(Arrays.asList(new InternalMax("deny_sum", 840.0, DocValueFormat.RAW, Collections.emptyMap()))),
+                false,
+                format
+            );
+        InternalDateRange.Bucket bucket2 = factory
+            .createBucket(
+                "1634790370964-1634790430964",
+                1634790370964L,
+                1634790430964L,
+                0,
+                InternalAggregations.from(Arrays.asList(new InternalMax("deny_sum", 0, DocValueFormat.RAW, Collections.emptyMap()))),
+                false,
+                format
+            );
+        InternalDateRange.Bucket bucket3 = factory
+            .createBucket(
+                "1634793970964-1634794030964",
+                1634793970964L,
+                1634794030964L,
+                1,
+                InternalAggregations.from(Arrays.asList(new InternalMax("deny_sum", 3489.0, DocValueFormat.RAW, Collections.emptyMap()))),
+                false,
+                format
+            );
+        InternalDateRange range = factory
+            .create("date_range", Arrays.asList(bucket2, bucket3, bucket1), DocValueFormat.RAW, false, Collections.emptyMap());
+
+        InternalAggregations aggs = InternalAggregations.from(Arrays.asList(range));
+        SearchHits searchHits = new SearchHits(new SearchHit[0], new TotalHits(2189, TotalHits.Relation.EQUAL_TO), Float.NaN);
+        InternalSearchResponse internalSearchResponse = new InternalSearchResponse(searchHits, aggs, null, null, false, null, 1);
+        SearchResponse response = new SearchResponse(
+            internalSearchResponse,
+            null,
+            1,
+            1,
+            0,
+            4,
+            ShardSearchFailure.EMPTY_ARRAY,
+            SearchResponse.Clusters.EMPTY
+        );
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(response);
+            return null;
+        }).when(client).search(any(), any(ActionListener.class));
+
+        List<Entry<Long, Long>> sampleRanges = new ArrayList<>();
+        sampleRanges.add(new SimpleImmutableEntry<Long, Long>(1634793970964L, 1634794030964L));
+        sampleRanges.add(new SimpleImmutableEntry<Long, Long>(1634790370964L, 1634790430964L));
+        sampleRanges.add(new SimpleImmutableEntry<Long, Long>(1634786770964L, 1634786830964L));
+
+        CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        // test that the results are in ascending order of time and zero doc results are not ignored
+        searchFeatureDao
+            .getColdStartSamplesForPeriods(
+                detector,
+                sampleRanges,
+                Entity.createSingleAttributeEntity("field", "abc"),
+                true,
+                ActionListener.wrap(samples -> {
+                    assertEquals(3, samples.size());
+                    for (int i = 0; i < samples.size(); i++) {
+                        Optional<double[]> sample = samples.get(i);
+                        double[] array = sample.get();
+                        assertEquals(1, array.length);
+                        if (i == 0) {
+                            assertEquals(840, array[0], 1e-10);
+                        } else if (i == 1) {
+                            assertEquals(0, array[0], 1e-10);
+                        } else {
+                            assertEquals(3489.0, array[0], 1e-10);
+                        }
+                    }
+                    inProgressLatch.countDown();
+                }, exception -> {
+                    LOG.error("stack trace", exception);
+                    assertTrue("Should not reach here ", false);
+                    inProgressLatch.countDown();
+                })
+            );
+
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+
+        CountDownLatch inProgressLatch2 = new CountDownLatch(1);
+
+        // test that the results are in ascending order of time and zero doc results are ignored
+        searchFeatureDao
+            .getColdStartSamplesForPeriods(
+                detector,
+                sampleRanges,
+                Entity.createSingleAttributeEntity("field", "abc"),
+                false,
+                ActionListener.wrap(samples -> {
+                    assertEquals(2, samples.size());
+                    for (int i = 0; i < samples.size(); i++) {
+                        Optional<double[]> sample = samples.get(i);
+                        double[] array = sample.get();
+                        assertEquals(1, array.length);
+                        if (i == 0) {
+                            assertEquals(840, array[0], 1e-10);
+                        } else {
+                            assertEquals(3489.0, array[0], 1e-10);
+                        }
+                    }
+                    inProgressLatch2.countDown();
+                }, exception -> {
+                    LOG.error("stack trace", exception);
+                    assertTrue("Should not reach here ", false);
+                    inProgressLatch.countDown();
+                })
+            );
+
+        assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testGetColdStartSamplesForPeriodsMillisFormat() throws IOException, InterruptedException {
+        DocValueFormat format = new DocValueFormat.DateTime(
+            DateFormatter.forPattern("epoch_millis"),
+            ZoneOffset.UTC,
+            DateFieldMapper.Resolution.MILLISECONDS
+        );
+        getColdStartSamplesForPeriodsTemplate(format);
+    }
+
+    public void testGetColdStartSamplesForPeriodsDefaultFormat() throws IOException, InterruptedException {
+        DocValueFormat format = new DocValueFormat.DateTime(
+            DateFieldMapper.DEFAULT_DATE_TIME_FORMATTER,
+            ZoneOffset.UTC,
+            DateFieldMapper.Resolution.MILLISECONDS
+        );
+        getColdStartSamplesForPeriodsTemplate(format);
+    }
+
+    public void testGetColdStartSamplesForPeriodsRawFormat() throws IOException, InterruptedException {
+        getColdStartSamplesForPeriodsTemplate(DocValueFormat.RAW);
     }
 }

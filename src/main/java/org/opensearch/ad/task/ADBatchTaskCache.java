@@ -73,6 +73,7 @@ public class ADBatchTaskCache {
             .timeDecay(TIME_DECAY)
             .sampleSize(NUM_SAMPLES_PER_TREE)
             .outputAfter(NUM_MIN_SAMPLES)
+            .initialAcceptFraction(NUM_MIN_SAMPLES * 1.0d / NUM_SAMPLES_PER_TREE)
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
