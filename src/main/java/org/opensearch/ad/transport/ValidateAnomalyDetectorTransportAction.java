@@ -161,6 +161,9 @@ public class ValidateAnomalyDetectorTransportAction extends
                     logger.error(errorMessage, exception);
                     listener.onFailure(exception);
                 }
+            } catch (Exception e) {
+                logger.error(e);
+                listener.onFailure(e);
             }
         }, listener);
     }
@@ -238,6 +241,8 @@ public class ValidateAnomalyDetectorTransportAction extends
                 listener.onResponse(new ValidateAnomalyDetectorResponse(issue));
                 return;
             }
+            logger.error(e);
+            listener.onFailure(e);
         }));
     }
 }
