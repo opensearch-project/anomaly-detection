@@ -94,6 +94,8 @@ public class ModelManager implements DetectorModelSize {
     private EntityColdStarter entityColdStarter;
     private MemoryTracker memoryTracker;
 
+    private final double initialAcceptFraction;
+
     /**
      * Constructor.
      *
@@ -143,6 +145,7 @@ public class ModelManager implements DetectorModelSize {
         this.entityColdStarter = entityColdStarter;
         this.featureManager = featureManager;
         this.memoryTracker = memoryTracker;
+        this.initialAcceptFraction = rcfNumMinSamples * 1.0d / rcfNumSamplesInTree;
     }
 
     /**
@@ -450,6 +453,7 @@ public class ModelManager implements DetectorModelSize {
             .numberOfTrees(rcfNumTrees)
             .timeDecay(rcfTimeDecay)
             .outputAfter(rcfNumMinSamples)
+            .initialAcceptFraction(initialAcceptFraction)
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
@@ -539,6 +543,7 @@ public class ModelManager implements DetectorModelSize {
             .numberOfTrees(rcfNumTrees)
             .timeDecay(rcfTimeDecay)
             .outputAfter(rcfNumSamplesInTree)
+            .initialAcceptFraction(initialAcceptFraction)
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)

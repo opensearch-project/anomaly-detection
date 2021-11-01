@@ -23,6 +23,7 @@ public class EntityModel {
     private Entity entity;
     // TODO: sample should record timestamp
     private Queue<double[]> samples;
+
     private ThresholdedRandomCutForest trcf;
 
     /**
@@ -49,6 +50,10 @@ public class EntityModel {
 
     public Queue<double[]> getSamples() {
         return this.samples;
+    }
+
+    public void setSamples(Queue<double[]> samples) {
+        this.samples = samples;
     }
 
     public void addSample(double[] sample) {

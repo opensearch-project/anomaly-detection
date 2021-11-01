@@ -104,6 +104,7 @@ public class MLUtil {
                 .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
                 .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
                 .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
+                .initialAcceptFraction(0.125d)
                 .parallelExecutionEnabled(false)
                 .internalShinglingEnabled(true)
                 .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)

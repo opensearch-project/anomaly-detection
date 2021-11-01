@@ -103,7 +103,6 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
-import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.Max;
@@ -725,7 +724,7 @@ public class SearchFeatureDaoTests {
 
     @SuppressWarnings("unchecked")
     @Test
-    public void testGetEntityMinMaxDataTime() {
+    public void testGetEntityMinDataTime() {
         // simulate response {"took":11,"timed_out":false,"_shards":{"total":1,
         // "successful":1,"skipped":0,"failed":0},"hits":{"max_score":null,"hits":[]},
         // "aggregations":{"min_timefield":{"value":1.602211285E12,
@@ -737,10 +736,8 @@ public class SearchFeatureDaoTests {
             DateFieldMapper.Resolution.MILLISECONDS
         );
         double earliest = 1.602211285E12;
-        double latest = 1.602348325E12;
         InternalMin minInternal = new InternalMin("min_timefield", earliest, dateFormat, new HashMap<>());
-        InternalMax maxInternal = new InternalMax("max_timefield", latest, dateFormat, new HashMap<>());
-        InternalAggregations internalAggregations = InternalAggregations.from(Arrays.asList(minInternal, maxInternal));
+        InternalAggregations internalAggregations = InternalAggregations.from(Arrays.asList(minInternal));
         SearchHits hits = new SearchHits(new SearchHit[] {}, null, Float.NaN);
         SearchResponseSections searchSections = new SearchResponseSections(hits, internalAggregations, null, false, false, null, 1);
 
@@ -760,7 +757,7 @@ public class SearchFeatureDaoTests {
             assertEquals(1, request.indices().length);
             assertTrue(detector.getIndices().contains(request.indices()[0]));
             AggregatorFactories.Builder aggs = request.source().aggregations();
-            assertEquals(2, aggs.count());
+            assertEquals(1, aggs.count());
             Collection<AggregationBuilder> factory = aggs.getAggregatorFactories();
             assertTrue(!factory.isEmpty());
             Iterator<AggregationBuilder> iterator = factory.iterator();
@@ -773,14 +770,13 @@ public class SearchFeatureDaoTests {
             return null;
         }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
-        ActionListener<Entry<Optional<Long>, Optional<Long>>> listener = mock(ActionListener.class);
+        ActionListener<Optional<Long>> listener = mock(ActionListener.class);
         Entity entity = Entity.createSingleAttributeEntity("field", "app_1");
-        searchFeatureDao.getEntityMinMaxDataTime(detector, entity, listener);
+        searchFeatureDao.getEntityMinDataTime(detector, entity, listener);
 
-        ArgumentCaptor<Entry<Optional<Long>, Optional<Long>>> captor = ArgumentCaptor.forClass(Entry.class);
+        ArgumentCaptor<Optional<Long>> captor = ArgumentCaptor.forClass(Optional.class);
         verify(listener).onResponse(captor.capture());
-        Entry<Optional<Long>, Optional<Long>> result = captor.getValue();
-        assertEquals((long) earliest, result.getKey().get().longValue());
-        assertEquals((long) latest, result.getValue().get().longValue());
+        Optional<Long> result = captor.getValue();
+        assertEquals((long) earliest, result.get().longValue());
     }
 }
