@@ -118,6 +118,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
         "Feature has an unknown exception caught while executing the feature query: ";
 
+    public static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
+    public static final Integer MAX_DETECTOR_NAME_SIZE = 64;
+
     protected final AnomalyDetectionIndices anomalyDetectionIndices;
     protected final String detectorId;
     protected final Long seqNo;
@@ -226,8 +229,38 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         } else {
             logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
             logger.info("DryRun variable " + this.isDryRun);
-            prepareAnomalyDetectorIndexing(this.isDryRun);
+            validateDetectorName(this.isDryRun);
         }
+    }
+
+    // These validation checks are executed here and not in AnomalyDetector.parse()
+    // in order to not break any past detectors that were made with invalid names
+    // because it was never check on the backend in the past
+    protected void validateDetectorName(boolean indexingDryRun) {
+        if (!anomalyDetector.getName().matches(NAME_REGEX)) {
+            listener
+                .onFailure(
+                    new ADValidationException(
+                        CommonErrorMessages.INVALID_DETECTOR_NAME,
+                        DetectorValidationIssueType.NAME,
+                        ValidationAspect.DETECTOR
+                    )
+                );
+            return;
+
+        }
+        if (anomalyDetector.getName().length() > MAX_DETECTOR_NAME_SIZE) {
+            listener
+                .onFailure(
+                    new ADValidationException(
+                        "Name should be shortened. The maximum limit is " + MAX_DETECTOR_NAME_SIZE + " characters.",
+                        DetectorValidationIssueType.NAME,
+                        ValidationAspect.DETECTOR
+                    )
+                );
+            return;
+        }
+        prepareAnomalyDetectorIndexing(indexingDryRun);
     }
 
     /**

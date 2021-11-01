@@ -75,8 +75,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
     public static final String PARSING_ISSUE = "query_parsing";
     public static final String GENERAL_SETTINGS = "general_settings";
-    public static final String NAME_REGEX = "[a-zA-Z0-9_-]+";
-    public static final Integer MAX_DETECTOR_NAME_SIZE = 64;
 
     public static final String NAME_FIELD = "name";
     private static final String DESCRIPTION_FIELD = "description";
@@ -158,18 +156,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         if (Strings.isBlank(name)) {
             throw new ADValidationException(
                 CommonErrorMessages.EMPTY_DETECTOR_NAME,
-                DetectorValidationIssueType.NAME,
-                ValidationAspect.DETECTOR
-            );
-        } else if (!name.matches(NAME_REGEX)) {
-            throw new ADValidationException(
-                CommonErrorMessages.INVALID_DETECTOR_NAME,
-                DetectorValidationIssueType.NAME,
-                ValidationAspect.DETECTOR
-            );
-        } else if (name.length() > MAX_DETECTOR_NAME_SIZE) {
-            throw new ADValidationException(
-                "Name should be shortened. The maximum limit is " + MAX_DETECTOR_NAME_SIZE + "characters.",
                 DetectorValidationIssueType.NAME,
                 ValidationAspect.DETECTOR
             );
