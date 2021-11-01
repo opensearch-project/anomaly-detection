@@ -104,6 +104,9 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
+        force "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+        force "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
+        force "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
@@ -549,21 +552,8 @@ dependencies {
     compile group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
     compile group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
-
-    // randomcutforest-serialization uses jackson 2.12, but opensearch-scripting-painless-spi uses jackson 2.11.
-    // compile scope won't work due to conflict.
-    // resolutionStrategy using 2.11 won't work as 
-    // com.fasterxml.jackson.databind.ObjectMapper depends on com/fasterxml/jackson/core/util/JacksonFeature
-    // that is created since 2.12. Compile won't fail but there is a runtime ClassNotFoundException
-    // due to absent JacksonFeature.
-    // The fix is to put jackson in direct dependency and use implementation scope.
-    // implementation scope let the dependency in both compiling and running classpath, but
-    // not leaked through to clients (Opensearch). Here we force the jackson version to whatever
-    // opensearch uses.
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
-    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
-    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
+    
+    compile 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
     compile files('lib/randomcutforest-parkservices-2.0.1.jar')
     compile files('lib/randomcutforest-core-2.0.1.jar')
 
