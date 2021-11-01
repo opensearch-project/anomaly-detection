@@ -160,7 +160,7 @@ public final class RestHandlerUtils {
             return false;
         }
         SearchPhaseExecutionException exception = (SearchPhaseExecutionException) ex;
-        // If all shards return bad request and failure cause is IllegalArgumentException, we
+        // If any shards return bad request and failure cause is IllegalArgumentException, we
         // consider the feature query is invalid and will not count the error in failure stats.
         for (ShardSearchFailure failure : exception.shardFailures()) {
             if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
