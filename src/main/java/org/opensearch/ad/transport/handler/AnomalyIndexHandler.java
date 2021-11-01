@@ -100,6 +100,16 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         this.clusterService = clusterService;
     }
 
+    /**
+     * Since the constructor needs to provide injected value and Guice does not allow Boolean to be there
+     * (claiming it does not know how to instantiate it), caller needs to manually set it to true if
+     * it want to save to a specific doc.
+     * @param fixedDoc whether to save to a specific doc Id
+     */
+    public void setFixedDoc(boolean fixedDoc) {
+        this.fixedDoc = fixedDoc;
+    }
+
     // TODO: check if user has permission to index.
     public void index(T toSave, String detectorId, String customIndexName) {
         if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {

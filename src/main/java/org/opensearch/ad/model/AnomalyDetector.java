@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
+import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_NAME_SIZE;
 import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetectorType.MULTI_ENTITY;
@@ -118,6 +120,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     // TODO: support backward compatibility, will remove in future
     @Deprecated
     private DetectionDateRange detectionDateRange;
+
+    public static final int MAX_RESULT_INDEX_NAME_SIZE = 255;
+    public static final String RESULT_INDEX_NAME_PATTERN = "^[a-z0-9_-]*$";
 
     /**
      * Constructor function.
@@ -230,9 +235,26 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.user = user;
         this.detectorType = isMultientityDetector(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
         this.resultIndex = Strings.trimToNull(resultIndex);
-        if (this.resultIndex != null && !this.resultIndex.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
-            throw new IllegalArgumentException(INVALID_RESULT_INDEX_PREFIX);
+        String errorMessage = validateResultIndex(this.resultIndex);
+        if (errorMessage != null) {
+            throw new IllegalArgumentException(errorMessage);
         }
+    }
+
+    public static String validateResultIndex(String resultIndex) {
+        if (resultIndex == null) {
+            return null;
+        }
+        if (!resultIndex.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
+            return INVALID_RESULT_INDEX_PREFIX;
+        }
+        if (resultIndex.length() > MAX_RESULT_INDEX_NAME_SIZE) {
+            return INVALID_RESULT_INDEX_NAME_SIZE;
+        }
+        if (!resultIndex.matches(RESULT_INDEX_NAME_PATTERN)) {
+            return INVALID_CHAR_IN_RESULT_INDEX_NAME;
+        }
+        return null;
     }
 
     public AnomalyDetector(StreamInput input) throws IOException {

@@ -231,6 +231,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String user;
         List<String> roles;
         if (jobParameter.getUser() == null) {
+            // It's possible that user create domain with security disabled, then enable security
+            // after upgrading. This is for BWC, for old detectors which created when security
+            // disabled, the user will be null.
             user = "";
             roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
         } else {

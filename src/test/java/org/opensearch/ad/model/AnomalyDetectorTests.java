@@ -11,6 +11,12 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
+import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_NAME_SIZE;
+import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_PREFIX;
+import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
+import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -536,4 +542,21 @@ public class AnomalyDetectorTests extends AbstractADTest {
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());
     }
 
+    public void testValidateResultIndex() {
+        String errorMessage = AnomalyDetector.validateResultIndex("abc");
+        assertEquals(INVALID_RESULT_INDEX_PREFIX, errorMessage);
+
+        StringBuilder resultIndexNameBuilder = new StringBuilder(CUSTOM_RESULT_INDEX_PREFIX);
+        for (int i = 0; i < MAX_RESULT_INDEX_NAME_SIZE - CUSTOM_RESULT_INDEX_PREFIX.length(); i++) {
+            resultIndexNameBuilder.append("a");
+        }
+        assertNull(AnomalyDetector.validateResultIndex(resultIndexNameBuilder.toString()));
+        resultIndexNameBuilder.append("a");
+
+        errorMessage = AnomalyDetector.validateResultIndex(resultIndexNameBuilder.toString());
+        assertEquals(INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
+
+        errorMessage = AnomalyDetector.validateResultIndex(CUSTOM_RESULT_INDEX_PREFIX + "abc#");
+        assertEquals(INVALID_CHAR_IN_RESULT_INDEX_NAME, errorMessage);
+    }
 }

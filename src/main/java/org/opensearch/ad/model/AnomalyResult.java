@@ -64,6 +64,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String USER_FIELD = "user";
     public static final String TASK_ID_FIELD = "task_id";
     public static final String MODEL_ID_FIELD = "model_id";
+    // TODO: use the file anomaly-results.json as the single source of truth for AD result index mapping.
+    // Support upgrading custom result index.
     public static final ImmutableMap<String, String> AD_RESULT_FIELD_CONFIGS = ImmutableMap
         .<String, String>builder()
         .put(ANOMALY_GRADE_FIELD, "{type=double}")

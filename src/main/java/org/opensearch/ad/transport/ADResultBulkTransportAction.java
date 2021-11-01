@@ -18,7 +18,6 @@ import static org.opensearch.index.IndexingPressure.MAX_INDEXING_BYTES;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
@@ -130,12 +129,12 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
     }
 
     private void addResult(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {
+        String index = resultIndex == null ? indexName : resultIndex;
         try (XContentBuilder builder = jsonBuilder()) {
-            String index = resultIndex == null ? indexName : resultIndex;
             IndexRequest indexRequest = new IndexRequest(index).source(result.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
             bulkRequest.add(indexRequest);
         } catch (IOException e) {
-            LOG.error(String.format(Locale.ROOT, "Failed to prepare bulk %s", resultIndex), e);
+            LOG.error("Failed to prepare bulk index request for index " + index, e);
         }
     }
 }

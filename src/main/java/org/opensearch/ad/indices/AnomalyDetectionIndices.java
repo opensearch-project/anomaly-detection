@@ -327,7 +327,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 validateCustomResultIndexAndExecute(resultIndex, function, listener);
             }
         } catch (Exception e) {
-            logger.error("Failed to create detector result index " + resultIndex, e);
+            logger.error("Failed to create custom result index " + resultIndex, e);
             listener.onFailure(e);
         }
     }
@@ -344,6 +344,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             IndexRequest indexRequest = new IndexRequest(resultIndex)
                 .id(DUMMY_AD_RESULT_ID)
                 .source(dummyResult.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), ToXContent.EMPTY_PARAMS));
+            // User may have no write permission on custom result index. Talked with security plugin team, seems no easy way to verify
+            // if user has write permission. So just tried to write and delete a dummy anomaly result to verify.
             client.index(indexRequest, ActionListener.wrap(response -> {
                 logger.debug("Successfully wrote dummy AD result to result index {}", resultIndex);
                 client.delete(new DeleteRequest(resultIndex).id(DUMMY_AD_RESULT_ID), ActionListener.wrap(deleteResponse -> {
@@ -401,23 +403,29 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if result index mapping is valid
      */
     public boolean isValidResultIndex(String resultIndex) {
-        IndexMetadata indexMetadata = clusterService.state().metadata().index(resultIndex);
-        Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
-        String propertyName = "properties";
-        if (!indexMapping.containsKey(propertyName)) {
+        try {
+            IndexMetadata indexMetadata = clusterService.state().metadata().index(resultIndex);
+            Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
+            String propertyName = "properties";
+            if (!indexMapping.containsKey(propertyName) || !(indexMapping.get(propertyName) instanceof LinkedHashMap)) {
+                return false;
+            }
+            LinkedHashMap<String, Object> mapping = (LinkedHashMap<String, Object>) indexMapping.get(propertyName);
+
+            boolean correctResultIndexMapping = true;
+            for (String fieldName : AD_RESULT_FIELD_CONFIGS.keySet()) {
+                String defaultSchema = AD_RESULT_FIELD_CONFIGS.get(fieldName);
+                if (!mapping.containsKey(fieldName) || !defaultSchema.equals(mapping.get(fieldName).toString())) {
+                    correctResultIndexMapping = false;
+                    break;
+                }
+            }
+            return correctResultIndexMapping;
+        } catch (Exception e) {
+            logger.error("Failed to validate result index mapping for index " + resultIndex, e);
             return false;
         }
-        LinkedHashMap<String, Object> mapping = (LinkedHashMap<String, Object>) indexMapping.get(propertyName);
 
-        boolean correctResultIndexMappig = true;
-        for (String fieldName : AD_RESULT_FIELD_CONFIGS.keySet()) {
-            String defaultSchema = AD_RESULT_FIELD_CONFIGS.get(fieldName);
-            if (!mapping.containsKey(fieldName) || !defaultSchema.equals(mapping.get(fieldName).toString())) {
-                correctResultIndexMappig = false;
-                break;
-            }
-        }
-        return correctResultIndexMappig;
     }
 
     /**
