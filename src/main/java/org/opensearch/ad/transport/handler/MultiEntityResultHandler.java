@@ -25,7 +25,6 @@ import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.ThrowingConsumerWrapper;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.service.ClusterService;
@@ -63,8 +62,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            anomalyDetectionIndices,
             clientUtil,
             indexUtils,
             clusterService
@@ -83,8 +81,8 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         }
 
         try {
-            if (!indexExists.getAsBoolean()) {
-                createIndex.accept(ActionListener.wrap(initResponse -> {
+            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
+                anomalyDetectionIndices.initDefaultAnomalyResultIndexDirectly(ActionListener.wrap(initResponse -> {
                     if (initResponse.isAcknowledged()) {
                         bulk(currentBulkRequest, listener);
                     } else {

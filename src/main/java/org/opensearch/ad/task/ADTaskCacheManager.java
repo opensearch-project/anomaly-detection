@@ -833,6 +833,15 @@ public class ADTaskCacheManager {
     public void setTopEntityCount(String detectorId, Integer count) {
         ADHCBatchTaskCache hcTaskCache = getExistingHCTaskCache(detectorId);
         hcTaskCache.setTopEntityCount(count);
+        ADTaskSlotLimit adTaskSlotLimit = detectorTaskSlotLimit.get(detectorId);
+
+        if (count != null && adTaskSlotLimit != null) {
+            Integer detectorTaskSlots = adTaskSlotLimit.getDetectorTaskSlots();
+            if (detectorTaskSlots != null && detectorTaskSlots > count) {
+                logger.debug("Scale down task slots from {} to the same as top entity count {}", detectorTaskSlots, count);
+                adTaskSlotLimit.setDetectorTaskSlots(count);
+            }
+        }
     }
 
     /**

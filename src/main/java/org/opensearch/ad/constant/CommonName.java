@@ -135,4 +135,11 @@ public class CommonName {
     // ======================================
     // detector validation aspect
     public static final String DETECTOR = "detector";
+
+    // ======================================
+    // Used for custom AD result index
+    // ======================================
+    public static final String DUMMY_AD_RESULT_ID = "dummy_ad_result_id";
+    public static final String DUMMY_DETECTOR_ID = "dummy_detector_id";
+    public static final String CUSTOM_RESULT_INDEX_PREFIX = "opensearch-ad-plugin-result-";
 }

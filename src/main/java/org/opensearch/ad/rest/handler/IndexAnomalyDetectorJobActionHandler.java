@@ -151,7 +151,8 @@ public class IndexAnomalyDetectorJobActionHandler {
                 null,
                 Instant.now(),
                 duration.getSeconds(),
-                detector.getUser()
+                detector.getUser(),
+                detector.getResultIndex()
             );
 
             getAnomalyDetectorJobForWrite(detector, job);
@@ -193,7 +194,8 @@ public class IndexAnomalyDetectorJobActionHandler {
                         currentAdJob.getDisabledTime(),
                         Instant.now(),
                         job.getLockDurationSeconds(),
-                        job.getUser()
+                        job.getUser(),
+                        job.getResultIndex()
                     );
                     // Get latest realtime task and check its state before index job. Will reset running realtime task
                     // as STOPPED first if job disabled, then start new job and create new realtime task.
@@ -293,7 +295,8 @@ public class IndexAnomalyDetectorJobActionHandler {
                             Instant.now(),
                             Instant.now(),
                             job.getLockDurationSeconds(),
-                            job.getUser()
+                            job.getUser(),
+                            job.getResultIndex()
                         );
                         indexAnomalyDetectorJob(
                             newJob,

@@ -149,7 +149,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         if (index.equals(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             adIndices.initAnomalyDetectorIndexIfAbsent(listener);
         } else {
-            adIndices.initAnomalyResultIndexIfAbsent(listener);
+            adIndices.initDefaultAnomalyResultIndexIfAbsent(listener);
         }
 
         verify(indicesClient, never()).create(any(), any());
@@ -189,7 +189,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         } else if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
             adIndices.initAnomalyDetectorJobIndex(listener);
         } else {
-            adIndices.initAnomalyResultIndexIfAbsent(listener);
+            adIndices.initDefaultAnomalyResultIndexIfAbsent(listener);
         }
 
         ArgumentCaptor<CreateIndexResponse> captor = ArgumentCaptor.forClass(CreateIndexResponse.class);

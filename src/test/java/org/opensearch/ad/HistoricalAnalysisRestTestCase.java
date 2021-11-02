@@ -75,6 +75,22 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return parseADTaskProfile(profileResponse);
     }
 
+    public Response searchTaskResult(String resultIndex, String taskId) throws IOException {
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                TestHelpers.AD_BASE_RESULT_URI + "/_search/" + resultIndex,
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"task_id\":\"" + taskId + "\"}}]}},\"track_total_hits\":true}"
+                    ),
+                null
+            );
+        return response;
+    }
+
     public Response ingestSimpleMockLog(
         String indexName,
         int startDays,
@@ -165,6 +181,10 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
     }
 
     protected AnomalyDetector createAnomalyDetector(int categoryFieldSize) throws IOException, IllegalAccessException {
+        return createAnomalyDetector(categoryFieldSize, null);
+    }
+
+    protected AnomalyDetector createAnomalyDetector(int categoryFieldSize, String resultIndex) throws IOException, IllegalAccessException {
         AggregationBuilder aggregationBuilder = TestHelpers
             .parseAggregation("{\"test\":{\"max\":{\"field\":\"" + MockSimpleLog.VALUE_FIELD + "\"}}}");
         Feature feature = new Feature(randomAlphaOfLength(5), randomAlphaOfLength(10), true, aggregationBuilder);
@@ -187,7 +207,8 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
                 historicalAnalysisTestIndex,
                 detectionIntervalInMinutes,
                 MockSimpleLog.TIME_FIELD,
-                categoryField
+                categoryField,
+                resultIndex
             );
         return createAnomalyDetector(detector, true, client());
     }

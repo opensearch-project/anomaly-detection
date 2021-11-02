@@ -40,6 +40,13 @@ import com.google.common.collect.ImmutableList;
  * This class consists of the REST handler to delete anomaly result with specific query.
  * Currently AD dashboard plugin doesn't call this API. User can use this API to delete
  * anomaly results to free up disk space.
+ *
+ * User needs to delete anomaly result from custom result index by themselves as they
+ * can directly access these custom result index.
+ * Same strategy for custom result index rollover. Suggest user using ISM plugin to
+ * manage custom result index.
+ *
+ * TODO: build better user experience to reduce user's effort to maintain custom result index.
  */
 public class RestDeleteAnomalyResultsAction extends BaseRestHandler {
 

@@ -110,7 +110,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
     protected ADResultBulkRequest toBatchRequest(List<ResultWriteRequest> toProcess) {
         final ADResultBulkRequest bulkRequest = new ADResultBulkRequest();
         for (ResultWriteRequest request : toProcess) {
-            bulkRequest.add(request.getResult());
+            bulkRequest.add(request);
         }
         return bulkRequest;
     }
@@ -178,7 +178,8 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
                     resultToRetry.getExecutionStartTime().toEpochMilli() + detector.getDetectorIntervalInMilliseconds(),
                     detectorId,
                     resultToRetry.isHighPriority() ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                    resultToRetry
+                    resultToRetry,
+                    detector.getResultIndex()
                 )
             );
 

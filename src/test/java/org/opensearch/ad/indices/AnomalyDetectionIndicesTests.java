@@ -108,12 +108,12 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
     }
 
     public void testAnomalyResultIndexNotExists() {
-        boolean exists = indices.doesAnomalyResultIndexExist();
+        boolean exists = indices.doesDefaultAnomalyResultIndexExist();
         assertFalse(exists);
     }
 
     public void testAnomalyResultIndexExists() throws IOException {
-        indices.initAnomalyResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
+        indices.initDefaultAnomalyResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
             boolean acknowledged = response.isAcknowledged();
             assertTrue(acknowledged);
         }, failure -> { throw new RuntimeException("should not recreate index"); }));
@@ -122,7 +122,7 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
 
     public void testAnomalyResultIndexExistsAndNotRecreate() throws IOException {
         indices
-            .initAnomalyResultIndexIfAbsent(
+            .initDefaultAnomalyResultIndexIfAbsent(
                 TestHelpers
                     .createActionListener(
                         response -> logger.info("Acknowledged: " + response.isAcknowledged()),
@@ -132,7 +132,7 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
         TestHelpers.waitForIndexCreationToComplete(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         if (client().admin().indices().prepareExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS).get().isExists()) {
             indices
-                .initAnomalyResultIndexIfAbsent(
+                .initDefaultAnomalyResultIndexIfAbsent(
                     TestHelpers
                         .createActionListener(
                             response -> {

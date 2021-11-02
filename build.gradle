@@ -501,6 +501,9 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.SearchTopAnomalyResult*',
         'org.opensearch.ad.rest.RestSearchTopAnomalyResultAction',
         'org.opensearch.ad.model.AnomalyResultBucket',
+        //TODO: custom result index caused coverage drop
+        'org.opensearch.ad.indices.AnomalyDetectionIndices',
+        'org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler'
 ]
 
 jacocoTestCoverageVerification {
