@@ -122,7 +122,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private DetectionDateRange detectionDateRange;
 
     public static final int MAX_RESULT_INDEX_NAME_SIZE = 255;
-    public static final String RESULT_INDEX_NAME_PATTERN = "^[a-z0-9_-]*$";
+    public static final String RESULT_INDEX_NAME_PATTERN = "[a-z0-9_-]+";
 
     /**
      * Constructor function.
@@ -288,9 +288,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         } else {
             this.uiMetadata = null;
         }
-        if (input.available() > 0) {
-            resultIndex = input.readOptionalString();
-        }
+        resultIndex = input.readOptionalString();
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {

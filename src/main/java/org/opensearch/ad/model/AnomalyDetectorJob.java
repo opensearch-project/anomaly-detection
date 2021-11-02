@@ -117,9 +117,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         } else {
             user = null;
         }
-        if (input.available() > 0) {
-            resultIndex = input.readOptionalString();
-        }
+        resultIndex = input.readOptionalString();
     }
 
     @Override

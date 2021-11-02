@@ -300,20 +300,26 @@ public class ADTaskManager {
                 listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
                 return;
             }
-            if (validateDetector(detector.get(), listener)) { // validate if detector is ready to start
-                String resultIndex = detector.get().getResultIndex();
-                if (resultIndex == null) {
-                    startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
-                    return;
-                }
-                context.restore();
-                detectionIndices
-                    .initCustomResultIndexAndExecute(
-                        resultIndex,
-                        () -> startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector),
-                        listener
-                    );
+
+            // Validate if detector is ready to start. Will return null if ready to start.
+            String errorMessage = validateDetector(detector.get());
+            if (errorMessage != null) {
+                listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
+                return;
             }
+            String resultIndex = detector.get().getResultIndex();
+            if (resultIndex == null) {
+                startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
+                return;
+            }
+            context.restore();
+            detectionIndices
+                .initCustomResultIndexAndExecute(
+                    resultIndex,
+                    () -> startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector),
+                    listener
+                );
+
         }, listener);
     }
 
@@ -1462,18 +1468,14 @@ public class ADTaskManager {
 
     }
 
-    private boolean validateDetector(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private String validateDetector(AnomalyDetector detector) {
         String error = null;
         if (detector.getFeatureAttributes().size() == 0) {
             error = "Can't start detector job as no features configured";
         } else if (detector.getEnabledFeatureIds().size() == 0) {
             error = "Can't start detector job as no enabled features configured";
         }
-        if (error != null) {
-            listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
-            return false;
-        }
-        return true;
+        return error;
     }
 
     private void updateLatestFlagOfOldTasksAndCreateNewTask(

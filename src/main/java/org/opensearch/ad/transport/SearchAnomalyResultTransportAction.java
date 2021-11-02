@@ -135,7 +135,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
                     readableIndices.add(ALL_AD_RESULTS_INDEX_PATTERN);
 
                     context.restore();
-                    // Send multiple search to check which index uer has permission to read. If search all indices directly,
+                    // Send multiple search to check which index a user has permission to read. If search all indices directly,
                     // search request will throw exception if user has no permission to search any index.
                     client.multiSearch(multiSearchRequest, ActionListener.wrap(multiSearchResponse -> {
                         MultiSearchResponse.Item[] responses = multiSearchResponse.getResponses();

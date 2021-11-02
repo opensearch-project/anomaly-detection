@@ -91,6 +91,7 @@ import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.InjectSecurity;
@@ -1160,7 +1161,7 @@ public class ADBatchTaskRunner {
                 internalListener,
                 anomalyResults,
                 resultIndex,
-                injectSecurity
+                () -> injectSecurity.close()
             );
         } catch (Exception exception) {
             logger.error("Failed to inject user roles", exception);
@@ -1177,28 +1178,30 @@ public class ADBatchTaskRunner {
         ActionListener<String> internalListener,
         List<AnomalyResult> anomalyResults,
         String resultIndex,
-        InjectSecurity injectSecurity
+        CheckedRunnable<?> runBefore
     ) {
+        ActionListener actionListener = new ThreadedActionListener<>(
+            logger,
+            threadPool,
+            AD_BATCH_TASK_THREAD_POOL_NAME,
+            ActionListener.wrap(r -> {
+                try {
+                    runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
+                } catch (Exception e) {
+                    internalListener.onFailure(e);
+                }
+            }, e -> {
+                logger.error("Fail to bulk index anomaly result", e);
+                internalListener.onFailure(e);
+            }),
+            false
+        );
+
         anomalyResultBulkIndexHandler
             .bulkIndexAnomalyResult(
                 resultIndex,
                 anomalyResults,
-                new ThreadedActionListener<>(logger, threadPool, AD_BATCH_TASK_THREAD_POOL_NAME, ActionListener.wrap(r -> {
-                    try {
-                        if (injectSecurity != null) {
-                            injectSecurity.close();
-                        }
-                        runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
-                    } catch (Exception e) {
-                        internalListener.onFailure(e);
-                    }
-                }, e -> {
-                    if (injectSecurity != null) {
-                        injectSecurity.close();
-                    }
-                    logger.error("Fail to bulk index anomaly result", e);
-                    internalListener.onFailure(e);
-                }), false)
+                runBefore == null ? actionListener : ActionListener.runBefore(actionListener, runBefore)
             );
     }
 

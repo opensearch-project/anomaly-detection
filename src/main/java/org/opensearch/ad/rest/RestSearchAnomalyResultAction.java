@@ -70,7 +70,7 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
         String resultIndex = Strings.trimToNull(request.param(RESULT_INDEX));
 
         if (resultIndex != null) {
-            searchRequest.indices(this.index, resultIndex);
+            searchRequest.indices(resultIndex);
         }
         return channel -> client.execute(actionType, searchRequest, search(channel));
     }
