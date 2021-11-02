@@ -91,8 +91,10 @@ import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.commons.InjectSecurity;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -117,6 +119,7 @@ import com.google.common.collect.ImmutableSet;
 public class ADBatchTaskRunner {
     private final Logger logger = LogManager.getLogger(ADBatchTaskRunner.class);
 
+    private Settings settings;
     private final ThreadPool threadPool;
     private final Client client;
     private final ADStats adStats;
@@ -156,6 +159,7 @@ public class ADBatchTaskRunner {
         SearchFeatureDao searchFeatureDao,
         HashRing hashRing
     ) {
+        this.settings = settings;
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.client = client;
@@ -1115,20 +1119,89 @@ public class ADBatchTaskRunner {
             }
         }
 
+        String user;
+        List<String> roles;
+        if (adTask.getUser() == null) {
+            // It's possible that user create domain with security disabled, then enable security
+            // after upgrading. This is for BWC, for old detectors which created when security
+            // disabled, the user will be null.
+            user = "";
+            roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
+        } else {
+            user = adTask.getUser().getName();
+            roles = adTask.getUser().getRoles();
+        }
+        String resultIndex = adTask.getDetector().getResultIndex();
+
+        if (resultIndex == null) {
+            // if result index is null, store anomaly result directly
+            storeAnomalyResultAndRunNextPiece(
+                adTask,
+                pieceEndTime,
+                dataStartTime,
+                dataEndTime,
+                interval,
+                internalListener,
+                anomalyResults,
+                resultIndex,
+                null
+            );
+            return;
+        }
+
+        try (InjectSecurity injectSecurity = new InjectSecurity(adTask.getTaskId(), settings, client.threadPool().getThreadContext())) {
+            // Injecting user role to verify if the user has permissions to write result to result index.
+            injectSecurity.inject(user, roles);
+            storeAnomalyResultAndRunNextPiece(
+                adTask,
+                pieceEndTime,
+                dataStartTime,
+                dataEndTime,
+                interval,
+                internalListener,
+                anomalyResults,
+                resultIndex,
+                () -> injectSecurity.close()
+            );
+        } catch (Exception exception) {
+            logger.error("Failed to inject user roles", exception);
+            internalListener.onFailure(exception);
+        }
+    }
+
+    private void storeAnomalyResultAndRunNextPiece(
+        ADTask adTask,
+        long pieceEndTime,
+        long dataStartTime,
+        long dataEndTime,
+        long interval,
+        ActionListener<String> internalListener,
+        List<AnomalyResult> anomalyResults,
+        String resultIndex,
+        CheckedRunnable<?> runBefore
+    ) {
+        ActionListener actionListener = new ThreadedActionListener<>(
+            logger,
+            threadPool,
+            AD_BATCH_TASK_THREAD_POOL_NAME,
+            ActionListener.wrap(r -> {
+                try {
+                    runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
+                } catch (Exception e) {
+                    internalListener.onFailure(e);
+                }
+            }, e -> {
+                logger.error("Fail to bulk index anomaly result", e);
+                internalListener.onFailure(e);
+            }),
+            false
+        );
+
         anomalyResultBulkIndexHandler
             .bulkIndexAnomalyResult(
+                resultIndex,
                 anomalyResults,
-                new ThreadedActionListener<>(logger, threadPool, AD_BATCH_TASK_THREAD_POOL_NAME, ActionListener.wrap(r -> {
-                    try {
-                        // Current piece end time is the next piece's start time
-                        runNextPiece(adTask, pieceEndTime, dataStartTime, dataEndTime, interval, internalListener);
-                    } catch (Exception e) {
-                        internalListener.onFailure(e);
-                    }
-                }, e -> {
-                    logger.error("Fail to bulk index anomaly result", e);
-                    internalListener.onFailure(e);
-                }), false)
+                runBefore == null ? actionListener : ActionListener.runBefore(actionListener, runBefore)
             );
     }
 

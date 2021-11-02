@@ -204,7 +204,8 @@ public class ADRestTestUtils {
             randomInt(),
             now,
             categoryFields,
-            TestHelpers.randomUser()
+            TestHelpers.randomUser(),
+            null
         );
 
         if (historical) {
@@ -357,6 +358,7 @@ public class ADRestTestUtils {
                 Instant.ofEpochMilli(enabledTime),
                 null,
                 Instant.ofEpochMilli(lastUpdateTime),
+                null,
                 null,
                 null
             );

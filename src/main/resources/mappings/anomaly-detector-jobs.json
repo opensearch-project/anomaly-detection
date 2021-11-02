@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 2
+    "schema_version": 3
   },
   "properties": {
     "schema_version": {
@@ -59,6 +59,9 @@
     },
     "lock_duration_seconds": {
       "type": "long"
+    },
+    "result_index": {
+      "type": "keyword"
     },
     "user": {
       "type": "nested",

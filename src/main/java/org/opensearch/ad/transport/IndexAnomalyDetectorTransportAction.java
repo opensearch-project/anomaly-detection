@@ -19,7 +19,6 @@ import static org.opensearch.ad.util.ParseUtils.getDetector;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -152,42 +151,31 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
         storedContext.restore();
         checkIndicesAndExecute(detector.getIndices(), () -> {
-            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-                // Don't replace detector's user when update detector
-                // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
-                User detectorUser = currentDetector == null ? user : currentDetector.getUser();
-                IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
-                    clusterService,
-                    client,
-                    transportService,
-                    listener,
-                    anomalyDetectionIndices,
-                    detectorId,
-                    seqNo,
-                    primaryTerm,
-                    refreshPolicy,
-                    detector,
-                    requestTimeout,
-                    maxSingleEntityAnomalyDetectors,
-                    maxMultiEntityAnomalyDetectors,
-                    maxAnomalyFeatures,
-                    method,
-                    xContentRegistry,
-                    detectorUser,
-                    adTaskManager,
-                    searchFeatureDao
-                );
-                try {
-                    indexAnomalyDetectorActionHandler.start();
-                } catch (IOException exception) {
-                    LOG.error("Fail to index detector", exception);
-                    listener.onFailure(exception);
-                }
-            } catch (Exception e) {
-                LOG.error(e);
-                listener.onFailure(e);
-            }
-
+            // Don't replace detector's user when update detector
+            // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
+            User detectorUser = currentDetector == null ? user : currentDetector.getUser();
+            IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
+                clusterService,
+                client,
+                transportService,
+                listener,
+                anomalyDetectionIndices,
+                detectorId,
+                seqNo,
+                primaryTerm,
+                refreshPolicy,
+                detector,
+                requestTimeout,
+                maxSingleEntityAnomalyDetectors,
+                maxMultiEntityAnomalyDetectors,
+                maxAnomalyFeatures,
+                method,
+                xContentRegistry,
+                detectorUser,
+                adTaskManager,
+                searchFeatureDao
+            );
+            indexAnomalyDetectorActionHandler.start();
         }, listener);
     }
 

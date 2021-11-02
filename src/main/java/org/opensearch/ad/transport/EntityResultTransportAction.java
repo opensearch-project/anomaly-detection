@@ -224,7 +224,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                                     detector.getUser(),
                                     indexUtil.getSchemaVersion(ADIndex.RESULT),
                                     modelId
-                                )
+                                ),
+                                detector.getResultIndex()
                             )
                         );
                 }

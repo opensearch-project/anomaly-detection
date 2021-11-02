@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,7 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
@@ -215,21 +217,42 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     /**
      * Start function to process create/update/validate anomaly detector request.
-     * Check if anomaly detector index exist first, if not, will create first.
-     * 
-     * @throws IOException IOException from {@link AnomalyDetectionIndices#initAnomalyDetectorIndexIfAbsent(ActionListener)}
+     * If detector is not using custom result index, check if anomaly detector
+     * index exist first, if not, will create first. Otherwise, check if custom
+     * result index exists or not. If exists, will check if index mapping matches
+     * AD result index mapping and if user has correct permission to write index.
+     * If doesn't exist, will create custom result index with AD result index
+     * mapping.
      */
-    public void start() throws IOException {
-        if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist() && !this.isDryRun) {
-            logger.info("AnomalyDetector Indices do not exist");
-            anomalyDetectionIndices
-                .initAnomalyDetectorIndex(
-                    ActionListener.wrap(response -> onCreateMappingsResponse(response, false), exception -> listener.onFailure(exception))
-                );
-        } else {
-            logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
-            logger.info("DryRun variable " + this.isDryRun);
-            validateDetectorName(this.isDryRun);
+    public void start() {
+        String resultIndex = anomalyDetector.getResultIndex();
+        // use default detector result index which is system index
+        if (resultIndex == null) {
+            createOrUpdateDetector();
+            return;
+        }
+
+        // user custom result index
+        anomalyDetectionIndices.initCustomResultIndexAndExecute(resultIndex, () -> createOrUpdateDetector(), listener);
+    }
+
+    private void createOrUpdateDetector() {
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist() && !this.isDryRun) {
+                logger.info("AnomalyDetector Indices do not exist");
+                anomalyDetectionIndices
+                    .initAnomalyDetectorIndex(
+                        ActionListener
+                            .wrap(response -> onCreateMappingsResponse(response, false), exception -> listener.onFailure(exception))
+                    );
+            } else {
+                logger.info("AnomalyDetector Indices do exist, calling prepareAnomalyDetectorIndexing");
+                logger.info("DryRun variable " + this.isDryRun);
+                validateDetectorName(this.isDryRun);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to create or update detector " + detectorId, e);
+            listener.onFailure(e);
         }
     }
 
@@ -313,6 +336,10 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             if (!listEqualsWithoutConsideringOrder(existingDetector.getCategoryField(), anomalyDetector.getCategoryField())) {
                 listener
                     .onFailure(new OpenSearchStatusException(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
+                return;
+            }
+            if (!Objects.equals(existingDetector.getResultIndex(), anomalyDetector.getResultIndex())) {
+                listener.onFailure(new OpenSearchStatusException(CommonErrorMessages.CAN_NOT_CHANGE_RESULT_INDEX, RestStatus.BAD_REQUEST));
                 return;
             }
 
@@ -646,7 +673,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             anomalyDetector.getSchemaVersion(),
             Instant.now(),
             anomalyDetector.getCategoryField(),
-            user
+            user,
+            anomalyDetector.getResultIndex()
         );
         IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
             .setRefreshPolicy(refreshPolicy)

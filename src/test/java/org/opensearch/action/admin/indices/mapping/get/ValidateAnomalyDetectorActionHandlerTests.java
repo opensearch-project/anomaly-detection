@@ -16,7 +16,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,12 +23,12 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -46,23 +45,20 @@ import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
-import org.opensearch.client.node.NodeClient;
+import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
-    static ThreadPool threadPool;
-    protected String TEXT_FIELD_TYPE = "text";
     protected AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> handler;
     protected ClusterService clusterService;
     protected ActionListener<ValidateAnomalyDetectorResponse> channel;
-    protected NodeClient clientMock;
     protected TransportService transportService;
     protected AnomalyDetectionIndices anomalyDetectionIndices;
     protected String detectorId;
@@ -79,27 +75,22 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
     protected ADTaskManager adTaskManager;
     protected SearchFeatureDao searchFeatureDao;
 
-    @BeforeClass
-    public static void beforeClass() {
-        threadPool = new TestThreadPool("IndexAnomalyDetectorJobActionHandlerTests");
-    }
-
-    @AfterClass
-    public static void afterClass() {
-        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
-        threadPool = null;
-    }
+    @Mock
+    private Client clientMock;
+    @Mock
+    protected ThreadPool threadPool;
+    protected ThreadContext threadContext;
 
     @SuppressWarnings("unchecked")
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        MockitoAnnotations.initMocks(this);
 
         settings = Settings.EMPTY;
         clusterService = mock(ClusterService.class);
         channel = mock(ActionListener.class);
-        clientMock = spy(new NodeClient(settings, null));
         transportService = mock(TransportService.class);
 
         anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
@@ -121,6 +112,10 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         method = RestRequest.Method.POST;
         adTaskManager = mock(ADTaskManager.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
+
+        threadContext = new ThreadContext(settings);
+        Mockito.doReturn(threadPool).when(clientMock).threadPool();
+        Mockito.doReturn(threadContext).when(threadPool).getThreadContext();
     }
 
     @SuppressWarnings("unchecked")

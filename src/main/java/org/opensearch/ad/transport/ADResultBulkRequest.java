@@ -18,13 +18,13 @@ import java.util.List;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.ValidateActions;
-import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 
 public class ADResultBulkRequest extends ActionRequest implements Writeable {
-    private final List<AnomalyResult> anomalyResults;
+    private final List<ResultWriteRequest> anomalyResults;
     static final String NO_REQUESTS_ADDED_ERR = "no requests added";
 
     public ADResultBulkRequest() {
@@ -36,7 +36,7 @@ public class ADResultBulkRequest extends ActionRequest implements Writeable {
         int size = in.readVInt();
         anomalyResults = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            anomalyResults.add(new AnomalyResult(in));
+            anomalyResults.add(new ResultWriteRequest(in));
         }
     }
 
@@ -53,7 +53,7 @@ public class ADResultBulkRequest extends ActionRequest implements Writeable {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeVInt(anomalyResults.size());
-        for (AnomalyResult result : anomalyResults) {
+        for (ResultWriteRequest result : anomalyResults) {
             result.writeTo(out);
         }
     }
@@ -62,16 +62,16 @@ public class ADResultBulkRequest extends ActionRequest implements Writeable {
      *
      * @return all of the results to send
      */
-    public List<AnomalyResult> getAnomalyResults() {
+    public List<ResultWriteRequest> getAnomalyResults() {
         return anomalyResults;
     }
 
     /**
      * Add result to send
-     * @param result The result
+     * @param resultWriteRequest The result write request
      */
-    public void add(AnomalyResult result) {
-        anomalyResults.add(result);
+    public void add(ResultWriteRequest resultWriteRequest) {
+        anomalyResults.add(resultWriteRequest);
     }
 
     /**

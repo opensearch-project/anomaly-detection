@@ -49,6 +49,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
     private ClusterService clusterService;
     private IndexingPressure indexingPressure;
     private Client client;
+    private String detectorId;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -79,6 +80,7 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
         indexingPressure = mock(IndexingPressure.class);
 
         client = mock(Client.class);
+        detectorId = randomAlphaOfLength(5);
 
         resultBulk = new ADResultBulkTransportAction(transportService, actionFilters, indexingPressure, settings, clusterService, client);
     }
@@ -96,8 +98,8 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
         when(indexingPressure.getCurrentReplicaBytes()).thenReturn(0L);
 
         ADResultBulkRequest originalRequest = new ADResultBulkRequest();
-        originalRequest.add(TestHelpers.randomHCADAnomalyDetectResult(0.8d, 0d));
-        originalRequest.add(TestHelpers.randomHCADAnomalyDetectResult(8d, 0.2d));
+        originalRequest.add(TestHelpers.randomResultWriteRequest(detectorId, 0.8d, 0d));
+        originalRequest.add(TestHelpers.randomResultWriteRequest(detectorId, 8d, 0.2d));
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -126,8 +128,8 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
         when(indexingPressure.getCurrentReplicaBytes()).thenReturn(24L);
 
         ADResultBulkRequest originalRequest = new ADResultBulkRequest();
-        originalRequest.add(TestHelpers.randomHCADAnomalyDetectResult(0.8d, 0d));
-        originalRequest.add(TestHelpers.randomHCADAnomalyDetectResult(8d, 0.2d));
+        originalRequest.add(TestHelpers.randomResultWriteRequest(detectorId, 0.8d, 0d));
+        originalRequest.add(TestHelpers.randomResultWriteRequest(detectorId, 8d, 0.2d));
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -157,10 +159,10 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
 
         ADResultBulkRequest originalRequest = new ADResultBulkRequest();
         for (int i = 0; i < 1000; i++) {
-            originalRequest.add(TestHelpers.randomHCADAnomalyDetectResult(0.8d, 0d));
+            originalRequest.add(TestHelpers.randomResultWriteRequest(detectorId, 0.8d, 0d));
         }
 
-        originalRequest.add(TestHelpers.randomHCADAnomalyDetectResult(8d, 0.2d));
+        originalRequest.add(TestHelpers.randomResultWriteRequest(detectorId, 8d, 0.2d));
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -187,8 +189,8 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
 
     public void testSerialzationRequest() throws IOException {
         ADResultBulkRequest request = new ADResultBulkRequest();
-        request.add(TestHelpers.randomHCADAnomalyDetectResult(0.8d, 0d));
-        request.add(TestHelpers.randomHCADAnomalyDetectResult(8d, 0.2d));
+        request.add(TestHelpers.randomResultWriteRequest(detectorId, 0.8d, 0d));
+        request.add(TestHelpers.randomResultWriteRequest(detectorId, 8d, 0.2d));
         BytesStreamOutput output = new BytesStreamOutput();
         request.writeTo(output);
 

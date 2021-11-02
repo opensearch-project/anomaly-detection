@@ -261,7 +261,12 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
                     if (profilesToCollect.contains(EntityProfileName.ENTITY_INFO)) {
                         long enabledTimeMs = job.getEnabledTime().toEpochMilli();
-                        SearchRequest lastSampleTimeRequest = createLastSampleTimeRequest(detectorId, enabledTimeMs, entityValue);
+                        SearchRequest lastSampleTimeRequest = createLastSampleTimeRequest(
+                            detectorId,
+                            enabledTimeMs,
+                            entityValue,
+                            detector.getResultIndex()
+                        );
 
                         EntityProfile.Builder builder = new EntityProfile.Builder();
 
@@ -387,7 +392,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         delegateListener.onResponse(builder.build());
     }
 
-    private SearchRequest createLastSampleTimeRequest(String detectorId, long enabledTime, Entity entity) {
+    private SearchRequest createLastSampleTimeRequest(String detectorId, long enabledTime, Entity entity, String resultIndex) {
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 
         String path = "entity";
@@ -449,6 +454,9 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
         SearchRequest request = new SearchRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         request.source(source);
+        if (resultIndex != null) {
+            request.indices(resultIndex);
+        }
         return request;
     }
 }

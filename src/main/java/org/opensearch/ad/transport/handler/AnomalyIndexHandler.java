@@ -11,12 +11,11 @@
 
 package org.opensearch.ad.transport.handler;
 
+import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.util.Iterator;
 import java.util.Locale;
-import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,6 +27,8 @@ import org.opensearch.action.bulk.BackoffPolicy;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.BulkUtil;
 import org.opensearch.ad.util.ClientUtil;
@@ -55,8 +56,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     protected final ThreadPool threadPool;
     protected final BackoffPolicy savingBackoffPolicy;
     protected final String indexName;
-    protected final Consumer<ActionListener<CreateIndexResponse>> createIndex;
-    protected final BooleanSupplier indexExists;
+    protected final AnomalyDetectionIndices anomalyDetectionIndices;
     // whether save to a specific doc id or not. False by default.
     protected boolean fixedDoc;
     protected final ClientUtil clientUtil;
@@ -70,8 +70,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
      * @param settings accessor for node settings.
      * @param threadPool used to invoke specific threadpool to execute
      * @param indexName name of index to save to
-     * @param createIndex functional interface to create the index to save to
-     * @param indexExists funcitonal interface to find out if the index exists
+     * @param anomalyDetectionIndices anomaly detection indices
      * @param clientUtil client wrapper
      * @param indexUtils Index util classes
      * @param clusterService accessor to ES cluster service
@@ -81,8 +80,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         Settings settings,
         ThreadPool threadPool,
         String indexName,
-        Consumer<ActionListener<CreateIndexResponse>> createIndex,
-        BooleanSupplier indexExists,
+        AnomalyDetectionIndices anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService
@@ -95,8 +93,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                 AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings)
             );
         this.indexName = indexName;
-        this.createIndex = createIndex;
-        this.indexExists = indexExists;
+        this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.fixedDoc = false;
         this.clientUtil = clientUtil;
         this.indexUtils = indexUtils;
@@ -113,27 +110,43 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         this.fixedDoc = fixedDoc;
     }
 
-    public void index(T toSave, String detectorId) {
+    // TODO: check if user has permission to index.
+    public void index(T toSave, String detectorId, String customIndexName) {
         if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
             LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
             return;
         }
 
         try {
-            if (!indexExists.getAsBoolean()) {
-                createIndex
-                    .accept(ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
-                        if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                            // It is possible the index has been created while we sending the create request
-                            save(toSave, detectorId);
-                        } else {
-                            throw new AnomalyDetectionException(
-                                detectorId,
-                                String.format(Locale.ROOT, "Unexpected error creating index %s", indexName),
-                                exception
-                            );
-                        }
-                    }));
+            if (customIndexName != null) {
+                // Only create custom AD result index when create detector, won’t recreate custom AD result index in realtime
+                // job and historical analysis later if it’s deleted. If user delete the custom AD result index, and AD plugin
+                // recreate it, that may bring confusion.
+                if (!anomalyDetectionIndices.doesIndexExist(customIndexName)) {
+                    throw new EndRunException(detectorId, CAN_NOT_FIND_RESULT_INDEX + customIndexName, true);
+                }
+                if (!anomalyDetectionIndices.isValidResultIndex(customIndexName)) {
+                    throw new EndRunException(detectorId, "wrong index mapping of custom AD result index", true);
+                }
+                save(toSave, detectorId, customIndexName);
+                return;
+            }
+            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
+                anomalyDetectionIndices
+                    .initDefaultAnomalyResultIndexDirectly(
+                        ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
+                            if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                                // It is possible the index has been created while we sending the create request
+                                save(toSave, detectorId);
+                            } else {
+                                throw new AnomalyDetectionException(
+                                    detectorId,
+                                    String.format(Locale.ROOT, "Unexpected error creating index %s", indexName),
+                                    exception
+                                );
+                            }
+                        })
+                    );
             } else {
                 save(toSave, detectorId);
             }
@@ -158,6 +171,14 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     }
 
     protected void save(T toSave, String detectorId) {
+        save(toSave, detectorId, indexName);
+    }
+
+    // TODO: Upgrade custom result index mapping to latest version?
+    // It may bring some issue if we upgrade the custom result index mapping while user is using that index
+    // for other use cases. One easy solution is to tell user only use custom result index for AD plugin.
+    // For the first release of custom result index, it's not a issue. Will leave this to next phase.
+    protected void save(T toSave, String detectorId, String indexName) {
         try (XContentBuilder builder = jsonBuilder()) {
             IndexRequest indexRequest = new IndexRequest(indexName).source(toSave.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
             if (fixedDoc) {

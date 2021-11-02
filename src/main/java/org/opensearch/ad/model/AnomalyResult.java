@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.constant.CommonName.DUMMY_DETECTOR_ID;
+import static org.opensearch.ad.constant.CommonName.SCHEMA_VERSION_FIELD;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -20,7 +22,6 @@ import java.util.List;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.ad.annotation.Generated;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParseField;
@@ -34,6 +35,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.commons.authuser.User;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Include result returned from RCF model and feature data.
@@ -51,17 +53,38 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String DETECTOR_ID_FIELD = "detector_id";
     public static final String ANOMALY_SCORE_FIELD = "anomaly_score";
     public static final String ANOMALY_GRADE_FIELD = "anomaly_grade";
-    private static final String CONFIDENCE_FIELD = "confidence";
-    private static final String FEATURE_DATA_FIELD = "feature_data";
-    private static final String DATA_START_TIME_FIELD = "data_start_time";
+    public static final String CONFIDENCE_FIELD = "confidence";
+    public static final String FEATURE_DATA_FIELD = "feature_data";
+    public static final String DATA_START_TIME_FIELD = "data_start_time";
     public static final String DATA_END_TIME_FIELD = "data_end_time";
-    private static final String EXECUTION_START_TIME_FIELD = "execution_start_time";
+    public static final String EXECUTION_START_TIME_FIELD = "execution_start_time";
     public static final String EXECUTION_END_TIME_FIELD = "execution_end_time";
     public static final String ERROR_FIELD = "error";
     public static final String ENTITY_FIELD = "entity";
     public static final String USER_FIELD = "user";
     public static final String TASK_ID_FIELD = "task_id";
     public static final String MODEL_ID_FIELD = "model_id";
+    // TODO: use the file anomaly-results.json as the single source of truth for AD result index mapping.
+    // Support upgrading custom result index.
+    public static final ImmutableMap<String, String> AD_RESULT_FIELD_CONFIGS = ImmutableMap
+        .<String, String>builder()
+        .put(ANOMALY_GRADE_FIELD, "{type=double}")
+        .put(ANOMALY_SCORE_FIELD, "{type=double}")
+        .put(CONFIDENCE_FIELD, "{type=double}")
+        .put(DATA_START_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
+        .put(DATA_END_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
+        .put(DETECTOR_ID_FIELD, "{type=keyword}")
+        .put(EXECUTION_START_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
+        .put(FEATURE_DATA_FIELD, "{type=nested, properties={data={type=double}, feature_id={type=keyword}}}")
+        .put(MODEL_ID_FIELD, "{type=keyword}")
+        .put(TASK_ID_FIELD, "{type=keyword}")
+        .put(
+            USER_FIELD,
+            "{type=nested, properties={backend_roles={type=text, fields={keyword={type=keyword}}}, custom_attribute_names={type=text,"
+                + " fields={keyword={type=keyword}}}, name={type=text, fields={keyword={type=keyword, ignore_above=256}}},"
+                + " roles={type=text, fields={keyword={type=keyword}}}}}"
+        )
+        .build();
 
     private final String detectorId;
     private final String taskId;
@@ -223,9 +246,17 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         XContentBuilder xContentBuilder = builder
             .startObject()
             .field(DETECTOR_ID_FIELD, detectorId)
-            .field(DATA_START_TIME_FIELD, dataStartTime.toEpochMilli())
-            .field(DATA_END_TIME_FIELD, dataEndTime.toEpochMilli())
-            .field(CommonName.SCHEMA_VERSION_FIELD, schemaVersion);
+            .field(SCHEMA_VERSION_FIELD, schemaVersion);
+        // In normal AD result, we always pass data start/end times. In custom result index,
+        // we need to write/delete a dummy AD result to verify if user has write permission
+        // to the custom result index. Just pass in null start/end time for this dummy anomaly
+        // result to make sure it won't be queried by mistake.
+        if (dataStartTime != null) {
+            xContentBuilder.field(DATA_START_TIME_FIELD, dataStartTime.toEpochMilli());
+        }
+        if (dataEndTime != null) {
+            xContentBuilder.field(DATA_END_TIME_FIELD, dataEndTime.toEpochMilli());
+        }
         if (featureData != null) {
             // can be null during preview
             xContentBuilder.field(FEATURE_DATA_FIELD, featureData.toArray());
@@ -327,7 +358,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
-                case CommonName.SCHEMA_VERSION_FIELD:
+                case SCHEMA_VERSION_FIELD:
                     schemaVersion = parser.intValue();
                     break;
                 case TASK_ID_FIELD:
@@ -517,5 +548,22 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeInt(schemaVersion);
         out.writeOptionalString(taskId);
         out.writeOptionalString(modelId);
+    }
+
+    public static AnomalyResult getDummyResult() {
+        return new AnomalyResult(
+            DUMMY_DETECTOR_ID,
+            Double.NaN,
+            Double.NaN,
+            Double.NaN,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            CommonValue.NO_SCHEMA_VERSION
+        );
     }
 }

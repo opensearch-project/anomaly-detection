@@ -156,7 +156,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         IndexUtils indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
         NodeStateManager stateManager = mock(NodeStateManager.class);
 
-        runner.setIndexUtil(indexUtil);
+        runner.setAnomalyDetectionIndices(indexUtil);
 
         lockService = new LockService(client, clusterService);
         doReturn(lockService).when(context).getLockService();
@@ -264,13 +264,13 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         LockModel lock = new LockModel("indexName", "jobId", Instant.now(), 10, false);
         Exception exception = new EndRunException(jobParameter.getName(), randomAlphaOfLength(5), true);
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
     }
 
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndExistingAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, true);
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
         verify(client).index(any(IndexRequest.class), any());
         assertTrue(testAppender.containsMessage("EndRunException happened when executing anomaly result action for"));
         assertTrue(testAppender.containsMessage("JobRunner will stop AD job due to EndRunException for"));
@@ -280,7 +280,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndExistingAdJobAndIndexException() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, true, false);
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
         verify(client).index(any(IndexRequest.class), any());
         assertTrue(testAppender.containsMessage("Failed to disable AD job for"));
     }
@@ -292,14 +292,14 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
         assertFalse(testAppender.containsMessage("Failed to disable AD job for"));
         assertTrue(testAppender.containsMessage("AD Job was not found for"));
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
         verify(adTaskManager).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
     }
 
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndExistingDisabledAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(true, false, true);
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
         verify(client, never()).index(any(), any());
         assertFalse(testAppender.containsMessage("AD Job was not found for"));
         assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
@@ -308,7 +308,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Test
     public void testRunAdJobWithEndRunExceptionNowAndNotExistingDisabledAdJob() {
         testRunAdJobWithEndRunExceptionNowAndStopAdJob(false, false, true);
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
         verify(client, never()).index(any(), any());
         assertFalse(testAppender.containsMessage("AD Job was disabled by JobRunner for"));
     }
@@ -339,7 +339,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
                                 Instant.now(),
                                 Instant.now(),
                                 60L,
-                                TestHelpers.randomUser()
+                                TestHelpers.randomUser(),
+                                jobParameter.getResultIndex()
                             ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
                         ),
                     Collections.emptyMap(),
@@ -380,7 +381,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
         assertTrue(testAppender.containsMessage("JobRunner will stop AD job due to EndRunException for"));
         assertTrue(testAppender.containsMessage("JobRunner failed to get detector job"));
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
         assertEquals(1, testAppender.countMessage("JobRunner failed to get detector job"));
     }
 
@@ -402,7 +403,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         }).when(client).get(any(), any());
 
         runner.handleAdException(jobParameter, lockService, lock, Instant.now().minusMillis(1000 * 60), Instant.now(), exception);
-        verify(anomalyResultHandler).index(any(), any());
+        verify(anomalyResultHandler).index(any(), any(), any());
         assertEquals(1, testAppender.countMessage("JobRunner failed to get detector job"));
     }
 

@@ -218,6 +218,7 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             randomInt(),
             Instant.now(),
             null,
+            null,
             null
         );
     }
@@ -239,6 +240,7 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             randomInt(),
             Instant.now(),
             ImmutableList.of(categoryField),
+            null,
             null
         );
     }

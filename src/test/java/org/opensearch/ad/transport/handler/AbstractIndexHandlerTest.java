@@ -133,8 +133,8 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
                     break;
             }
             return null;
-        }).when(anomalyDetectionIndices).initAnomalyResultIndexDirectly(any());
-        when(anomalyDetectionIndices.doesAnomalyResultIndexExist()).thenReturn(anomalyResultIndexExists);
+        }).when(anomalyDetectionIndices).initDefaultAnomalyResultIndexDirectly(any());
+        when(anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()).thenReturn(anomalyResultIndexExists);
     }
 
     protected void setUpSavingAnomalyResultIndex(boolean anomalyResultIndexExists) throws IOException {

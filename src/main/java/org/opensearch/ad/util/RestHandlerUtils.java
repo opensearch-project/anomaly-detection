@@ -38,6 +38,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.indices.InvalidIndexNameException;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
@@ -59,6 +60,7 @@ public final class RestHandlerUtils {
     public static final String IF_PRIMARY_TERM = "if_primary_term";
     public static final String REFRESH = "refresh";
     public static final String DETECTOR_ID = "detectorID";
+    public static final String RESULT_INDEX = "resultIndex";
     public static final String ANOMALY_DETECTOR = "anomaly_detector";
     public static final String ANOMALY_DETECTOR_JOB = "anomaly_detector_job";
     public static final String REALTIME_TASK = "realtime_detection_task";
@@ -191,10 +193,7 @@ public final class RestHandlerUtils {
             if (isProperExceptionToReturn(e)) {
                 actionListener.onFailure(e);
             } else if (isProperExceptionToReturn(cause)) {
-                Exception exception = cause instanceof OpenSearchStatusException
-                    ? (OpenSearchStatusException) cause
-                    : (IndexNotFoundException) cause;
-                actionListener.onFailure(exception);
+                actionListener.onFailure((Exception) cause);
             } else {
                 RestStatus status = isBadRequest(e) ? BAD_REQUEST : INTERNAL_SERVER_ERROR;
                 String errorMessage = generalErrorMessage;
@@ -219,6 +218,6 @@ public final class RestHandlerUtils {
         if (e == null) {
             return false;
         }
-        return e instanceof OpenSearchStatusException || e instanceof IndexNotFoundException;
+        return e instanceof OpenSearchStatusException || e instanceof IndexNotFoundException || e instanceof InvalidIndexNameException;
     }
 }

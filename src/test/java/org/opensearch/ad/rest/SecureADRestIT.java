@@ -191,7 +191,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
                 ImmutableList.of("odfe", randomAlphaOfLength(5)),
                 ImmutableList.of(randomAlphaOfLength(5)),
                 ImmutableList.of(randomAlphaOfLength(5))
-            )
+            ),
+            null
         );
         enableFilterBy();
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so

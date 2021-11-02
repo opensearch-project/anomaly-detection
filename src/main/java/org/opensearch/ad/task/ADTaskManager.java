@@ -106,6 +106,7 @@ import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.ADTaskCancelledException;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
+import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -143,6 +144,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
@@ -278,6 +280,7 @@ public class ADTaskManager {
      * @param handler anomaly detector job action handler
      * @param user user
      * @param transportService transport service
+     * @param context thread context
      * @param listener action listener
      */
     public void startDetector(
@@ -286,23 +289,60 @@ public class ADTaskManager {
         IndexAnomalyDetectorJobActionHandler handler,
         User user,
         TransportService transportService,
+        ThreadContext.StoredContext context,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        // upgrade index mapping of AD default indices
+        detectionIndices.update();
+
         getDetector(detectorId, (detector) -> {
             if (!detector.isPresent()) {
                 listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
                 return;
             }
-            if (validateDetector(detector.get(), listener)) { // validate if detector is ready to start
-                if (detectionDateRange == null) {
-                    // start realtime job
-                    handler.startAnomalyDetectorJob(detector.get());
-                } else {
-                    // start historical analysis task
-                    forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
-                }
+
+            // Validate if detector is ready to start. Will return null if ready to start.
+            String errorMessage = validateDetector(detector.get());
+            if (errorMessage != null) {
+                listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
+                return;
             }
+            String resultIndex = detector.get().getResultIndex();
+            if (resultIndex == null) {
+                startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
+                return;
+            }
+            context.restore();
+            detectionIndices
+                .initCustomResultIndexAndExecute(
+                    resultIndex,
+                    () -> startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector),
+                    listener
+                );
+
         }, listener);
+    }
+
+    private void startRealtimeOrHistoricalDetection(
+        DetectionDateRange detectionDateRange,
+        IndexAnomalyDetectorJobActionHandler handler,
+        User user,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener,
+        Optional<AnomalyDetector> detector
+    ) {
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (detectionDateRange == null) {
+                // start realtime job
+                handler.startAnomalyDetectorJob(detector.get());
+            } else {
+                // start historical analysis task
+                forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to stash context", e);
+            listener.onFailure(e);
+        }
     }
 
     /**
@@ -1428,18 +1468,14 @@ public class ADTaskManager {
 
     }
 
-    private boolean validateDetector(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private String validateDetector(AnomalyDetector detector) {
         String error = null;
         if (detector.getFeatureAttributes().size() == 0) {
             error = "Can't start detector job as no features configured";
         } else if (detector.getEnabledFeatureIds().size() == 0) {
             error = "Can't start detector job as no enabled features configured";
         }
-        if (error != null) {
-            listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
-            return false;
-        }
-        return true;
+        return error;
     }
 
     private void updateLatestFlagOfOldTasksAndCreateNewTask(
@@ -2228,7 +2264,7 @@ public class ADTaskManager {
             adTask.setError(getErrorMessage(exception));
             if (exception instanceof LimitExceededException && isRetryableError(exception.getMessage())) {
                 action = ADTaskAction.PUSH_BACK_ENTITY;
-            } else if (exception instanceof ADTaskCancelledException) {
+            } else if (exception instanceof ADTaskCancelledException || exception instanceof EndRunException) {
                 action = ADTaskAction.CANCEL;
             }
         }
