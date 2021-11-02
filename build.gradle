@@ -104,9 +104,7 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
-        force "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
-        force "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
-        force "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
+        force "com.fasterxml.jackson.core:jackson-core:2.11.4"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
@@ -552,8 +550,12 @@ dependencies {
     compile group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
     compile group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
-    
-    compile 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
+
+    // force to use Jackson 2.11.4 to avoid version conflict issue
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
+    implementation "com.fasterxml.jackson.core:jackson-core:2.11.4"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.11.4"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.11.4"
     compile files('lib/randomcutforest-parkservices-2.0.1.jar')
     compile files('lib/randomcutforest-core-2.0.1.jar')
 
