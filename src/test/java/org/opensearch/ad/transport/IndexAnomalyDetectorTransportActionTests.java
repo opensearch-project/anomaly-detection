@@ -35,6 +35,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -70,6 +71,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private ClusterSettings clusterSettings;
     private ADTaskManager adTaskManager;
     private Client client = mock(Client.class);
+    private SearchFeatureDao searchFeatureDao;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -100,6 +102,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         when(clusterService.state()).thenReturn(clusterState);
 
         adTaskManager = mock(ADTaskManager.class);
+        searchFeatureDao = mock(SearchFeatureDao.class);
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
@@ -108,7 +111,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
         task = mock(Task.class);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
@@ -199,7 +203,9 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             settings,
             mock(AnomalyDetectionIndices.class),
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
+
         );
         transportAction.doExecute(task, request, response);
     }
@@ -222,7 +228,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             settings,
             mock(AnomalyDetectionIndices.class),
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
         transportAction.doExecute(task, request, response);
     }

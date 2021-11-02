@@ -23,6 +23,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.search.SearchPhaseExecutionException;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -72,6 +74,7 @@ public final class RestHandlerUtils {
     public static final String MATCH = "match";
     public static final String RESULTS = "results";
     public static final String TOP_ANOMALIES = "_topAnomalies";
+    public static final String VALIDATE = "_validate";
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";
@@ -105,18 +108,24 @@ public final class RestHandlerUtils {
         return XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON);
     }
 
-    public static String validateAnomalyDetector(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {
+    /**
+     * Check if there is configuration/syntax error in feature definition of anomalyDetector
+     * @param anomalyDetector detector to check
+     * @param maxAnomalyFeatures max allowed feature number
+     * @return error message if error exists; otherwise, null is returned
+     */
+    public static String checkAnomalyDetectorFeaturesSyntax(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {
         List<Feature> features = anomalyDetector.getFeatureAttributes();
         if (features != null) {
             if (features.size() > maxAnomalyFeatures) {
-                return "Can't create anomaly features more than " + maxAnomalyFeatures;
+                return "Can't create more than " + maxAnomalyFeatures + " anomaly features";
             }
-            return validateFeatures(anomalyDetector.getFeatureAttributes());
+            return validateFeaturesConfig(anomalyDetector.getFeatureAttributes());
         }
         return null;
     }
 
-    private static String validateFeatures(List<Feature> features) {
+    private static String validateFeaturesConfig(List<Feature> features) {
         final Set<String> duplicateFeatureNames = new HashSet<>();
         final Set<String> featureNames = new HashSet<>();
         final Set<String> duplicateFeatureAggNames = new HashSet<>();
@@ -134,13 +143,31 @@ public final class RestHandlerUtils {
         StringBuilder errorMsgBuilder = new StringBuilder();
         if (duplicateFeatureNames.size() > 0) {
             errorMsgBuilder.append("Detector has duplicate feature names: ");
-            errorMsgBuilder.append(String.join(", ", duplicateFeatureNames)).append("\n");
+            errorMsgBuilder.append(String.join(", ", duplicateFeatureNames));
+        }
+        if (errorMsgBuilder.length() != 0 && duplicateFeatureAggNames.size() > 0) {
+            errorMsgBuilder.append(". ");
         }
         if (duplicateFeatureAggNames.size() > 0) {
             errorMsgBuilder.append("Detector has duplicate feature aggregation query names: ");
             errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
         }
         return errorMsgBuilder.toString();
+    }
+
+    public static boolean isExceptionCausedByInvalidQuery(Exception ex) {
+        if (!(ex instanceof SearchPhaseExecutionException)) {
+            return false;
+        }
+        SearchPhaseExecutionException exception = (SearchPhaseExecutionException) ex;
+        // If any shards return bad request and failure cause is IllegalArgumentException, we
+        // consider the feature query is invalid and will not count the error in failure stats.
+        for (ShardSearchFailure failure : exception.shardFailures()) {
+            if (RestStatus.BAD_REQUEST != failure.status() || !(failure.getCause() instanceof IllegalArgumentException)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

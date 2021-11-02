@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
+import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
@@ -35,6 +36,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParseField;
+import org.opensearch.common.ParsingException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -43,6 +45,7 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParseException;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.QueryBuilder;
@@ -70,16 +73,18 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String TYPE = "_doc";
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
+    public static final String PARSING_ISSUE = "query_parsing";
+    public static final String GENERAL_SETTINGS = "general_settings";
 
-    private static final String NAME_FIELD = "name";
+    public static final String NAME_FIELD = "name";
     private static final String DESCRIPTION_FIELD = "description";
-    private static final String TIMEFIELD_FIELD = "time_field";
-    private static final String INDICES_FIELD = "indices";
-    private static final String FILTER_QUERY_FIELD = "filter_query";
-    private static final String FEATURE_ATTRIBUTES_FIELD = "feature_attributes";
-    private static final String DETECTION_INTERVAL_FIELD = "detection_interval";
-    private static final String WINDOW_DELAY_FIELD = "window_delay";
-    private static final String SHINGLE_SIZE_FIELD = "shingle_size";
+    public static final String TIMEFIELD_FIELD = "time_field";
+    public static final String INDICES_FIELD = "indices";
+    public static final String FILTER_QUERY_FIELD = "filter_query";
+    public static final String FEATURE_ATTRIBUTES_FIELD = "feature_attributes";
+    public static final String DETECTION_INTERVAL_FIELD = "detection_interval";
+    public static final String WINDOW_DELAY_FIELD = "window_delay";
+    public static final String SHINGLE_SIZE_FIELD = "shingle_size";
     private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
     public static final String CATEGORY_FIELD = "category_field";
@@ -149,31 +154,57 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         User user
     ) {
         if (Strings.isBlank(name)) {
-            throw new IllegalArgumentException("Detector name should be set");
+            throw new ADValidationException(
+                CommonErrorMessages.EMPTY_DETECTOR_NAME,
+                DetectorValidationIssueType.NAME,
+                ValidationAspect.DETECTOR
+            );
         }
-        if (timeField == null) {
-            throw new IllegalArgumentException("Time field should be set");
+        if (Strings.isBlank(timeField)) {
+            throw new ADValidationException(
+                CommonErrorMessages.NULL_TIME_FIELD,
+                DetectorValidationIssueType.TIMEFIELD_FIELD,
+                ValidationAspect.DETECTOR
+            );
         }
         if (indices == null || indices.isEmpty()) {
-            throw new IllegalArgumentException("Indices should be set");
+            throw new ADValidationException(
+                CommonErrorMessages.EMPTY_INDICES,
+                DetectorValidationIssueType.INDICES,
+                ValidationAspect.DETECTOR
+            );
         }
         if (detectionInterval == null) {
-            throw new IllegalArgumentException("Detection interval should be set");
+            throw new ADValidationException(
+                CommonErrorMessages.NULL_DETECTION_INTERVAL,
+                DetectorValidationIssueType.DETECTION_INTERVAL,
+                ValidationAspect.DETECTOR
+            );
         }
         if (invalidShingleSizeRange(shingleSize)) {
-            throw new IllegalArgumentException(
+            throw new ADValidationException(
                 "Shingle size must be a positive integer no larger than "
                     + AnomalyDetectorSettings.MAX_SHINGLE_SIZE
                     + ". Got "
-                    + shingleSize
+                    + shingleSize,
+                DetectorValidationIssueType.SHINGLE_SIZE_FIELD,
+                ValidationAspect.DETECTOR
             );
         }
         int maxCategoryFields = NumericSetting.maxCategoricalFields();
         if (categoryFields != null && categoryFields.size() > maxCategoryFields) {
-            throw new IllegalArgumentException(CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields));
+            throw new ADValidationException(
+                CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
+                DetectorValidationIssueType.CATEGORY,
+                ValidationAspect.DETECTOR
+            );
         }
         if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
-            throw new IllegalArgumentException("Detection interval must be a positive integer");
+            throw new ADValidationException(
+                CommonErrorMessages.INVALID_DETECTION_INTERVAL,
+                DetectorValidationIssueType.DETECTION_INTERVAL,
+                ValidationAspect.DETECTOR
+            );
         }
         this.detectorId = detectorId;
         this.version = version;
@@ -402,6 +433,12 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
                     try {
                         filterQuery = parseInnerQueryBuilder(parser);
+                    } catch (ParsingException | XContentParseException e) {
+                        throw new ADValidationException(
+                            "Custom query error in data filter: " + e.getMessage(),
+                            DetectorValidationIssueType.FILTER_QUERY,
+                            ValidationAspect.DETECTOR
+                        );
                     } catch (IllegalArgumentException e) {
                         if (!e.getMessage().contains("empty clause")) {
                             throw e;
@@ -409,16 +446,51 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     }
                     break;
                 case DETECTION_INTERVAL_FIELD:
-                    detectionInterval = TimeConfiguration.parse(parser);
+                    try {
+                        detectionInterval = TimeConfiguration.parse(parser);
+                    } catch (Exception e) {
+                        if (e instanceof IllegalArgumentException
+                            && e.getMessage().contains(CommonErrorMessages.NEGATIVE_TIME_CONFIGURATION)) {
+                            throw new ADValidationException(
+                                "Detection interval must be a positive integer",
+                                DetectorValidationIssueType.DETECTION_INTERVAL,
+                                ValidationAspect.DETECTOR
+                            );
+                        }
+                        throw e;
+                    }
                     break;
                 case FEATURE_ATTRIBUTES_FIELD:
-                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
-                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
-                        features.add(Feature.parse(parser));
+                    try {
+                        ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                        while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                            features.add(Feature.parse(parser));
+                        }
+                    } catch (Exception e) {
+                        if (e instanceof ParsingException || e instanceof XContentParseException) {
+                            throw new ADValidationException(
+                                "Custom query error: " + e.getMessage(),
+                                DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                                ValidationAspect.DETECTOR
+                            );
+                        }
+                        throw e;
                     }
                     break;
                 case WINDOW_DELAY_FIELD:
-                    windowDelay = TimeConfiguration.parse(parser);
+                    try {
+                        windowDelay = TimeConfiguration.parse(parser);
+                    } catch (Exception e) {
+                        if (e instanceof IllegalArgumentException
+                            && e.getMessage().contains(CommonErrorMessages.NEGATIVE_TIME_CONFIGURATION)) {
+                            throw new ADValidationException(
+                                "Window delay interval must be a positive integer",
+                                DetectorValidationIssueType.WINDOW_DELAY,
+                                ValidationAspect.DETECTOR
+                            );
+                        }
+                        throw e;
+                    }
                     break;
                 case SHINGLE_SIZE_FIELD:
                     shingleSize = parser.intValue();

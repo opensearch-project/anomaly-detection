@@ -45,8 +45,10 @@ public class CommonErrorMessages {
     public static String DETECTOR_MISSING = "Detector is missing";
     public static String AD_TASK_ACTION_MISSING = "AD task action is missing";
     public static final String BUG_RESPONSE = "We might have bugs.";
+    public static final String INDEX_NOT_FOUND = "index does not exist";
+    public static final String NOT_EXISTENT_VALIDATION_TYPE = "The given validation type doesn't exist";
 
-    private static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field.";
+    private static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field/s.";
 
     public static String getTooManyCategoricalFieldErr(int limit) {
         return String.format(Locale.ROOT, TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT, limit);
@@ -66,6 +68,9 @@ public class CommonErrorMessages {
     public static String NO_ENTITY_FOUND = "No entity found";
     public static String HISTORICAL_ANALYSIS_CANCELLED = "Historical analysis cancelled by user";
     public static String HC_DETECTOR_TASK_IS_UPDATING = "HC detector task is updating";
+    public static String NEGATIVE_TIME_CONFIGURATION = "should be non-negative";
+    public static String INVALID_DETECTOR_NAME =
+        "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
 
     public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
     public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";

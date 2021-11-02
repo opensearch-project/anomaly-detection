@@ -56,10 +56,14 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
         parser.close();
     }
 
+    public void testisExceptionCausedByInvalidQueryNotSearchPhaseException() {
+        assertFalse(RestHandlerUtils.isExceptionCausedByInvalidQuery(new IllegalArgumentException()));
+    }
+
     public void testValidateAnomalyDetectorWithTooManyFeatures() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(), randomFeature()));
-        String error = RestHandlerUtils.validateAnomalyDetector(detector, 1);
-        assertEquals("Can't create anomaly features more than 1", error);
+        String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 1);
+        assertEquals("Can't create more than 1 anomaly features", error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {
@@ -68,8 +72,8 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
             .randomAnomalyDetector(
                 ImmutableList.of(randomFeature(featureName, randomAlphaOfLength(5)), randomFeature(featureName, randomAlphaOfLength(5)))
             );
-        String error = RestHandlerUtils.validateAnomalyDetector(detector, 2);
-        assertEquals("Detector has duplicate feature names: " + featureName + "\n", error);
+        String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 2);
+        assertEquals("Detector has duplicate feature names: " + featureName, error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateAggregationNames() throws IOException {
@@ -79,7 +83,7 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
                 ImmutableList
                     .of(randomFeature(randomAlphaOfLength(5), aggregationName), randomFeature(randomAlphaOfLength(5), aggregationName))
             );
-        String error = RestHandlerUtils.validateAnomalyDetector(detector, 2);
+        String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 2);
         assertEquals("Detector has duplicate feature aggregation query names: " + aggregationName, error);
     }
 }

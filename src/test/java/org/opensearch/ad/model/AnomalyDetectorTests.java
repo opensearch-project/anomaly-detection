@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.common.ParsingException;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -139,7 +139,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\","
             + "\"feature_enabled\":false,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
             + "\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ParsingException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithoutOptionalParams() throws IOException {
@@ -163,7 +163,43 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"shingle_size\":-1,\"schema_version\":-1203962153,\"ui_metadata\":"
             + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(IllegalArgumentException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+    }
+
+    public void testParseAnomalyDetectorWithNegativeWindowDelay() throws Exception {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":-973,"
+            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
+            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+    }
+
+    public void testParseAnomalyDetectorWithNegativeDetectionInterval() throws Exception {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":-425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
+            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
+            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+    }
+
+    public void testParseAnomalyDetectorWithIncorrectFeatureQuery() throws Exception {
+        String detectorString = "{\"name\":\"todagdpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":\"bb\"}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
+            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
+            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithNullUiMetadata() throws IOException {
@@ -184,7 +220,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testInvalidShingleSize() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -209,7 +245,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -234,7 +270,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testBlankDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -259,7 +295,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullTimeField() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -284,7 +320,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -309,7 +345,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testEmptyIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -334,7 +370,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectionInterval() throws Exception {
         TestHelpers
             .assertFailWith(
-                IllegalArgumentException.class,
+                ADValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -357,8 +393,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
     }
 
     public void testInvalidDetectionInterval() {
-        IllegalArgumentException exception = expectThrows(
-            IllegalArgumentException.class,
+        ADValidationException exception = expectThrows(
+            ADValidationException.class,
             () -> new AnomalyDetector(
                 randomAlphaOfLength(10),
                 randomLong(),

@@ -37,7 +37,8 @@ public enum NotSerializedADExceptionName {
     CLIENT_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ClientException("", ""))),
     CANCELLATION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ADTaskCancelledException("", ""))),
     DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new DuplicateTaskException(""))),
-    AD_VERSION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ADVersionException("")));
+    AD_VERSION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ADVersionException(""))),
+    AD_VALIDATION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ADValidationException("", null, null)));
 
     private static final Logger LOG = LogManager.getLogger(NotSerializedADExceptionName.class);
     private final String name;
@@ -94,6 +95,9 @@ public enum NotSerializedADExceptionName {
                         break;
                     case AD_VERSION_EXCEPTION_NAME_UNDERSCORE:
                         convertedException = new ADVersionException(exceptionMsg);
+                        break;
+                    case AD_VALIDATION_EXCEPTION_NAME_UNDERSCORE:
+                        convertedException = new ADValidationException(exceptionMsg, null, null);
                         break;
                     default:
                         LOG.warn(new ParameterizedMessage("Unexpected AD exception {}", adException));

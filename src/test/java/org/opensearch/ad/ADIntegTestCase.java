@@ -16,6 +16,8 @@ import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,6 +46,7 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
@@ -56,10 +59,12 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
+import com.google.common.collect.ImmutableMap;
 
 public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
@@ -68,6 +73,8 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     protected String categoryField = "type";
     protected String ipField = "ip";
     protected String valueField = "value";
+    protected String nameField = "test";
+    protected int DEFAULT_TEST_DATA_DOCS = 3000;
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
@@ -255,4 +262,49 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         return dataNodes.toArray(new DiscoveryNode[0]);
     }
 
+    public void ingestTestDataValidate(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type) {
+        ingestTestDataValidate(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_TEST_DATA_DOCS);
+    }
+
+    public void ingestTestDataValidate(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, int totalDocs) {
+        createTestDataIndex(testIndex);
+        List<Map<String, ?>> docs = new ArrayList<>();
+        Instant currentInterval = Instant.from(startTime);
+
+        for (int i = 0; i < totalDocs; i++) {
+            currentInterval = currentInterval.plus(detectionIntervalInMinutes, ChronoUnit.MINUTES);
+            double value = i % 500 == 0 ? randomDoubleBetween(1000, 2000, true) : randomDoubleBetween(10, 100, true);
+            docs
+                .add(
+                    ImmutableMap
+                        .of(
+                            timeField,
+                            currentInterval.toEpochMilli(),
+                            "value",
+                            value,
+                            "type",
+                            type,
+                            "is_error",
+                            randomBoolean(),
+                            "message",
+                            randomAlphaOfLength(5)
+                        )
+                );
+        }
+        BulkResponse bulkResponse = bulkIndexDocs(testIndex, docs, 30_000);
+        assertEquals(RestStatus.OK, bulkResponse.status());
+        assertFalse(bulkResponse.hasFailures());
+        long count = countDocs(testIndex);
+        assertEquals(totalDocs, count);
+    }
+
+    public Feature maxValueFeature() throws IOException {
+        return maxValueFeature(nameField, valueField, nameField);
+    }
+
+    public Feature maxValueFeature(String aggregationName, String fieldName, String featureName) throws IOException {
+        AggregationBuilder aggregationBuilder = TestHelpers
+            .parseAggregation("{\"" + aggregationName + "\":{\"max\":{\"field\":\"" + fieldName + "\"}}}");
+        return new Feature(randomAlphaOfLength(5), featureName, true, aggregationBuilder);
+    }
 }

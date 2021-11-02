@@ -52,6 +52,13 @@ public class NotSerializedADExceptionNameTests extends OpenSearchTestCase {
         assertTrue(converted.get() instanceof DuplicateTaskException);
     }
 
+    public void testConvertADValidationException() {
+        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
+            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new ADValidationException("", null, null)), "");
+        assertTrue(converted.isPresent());
+        assertTrue(converted.get() instanceof ADValidationException);
+    }
+
     public void testUnknownException() {
         Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
             .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new RuntimeException("")), "");

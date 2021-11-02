@@ -13,10 +13,15 @@ package org.opensearch.ad.rest;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
+import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.DUPLICATE_DETECTOR_MSG;
+import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.http.entity.ContentType;
@@ -31,12 +36,15 @@ import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectionDateRange;
+import org.opensearch.ad.model.Feature;
+import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -82,7 +90,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "Can't create anomaly detector as no document found in indices",
+                "Can't create anomaly detector as no document is found in the indices",
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1219,6 +1227,274 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
         assertEquals("Delete anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(response));
+
+    }
+
+    public void testValidateAnomalyDetectorWithDuplicateName() throws Exception {
+        AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
+        TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"name\":\""
+                            + detector.getName()
+                            + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
+                            + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
+                            + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
+                            + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
+                            + "{\"total_error\":"
+                            + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                            + "{\"field\":"
+                            + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                            + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}}}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals("Validation returned duplicate detector name message", RestStatus.OK, TestHelpers.restStatus(resp));
+        String errorMsg = String.format(Locale.ROOT, DUPLICATE_DETECTOR_MSG, detector.getName(), "[" + detector.getDetectorId() + "]");
+        assertEquals("duplicate error message", errorMsg, messageMap.get("name").get("message"));
+    }
+
+    public void testValidateAnomalyDetectorWithNoTimeField() throws Exception {
+        TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"name\":\"test\",\"description\":\"\""
+                            + ",\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"test\","
+                            + "\"feature_enabled\":true,\"aggregation_query\":{\"test\":{\"sum\":{\"field\":\"value\"}}}}],"
+                            + "\"filter_query\":{},\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals("Validation response returned", RestStatus.OK, TestHelpers.restStatus(resp));
+        assertEquals("time field missing", CommonErrorMessages.NULL_TIME_FIELD, messageMap.get("time_field").get("message"));
+    }
+
+    public void testValidateAnomalyDetectorWithIncorrectShingleSize() throws Exception {
+        TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"name\":\""
+                            + "test-detector"
+                            + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
+                            + "\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
+                            + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
+                            + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
+                            + "{\"total_error\":"
+                            + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                            + "{\"field\":"
+                            + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                            + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},"
+                            + "\"shingle_size\": 2000}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        String errorMessage = "Shingle size must be a positive integer no larger than "
+            + AnomalyDetectorSettings.MAX_SHINGLE_SIZE
+            + ". Got 2000";
+        assertEquals("shingle size error message", errorMessage, messageMap.get("shingle_size").get("message"));
+    }
+
+    public void testValidateAnomalyDetectorWithNoIssue() throws Exception {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(detector),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        assertEquals("no issue, empty response body", new HashMap<String, Object>(), responseMap);
+    }
+
+    public void testValidateAnomalyDetectorOnWrongValidationType() throws Exception {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        TestHelpers
+            .assertFailWith(
+                ResponseException.class,
+                CommonErrorMessages.NOT_EXISTENT_VALIDATION_TYPE,
+                () -> TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    )
+            );
+    }
+
+    public void testValidateAnomalyDetectorWithEmptyIndices() throws Exception {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/" + detector.getIndices().get(0),
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"settings\":{\"number_of_shards\":1}," + " \"mappings\":{\"properties\":" + "{\"field1\":{\"type\":\"text\"}}}}"
+                    ),
+                null
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(detector),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals("Validation returned message regarding empty indices", RestStatus.OK, TestHelpers.restStatus(resp));
+        String errorMessage = NO_DOCS_IN_USER_INDEX_MSG + "[" + detector.getIndices().get(0) + "]";
+        assertEquals("duplicate error message", errorMessage, messageMap.get("indices").get("message"));
+    }
+
+    public void testValidateAnomalyDetectorWithInvalidName() throws Exception {
+        TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"name\":\"#@$3\",\"description\":\"\",\"time_field\":\"timestamp\""
+                            + ",\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"test\","
+                            + "\"feature_enabled\":true,\"aggregation_query\":{\"test\":{\"sum\":{\"field\":\"value\"}}}}],"
+                            + "\"filter_query\":{},\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals("invalid detector Name", CommonErrorMessages.INVALID_DETECTOR_NAME, messageMap.get("name").get("message"));
+    }
+
+    public void testValidateAnomalyDetectorWithFeatureQueryReturningNoData() throws Exception {
+        Feature emptyFeature = TestHelpers.randomFeature("f-empty", "cpu", "avg", true);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(emptyFeature));
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(detector),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals(
+            "empty data",
+            AbstractAnomalyDetectorActionHandler.FEATURE_WITH_EMPTY_DATA_MSG + "f-empty",
+            messageMap.get("feature_attributes").get("message")
+        );
+    }
+
+    public void testValidateAnomalyDetectorWithFeatureQueryRuntimeException() throws Exception {
+        String nonNumericField = "_type";
+        Feature nonNumericFeature = TestHelpers.randomFeature("non-numeric-feature", nonNumericField, "avg", true);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(nonNumericFeature));
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(detector),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals(
+            "runtime exception",
+            AbstractAnomalyDetectorActionHandler.FEATURE_WITH_INVALID_QUERY_MSG + "non-numeric-feature",
+            messageMap.get("feature_attributes").get("message")
+        );
+    }
+
+    public void testValidateAnomalyDetectorWithWrongCategoryField() throws Exception {
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), Arrays.asList("host.keyword"));
+        String indexName = detector.getIndices().get(0);
+        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(detector),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        assertEquals(
+            "non-existing category",
+            String.format(AbstractAnomalyDetectorActionHandler.CATEGORY_NOT_FOUND_ERR_MSG, "host.keyword"),
+            messageMap.get("category_field").get("message")
+        );
 
     }
 }

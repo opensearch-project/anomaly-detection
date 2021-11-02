@@ -24,6 +24,7 @@ import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.AfterClass;
@@ -44,7 +45,9 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
@@ -90,6 +93,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     private Settings settings;
     private RestRequest.Method method;
     private ADTaskManager adTaskManager;
+    private SearchFeatureDao searchFeatureDao;
 
     /**
      * Mockito does not allow mock final methods.  Make my own delegates and mock them.
@@ -159,6 +163,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         adTaskManager = mock(ADTaskManager.class);
 
+        searchFeatureDao = mock(SearchFeatureDao.class);
+
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
@@ -177,14 +183,15 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
     }
 
     // we support upto 2 category fields now
     public void testThreeCategoricalFields() throws IOException {
         expectThrows(
-            IllegalArgumentException.class,
+            ADValidationException.class,
             () -> TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a", "b", "c"))
         );
     }
@@ -226,7 +233,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();
@@ -235,7 +243,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG));
+        String errorMsg = String
+            .format(
+                Locale.ROOT,
+                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG,
+                maxSingleEntityAnomalyDetectors
+            );
+        assertTrue(value.getMessage().contains(errorMsg));
     }
 
     @SuppressWarnings("unchecked")
@@ -290,7 +304,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -367,7 +382,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             method,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -461,7 +477,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -523,7 +540,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
+        String errorMsg = String
+            .format(
+                Locale.ROOT,
+                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG,
+                maxMultiEntityAnomalyDetectors
+            );
+        assertTrue(value.getMessage().contains(errorMsg));
     }
 
     @Ignore
@@ -587,7 +610,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();
@@ -662,7 +686,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
-            adTaskManager
+            adTaskManager,
+            searchFeatureDao
         );
 
         handler.start();

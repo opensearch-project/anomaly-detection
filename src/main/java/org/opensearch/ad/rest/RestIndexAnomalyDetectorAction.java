@@ -11,12 +11,6 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DETECTION_INTERVAL;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DETECTION_WINDOW_DELAY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
@@ -40,11 +34,9 @@ import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
@@ -57,37 +49,13 @@ import com.google.common.collect.ImmutableList;
 /**
  * Rest handlers to create and update anomaly detector.
  */
-public class RestIndexAnomalyDetectorAction extends BaseRestHandler {
+public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
 
     private static final String INDEX_ANOMALY_DETECTOR_ACTION = "index_anomaly_detector_action";
     private final Logger logger = LogManager.getLogger(RestIndexAnomalyDetectorAction.class);
 
-    private volatile TimeValue requestTimeout;
-    private volatile TimeValue detectionInterval;
-    private volatile TimeValue detectionWindowDelay;
-    private volatile Integer maxSingleEntityDetectors;
-    private volatile Integer maxMultiEntityDetectors;
-    private volatile Integer maxAnomalyFeatures;
-
     public RestIndexAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        this.detectionInterval = DETECTION_INTERVAL.get(settings);
-        this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
-        this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
-        this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings);
-        this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
-        // TODO: will add more cluster setting consumer later
-        // TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_INTERVAL, it -> detectionInterval = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_WINDOW_DELAY, it -> detectionWindowDelay = it);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, it -> maxSingleEntityDetectors = it);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(MAX_MULTI_ENTITY_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
+        super(settings, clusterService);
     }
 
     @Override
