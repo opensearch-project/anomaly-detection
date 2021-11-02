@@ -636,7 +636,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 errorMessage,
                 null, // single-stream detectors have no entity
                 user,
-                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
+                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                 null // no model id
             );
             String resultIndex = jobParameter.getResultIndex();

@@ -107,10 +107,10 @@
     "model_id": {
       "type": "keyword"
     },
-    "startOfAnomaly": {
+    "start_of_anomaly": {
       "type": "boolean"
     },
-    "inHighScoreRegion": {
+    "in_high_score_region": {
       "type": "boolean"
     },
     "approx_anomaly_start_time": {
@@ -128,7 +128,7 @@
         }
       }
     },
-    "past_value": {
+    "past_values": {
       "type": "nested",
       "properties": {
         "feature_id": {
@@ -139,7 +139,7 @@
         }
       }
     },
-    "expected_value": {
+    "expected_values": {
       "type": "nested",
       "properties": {
         "likelihood": {

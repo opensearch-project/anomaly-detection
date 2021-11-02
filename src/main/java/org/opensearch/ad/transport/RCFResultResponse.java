@@ -62,7 +62,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         Boolean startOfAnomaly,
         Boolean inHighScoreRegion,
         Integer relativeIndex,
-        double[] oldValues,
+        double[] pastValues,
         double[][] expectedValuesList,
         double[] likelihoodOfValues,
         Double threshold
@@ -77,7 +77,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         this.startOfAnomaly = startOfAnomaly;
         this.inHighScoreRegion = inHighScoreRegion;
         this.relativeIndex = relativeIndex;
-        this.pastValues = oldValues;
+        this.pastValues = pastValues;
         this.expectedValuesList = expectedValuesList;
         this.likelihoodOfValues = likelihoodOfValues;
         this.threshold = threshold;

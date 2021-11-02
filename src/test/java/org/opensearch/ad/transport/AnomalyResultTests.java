@@ -221,7 +221,7 @@ public class AnomalyResultTests extends AbstractADTest {
         boolean inHighScoreRegion = false;
         int relativeIndex = 0;
         double[] currentTimeAttribution = new double[] { 0.5, 0.5 };
-        double[] oldValues = new double[] { 123, 456 };
+        double[] pastValues = new double[] { 123, 456 };
         double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
         double[] likelihood = new double[] { 1 };
         double threshold = 1.1d;
@@ -238,7 +238,7 @@ public class AnomalyResultTests extends AbstractADTest {
                         inHighScoreRegion,
                         relativeIndex,
                         currentTimeAttribution,
-                        oldValues,
+                        pastValues,
                         expectedValuesList,
                         likelihood,
                         threshold,

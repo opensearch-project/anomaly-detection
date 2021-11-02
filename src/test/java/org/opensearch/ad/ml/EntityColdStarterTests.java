@@ -400,7 +400,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDescriptor descriptor = refTRcf.process(point, 0);
             ThresholdingResult result = modelManager
                 .getAnomalyResultForEntity(point, modelState, modelId, entity, detector.getShingleSize());
-            assertEquals(descriptor.getRcfScore(), result.getRcfScore(), 1e-10);
+            assertEquals(descriptor.getRCFScore(), result.getRcfScore(), 1e-10);
             assertEquals(descriptor.getAnomalyGrade(), result.getGrade(), 1e-10);
         }
     }

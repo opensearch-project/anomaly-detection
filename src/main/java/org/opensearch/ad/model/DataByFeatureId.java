@@ -76,6 +76,8 @@ public class DataByFeatureId implements ToXContentObject, Writeable {
                     data = parser.doubleValue();
                     break;
                 default:
+                    // the unknown field and it's children should be ignored
+                    parser.skipChildren();
                     break;
             }
         }

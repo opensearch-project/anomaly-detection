@@ -66,7 +66,7 @@ public class RCFResultTests extends OpenSearchTestCase {
     private DiscoveryNode node;
     private long totalUpdates = 32;
     private double grade = 0.5;
-    private double[] oldValues = new double[] { 123, 456 };
+    private double[] pastValues = new double[] { 123, 456 };
     private double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
     private double[] likelihood = new double[] { randomDouble() };
     private double threshold = 1.1d;
@@ -117,7 +117,7 @@ public class RCFResultTests extends OpenSearchTestCase {
                         false,
                         0,
                         attribution,
-                        oldValues,
+                        pastValues,
                         expectedValuesList,
                         likelihood,
                         threshold,
@@ -292,7 +292,7 @@ public class RCFResultTests extends OpenSearchTestCase {
                         false,
                         0,
                         attribution,
-                        oldValues,
+                        pastValues,
                         expectedValuesList,
                         likelihood,
                         threshold,

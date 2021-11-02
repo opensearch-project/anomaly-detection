@@ -82,6 +82,8 @@ public class ExpectedValueList implements ToXContentObject, Writeable {
                     }
                     break;
                 default:
+                    // the unknown field and it's children should be ignored
+                    parser.skipChildren();
                     break;
             }
         }

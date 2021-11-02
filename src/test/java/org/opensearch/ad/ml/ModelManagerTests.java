@@ -338,7 +338,7 @@ public class ModelManagerTests {
         boolean inHighScoreRegion = false;
         int relativeIndex = 0;
         double[] currentTimeAttribution = new double[] { 0.5, 0.5 };
-        double[] oldValues = new double[] { 123, 456 };
+        double[] pastalues = new double[] { 123, 456 };
         double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
         double[] likelihood = new double[] { 1 };
         double threshold = 1.1d;
@@ -354,7 +354,7 @@ public class ModelManagerTests {
         descriptor.setInHighScoreRegion(inHighScoreRegion);
         descriptor.setRelativeIndex(relativeIndex);
         descriptor.setRelevantAttribution(currentTimeAttribution);
-        descriptor.setPastValues(oldValues);
+        descriptor.setPastValues(pastalues);
         descriptor.setExpectedValuesList(expectedValuesList);
         descriptor.setLikelihoodOfValues(likelihood);
         descriptor.setThreshold(threshold);
@@ -373,7 +373,7 @@ public class ModelManagerTests {
             inHighScoreRegion,
             relativeIndex,
             currentTimeAttribution,
-            oldValues,
+            pastalues,
             expectedValuesList,
             likelihood,
             threshold,

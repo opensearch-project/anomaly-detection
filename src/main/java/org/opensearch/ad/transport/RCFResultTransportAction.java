@@ -80,7 +80,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                         result.getRcfScore(),
                                         result.getConfidence(),
                                         result.getForestSize(),
-                                        result.getRelevantttribution(),
+                                        result.getRelevantAttribution(),
                                         result.getTotalUpdates(),
                                         result.getGrade(),
                                         remoteAdVersion,

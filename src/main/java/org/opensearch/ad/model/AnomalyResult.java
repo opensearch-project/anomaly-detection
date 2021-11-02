@@ -40,7 +40,6 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.commons.authuser.User;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Include result returned from RCF model and feature data.
@@ -68,35 +67,15 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String USER_FIELD = "user";
     public static final String TASK_ID_FIELD = "task_id";
     public static final String MODEL_ID_FIELD = "model_id";
-    // TODO: use the file anomaly-results.json as the single source of truth for AD result index mapping.
-    // Support upgrading custom result index.
-    public static final ImmutableMap<String, String> AD_RESULT_FIELD_CONFIGS = ImmutableMap
-        .<String, String>builder()
-        .put(ANOMALY_GRADE_FIELD, "{type=double}")
-        .put(ANOMALY_SCORE_FIELD, "{type=double}")
-        .put(CONFIDENCE_FIELD, "{type=double}")
-        .put(DATA_START_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
-        .put(DATA_END_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
-        .put(DETECTOR_ID_FIELD, "{type=keyword}")
-        .put(EXECUTION_START_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
-        .put(FEATURE_DATA_FIELD, "{type=nested, properties={data={type=double}, feature_id={type=keyword}}}")
-        .put(MODEL_ID_FIELD, "{type=keyword}")
-        .put(TASK_ID_FIELD, "{type=keyword}")
-        .put(
-            USER_FIELD,
-            "{type=nested, properties={backend_roles={type=text, fields={keyword={type=keyword}}}, custom_attribute_names={type=text,"
-                + " fields={keyword={type=keyword}}}, name={type=text, fields={keyword={type=keyword, ignore_above=256}}},"
-                + " roles={type=text, fields={keyword={type=keyword}}}}}"
-        )
-        .build();
-    public static final String TOTAL_UPDATES_FIELD = "totalUpdates";
-    public static final String START_OF_ANOMALY_FIELD = "startOfAnomaly";
-    public static final String IN_HIGH_SCORE_REGION_FIELD = "inHighScoreRegion";
+    public static final String START_OF_ANOMALY_FIELD = "start_of_anomaly";
+    public static final String IN_HIGH_SCORE_REGION_FIELD = "in_high_score_region";
     public static final String APPROX_ANOMALY_START_FIELD = "approx_anomaly_start_time";
-    public static final String RELEVANT_ATTRIBUTION_FIELD = "relavantAttribution";
-    public static final String PAST_VALUE_FIELD = "past_value";
-    public static final String EXPECTED_VALUE_FIELD = "expected_value";
+    public static final String RELEVANT_ATTRIBUTION_FIELD = "relevant_attribution";
+    public static final String PAST_VALUES_FIELD = "past_values";
+    public static final String EXPECTED_VALUES_FIELD = "expected_values";
     public static final String THRESHOLD_FIELD = "threshold";
+    // unused currently. added since odfe 1.4
+    public static final String IS_ANOMALY_FIELD = "is_anomaly";
 
     private final String detectorId;
     private final String taskId;
@@ -148,13 +127,13 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     private final Instant approxAnomalyStartTime;
 
     // a flattened version denoting the basic contribution of each input variable
-    private final List<DataByFeatureId> relavantAttribution;
+    private final List<DataByFeatureId> relevantAttribution;
 
     /*
-    relevantValues is related to relativeIndex, startOfAnomaly and anomaly grade.
+    pastValues is related to relativeIndex, startOfAnomaly and anomaly grade.
     So if we detect anomaly late, we get the baseDimension values from the past (current is 0).
     That is, we look back relativeIndex * baseDimensions.
-
+    
     For example, current shingle is
     "currentValues": [
     6819.0,
@@ -201,17 +180,17 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     Since rcf returns relativeIndex is -2, we look back baseDimension * 2 and get the pastValues:
     "startOfAnomaly": true,
     "inHighScoreRegion": true,
-    "relevantValues": [
+    "pastValues": [
     17265.0,
     4113.142857142857,
     49.0,
     86376.0,
     64878.0
     ],
-
+    
     So pastValues is null when relativeIndex is 0 or startOfAnomaly is true
     or the current shingle is not an anomaly.
-
+    
     In the UX, if pastValues value is null, we can just show attribution/expected
     value and it is implicit this is due to current input; if pastValues is not
     null, it means the the attribution/expected values are from an old value
@@ -220,11 +199,15 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     private final List<DataByFeatureId> pastValues;
 
     /*
-     expected values, currently set to maximum 1 expected. In the future, we
-     might give different expected values with differently likelihood. So
-     the list of list allows us to future-proof our applications.
-     Also, expected values correspond to relevantValues if present or current input
-     point otherwise.
+     * The expected value is only calculated for anomalous detection intervals,
+     * and will generate expected value for each feature if detector has multiple
+     * features.
+     * Currently we expect one set of expected values. In the future, we
+     * might give different expected values with differently likelihood. So
+     * the two-dimensional array allows us to future-proof our applications.
+     * Also, expected values correspond to pastValues if present or current input
+     * point otherwise. If pastValues is present, we can add a text on UX to explain
+     * we found an anomaly from the past.
      Example:
      "expected_value": [{
         "likelihood": 0.8,
@@ -302,8 +285,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         String modelId,
         Boolean startOfAnomaly,
         Boolean inHighScoreRegion,
-        Instant approAnomalyStartTime,
-        List<DataByFeatureId> relavantAttribution,
+        Instant approxAnomalyStartTime,
+        List<DataByFeatureId> relevantAttribution,
         List<DataByFeatureId> pastValues,
         List<ExpectedValueList> expectedValuesList,
         Double threshold
@@ -325,8 +308,8 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.modelId = modelId;
         this.startOfAnomaly = startOfAnomaly;
         this.inHighScoreRegion = inHighScoreRegion;
-        this.approxAnomalyStartTime = approAnomalyStartTime;
-        this.relavantAttribution = relavantAttribution;
+        this.approxAnomalyStartTime = approxAnomalyStartTime;
+        this.relevantAttribution = relevantAttribution;
         this.pastValues = pastValues;
         this.expectedValuesList = expectedValuesList;
         this.threshold = threshold;
@@ -353,7 +336,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
      * @param startOfAnomaly Whether the current point is the start of an anomaly window
      * @param inHighScoreRegion Whether the current point is in a high rcf score region
      * @param relevantAttribution Attribution of the anomaly
-     * @param reletiveIndex The index of anomaly point relative to current point.
+     * @param relativeIndex The index of anomaly point relative to current point.
      * @param pastValues The input that caused anomaly if we detector anomaly late
      * @param expectedValuesList Expected values
      * @param likelihoodOfValues Likelihood of the expected values
@@ -380,7 +363,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Boolean startOfAnomaly,
         Boolean inHighScoreRegion,
         double[] relevantAttribution,
-        int reletiveIndex,
+        Integer relativeIndex,
         double[] pastValues,
         double[][] expectedValuesList,
         double[] likelihoodOfValues,
@@ -462,7 +445,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             }
         }
 
-        long dataStartMills = dataStartTime.toEpochMilli();
         return new AnomalyResult(
             detectorId,
             taskId,
@@ -481,7 +463,9 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             modelId,
             startOfAnomaly,
             inHighScoreRegion,
-            Instant.ofEpochMilli(dataStartMills + reletiveIndex * intervalMillis),
+            (relativeIndex == null || dataStartTime == null)
+                ? null
+                : Instant.ofEpochMilli(dataStartTime.toEpochMilli() + relativeIndex * intervalMillis),
             convertedRelevantAttribution,
             convertedPastValuesList,
             convertedExpectedValues,
@@ -520,16 +504,16 @@ public class AnomalyResult implements ToXContentObject, Writeable {
 
         this.startOfAnomaly = input.readOptionalBoolean();
         this.inHighScoreRegion = input.readOptionalBoolean();
-        // if anomaly is caued by current input, we don't show approximate time
+        // if anomaly is caused by current input, we don't show approximate time
         this.approxAnomalyStartTime = input.readOptionalInstant();
 
         int attributeNumber = input.readVInt();
         if (attributeNumber <= 0) {
-            this.relavantAttribution = null;
+            this.relevantAttribution = null;
         } else {
-            this.relavantAttribution = new ArrayList<>(attributeNumber);
+            this.relevantAttribution = new ArrayList<>(attributeNumber);
             for (int i = 0; i < attributeNumber; i++) {
-                relavantAttribution.add(new DataByFeatureId(input));
+                relevantAttribution.add(new DataByFeatureId(input));
             }
         }
 
@@ -620,15 +604,15 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             if (approxAnomalyStartTime != null) {
                 xContentBuilder.field(APPROX_ANOMALY_START_FIELD, approxAnomalyStartTime.toEpochMilli());
             }
-            if (relavantAttribution != null) {
-                xContentBuilder.array(RELEVANT_ATTRIBUTION_FIELD, relavantAttribution.toArray());
+            if (relevantAttribution != null) {
+                xContentBuilder.array(RELEVANT_ATTRIBUTION_FIELD, relevantAttribution.toArray());
             }
             if (pastValues != null) {
-                xContentBuilder.array(PAST_VALUE_FIELD, pastValues.toArray());
+                xContentBuilder.array(PAST_VALUES_FIELD, pastValues.toArray());
             }
 
             if (expectedValuesList != null) {
-                xContentBuilder.array(EXPECTED_VALUE_FIELD, expectedValuesList.toArray());
+                xContentBuilder.array(EXPECTED_VALUES_FIELD, expectedValuesList.toArray());
             }
         }
 
@@ -731,13 +715,13 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                         relavantAttribution.add(DataByFeatureId.parse(parser));
                     }
                     break;
-                case PAST_VALUE_FIELD:
+                case PAST_VALUES_FIELD:
                     ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         pastValues.add(DataByFeatureId.parse(parser));
                     }
                     break;
-                case EXPECTED_VALUE_FIELD:
+                case EXPECTED_VALUES_FIELD:
                     ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         expectedValues.add(ExpectedValueList.parse(parser));
@@ -802,7 +786,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             && Objects.equal(startOfAnomaly, that.startOfAnomaly)
             && Objects.equal(inHighScoreRegion, that.inHighScoreRegion)
             && Objects.equal(approxAnomalyStartTime, that.approxAnomalyStartTime)
-            && Objects.equal(relavantAttribution, that.relavantAttribution)
+            && Objects.equal(relevantAttribution, that.relevantAttribution)
             && Objects.equal(pastValues, that.pastValues)
             && Objects.equal(expectedValuesList, that.expectedValuesList)
             && Objects.equal(threshold, that.threshold);
@@ -829,7 +813,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 startOfAnomaly,
                 inHighScoreRegion,
                 approxAnomalyStartTime,
-                relavantAttribution,
+                relevantAttribution,
                 pastValues,
                 expectedValuesList,
                 threshold
@@ -856,7 +840,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .append("startOfAnomaly", startOfAnomaly)
             .append("inHighScoreRegion", inHighScoreRegion)
             .append("approAnomalyStartTime", approxAnomalyStartTime)
-            .append("relavantAttribution", relavantAttribution)
+            .append("relavantAttribution", relevantAttribution)
             .append("pastValues", pastValues)
             .append("expectedValuesList", StringUtils.join(expectedValuesList, "|"))
             .append("threshold", threshold)
@@ -928,7 +912,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     }
 
     public List<DataByFeatureId> getRelavantAttribution() {
-        return relavantAttribution;
+        return relevantAttribution;
     }
 
     public List<DataByFeatureId> getPastValues() {
@@ -989,9 +973,9 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeOptionalBoolean(inHighScoreRegion);
         out.writeOptionalInstant(approxAnomalyStartTime);
 
-        if (relavantAttribution != null) {
-            out.writeVInt(relavantAttribution.size());
-            for (DataByFeatureId attribution : relavantAttribution) {
+        if (relevantAttribution != null) {
+            out.writeVInt(relevantAttribution.size());
+            for (DataByFeatureId attribution : relevantAttribution) {
                 attribution.writeTo(out);
             }
         } else {
@@ -1022,9 +1006,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static AnomalyResult getDummyResult() {
         return new AnomalyResult(
             DUMMY_DETECTOR_ID,
-            Double.NaN,
-            Double.NaN,
-            Double.NaN,
             null,
             null,
             null,
@@ -1032,7 +1013,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             null,
             null,
             null,
-            CommonValue.NO_SCHEMA_VERSION
+            null,
+            null,
+            CommonValue.NO_SCHEMA_VERSION,
+            null
         );
     }
 }
