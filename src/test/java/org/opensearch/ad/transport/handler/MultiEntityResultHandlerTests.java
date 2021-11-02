@@ -16,6 +16,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -24,6 +26,8 @@ import org.mockito.ArgumentMatchers;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
+import org.opensearch.ad.ratelimit.RequestPriority;
+import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
@@ -48,7 +52,14 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
         );
 
         request = new ADResultBulkRequest();
-        request.add(TestHelpers.randomAnomalyDetectResult());
+        ResultWriteRequest resultWriteRequest = new ResultWriteRequest(
+            Instant.now().plus(10, ChronoUnit.MINUTES).toEpochMilli(),
+            detectorId,
+            RequestPriority.MEDIUM,
+            TestHelpers.randomAnomalyDetectResult(),
+            null
+        );
+        request.add(resultWriteRequest);
 
         response = new ADResultBulkResponse();
 

@@ -132,7 +132,14 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
         ADResultBulkResponse resp = new ADResultBulkResponse(retryRequests);
 
         ADResultBulkRequest request = new ADResultBulkRequest();
-        request.add(detectResult);
+        ResultWriteRequest resultWriteRequest = new ResultWriteRequest(
+            Instant.now().plus(10, ChronoUnit.MINUTES).toEpochMilli(),
+            detectorId,
+            RequestPriority.MEDIUM,
+            detectResult,
+            null
+        );
+        request.add(resultWriteRequest);
 
         doAnswer(invocation -> {
             ActionListener<ADResultBulkResponse> listener = invocation.getArgument(1);
@@ -140,7 +147,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult));
+        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
 
         // the request results one flush
         verify(resultHandler, times(1)).flush(any(), any());
@@ -157,7 +164,14 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
         ADResultBulkResponse resp = new ADResultBulkResponse(retryRequests);
 
         ADResultBulkRequest request = new ADResultBulkRequest();
-        request.add(detectResult);
+        ResultWriteRequest resultWriteRequest = new ResultWriteRequest(
+            Instant.now().plus(10, ChronoUnit.MINUTES).toEpochMilli(),
+            detectorId,
+            RequestPriority.MEDIUM,
+            detectResult,
+            null
+        );
+        request.add(resultWriteRequest);
 
         final AtomicBoolean retried = new AtomicBoolean();
         doAnswer(invocation -> {
@@ -171,7 +185,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult));
+        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
 
         // one flush from the original request; and one due to retry
         verify(resultHandler, times(2)).flush(any(), any());
@@ -191,7 +205,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult));
+        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
         // one flush from the original request; and one due to retry
         verify(resultHandler, times(2)).flush(any(), any());
         verify(nodeStateManager, times(1)).setException(eq(detectorId), any(OpenSearchStatusException.class));
@@ -205,7 +219,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult));
+        resultWriteQueue.put(new ResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
         // one flush from the original request; and one due to retry
         verify(resultHandler, times(1)).flush(any(), any());
         verify(nodeStateManager, times(1)).setException(eq(detectorId), any(OpenSearchRejectedExecutionException.class));

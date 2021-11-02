@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.rest.handler;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -105,7 +104,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
     // by super.start() involves validation checks against the detector configurations,
     // any issues raised here would block user from creating the anomaly detector.
     @Override
-    public void start() throws IOException {
+    public void start() {
         super.start();
     }
 

@@ -578,7 +578,8 @@ public class ADTask implements ToXContentObject, Writeable {
                 detector.getSchemaVersion(),
                 detector.getLastUpdateTime(),
                 detector.getCategoryField(),
-                detector.getUser()
+                detector.getUser(),
+                detector.getResultIndex()
             );
         return new Builder()
             .taskId(parsedTaskId)

@@ -22,6 +22,7 @@ import static org.opensearch.ad.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,6 +31,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisRestTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
@@ -63,6 +65,16 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         checkIfTaskCanFinishCorrectly(detectorId, taskId, HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS);
     }
 
+    public void testHistoricalAnalysisForSingleEntityDetectorWithCustomResultIndex() throws Exception {
+        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
+        List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(0, resultIndex);
+        String detectorId = startHistoricalAnalysisResult.get(0);
+        String taskId = startHistoricalAnalysisResult.get(1);
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS);
+        Response searchResponse = searchTaskResult(resultIndex, taskId);
+        assertEquals("Search anomaly result failed", RestStatus.OK, TestHelpers.restStatus(searchResponse));
+    }
+
     public void testHistoricalAnalysisForSingleCategoryHC() throws Exception {
         List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(1);
         String detectorId = startHistoricalAnalysisResult.get(0);
@@ -91,7 +103,12 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
 
     @SuppressWarnings("unchecked")
     private List<String> startHistoricalAnalysis(int categoryFieldSize) throws Exception {
-        AnomalyDetector detector = createAnomalyDetector(categoryFieldSize);
+        return startHistoricalAnalysis(categoryFieldSize, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> startHistoricalAnalysis(int categoryFieldSize, String resultIndex) throws Exception {
+        AnomalyDetector detector = createAnomalyDetector(categoryFieldSize, resultIndex);
         String detectorId = detector.getDetectorId();
 
         // start historical detector
@@ -297,7 +314,8 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             detector.getCategoryField(),
-            detector.getUser()
+            detector.getUser(),
+            detector.getResultIndex()
         );
     }
 

@@ -62,6 +62,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     public static final String ENABLED_TIME_FIELD = "enabled_time";
     public static final String DISABLED_TIME_FIELD = "disabled_time";
     public static final String USER_FIELD = "user";
+    private static final String RESULT_INDEX_FIELD = "result_index";
 
     private final String name;
     private final Schedule schedule;
@@ -72,6 +73,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     private final Instant lastUpdateTime;
     private final Long lockDurationSeconds;
     private final User user;
+    private String resultIndex;
 
     public AnomalyDetectorJob(
         String name,
@@ -82,7 +84,8 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         Instant disabledTime,
         Instant lastUpdateTime,
         Long lockDurationSeconds,
-        User user
+        User user,
+        String resultIndex
     ) {
         this.name = name;
         this.schedule = schedule;
@@ -93,6 +96,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         this.lastUpdateTime = lastUpdateTime;
         this.lockDurationSeconds = lockDurationSeconds;
         this.user = user;
+        this.resultIndex = resultIndex;
     }
 
     public AnomalyDetectorJob(StreamInput input) throws IOException {
@@ -113,6 +117,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         } else {
             user = null;
         }
+        resultIndex = input.readOptionalString();
     }
 
     @Override
@@ -131,6 +136,9 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         }
         if (user != null) {
             xContentBuilder.field(USER_FIELD, user);
+        }
+        if (resultIndex != null) {
+            xContentBuilder.field(RESULT_INDEX_FIELD, resultIndex);
         }
         return xContentBuilder.endObject();
     }
@@ -156,6 +164,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         } else {
             output.writeBoolean(false); // user does not exist
         }
+        output.writeOptionalString(resultIndex);
     }
 
     public static AnomalyDetectorJob parse(XContentParser parser) throws IOException {
@@ -169,6 +178,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         Instant lastUpdateTime = null;
         Long lockDurationSeconds = DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
         User user = null;
+        String resultIndex = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -203,6 +213,9 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
                 case USER_FIELD:
                     user = User.parse(parser);
                     break;
+                case RESULT_INDEX_FIELD:
+                    resultIndex = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -217,7 +230,8 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
             disabledTime,
             lastUpdateTime,
             lockDurationSeconds,
-            user
+            user,
+            resultIndex
         );
     }
 
@@ -234,7 +248,8 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
             && Objects.equal(getEnabledTime(), that.getEnabledTime())
             && Objects.equal(getDisabledTime(), that.getDisabledTime())
             && Objects.equal(getLastUpdateTime(), that.getLastUpdateTime())
-            && Objects.equal(getLockDurationSeconds(), that.getLockDurationSeconds());
+            && Objects.equal(getLockDurationSeconds(), that.getLockDurationSeconds())
+            && Objects.equal(getResultIndex(), that.getResultIndex());
     }
 
     @Override
@@ -282,5 +297,9 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
 
     public User getUser() {
         return user;
+    }
+
+    public String getResultIndex() {
+        return resultIndex;
     }
 }

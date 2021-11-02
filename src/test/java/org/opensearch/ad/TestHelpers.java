@@ -84,6 +84,8 @@ import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.model.TimeConfiguration;
 import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.ad.ratelimit.RequestPriority;
+import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
@@ -308,7 +310,8 @@ public class TestHelpers {
             randomInt(),
             lastUpdateTime,
             categoryFields,
-            user
+            user,
+            null
         );
     }
 
@@ -323,6 +326,17 @@ public class TestHelpers {
         int detectionIntervalInMinutes,
         String timeField,
         List<String> categoryFields
+    ) throws IOException {
+        return randomDetector(features, indexName, detectionIntervalInMinutes, timeField, categoryFields, null);
+    }
+
+    public static AnomalyDetector randomDetector(
+        List<Feature> features,
+        String indexName,
+        int detectionIntervalInMinutes,
+        String timeField,
+        List<String> categoryFields,
+        String resultIndex
     ) throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
@@ -340,7 +354,8 @@ public class TestHelpers {
             randomInt(),
             Instant.now(),
             categoryFields,
-            null
+            null,
+            resultIndex
         );
     }
 
@@ -369,7 +384,8 @@ public class TestHelpers {
             randomInt(),
             Instant.now(),
             categoryFields,
-            randomUser()
+            randomUser(),
+            null
         );
     }
 
@@ -390,7 +406,8 @@ public class TestHelpers {
             randomInt(),
             Instant.now(),
             null,
-            randomUser()
+            randomUser(),
+            null
         );
     }
 
@@ -411,7 +428,8 @@ public class TestHelpers {
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             null,
-            randomUser()
+            randomUser(),
+            null
         );
     }
 
@@ -437,7 +455,8 @@ public class TestHelpers {
             randomInt(),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             categoryField,
-            randomUser()
+            randomUser(),
+            null
         );
     }
 
@@ -458,6 +477,7 @@ public class TestHelpers {
         private Instant lastUpdateTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         private List<String> categoryFields = null;
         private User user = randomUser();
+        private String resultIndex = null;
 
         public static AnomalyDetectorBuilder newInstance() throws IOException {
             return new AnomalyDetectorBuilder();
@@ -547,6 +567,11 @@ public class TestHelpers {
             return this;
         }
 
+        public AnomalyDetectorBuilder setResultIndex(String resultIndex) {
+            this.resultIndex = resultIndex;
+            return this;
+        }
+
         public AnomalyDetector build() {
             return new AnomalyDetector(
                 detectorId,
@@ -564,9 +589,34 @@ public class TestHelpers {
                 schemaVersion,
                 lastUpdateTime,
                 categoryFields,
-                user
+                user,
+                resultIndex
             );
         }
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval, boolean hcDetector, boolean featureEnabled)
+        throws IOException {
+        List<String> categoryField = hcDetector ? ImmutableList.of(randomAlphaOfLength(5)) : null;
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomFeature(featureEnabled)),
+            randomQuery(),
+            interval,
+            randomIntervalTimeConfiguration(),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
+            null,
+            randomInt(),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            categoryField,
+            randomUser(),
+            null
+        );
     }
 
     public static SearchSourceBuilder randomFeatureQuery() throws IOException {
@@ -758,6 +808,17 @@ public class TestHelpers {
         return randomHCADAnomalyDetectResult(score, grade, null);
     }
 
+    public static ResultWriteRequest randomResultWriteRequest(String detectorId, double score, double grade) {
+        ResultWriteRequest resultWriteRequest = new ResultWriteRequest(
+            Instant.now().plus(10, ChronoUnit.MINUTES).toEpochMilli(),
+            detectorId,
+            RequestPriority.MEDIUM,
+            randomHCADAnomalyDetectResult(score, grade),
+            null
+        );
+        return resultWriteRequest;
+    }
+
     public static AnomalyResult randomHCADAnomalyDetectResult(double score, double grade, String error) {
         return new AnomalyResult(
             randomAlphaOfLength(5),
@@ -790,7 +851,8 @@ public class TestHelpers {
             disabledTime,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             60L,
-            randomUser()
+            randomUser(),
+            null
         );
     }
 

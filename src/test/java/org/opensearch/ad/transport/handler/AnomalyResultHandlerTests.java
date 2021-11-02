@@ -38,7 +38,6 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.util.ThrowingConsumerWrapper;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
@@ -83,13 +82,12 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            anomalyDetectionIndices,
             clientUtil,
             indexUtil,
             clusterService
         );
-        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
         assertEquals(1, testAppender.countMessage(AnomalyIndexHandler.SUCCESS_SAVING_MSG, true));
     }
 
@@ -120,13 +118,12 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            anomalyDetectionIndices,
             clientUtil,
             indexUtil,
             clusterService
         );
-        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
 
         assertTrue(testAppender.containsMessage(AnomalyIndexHandler.CANNOT_SAVE_ERR_MSG, true));
     }
@@ -139,13 +136,12 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            anomalyDetectionIndices,
             clientUtil,
             indexUtil,
             clusterService
         );
-        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
         verify(client, times(1)).index(any(), any());
     }
 
@@ -160,13 +156,12 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            anomalyDetectionIndices,
             clientUtil,
             indexUtil,
             clusterService
         );
-        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
         verify(client, never()).index(any(), any());
     }
 
@@ -216,14 +211,13 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             backoffSettings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ThrowingConsumerWrapper.throwingConsumerWrapper(anomalyDetectionIndices::initAnomalyResultIndexDirectly),
-            anomalyDetectionIndices::doesAnomalyResultIndexExist,
+            anomalyDetectionIndices,
             clientUtil,
             indexUtil,
             clusterService
         );
 
-        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId);
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
 
         backoffLatch.await(1, TimeUnit.MINUTES);
     }

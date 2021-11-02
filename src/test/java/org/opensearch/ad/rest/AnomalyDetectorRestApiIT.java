@@ -122,7 +122,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomInt(),
             null,
             null,
-            TestHelpers.randomUser()
+            TestHelpers.randomUser(),
+            null
         );
 
         TestHelpers
@@ -198,7 +199,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             ImmutableList.of(randomAlphaOfLength(5)),
-            detector.getUser()
+            detector.getUser(),
+            null
         );
         Exception ex = expectThrows(
             ResponseException.class,
@@ -255,7 +257,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             null,
-            detector.getUser()
+            detector.getUser(),
+            null
         );
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
@@ -318,7 +321,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector1.getSchemaVersion(),
             detector1.getLastUpdateTime(),
             null,
-            detector1.getUser()
+            detector1.getUser(),
+            null
         );
 
         TestHelpers
@@ -356,7 +360,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getSchemaVersion(),
             Instant.now(),
             null,
-            detector.getUser()
+            detector.getUser(),
+            null
         );
 
         Thread.sleep(2000); // sleep some time before updating to avoid flaky test
@@ -401,7 +406,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             null,
-            detector.getUser()
+            detector.getUser(),
+            null
         );
 
         deleteIndexWithAdminClient(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
@@ -787,7 +793,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
             null,
-            detector.getUser()
+            detector.getUser(),
+            null
         );
 
         TestHelpers

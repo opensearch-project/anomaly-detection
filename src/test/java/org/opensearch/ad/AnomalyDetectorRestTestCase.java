@@ -296,7 +296,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getSchemaVersion(),
                 detector.getLastUpdateTime(),
                 null,
-                detector.getUser()
+                detector.getUser(),
+                null
             ),
             detectorJob,
             historicalAdTask,
