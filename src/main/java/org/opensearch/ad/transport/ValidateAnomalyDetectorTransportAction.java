@@ -193,8 +193,9 @@ public class ValidateAnomalyDetectorTransportAction extends
             case DETECTION_INTERVAL:
             case FILTER_QUERY:
             case TIMEFIELD_FIELD:
-            case PARSING_ISSUE:
             case SHINGLE_SIZE_FIELD:
+            case WINDOW_DELAY:
+            case RESULT_INDEX:
             case INDICES:
                 errorMessage = originalErrorMessage;
                 break;

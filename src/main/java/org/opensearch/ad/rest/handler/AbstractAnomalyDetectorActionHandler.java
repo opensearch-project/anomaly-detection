@@ -227,7 +227,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public void start() {
         String resultIndex = anomalyDetector.getResultIndex();
         // use default detector result index which is system index
-        if (resultIndex == null) {
+        if (resultIndex == null || this.isDryRun) {
             createOrUpdateDetector();
             return;
         }
