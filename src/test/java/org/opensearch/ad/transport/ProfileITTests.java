@@ -13,16 +13,16 @@ package org.opensearch.ad.transport;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 
-import org.opensearch.action.ActionFuture;
-import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 @OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
-public class RCFResultIT extends OpenSearchIntegTestCase {
+public class ProfileITTests extends OpenSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
@@ -34,19 +34,10 @@ public class RCFResultIT extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
-    public void testEmptyFeature() throws ExecutionException, InterruptedException {
-        RCFResultRequest request = new RCFResultRequest("123", "123-rcfmodel-1", new double[] {});
+    public void testNormalProfile() throws ExecutionException, InterruptedException {
+        ProfileRequest profileRequest = new ProfileRequest("123", new HashSet<DetectorProfileName>(), false);
 
-        ActionFuture<RCFResultResponse> future = client().execute(RCFResultAction.INSTANCE, request);
-
-        expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
-    }
-
-    public void testIDIsNull() throws ExecutionException, InterruptedException {
-        RCFResultRequest request = new RCFResultRequest(null, "123-rcfmodel-1", new double[] { 0 });
-
-        ActionFuture<RCFResultResponse> future = client().execute(RCFResultAction.INSTANCE, request);
-
-        expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
+        ProfileResponse response = client().execute(ProfileAction.INSTANCE, profileRequest).get();
+        assertTrue("getting profile failed", !response.hasFailures());
     }
 }

@@ -142,6 +142,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         }
     }
 
+    @Ignore
     public void testStartHistoricalAnalysisForSingleCategoryHCWithUser() throws IOException, InterruptedException {
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "1", DEFAULT_IP, 2000, false);
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "2", DEFAULT_IP, 2000, false);

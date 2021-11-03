@@ -109,7 +109,7 @@ configurations.all {
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
 
-        force "org.mockito:mockito-core:3.0.0"
+        force "org.mockito:mockito-core:2.25.0"
         force "org.objenesis:objenesis:3.0.1"
         force "net.bytebuddy:byte-buddy:1.9.15"
         force "net.bytebuddy:byte-buddy-agent:1.9.15"
@@ -571,7 +571,7 @@ dependencies {
     }
 
     testCompile group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.0.0'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.25.0'
     testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'

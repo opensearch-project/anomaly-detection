@@ -15,12 +15,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
+import org.opensearch.action.ActionFuture;
+import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 @OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
-public class ADStatsIT extends OpenSearchIntegTestCase {
+public class ThresholdResultITTests extends OpenSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
@@ -32,10 +34,19 @@ public class ADStatsIT extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
-    public void testNormalADStats() throws ExecutionException, InterruptedException {
-        ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
+    public void testEmptyID() throws ExecutionException, InterruptedException {
+        ThresholdResultRequest request = new ThresholdResultRequest("", "123-threshold", 2.5d);
 
-        ADStatsNodesResponse response = client().execute(ADStatsNodesAction.INSTANCE, adStatsRequest).get();
-        assertTrue("getting stats failed", !response.hasFailures());
+        ActionFuture<ThresholdResultResponse> future = client().execute(ThresholdResultAction.INSTANCE, request);
+
+        expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
+    }
+
+    public void testIDIsNull() throws ExecutionException, InterruptedException {
+        ThresholdResultRequest request = new ThresholdResultRequest(null, "123-threshold", 2.5d);
+
+        ActionFuture<ThresholdResultResponse> future = client().execute(ThresholdResultAction.INSTANCE, request);
+
+        expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
     }
 }

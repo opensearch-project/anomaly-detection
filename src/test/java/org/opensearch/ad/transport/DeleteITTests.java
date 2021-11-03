@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
+import org.junit.Ignore;
 import org.opensearch.action.ActionFuture;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
@@ -22,7 +23,7 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 @OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
-public class DeleteIT extends OpenSearchIntegTestCase {
+public class DeleteITTests extends OpenSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
@@ -34,6 +35,7 @@ public class DeleteIT extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
+    @Ignore
     public void testNormalStopDetector() throws ExecutionException, InterruptedException {
         StopDetectorRequest request = new StopDetectorRequest().adID("123");
 
