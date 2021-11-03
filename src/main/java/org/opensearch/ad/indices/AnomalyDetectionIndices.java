@@ -229,6 +229,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         Object properties = asMap.get(CommonName.PROPERTIES);
         if (properties instanceof Map) {
             AD_RESULT_FIELD_CONFIGS = (Map<String, Object>) properties;
+        } else {
+            logger.error("Fail to read result mapping file.");
         }
     }
 

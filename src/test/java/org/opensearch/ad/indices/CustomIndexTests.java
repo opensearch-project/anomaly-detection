@@ -277,6 +277,38 @@ public class CustomIndexTests extends AbstractADTest {
         assertTrue(adIndices.isValidResultIndex(customIndexName));
     }
 
+    /**
+     * Test that the mapping returned by get mapping request returns a super set
+     * of result index mapping
+     * @throws IOException when MappingMetadata constructor throws errors
+     */
+    public void testSuperset() throws IOException {
+        Map<String, Object> mappings = createMapping();
+
+        Map<String, Object> feature_mapping = new HashMap<>();
+        feature_mapping.put("type", "nested");
+        Map<String, Object> feature_nested_mapping = new HashMap<>();
+        feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
+        feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
+        mappings.put("a", feature_mapping);
+
+        IndexMetadata indexMetadata1 = new IndexMetadata.Builder(customIndexName)
+            .settings(
+                Settings
+                    .builder()
+                    .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
+                    .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+                    .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
+            )
+            .putMapping(new MappingMetadata("type1", Collections.singletonMap(CommonName.PROPERTIES, mappings)))
+            .build();
+        when(clusterService.state())
+            .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
+
+        assertTrue(adIndices.isValidResultIndex(customIndexName));
+    }
+
     public void testInCorrectMapping() throws IOException {
         Map<String, Object> mappings = new HashMap<>();
 

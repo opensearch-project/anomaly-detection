@@ -599,7 +599,7 @@ public class ModelManager implements DetectorModelSize {
             .sampleSize(rcfNumSamplesInTree)
             .numberOfTrees(rcfNumTrees)
             .timeDecay(rcfTimeDecay)
-            .outputAfter(rcfNumSamplesInTree)
+            .outputAfter(rcfNumMinSamples)
             .initialAcceptFraction(initialAcceptFraction)
             .parallelExecutionEnabled(false)
             .compact(true)
