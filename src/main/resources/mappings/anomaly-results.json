@@ -107,12 +107,6 @@
     "model_id": {
       "type": "keyword"
     },
-    "start_of_anomaly": {
-      "type": "boolean"
-    },
-    "in_high_score_region": {
-      "type": "boolean"
-    },
     "approx_anomaly_start_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"

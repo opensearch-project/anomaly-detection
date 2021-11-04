@@ -32,14 +32,6 @@ public class ThresholdingResult {
     private final double rcfScore;
     private long totalUpdates;
 
-    // flag indicating if the anomaly is the start of an anomaly or part of a run of
-    // anomalies
-    private boolean startOfAnomaly;
-
-    // flag indicating if the time stamp is in elevated score region to be
-    // considered as anomaly
-    private boolean inHighScoreRegion;
-
     /**
      * position of the anomaly vis a vis the current time (can be -ve) if anomaly is
      * detected late, which can and should happen sometime; for shingle size 1; this
@@ -155,7 +147,7 @@ public class ThresholdingResult {
      *   saving or not.
      */
     public ThresholdingResult(double grade, double confidence, double rcfScore) {
-        this(grade, confidence, rcfScore, 0, false, false, 0, null, null, null, null, 0, 0);
+        this(grade, confidence, rcfScore, 0, 0, null, null, null, null, 0, 0);
     }
 
     public ThresholdingResult(
@@ -163,8 +155,6 @@ public class ThresholdingResult {
         double confidence,
         double rcfScore,
         long totalUpdates,
-        boolean startOfAnomaly,
-        boolean inHighScoreRegion,
         int relativeIndex,
         double[] relevantAttribution,
         double[] pastValues,
@@ -177,8 +167,6 @@ public class ThresholdingResult {
         this.confidence = confidence;
         this.rcfScore = rcfScore;
         this.totalUpdates = totalUpdates;
-        this.startOfAnomaly = startOfAnomaly;
-        this.inHighScoreRegion = inHighScoreRegion;
         this.relativeIndex = relativeIndex;
         this.relevantAttribution = relevantAttribution;
         this.pastValues = pastValues;
@@ -212,14 +200,6 @@ public class ThresholdingResult {
 
     public long getTotalUpdates() {
         return totalUpdates;
-    }
-
-    public boolean isStartOfAnomaly() {
-        return startOfAnomaly;
-    }
-
-    public boolean isInHighScoreRegion() {
-        return inHighScoreRegion;
     }
 
     public int getRelativeIndex() {
@@ -261,8 +241,6 @@ public class ThresholdingResult {
             && this.confidence == that.confidence
             && this.rcfScore == that.rcfScore
             && this.totalUpdates == that.totalUpdates
-            && this.startOfAnomaly == that.startOfAnomaly
-            && this.inHighScoreRegion == that.inHighScoreRegion
             && this.relativeIndex == that.relativeIndex
             && Arrays.equals(relevantAttribution, that.relevantAttribution)
             && Arrays.equals(pastValues, that.pastValues)
@@ -280,8 +258,6 @@ public class ThresholdingResult {
                 confidence,
                 rcfScore,
                 totalUpdates,
-                startOfAnomaly,
-                inHighScoreRegion,
                 relativeIndex,
                 Arrays.hashCode(relevantAttribution),
                 Arrays.hashCode(pastValues),
@@ -299,8 +275,6 @@ public class ThresholdingResult {
             .append("confidence", confidence)
             .append("rcfScore", rcfScore)
             .append("totalUpdates", totalUpdates)
-            .append("startOfAnomaly", startOfAnomaly)
-            .append("inHighScoreRegion", inHighScoreRegion)
             .append("relativeIndex", relativeIndex)
             .append("relevantAttribution", Arrays.toString(relevantAttribution))
             .append("pastValues", Arrays.toString(pastValues))
@@ -359,8 +333,6 @@ public class ThresholdingResult {
                 detector.getUser(),
                 schemaVersion,
                 modelId,
-                startOfAnomaly,
-                inHighScoreRegion,
                 relevantAttribution,
                 relativeIndex,
                 pastValues,

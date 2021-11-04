@@ -334,8 +334,6 @@ public class ModelManagerTests {
 
         double confidence = 0.091353632;
         double grade = 0.1;
-        boolean startOfAnomaly = false;
-        boolean inHighScoreRegion = false;
         int relativeIndex = 0;
         double[] currentTimeAttribution = new double[] { 0.5, 0.5 };
         double[] pastalues = new double[] { 123, 456 };
@@ -350,8 +348,6 @@ public class ModelManagerTests {
         descriptor.setAnomalyGrade(grade);
         descriptor.setAttribution(attributionVec);
         descriptor.setTotalUpdates(numSamples);
-        descriptor.setStartOfAnomaly(startOfAnomaly);
-        descriptor.setInHighScoreRegion(inHighScoreRegion);
         descriptor.setRelativeIndex(relativeIndex);
         descriptor.setRelevantAttribution(currentTimeAttribution);
         descriptor.setPastValues(pastalues);
@@ -369,8 +365,6 @@ public class ModelManagerTests {
             confidence,
             score,
             numSamples,
-            startOfAnomaly,
-            inHighScoreRegion,
             relativeIndex,
             currentTimeAttribution,
             pastalues,
@@ -1068,8 +1062,6 @@ public class ModelManagerTests {
                 anomalyDescriptor.getDataConfidence(),
                 anomalyDescriptor.getRCFScore(),
                 0,
-                false,
-                false,
                 0,
                 anomalyDescriptor.getRelevantAttribution(),
                 null,

@@ -809,8 +809,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 response.getTotalUpdates(),
                                 detector.getDetectorIntervalInMinutes(),
                                 false,
-                                response.getStartOfAnomaly(),
-                                response.getInHighScoreRegion(),
                                 response.getRelativeIndex(),
                                 response.getAttribution(),
                                 response.getPastValues(),

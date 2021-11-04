@@ -39,8 +39,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
     public static final String FEATURE_VALUE_JSON_KEY = "value";
     public static final String RCF_TOTAL_UPDATES_JSON_KEY = "rcfTotalUpdates";
     public static final String DETECTOR_INTERVAL_IN_MINUTES_JSON_KEY = "detectorIntervalInMinutes";
-    public static final String START_OF_ANOMALY_FIELD_JSON_KEY = "startOfAnomaly";
-    public static final String IN_HIGH_SCORE_REGION_FIELD_JSON_KEY = "inHighScoreRegion";
     public static final String RELATIVE_INDEX_FIELD_JSON_KEY = "relativeIndex";
     public static final String RELEVANT_ATTRIBUTION_FIELD_JSON_KEY = "relevantAttribution";
     public static final String PAST_VALUES_FIELD_JSON_KEY = "pastValues";
@@ -56,8 +54,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
     private Long rcfTotalUpdates;
     private Long detectorIntervalInMinutes;
     private Boolean isHCDetector;
-    private Boolean startOfAnomaly;
-    private Boolean inHighScoreRegion;
     private Integer relativeIndex;
     private double[] relevantAttribution;
     private double[] pastValues;
@@ -81,8 +77,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             null,
             null,
             null,
-            null,
-            null,
             Double.NaN
         );
     }
@@ -96,8 +90,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         Long rcfTotalUpdates,
         Long detectorIntervalInMinutes,
         Boolean isHCDetector,
-        Boolean startOfAnomaly,
-        Boolean inHighScoreRegion,
         Integer relativeIndex,
         double[] currentTimeAttribution,
         double[] pastValues,
@@ -113,8 +105,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         this.rcfTotalUpdates = rcfTotalUpdates;
         this.detectorIntervalInMinutes = detectorIntervalInMinutes;
         this.isHCDetector = isHCDetector;
-        this.startOfAnomaly = startOfAnomaly;
-        this.inHighScoreRegion = inHighScoreRegion;
         this.relativeIndex = relativeIndex;
         this.relevantAttribution = currentTimeAttribution;
         this.pastValues = pastValues;
@@ -140,8 +130,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         detectorIntervalInMinutes = in.readOptionalLong();
         isHCDetector = in.readOptionalBoolean();
 
-        this.startOfAnomaly = in.readOptionalBoolean();
-        this.inHighScoreRegion = in.readOptionalBoolean();
         this.relativeIndex = in.readOptionalInt();
 
         // input.readOptionalArray(i -> i.readDouble(), double[]::new) results in
@@ -210,14 +198,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         return isHCDetector;
     }
 
-    public Boolean isStartOfAnomaly() {
-        return startOfAnomaly;
-    }
-
-    public Boolean isInHighScoreRegion() {
-        return inHighScoreRegion;
-    }
-
     public Integer getRelativeIndex() {
         return relativeIndex;
     }
@@ -256,8 +236,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         out.writeOptionalLong(detectorIntervalInMinutes);
         out.writeOptionalBoolean(isHCDetector);
 
-        out.writeOptionalBoolean(startOfAnomaly);
-        out.writeOptionalBoolean(inHighScoreRegion);
         out.writeOptionalInt(relativeIndex);
 
         // writeOptionalArray does not work for primitive array. Use WriteDoubleArray
@@ -311,8 +289,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         builder.endArray();
         builder.field(RCF_TOTAL_UPDATES_JSON_KEY, rcfTotalUpdates);
         builder.field(DETECTOR_INTERVAL_IN_MINUTES_JSON_KEY, detectorIntervalInMinutes);
-        builder.field(START_OF_ANOMALY_FIELD_JSON_KEY, startOfAnomaly);
-        builder.field(IN_HIGH_SCORE_REGION_FIELD_JSON_KEY, inHighScoreRegion);
         builder.field(RELATIVE_INDEX_FIELD_JSON_KEY, relativeIndex);
         builder.field(RELEVANT_ATTRIBUTION_FIELD_JSON_KEY, relevantAttribution);
         builder.field(PAST_VALUES_FIELD_JSON_KEY, pastValues);
@@ -382,8 +358,6 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
                 user,
                 schemaVersion,
                 null, // single-stream real-time has no model id
-                startOfAnomaly,
-                inHighScoreRegion,
                 relevantAttribution,
                 relativeIndex,
                 pastValues,

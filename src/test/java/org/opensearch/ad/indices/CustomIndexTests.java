@@ -168,9 +168,6 @@ public class CustomIndexTests extends AbstractADTest {
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
         mappings.put(AnomalyResult.FEATURE_DATA_FIELD, feature_mapping);
-
-        mappings.put(AnomalyResult.IN_HIGH_SCORE_REGION_FIELD, Collections.singletonMap("type", "boolean"));
-
         mappings.put(AnomalyResult.IS_ANOMALY_FIELD, Collections.singletonMap("type", "boolean"));
         mappings.put(AnomalyResult.MODEL_ID_FIELD, Collections.singletonMap("type", "keyword"));
 
@@ -191,8 +188,6 @@ public class CustomIndexTests extends AbstractADTest {
         mappings.put(AnomalyResult.RELEVANT_ATTRIBUTION_FIELD, attribution_mapping);
 
         mappings.put(CommonName.SCHEMA_VERSION_FIELD, Collections.singletonMap("type", "integer"));
-
-        mappings.put(AnomalyResult.START_OF_ANOMALY_FIELD, Collections.singletonMap("type", "boolean"));
 
         mappings.put(AnomalyResult.TASK_ID_FIELD, Collections.singletonMap("type", "keyword"));
 

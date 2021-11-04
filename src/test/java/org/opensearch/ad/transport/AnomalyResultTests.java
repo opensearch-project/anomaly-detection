@@ -217,8 +217,6 @@ public class AnomalyResultTests extends AbstractADTest {
         anomalyGrade = 0.5;
         normalModelManager = mock(ModelManager.class);
         long totalUpdates = 1440;
-        boolean startOfAnomaly = false;
-        boolean inHighScoreRegion = false;
         int relativeIndex = 0;
         double[] currentTimeAttribution = new double[] { 0.5, 0.5 };
         double[] pastValues = new double[] { 123, 456 };
@@ -234,8 +232,6 @@ public class AnomalyResultTests extends AbstractADTest {
                         confidence,
                         rcfScore,
                         totalUpdates,
-                        startOfAnomaly,
-                        inHighScoreRegion,
                         relativeIndex,
                         currentTimeAttribution,
                         pastValues,
@@ -616,8 +612,6 @@ public class AnomalyResultTests extends AbstractADTest {
                             randomInt(),
                             randomDouble(),
                             Version.CURRENT,
-                            randomBoolean(),
-                            randomBoolean(),
                             randomIntBetween(-3, 0),
                             new double[] { randomDouble(), randomDouble() },
                             new double[][] { new double[] { randomDouble(), randomDouble() } },
@@ -958,8 +952,6 @@ public class AnomalyResultTests extends AbstractADTest {
             randomLong(),
             randomLong(),
             randomBoolean(),
-            randomBoolean(),
-            randomBoolean(),
             randomInt(),
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
             new double[] { randomDouble(), randomDouble() },
@@ -984,8 +976,6 @@ public class AnomalyResultTests extends AbstractADTest {
             randomAlphaOfLength(4),
             randomLong(),
             randomLong(),
-            randomBoolean(),
-            randomBoolean(),
             randomBoolean(),
             randomInt(),
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
@@ -1018,8 +1008,6 @@ public class AnomalyResultTests extends AbstractADTest {
             randomAlphaOfLength(4),
             randomLong(),
             randomLong(),
-            randomBoolean(),
-            randomBoolean(),
             randomBoolean(),
             randomInt(),
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
@@ -1528,9 +1516,7 @@ public class AnomalyResultTests extends AbstractADTest {
         double grade = 0.5;
         ArgumentCaptor<AnomalyResultResponse> responseCaptor = ArgumentCaptor.forClass(AnomalyResultResponse.class);
         rcfListener
-            .onResponse(
-                new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, false, false, 0, null, null, null, 1.1)
-            );
+            .onResponse(new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, 0, null, null, null, 1.1));
         verify(listener, times(1)).onResponse(responseCaptor.capture());
         assertEquals(grade, responseCaptor.getValue().getAnomalyGrade(), 1e-10);
     }
@@ -1564,9 +1550,7 @@ public class AnomalyResultTests extends AbstractADTest {
         double grade = 0.5;
         ArgumentCaptor<Exception> failureCaptor = ArgumentCaptor.forClass(Exception.class);
         rcfListener
-            .onResponse(
-                new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, false, false, 0, null, null, null, 1.1)
-            );
+            .onResponse(new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, 0, null, null, null, 1.1));
         verify(listener, times(1)).onFailure(failureCaptor.capture());
         Exception failure = failureCaptor.getValue();
         assertTrue(failure instanceof InternalFailure);

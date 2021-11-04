@@ -84,8 +84,6 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                         result.getTotalUpdates(),
                                         result.getGrade(),
                                         remoteAdVersion,
-                                        result.isStartOfAnomaly(),
-                                        result.isInHighScoreRegion(),
                                         result.getRelativeIndex(),
                                         result.getPastValues(),
                                         result.getExpectedValuesList(),

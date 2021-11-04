@@ -67,8 +67,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String USER_FIELD = "user";
     public static final String TASK_ID_FIELD = "task_id";
     public static final String MODEL_ID_FIELD = "model_id";
-    public static final String START_OF_ANOMALY_FIELD = "start_of_anomaly";
-    public static final String IN_HIGH_SCORE_REGION_FIELD = "in_high_score_region";
     public static final String APPROX_ANOMALY_START_FIELD = "approx_anomaly_start_time";
     public static final String RELEVANT_ATTRIBUTION_FIELD = "relevant_attribution";
     public static final String PAST_VALUES_FIELD = "past_values";
@@ -102,15 +100,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
      * painful.
      */
     private final String modelId;
-
-    // flag indicating if the anomaly is the start of an anomaly or part of a run of
-    // anomalies
-    private final Boolean startOfAnomaly;
-
-    // flag indicating if the time stamp is in elevated score region to be
-    // considered as anomaly. This does not mean current data point is anomaly
-    // or not. Just means current rcf score is high.
-    private final Boolean inHighScoreRegion;
 
     /**
      * the approximate time of current anomaly. We might detect anomaly late.  This field
@@ -178,8 +167,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     75236.0
     ],
     Since rcf returns relativeIndex is -2, we look back baseDimension * 2 and get the pastValues:
-    "startOfAnomaly": true,
-    "inHighScoreRegion": true,
     "pastValues": [
     17265.0,
     4113.142857142857,
@@ -261,8 +248,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             null,
             null,
             null,
-            null,
-            null,
             null
         );
     }
@@ -283,8 +268,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         User user,
         Integer schemaVersion,
         String modelId,
-        Boolean startOfAnomaly,
-        Boolean inHighScoreRegion,
         Instant approxAnomalyStartTime,
         List<DataByFeatureId> relevantAttribution,
         List<DataByFeatureId> pastValues,
@@ -306,8 +289,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.user = user;
         this.schemaVersion = schemaVersion;
         this.modelId = modelId;
-        this.startOfAnomaly = startOfAnomaly;
-        this.inHighScoreRegion = inHighScoreRegion;
         this.approxAnomalyStartTime = approxAnomalyStartTime;
         this.relevantAttribution = relevantAttribution;
         this.pastValues = pastValues;
@@ -333,8 +314,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
      * @param user the user who created a detector
      * @param schemaVersion Result schema version
      * @param modelId Model Id
-     * @param startOfAnomaly Whether the current point is the start of an anomaly window
-     * @param inHighScoreRegion Whether the current point is in a high rcf score region
      * @param relevantAttribution Attribution of the anomaly
      * @param relativeIndex The index of anomaly point relative to current point.
      * @param pastValues The input that caused anomaly if we detector anomaly late
@@ -360,8 +339,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         User user,
         Integer schemaVersion,
         String modelId,
-        Boolean startOfAnomaly,
-        Boolean inHighScoreRegion,
         double[] relevantAttribution,
         Integer relativeIndex,
         double[] pastValues,
@@ -461,8 +438,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             user,
             schemaVersion,
             modelId,
-            startOfAnomaly,
-            inHighScoreRegion,
             (relativeIndex == null || dataStartTime == null)
                 ? null
                 : Instant.ofEpochMilli(dataStartTime.toEpochMilli() + relativeIndex * intervalMillis),
@@ -502,8 +477,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.taskId = input.readOptionalString();
         this.modelId = input.readOptionalString();
 
-        this.startOfAnomaly = input.readOptionalBoolean();
-        this.inHighScoreRegion = input.readOptionalBoolean();
         // if anomaly is caused by current input, we don't show approximate time
         this.approxAnomalyStartTime = input.readOptionalInstant();
 
@@ -595,12 +568,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
 
         // output extra fields such as attribution and expected only when this is an anomaly
         if (anomalyGrade != null && anomalyGrade > 0) {
-            if (startOfAnomaly != null) {
-                xContentBuilder.field(START_OF_ANOMALY_FIELD, startOfAnomaly);
-            }
-            if (inHighScoreRegion != null) {
-                xContentBuilder.field(IN_HIGH_SCORE_REGION_FIELD, inHighScoreRegion);
-            }
             if (approxAnomalyStartTime != null) {
                 xContentBuilder.field(APPROX_ANOMALY_START_FIELD, approxAnomalyStartTime.toEpochMilli());
             }
@@ -638,8 +605,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         String taskId = null;
         String modelId = null;
-        Boolean startOfAnomaly = false;
-        Boolean inHighScoreRegion = false;
         Instant approAnomalyStartTime = null;
         List<DataByFeatureId> relavantAttribution = new ArrayList<>();
         List<DataByFeatureId> pastValues = new ArrayList<>();
@@ -700,12 +665,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 case MODEL_ID_FIELD:
                     modelId = parser.text();
                     break;
-                case START_OF_ANOMALY_FIELD:
-                    startOfAnomaly = parser.booleanValue();
-                    break;
-                case IN_HIGH_SCORE_REGION_FIELD:
-                    inHighScoreRegion = parser.booleanValue();
-                    break;
                 case APPROX_ANOMALY_START_FIELD:
                     approAnomalyStartTime = ParseUtils.toInstant(parser);
                     break;
@@ -752,8 +711,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             user,
             schemaVersion,
             modelId,
-            startOfAnomaly,
-            inHighScoreRegion,
             approAnomalyStartTime,
             relavantAttribution,
             pastValues,
@@ -783,8 +740,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             && Objects.equal(error, that.error)
             && Objects.equal(entity, that.entity)
             && Objects.equal(modelId, that.modelId)
-            && Objects.equal(startOfAnomaly, that.startOfAnomaly)
-            && Objects.equal(inHighScoreRegion, that.inHighScoreRegion)
             && Objects.equal(approxAnomalyStartTime, that.approxAnomalyStartTime)
             && Objects.equal(relevantAttribution, that.relevantAttribution)
             && Objects.equal(pastValues, that.pastValues)
@@ -810,8 +765,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 error,
                 entity,
                 modelId,
-                startOfAnomaly,
-                inHighScoreRegion,
                 approxAnomalyStartTime,
                 relevantAttribution,
                 pastValues,
@@ -837,8 +790,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .append("error", error)
             .append("entity", entity)
             .append("modelId", modelId)
-            .append("startOfAnomaly", startOfAnomaly)
-            .append("inHighScoreRegion", inHighScoreRegion)
             .append("approAnomalyStartTime", approxAnomalyStartTime)
             .append("relavantAttribution", relevantAttribution)
             .append("pastValues", pastValues)
@@ -897,14 +848,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
 
     public String getModelId() {
         return modelId;
-    }
-
-    public Boolean isStartOfAnomaly() {
-        return startOfAnomaly;
-    }
-
-    public Boolean isInHighScoreRegion() {
-        return inHighScoreRegion;
     }
 
     public Instant getApproAnomalyStartTime() {
@@ -969,8 +912,6 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeOptionalString(taskId);
         out.writeOptionalString(modelId);
 
-        out.writeOptionalBoolean(startOfAnomaly);
-        out.writeOptionalBoolean(inHighScoreRegion);
         out.writeOptionalInstant(approxAnomalyStartTime);
 
         if (relevantAttribution != null) {

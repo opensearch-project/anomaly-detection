@@ -175,8 +175,6 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             null,
             null,
             null,
-            randomBoolean(),
-            randomBoolean(),
             null,
             null,
             null,

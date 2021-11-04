@@ -14,7 +14,6 @@ package org.opensearch;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.hamcrest.Matchers.equalTo;
-import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
 import static org.opensearch.test.OpenSearchTestCase.randomDouble;
 import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
@@ -498,8 +497,6 @@ public class BwcTests extends AbstractADTest {
             134,
             0.4,
             Version.CURRENT,
-            randomBoolean(),
-            randomBoolean(),
             randomIntBetween(-3, 0),
             new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
             new double[][] { new double[] { randomDouble(), randomDouble() } },

@@ -28,8 +28,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     public static final String FOREST_SIZE_JSON_KEY = "forestSize";
     public static final String ATTRIBUTION_JSON_KEY = "attribution";
     public static final String TOTAL_UPDATES_JSON_KEY = "total_updates";
-    public static final String START_OF_ANOMALY_FIELD_JSON_KEY = "startOfAnomaly";
-    public static final String IN_HIGH_SCORE_REGION_FIELD_JSON_KEY = "inHighScoreRegion";
     public static final String RELATIVE_INDEX_FIELD_JSON_KEY = "relativeIndex";
     public static final String PAST_VALUES_FIELD_JSON_KEY = "pastValues";
     public static final String EXPECTED_VAL_LIST_FIELD_JSON_KEY = "expectedValuesList";
@@ -43,8 +41,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     private Long totalUpdates = 0L;
     private Version remoteAdVersion;
     private Double anomalyGrade;
-    private Boolean startOfAnomaly;
-    private Boolean inHighScoreRegion;
     private Integer relativeIndex;
     private double[] pastValues;
     private double[][] expectedValuesList;
@@ -59,8 +55,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         long totalUpdates,
         double grade,
         Version remoteAdVersion,
-        Boolean startOfAnomaly,
-        Boolean inHighScoreRegion,
         Integer relativeIndex,
         double[] pastValues,
         double[][] expectedValuesList,
@@ -74,8 +68,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         this.totalUpdates = totalUpdates;
         this.anomalyGrade = grade;
         this.remoteAdVersion = remoteAdVersion;
-        this.startOfAnomaly = startOfAnomaly;
-        this.inHighScoreRegion = inHighScoreRegion;
         this.relativeIndex = relativeIndex;
         this.pastValues = pastValues;
         this.expectedValuesList = expectedValuesList;
@@ -92,8 +84,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         if (in.available() > 0) {
             this.totalUpdates = in.readLong();
             this.anomalyGrade = in.readDouble();
-            this.startOfAnomaly = in.readOptionalBoolean();
-            this.inHighScoreRegion = in.readOptionalBoolean();
             this.relativeIndex = in.readOptionalInt();
 
             if (in.readBoolean()) {
@@ -152,14 +142,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         return anomalyGrade;
     }
 
-    public Boolean getStartOfAnomaly() {
-        return startOfAnomaly;
-    }
-
-    public Boolean getInHighScoreRegion() {
-        return inHighScoreRegion;
-    }
-
     public Integer getRelativeIndex() {
         return relativeIndex;
     }
@@ -189,8 +171,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
             out.writeLong(totalUpdates);
             out.writeDouble(anomalyGrade);
-            out.writeOptionalBoolean(startOfAnomaly);
-            out.writeOptionalBoolean(inHighScoreRegion);
             out.writeOptionalInt(relativeIndex);
 
             if (pastValues != null) {
@@ -231,8 +211,6 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(ATTRIBUTION_JSON_KEY, attribution);
         builder.field(TOTAL_UPDATES_JSON_KEY, totalUpdates);
         builder.field(CommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
-        builder.field(START_OF_ANOMALY_FIELD_JSON_KEY, startOfAnomaly);
-        builder.field(IN_HIGH_SCORE_REGION_FIELD_JSON_KEY, inHighScoreRegion);
         builder.field(RELATIVE_INDEX_FIELD_JSON_KEY, relativeIndex);
         builder.field(PAST_VALUES_FIELD_JSON_KEY, pastValues);
         builder.field(EXPECTED_VAL_LIST_FIELD_JSON_KEY, expectedValuesList);

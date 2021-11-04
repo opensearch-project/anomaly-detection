@@ -1116,8 +1116,6 @@ public class ADBatchTaskRunner {
                         adTask.getDetector().getUser(),
                         anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                         adTask.getEntityModelId(),
-                        descriptor.isStartOfAnomaly(),
-                        descriptor.isInHighScoreRegion(),
                         modelManager.normalizeAttribution(trcf.getForest(), descriptor.getRelevantAttribution()),
                         descriptor.getRelativeIndex(),
                         descriptor.getPastValues(),
