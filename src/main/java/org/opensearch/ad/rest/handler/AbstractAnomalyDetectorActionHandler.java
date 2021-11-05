@@ -227,15 +227,40 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public void start() {
         String resultIndex = anomalyDetector.getResultIndex();
         // use default detector result index which is system index
-        if (resultIndex == null || this.isDryRun) {
+        if (resultIndex == null) {
             createOrUpdateDetector();
             return;
         }
+        // if only validate API called then check if any errors occur for custom result index
+        // and wrap them as ADValidationException so they are properly returned as ADValidationResponse
+        // also make sure not to create actual index when validating if it doesn't exist
+        if (this.isDryRun) {
+            anomalyDetectionIndices
+                .validateCustomResultIndexAndExecute(
+                    resultIndex,
+                    () -> createOrUpdateDetector(),
+                    ActionListener.wrap(response -> createOrUpdateDetector(), ex -> {
+                        logger.error(ex);
+                        listener
+                            .onFailure(
+                                new ADValidationException(
+                                    ex.getMessage(),
+                                    DetectorValidationIssueType.RESULT_INDEX,
+                                    ValidationAspect.DETECTOR
+                                )
+                            );
+                        return;
+                    })
+                );
+            return;
+        }
 
-        // user custom result index
+        // user custom result index if not validate
         anomalyDetectionIndices.initCustomResultIndexAndExecute(resultIndex, () -> createOrUpdateDetector(), listener);
     }
 
+    // if isDryRun is true then this method is being executed through Validation API meaning actual
+    // index won't be created, only validation checks will be executed throughout the class
     private void createOrUpdateDetector() {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist() && !this.isDryRun) {

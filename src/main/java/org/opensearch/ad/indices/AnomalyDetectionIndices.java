@@ -61,6 +61,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -332,11 +333,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
     }
 
-    private <T> void validateCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
+    public <T> void validateCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
         try {
             if (!isValidResultIndex(resultIndex)) {
                 logger.warn("Can't create detector with custom result index {} as its mapping is invalid", resultIndex);
-                listener.onFailure(new IllegalArgumentException("Invalid result index: " + resultIndex));
+                listener.onFailure(new IllegalArgumentException(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex));
                 return;
             }
 
