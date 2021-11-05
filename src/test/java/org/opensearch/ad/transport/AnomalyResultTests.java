@@ -36,6 +36,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
+import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -81,7 +85,6 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.RcfResult;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -213,11 +216,33 @@ public class AnomalyResultTests extends AbstractADTest {
         confidence = 0.91;
         anomalyGrade = 0.5;
         normalModelManager = mock(ModelManager.class);
+        long totalUpdates = 1440;
+        int relativeIndex = 0;
+        double[] currentTimeAttribution = new double[] { 0.5, 0.5 };
+        double[] pastValues = new double[] { 123, 456 };
+        double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
+        double[] likelihood = new double[] { 1 };
+        double threshold = 1.1d;
         doAnswer(invocation -> {
-            ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(rcfScore, confidence, 100, new double[] { 1 }, 1L, anomalyGrade));
+            ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
+            listener
+                .onResponse(
+                    new ThresholdingResult(
+                        anomalyGrade,
+                        confidence,
+                        rcfScore,
+                        totalUpdates,
+                        relativeIndex,
+                        currentTimeAttribution,
+                        pastValues,
+                        expectedValuesList,
+                        likelihood,
+                        threshold,
+                        30
+                    )
+                );
             return null;
-        }).when(normalModelManager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+        }).when(normalModelManager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         doAnswer(invocation -> {
             ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
@@ -484,7 +509,7 @@ public class AnomalyResultTests extends AbstractADTest {
         ModelManager rcfManager = mock(ModelManager.class);
         doThrow(ResourceNotFoundException.class)
             .when(rcfManager)
-            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+            .getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         when(stateManager.fetchExceptionAndClear(any(String.class)))
             .thenReturn(Optional.of(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
@@ -530,7 +555,7 @@ public class AnomalyResultTests extends AbstractADTest {
         ModelManager rcfManager = mock(ModelManager.class);
         doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
             .when(rcfManager)
-            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+            .getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(
@@ -577,7 +602,23 @@ public class AnomalyResultTests extends AbstractADTest {
             @Override
             @SuppressWarnings("unchecked")
             public void handleResponse(T response) {
-                handler.handleResponse((T) new RCFResultResponse(1, 1, 100, new double[0], randomInt(), randomDouble(), Version.CURRENT));
+                handler
+                    .handleResponse(
+                        (T) new RCFResultResponse(
+                            1,
+                            1,
+                            100,
+                            new double[0],
+                            randomInt(),
+                            randomDouble(),
+                            Version.CURRENT,
+                            randomIntBetween(-3, 0),
+                            new double[] { randomDouble(), randomDouble() },
+                            new double[][] { new double[] { randomDouble(), randomDouble() } },
+                            new double[] { randomDouble() },
+                            randomDoubleBetween(1.1, 10.0, true)
+                        )
+                    );
             }
 
             @Override
@@ -903,10 +944,20 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testSerialzationResponse() throws IOException {
         AnomalyResultResponse response = new AnomalyResultResponse(
-            4,
+            4d,
             0.993,
             1.01,
-            Collections.singletonList(new FeatureData(featureId, featureName, 0d))
+            Collections.singletonList(new FeatureData(featureId, featureName, 0d)),
+            randomAlphaOfLength(4),
+            randomLong(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            new double[] { randomDouble() },
+            randomDoubleBetween(1.1, 10.0, true)
         );
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
@@ -918,10 +969,20 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testJsonResponse() throws IOException, JsonPathNotFoundException {
         AnomalyResultResponse response = new AnomalyResultResponse(
-            4,
+            4d,
             0.993,
             1.01,
-            Collections.singletonList(new FeatureData(featureId, featureName, 0d))
+            Collections.singletonList(new FeatureData(featureId, featureName, 0d)),
+            randomAlphaOfLength(4),
+            randomLong(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            new double[] { randomDouble() },
+            randomDoubleBetween(1.1, 10.0, true)
         );
         XContentBuilder builder = jsonBuilder();
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -943,7 +1004,17 @@ public class AnomalyResultTests extends AbstractADTest {
             JsonDeserializer.getDoubleValue(json, AnomalyResultResponse.ANOMALY_GRADE_JSON_KEY),
             JsonDeserializer.getDoubleValue(json, AnomalyResultResponse.CONFIDENCE_JSON_KEY),
             JsonDeserializer.getDoubleValue(json, AnomalyResultResponse.ANOMALY_SCORE_JSON_KEY),
-            JsonDeserializer.getListValue(json, function, AnomalyResultResponse.FEATURES_JSON_KEY)
+            JsonDeserializer.getListValue(json, function, AnomalyResultResponse.FEATURES_JSON_KEY),
+            randomAlphaOfLength(4),
+            randomLong(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            new double[] { randomDoubleBetween(0, 1.0, true), randomDoubleBetween(0, 1.0, true) },
+            new double[] { randomDouble(), randomDouble() },
+            new double[][] { new double[] { randomDouble(), randomDouble() } },
+            new double[] { randomDouble() },
+            randomDoubleBetween(1.1, 10.0, true)
         );
         assertAnomalyResultResponse(readResponse, readResponse.getAnomalyGrade(), readResponse.getConfidence(), 0d);
     }
@@ -1444,7 +1515,8 @@ public class AnomalyResultTests extends AbstractADTest {
         long totalUpdates = 32;
         double grade = 0.5;
         ArgumentCaptor<AnomalyResultResponse> responseCaptor = ArgumentCaptor.forClass(AnomalyResultResponse.class);
-        rcfListener.onResponse(new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT));
+        rcfListener
+            .onResponse(new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, 0, null, null, null, 1.1));
         verify(listener, times(1)).onResponse(responseCaptor.capture());
         assertEquals(grade, responseCaptor.getValue().getAnomalyGrade(), 1e-10);
     }
@@ -1477,7 +1549,8 @@ public class AnomalyResultTests extends AbstractADTest {
         long totalUpdates = 32;
         double grade = 0.5;
         ArgumentCaptor<Exception> failureCaptor = ArgumentCaptor.forClass(Exception.class);
-        rcfListener.onResponse(new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT));
+        rcfListener
+            .onResponse(new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT, 0, null, null, null, 1.1));
         verify(listener, times(1)).onFailure(failureCaptor.capture());
         Exception failure = failureCaptor.getValue();
         assertTrue(failure instanceof InternalFailure);
@@ -1524,10 +1597,10 @@ public class AnomalyResultTests extends AbstractADTest {
         ModelManager rcfManager = mock(ModelManager.class);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<RcfResult> listener = (ActionListener<RcfResult>) args[3];
+            ActionListener<ThresholdingResult> listener = (ActionListener<ThresholdingResult>) args[3];
             listener.onFailure(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME));
             return null;
-        }).when(rcfManager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+        }).when(rcfManager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         when(stateManager.fetchExceptionAndClear(any(String.class)))
             .thenReturn(Optional.of(new EndRunException(adID, "Cannot get training data", false)));

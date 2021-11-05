@@ -15,48 +15,53 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 
 import java.io.IOException;
 
-import org.opensearch.ad.annotation.Generated;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.xcontent.ToXContent.Params;
+import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
 
 import com.google.common.base.Objects;
 
 /**
- * Feature data used by RCF model.
+ * Data and its Id
+ *
  */
-public class FeatureData extends DataByFeatureId {
+public class DataByFeatureId implements ToXContentObject, Writeable {
 
-    public static final String FEATURE_NAME_FIELD = "feature_name";
+    public static final String FEATURE_ID_FIELD = "feature_id";
+    public static final String DATA_FIELD = "data";
 
-    private final String featureName;
+    protected String featureId;
+    protected Double data;
 
-    public FeatureData(String featureId, String featureName, Double data) {
-        super(featureId, data);
-        this.featureName = featureName;
+    public DataByFeatureId(String featureId, Double data) {
+        this.featureId = featureId;
+        this.data = data;
     }
 
-    public FeatureData(StreamInput input) throws IOException {
+    /*
+     * Used by the subclass that has its own way of initializing data like
+     * reading from StreamInput
+     */
+    protected DataByFeatureId() {}
+
+    public DataByFeatureId(StreamInput input) throws IOException {
         this.featureId = input.readString();
-        this.featureName = input.readString();
         this.data = input.readDouble();
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder
-            .startObject()
-            .field(FEATURE_ID_FIELD, featureId)
-            .field(FEATURE_NAME_FIELD, featureName)
-            .field(DATA_FIELD, data);
+        XContentBuilder xContentBuilder = builder.startObject().field(FEATURE_ID_FIELD, featureId).field(DATA_FIELD, data);
         return xContentBuilder.endObject();
     }
 
-    public static FeatureData parse(XContentParser parser) throws IOException {
+    public static DataByFeatureId parse(XContentParser parser) throws IOException {
         String featureId = null;
         Double data = null;
-        String parsedFeatureName = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -67,44 +72,45 @@ public class FeatureData extends DataByFeatureId {
                 case FEATURE_ID_FIELD:
                     featureId = parser.text();
                     break;
-                case FEATURE_NAME_FIELD:
-                    parsedFeatureName = parser.text();
-                    break;
                 case DATA_FIELD:
                     data = parser.doubleValue();
                     break;
                 default:
+                    // the unknown field and it's children should be ignored
+                    parser.skipChildren();
                     break;
             }
         }
-        return new FeatureData(featureId, parsedFeatureName, data);
+        return new DataByFeatureId(featureId, data);
     }
 
-    @Generated
     @Override
     public boolean equals(Object o) {
-        if (super.equals(o)) {
-            FeatureData that = (FeatureData) o;
-            return Objects.equal(featureName, that.featureName);
-        }
-        return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        DataByFeatureId that = (DataByFeatureId) o;
+        return Objects.equal(getFeatureId(), that.getFeatureId()) && Objects.equal(getData(), that.getData());
     }
 
-    @Generated
     @Override
     public int hashCode() {
-        return Objects.hashCode(super.hashCode(), featureName);
+        return Objects.hashCode(getFeatureId(), getData());
     }
 
-    @Generated
-    public String getFeatureName() {
-        return featureName;
+    public String getFeatureId() {
+        return featureId;
+    }
+
+    public Double getData() {
+        return data;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(featureId);
-        out.writeString(featureName);
         out.writeDouble(data);
     }
+
 }

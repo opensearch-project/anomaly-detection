@@ -13,7 +13,6 @@ package org.opensearch.ad.indices;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
 import static org.opensearch.ad.constant.CommonName.DUMMY_AD_RESULT_ID;
-import static org.opensearch.ad.model.AnomalyResult.AD_RESULT_FIELD_CONFIGS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD;
@@ -75,12 +74,14 @@ import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
+import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParser.Token;
 import org.opensearch.common.xcontent.XContentType;
@@ -142,6 +143,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private int updateRunningTimes;
     // AD index settings
     private final Settings settings;
+
+    // result index mapping to valida custom index
+    private Map<String, Object> AD_RESULT_FIELD_CONFIGS;
 
     class IndexState {
         // keep track of whether the mapping version is up-to-date
@@ -210,6 +214,24 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
         this.maxUpdateRunningTimes = maxUpdateRunningTimes;
         this.updateRunningTimes = 0;
+
+        this.AD_RESULT_FIELD_CONFIGS = null;
+    }
+
+    private void initResultMapping() throws IOException {
+        if (AD_RESULT_FIELD_CONFIGS != null) {
+            // we have already initiated the field
+            return;
+        }
+        String resultMapping = getAnomalyResultMappings();
+
+        Map<String, Object> asMap = XContentHelper.convertToMap(new BytesArray(resultMapping), false, XContentType.JSON).v2();
+        Object properties = asMap.get(CommonName.PROPERTIES);
+        if (properties instanceof Map) {
+            AD_RESULT_FIELD_CONFIGS = (Map<String, Object>) properties;
+        } else {
+            logger.error("Fail to read result mapping file.");
+        }
     }
 
     /**
@@ -404,18 +426,29 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public boolean isValidResultIndex(String resultIndex) {
         try {
+            initResultMapping();
+            if (AD_RESULT_FIELD_CONFIGS == null) {
+                // failed to populate the field
+                return false;
+            }
             IndexMetadata indexMetadata = clusterService.state().metadata().index(resultIndex);
             Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
-            String propertyName = "properties";
+            String propertyName = CommonName.PROPERTIES;
             if (!indexMapping.containsKey(propertyName) || !(indexMapping.get(propertyName) instanceof LinkedHashMap)) {
                 return false;
             }
             LinkedHashMap<String, Object> mapping = (LinkedHashMap<String, Object>) indexMapping.get(propertyName);
 
             boolean correctResultIndexMapping = true;
+
             for (String fieldName : AD_RESULT_FIELD_CONFIGS.keySet()) {
-                String defaultSchema = AD_RESULT_FIELD_CONFIGS.get(fieldName);
-                if (!mapping.containsKey(fieldName) || !defaultSchema.equals(mapping.get(fieldName).toString())) {
+                Object defaultSchema = AD_RESULT_FIELD_CONFIGS.get(fieldName);
+                // the field might be a map or map of map
+                // example: map: {type=date, format=strict_date_time||epoch_millis}
+                // map of map: {type=nested, properties={likelihood={type=double}, value_list={type=nested, properties={data={type=double},
+                // feature_id={type=keyword}}}}}
+                // if it is a map of map, Object.equals can compare them regardless of order
+                if (!mapping.containsKey(fieldName) || !defaultSchema.equals(mapping.get(fieldName))) {
                     correctResultIndexMapping = false;
                     break;
                 }

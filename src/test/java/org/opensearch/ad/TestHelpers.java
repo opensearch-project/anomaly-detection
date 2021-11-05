@@ -20,6 +20,7 @@ import static org.opensearch.test.OpenSearchTestCase.buildNewFakeTransportAddres
 import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
 import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
 import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomInt;
 import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomLong;
@@ -74,11 +75,13 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.DataByFeatureId;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.model.ExpectedValueList;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
@@ -785,6 +788,20 @@ public class TestHelpers {
 
     public static AnomalyResult randomAnomalyDetectResult(double score, String error, String taskId, boolean withUser) {
         User user = withUser ? randomUser() : null;
+        List<DataByFeatureId> relavantAttribution = new ArrayList<DataByFeatureId>();
+        relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
+        relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
+
+        List<DataByFeatureId> pastValues = new ArrayList<DataByFeatureId>();
+        pastValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+        pastValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+
+        List<ExpectedValueList> expectedValuesList = new ArrayList<ExpectedValueList>();
+        List<DataByFeatureId> expectedValues = new ArrayList<DataByFeatureId>();
+        expectedValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+        expectedValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+        expectedValuesList.add(new ExpectedValueList(randomDoubleBetween(0, 1.0, true), expectedValues));
+
         return new AnomalyResult(
             randomAlphaOfLength(5),
             taskId,
@@ -800,7 +817,12 @@ public class TestHelpers {
             null,
             user,
             CommonValue.NO_SCHEMA_VERSION,
-            null
+            null,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            relavantAttribution,
+            pastValues,
+            expectedValuesList,
+            randomDoubleBetween(1.1, 10.0, true)
         );
     }
 
@@ -820,8 +842,23 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomHCADAnomalyDetectResult(double score, double grade, String error) {
+        List<DataByFeatureId> relavantAttribution = new ArrayList<DataByFeatureId>();
+        relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
+        relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
+
+        List<DataByFeatureId> pastValues = new ArrayList<DataByFeatureId>();
+        pastValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+        pastValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+
+        List<ExpectedValueList> expectedValuesList = new ArrayList<ExpectedValueList>();
+        List<DataByFeatureId> expectedValues = new ArrayList<DataByFeatureId>();
+        expectedValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+        expectedValues.add(new DataByFeatureId(randomAlphaOfLength(5), randomDouble()));
+        expectedValuesList.add(new ExpectedValueList(randomDoubleBetween(0, 1.0, true), expectedValues));
+
         return new AnomalyResult(
             randomAlphaOfLength(5),
+            null,
             score,
             grade,
             randomDouble(),
@@ -833,7 +870,13 @@ public class TestHelpers {
             error,
             Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)),
             randomUser(),
-            CommonValue.NO_SCHEMA_VERSION
+            CommonValue.NO_SCHEMA_VERSION,
+            null,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            relavantAttribution,
+            pastValues,
+            expectedValuesList,
+            randomDoubleBetween(1.1, 10.0, true)
         );
     }
 

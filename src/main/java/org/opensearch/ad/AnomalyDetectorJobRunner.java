@@ -513,20 +513,19 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             if (response.getError() != null) {
                 log.info("Anomaly result action run successfully for {} with error {}", detectorId, response.getError());
             }
-            AnomalyResult anomalyResult = new AnomalyResult(
-                detectorId,
-                response.getAnomalyScore(),
-                response.getAnomalyGrade(),
-                response.getConfidence(),
-                response.getFeatures(),
-                dataStartTime,
-                dataEndTime,
-                executionStartTime,
-                Instant.now(),
-                response.getError(),
-                user,
-                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
-            );
+
+            AnomalyResult anomalyResult = response
+                .toAnomalyResult(
+                    detectorId,
+                    dataStartTime,
+                    dataEndTime,
+                    executionStartTime,
+                    Instant.now(),
+                    anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
+                    user,
+                    response.getError()
+                );
+
             String resultIndex = jobParameter.getResultIndex();
             anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             updateRealtimeTask(response, detectorId);
@@ -628,17 +627,17 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
             AnomalyResult anomalyResult = new AnomalyResult(
                 detectorId,
-                Double.NaN,
-                Double.NaN,
-                Double.NaN,
+                null, // no task id
                 new ArrayList<FeatureData>(),
                 dataStartTime,
                 dataEndTime,
                 executionStartTime,
                 Instant.now(),
                 errorMessage,
+                null, // single-stream detectors have no entity
                 user,
-                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
+                anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
+                null // no model id
             );
             String resultIndex = jobParameter.getResultIndex();
             if (resultIndex != null && !anomalyDetectionIndices.doesIndexExist(resultIndex)) {
