@@ -16,8 +16,8 @@ import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 buildscript {
     ext {
         opensearch_group = "org.opensearch"
-        opensearch_version = System.getProperty("opensearch.version", "1.1.0-SNAPSHOT")
-        // 1.1.0 -> 1.1.0.0, and 1.1.0-SNAPSHOT -> 1.1.0.0-SNAPSHOT
+        opensearch_version = System.getProperty("opensearch.version", "1.2.0-SNAPSHOT")
+        // 1.2.0 -> 1.2.0.0, and 1.2.0-SNAPSHOT -> 1.2.0.0-SNAPSHOT
         opensearch_build = opensearch_version.replaceAll(/(\.\d)([^\d]*)$/, '$1.0$2')
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
@@ -25,6 +25,7 @@ buildscript {
 
     repositories {
         mavenLocal()
+        maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
         jcenter()
@@ -39,7 +40,6 @@ plugins {
     id 'nebula.ospackage' version "8.3.0" apply false
     id "com.diffplug.gradle.spotless" version "3.26.1"
     id 'java-library'
-    id 'checkstyle'
 }
 
 tasks.withType(JavaCompile) {
@@ -54,6 +54,7 @@ tasks.withType(Javadoc) {
 
 repositories {
     mavenLocal()
+    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
     jcenter()
@@ -102,11 +103,12 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
+        force "com.fasterxml.jackson.core:jackson-core:2.11.4"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
 
-        force "org.mockito:mockito-core:3.0.0"
+        force "org.mockito:mockito-core:2.25.0"
         force "org.objenesis:objenesis:3.0.1"
         force "net.bytebuddy:byte-buddy:1.9.15"
         force "net.bytebuddy:byte-buddy-agent:1.9.15"
@@ -274,7 +276,7 @@ String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["7.10.2","1.1.0-SNAPSHOT"]
+            versions = ["7.10.2","1.2.0-SNAPSHOT"]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
@@ -538,10 +540,6 @@ jacocoTestReport {
 check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
 
-checkstyle {
-    toolVersion = '8.29'
-}
-
 dependencies {
     compile "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
@@ -556,20 +554,11 @@ dependencies {
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
     compile group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
 
-    // randomcutforest-serialization uses jackson 2.12, but opensearch-scripting-painless-spi uses jackson 2.11.
-    // compile scope won't work due to conflict.
-    // resolutionStrategy using 2.11 won't work as 
-    // com.fasterxml.jackson.databind.ObjectMapper depends on com/fasterxml/jackson/core/util/JacksonFeature
-    // that is created since 2.12. Compile won't fail but there is a runtime ClassNotFoundException
-    // due to absent JacksonFeature.
-    // The fix is to put jackson in direct dependency and use implementation scope.
-    // implementation scope let the dependency in both compiling and running classpath, but
-    // not leaked through to clients (Opensearch). Here we force the jackson version to whatever
-    // opensearch uses.
+    // force Jackson version to avoid version conflict issue
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
-    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
-    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.11.4"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.11.4"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.11.4"
     compile files('lib/randomcutforest-parkservices-2.0.1.jar')
     compile files('lib/randomcutforest-core-2.0.1.jar')
 
@@ -585,7 +574,7 @@ dependencies {
     }
 
     testCompile group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.0.0'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.25.0'
     testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'
@@ -602,8 +591,6 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
     testCompileOnly 'junit:junit:4.12'
-
-    checkstyle "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
 }
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"

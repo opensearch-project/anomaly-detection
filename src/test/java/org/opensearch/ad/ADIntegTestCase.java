@@ -43,6 +43,7 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -62,6 +63,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.test.transport.MockTransportService;
 
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.google.common.collect.ImmutableMap;
@@ -84,6 +86,15 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     @Override
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
+    }
+
+    @Override
+    protected Collection<Class<? extends Plugin>> getMockPlugins() {
+        final ArrayList<Class<? extends Plugin>> plugins = new ArrayList<>();
+        plugins.add(MockReindexPlugin.class);
+        plugins.addAll(super.getMockPlugins());
+        plugins.remove(MockTransportService.TestPlugin.class);
+        return Collections.unmodifiableList(plugins);
     }
 
     @Override
