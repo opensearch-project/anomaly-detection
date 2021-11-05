@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 4
+    "schema_version": 5
   },
   "properties": {
     "detector_id": {
@@ -106,6 +106,54 @@
     },
     "model_id": {
       "type": "keyword"
+    },
+    "approx_anomaly_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "relevant_attribution": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
+    },
+    "past_values": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
+    },
+    "expected_values": {
+      "type": "nested",
+      "properties": {
+        "likelihood": {
+          "type": "double"
+        },
+        "value_list": {
+          "type": "nested",
+          "properties": {
+            "feature_id": {
+              "type": "keyword"
+            },
+            "data": {
+              "type": "double"
+            }
+          }
+        }
+      }
+    },
+    "threshold": {
+      "type": "double"
     }
   }
 }

@@ -507,16 +507,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } else {
                 listener
                     .onResponse(
-                        new AnomalyResultResponse(
-                            Double.NaN,
-                            Double.NaN,
-                            Double.NaN,
-                            new ArrayList<FeatureData>(),
-                            null,
-                            null,
-                            anomalyDetector.getDetectorIntervalInMinutes(),
-                            true
-                        )
+                        new AnomalyResultResponse(new ArrayList<FeatureData>(), null, null, anomalyDetector.getDetectorIntervalInMinutes())
                     );
             }
             return;
@@ -577,29 +568,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     LOG.debug("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
-                            new AnomalyResultResponse(
-                                Double.NaN,
-                                Double.NaN,
-                                Double.NaN,
-                                new ArrayList<FeatureData>(),
-                                "No data in current detection window",
-                                null,
-                                null
-                            )
+                            new AnomalyResultResponse(new ArrayList<FeatureData>(), "No data in current detection window", null, null)
                         );
                 } else {
                     LOG.debug("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
-                            new AnomalyResultResponse(
-                                Double.NaN,
-                                Double.NaN,
-                                Double.NaN,
-                                featureInResponse,
-                                "No full shingle in current detection window",
-                                null,
-                                null
-                            )
+                            new AnomalyResultResponse(featureInResponse, "No full shingle in current detection window", null, null)
                         );
                 }
                 return;
@@ -830,8 +805,16 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 response.getConfidence(),
                                 response.getRCFScore(),
                                 featureInResponse,
+                                null,
                                 response.getTotalUpdates(),
-                                detector.getDetectorIntervalInMinutes()
+                                detector.getDetectorIntervalInMinutes(),
+                                false,
+                                response.getRelativeIndex(),
+                                response.getAttribution(),
+                                response.getPastValues(),
+                                response.getExpectedValuesList(),
+                                response.getLikelihoodOfValues(),
+                                response.getThreshold()
                             )
                         );
                 } else {

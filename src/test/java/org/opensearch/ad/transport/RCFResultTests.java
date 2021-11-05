@@ -40,7 +40,7 @@ import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.RcfResult;
+import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -66,6 +66,10 @@ public class RCFResultTests extends OpenSearchTestCase {
     private DiscoveryNode node;
     private long totalUpdates = 32;
     private double grade = 0.5;
+    private double[] pastValues = new double[] { 123, 456 };
+    private double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
+    private double[] likelihood = new double[] { randomDouble() };
+    private double threshold = 1.1d;
 
     @Override
     @Before
@@ -97,11 +101,29 @@ public class RCFResultTests extends OpenSearchTestCase {
             adCircuitBreakerService,
             hashRing
         );
+
+        double rcfScore = 0.5;
+        int forestSize = 25;
         doAnswer(invocation -> {
-            ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(0, 0, 25, attribution, totalUpdates, grade));
+            ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
+            listener
+                .onResponse(
+                    new ThresholdingResult(
+                        grade,
+                        0d,
+                        rcfScore,
+                        totalUpdates,
+                        0,
+                        attribution,
+                        pastValues,
+                        expectedValuesList,
+                        likelihood,
+                        threshold,
+                        forestSize
+                    )
+                );
             return null;
-        }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+        }).when(manager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
@@ -110,8 +132,8 @@ public class RCFResultTests extends OpenSearchTestCase {
         action.doExecute(mock(Task.class), request, future);
 
         RCFResultResponse response = future.actionGet();
-        assertEquals(0, response.getRCFScore(), 0.001);
-        assertEquals(25, response.getForestSize(), 0.001);
+        assertEquals(rcfScore, response.getRCFScore(), 0.001);
+        assertEquals(forestSize, response.getForestSize(), 0.001);
         assertTrue(Arrays.equals(attribution, response.getAttribution()));
     }
 
@@ -138,7 +160,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         );
         doThrow(NullPointerException.class)
             .when(manager)
-            .getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+            .getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
@@ -149,7 +171,20 @@ public class RCFResultTests extends OpenSearchTestCase {
     }
 
     public void testSerialzationResponse() throws IOException {
-        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT);
+        RCFResultResponse response = new RCFResultResponse(
+            0.3,
+            0,
+            26,
+            attribution,
+            totalUpdates,
+            grade,
+            Version.CURRENT,
+            0,
+            null,
+            null,
+            null,
+            1.1
+        );
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
 
@@ -161,7 +196,20 @@ public class RCFResultTests extends OpenSearchTestCase {
     }
 
     public void testJsonResponse() throws IOException, JsonPathNotFoundException {
-        RCFResultResponse response = new RCFResultResponse(0.3, 0, 26, attribution, totalUpdates, grade, Version.CURRENT);
+        RCFResultResponse response = new RCFResultResponse(
+            0.3,
+            0,
+            26,
+            attribution,
+            totalUpdates,
+            grade,
+            Version.CURRENT,
+            0,
+            null,
+            null,
+            null,
+            1.1
+        );
         XContentBuilder builder = jsonBuilder();
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
@@ -226,10 +274,25 @@ public class RCFResultTests extends OpenSearchTestCase {
             hashRing
         );
         doAnswer(invocation -> {
-            ActionListener<RcfResult> listener = invocation.getArgument(3);
-            listener.onResponse(new RcfResult(0, 0, 25, attribution, totalUpdates, grade));
+            ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
+            listener
+                .onResponse(
+                    new ThresholdingResult(
+                        grade,
+                        0d,
+                        0.5,
+                        totalUpdates,
+                        0,
+                        attribution,
+                        pastValues,
+                        expectedValuesList,
+                        likelihood,
+                        threshold,
+                        30
+                    )
+                );
             return null;
-        }).when(manager).getRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+        }).when(manager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
         when(breakerService.isOpen()).thenReturn(true);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
