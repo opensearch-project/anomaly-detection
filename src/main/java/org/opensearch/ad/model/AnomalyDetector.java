@@ -237,7 +237,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.resultIndex = Strings.trimToNull(resultIndex);
         String errorMessage = validateResultIndex(this.resultIndex);
         if (errorMessage != null) {
-            throw new IllegalArgumentException(errorMessage);
+            throw new ADValidationException(errorMessage, DetectorValidationIssueType.RESULT_INDEX, ValidationAspect.DETECTOR);
         }
     }
 

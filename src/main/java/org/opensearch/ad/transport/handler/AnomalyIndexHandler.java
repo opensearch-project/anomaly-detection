@@ -125,7 +125,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                 if (!anomalyDetectionIndices.doesIndexExist(customIndexName)) {
                     throw new EndRunException(detectorId, CAN_NOT_FIND_RESULT_INDEX + customIndexName, true);
                 }
-                if (!anomalyDetectionIndices.isValidResultIndex(customIndexName)) {
+                if (!anomalyDetectionIndices.isValidResultIndexMapping(customIndexName)) {
                     throw new EndRunException(detectorId, "wrong index mapping of custom AD result index", true);
                 }
                 save(toSave, detectorId, customIndexName);

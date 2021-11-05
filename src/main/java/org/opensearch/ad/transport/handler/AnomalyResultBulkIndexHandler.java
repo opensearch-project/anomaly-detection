@@ -77,7 +77,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
                 if (!anomalyDetectionIndices.doesIndexExist(resultIndex)) {
                     throw new EndRunException(detectorId, CAN_NOT_FIND_RESULT_INDEX + resultIndex, true);
                 }
-                if (!anomalyDetectionIndices.isValidResultIndex(resultIndex)) {
+                if (!anomalyDetectionIndices.isValidResultIndexMapping(resultIndex)) {
                     throw new EndRunException(detectorId, "wrong index mapping of custom AD result index", true);
                 }
                 bulkSaveDetectorResult(resultIndex, anomalyResults, listener);
