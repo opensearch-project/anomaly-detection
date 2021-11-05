@@ -257,7 +257,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 return;
             }
         }
-        // user custom result index if not validate
+        // use custom result index if not validating and resultIndex not null
         anomalyDetectionIndices.initCustomResultIndexAndExecute(resultIndex, () -> createOrUpdateDetector(), listener);
     }
 
