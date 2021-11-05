@@ -179,7 +179,7 @@ public class SearchTopAnomalyResultTransportAction extends
     private static final OrderType DEFAULT_ORDER_TYPE = OrderType.SEVERITY;
     private static final int DEFAULT_SIZE = 10;
     private static final int MAX_SIZE = 1000;
-    private static final String index = ALL_AD_RESULTS_INDEX_PATTERN;
+    private static final String defaultIndex = ALL_AD_RESULTS_INDEX_PATTERN;
     private static final String COUNT_FIELD = "_count";
     private static final String BUCKET_SORT_FIELD = "bucket_sort";
     private static final String MULTI_BUCKETS_FIELD = "multi_buckets";
@@ -308,6 +308,13 @@ public class SearchTopAnomalyResultTransportAction extends
             // Generating the search request which will contain the generated query
             SearchRequest searchRequest = generateSearchRequest(request);
 
+            // Adding search over any custom result indices
+            String rawCustomResultIndex = getAdResponse.getDetector().getResultIndex();
+            String customResultIndex = rawCustomResultIndex == null ? null : rawCustomResultIndex.trim();
+            if (!Strings.isNullOrEmpty(customResultIndex)) {
+                searchRequest.indices(defaultIndex, customResultIndex);
+            }
+
             // Utilizing the existing search() from SearchHandler to handle security permissions. Both user role
             // and backend role filtering is handled in there, and any error will be propagated up and
             // returned as a failure in this Listener.
@@ -321,7 +328,8 @@ public class SearchTopAnomalyResultTransportAction extends
                         searchRequest.source(),
                         clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
                         request.getSize(),
-                        orderType
+                        orderType,
+                        customResultIndex
                     )
                 );
 
@@ -347,13 +355,15 @@ public class SearchTopAnomalyResultTransportAction extends
         private long expirationEpochMs;
         private int maxResults;
         private PriorityQueue<AnomalyResultBucket> topResultsHeap;
+        private String customResultIndex;
 
         TopAnomalyResultListener(
             ActionListener<SearchTopAnomalyResultResponse> listener,
             SearchSourceBuilder searchSourceBuilder,
             long expirationEpochMs,
             int maxResults,
-            OrderType orderType
+            OrderType orderType,
+            String customResultIndex
         ) {
             this.listener = listener;
             this.searchSourceBuilder = searchSourceBuilder;
@@ -370,6 +380,7 @@ public class SearchTopAnomalyResultTransportAction extends
                     }
                 }
             });
+            this.customResultIndex = customResultIndex;
         }
 
         @Override
@@ -426,7 +437,10 @@ public class SearchTopAnomalyResultTransportAction extends
                     aggBuilder.aggregateAfter(afterKey);
 
                     // Searching more, using an updated source with an after_key
-                    searchHandler.search(new SearchRequest().indices(index).source(searchSourceBuilder), this);
+                    SearchRequest searchRequest = Strings.isNullOrEmpty(customResultIndex)
+                        ? new SearchRequest().indices(defaultIndex)
+                        : new SearchRequest().indices(defaultIndex, customResultIndex);
+                    searchHandler.search(searchRequest.source(searchSourceBuilder), this);
                 }
 
             } catch (Exception e) {
@@ -448,7 +462,7 @@ public class SearchTopAnomalyResultTransportAction extends
      * @return the SearchRequest to pass to the SearchHandler
      */
     private SearchRequest generateSearchRequest(SearchTopAnomalyResultRequest request) {
-        SearchRequest searchRequest = new SearchRequest().indices(index);
+        SearchRequest searchRequest = new SearchRequest().indices(defaultIndex);
         QueryBuilder query = generateQuery(request);
         AggregationBuilder aggregation = generateAggregation(request);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).aggregation(aggregation);
