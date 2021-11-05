@@ -22,9 +22,9 @@ public enum DetectorValidationIssueType implements Name {
     DETECTION_INTERVAL(AnomalyDetector.DETECTION_INTERVAL_FIELD),
     CATEGORY(AnomalyDetector.CATEGORY_FIELD),
     FILTER_QUERY(AnomalyDetector.FILTER_QUERY_FIELD),
-    PARSING_ISSUE(AnomalyDetector.PARSING_ISSUE),
     WINDOW_DELAY(AnomalyDetector.WINDOW_DELAY_FIELD),
-    GENERAL_SETTINGS(AnomalyDetector.GENERAL_SETTINGS);
+    GENERAL_SETTINGS(AnomalyDetector.GENERAL_SETTINGS),
+    RESULT_INDEX(AnomalyDetector.RESULT_INDEX_FIELD);
 
     private String name;
 

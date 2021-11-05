@@ -60,6 +60,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -354,11 +355,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
     }
 
-    private <T> void validateCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
+    public <T> void validateCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
         try {
-            if (!isValidResultIndex(resultIndex)) {
+            if (!isValidResultIndexMapping(resultIndex)) {
                 logger.warn("Can't create detector with custom result index {} as its mapping is invalid", resultIndex);
-                listener.onFailure(new IllegalArgumentException("Invalid result index: " + resultIndex));
+                listener.onFailure(new IllegalArgumentException(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex));
                 return;
             }
 
@@ -399,7 +400,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             listener.onFailure(new EndRunException(CAN_NOT_FIND_RESULT_INDEX + resultIndex, true));
             return;
         }
-        if (!isValidResultIndex(resultIndex)) {
+        if (!isValidResultIndexMapping(resultIndex)) {
             listener.onFailure(new EndRunException("Result index mapping is not correct", true));
             return;
         }
@@ -424,7 +425,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param resultIndex result index
      * @return true if result index mapping is valid
      */
-    public boolean isValidResultIndex(String resultIndex) {
+    public boolean isValidResultIndexMapping(String resultIndex) {
         try {
             initResultMapping();
             if (AD_RESULT_FIELD_CONFIGS == null) {

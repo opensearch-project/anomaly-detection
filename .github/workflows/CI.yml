@@ -37,19 +37,15 @@ jobs:
           cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.2.0.0-SNAPSHOT
           echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.2.0.0-SNAPSHOT ..."
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/1.2.0.0-SNAPSHOT
-
       - name: Build and Run Tests
         run: |
           ./gradlew build -Dopensearch.version=1.2.0-SNAPSHOT
-
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal -Dopensearch.version=1.2.0-SNAPSHOT
-
       - name: Multi Nodes Integration Testing
         run: |
           ./gradlew integTest -PnumNodes=3
-
       - name: Pull and Run Docker
         run: |
           plugin=`ls build/distributions/*.zip`
@@ -68,14 +64,12 @@ jobs:
           else
             echo "imagePresent=false" >> $GITHUB_ENV
           fi
-
       - name: Run Docker Image
         if: env.imagePresent == 'true'
         run: |
           cd ..
           docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" opensearch-ad:test
           sleep 90
-
       - name: Run AD Test
         if: env.imagePresent == 'true'
         run: |
@@ -88,12 +82,10 @@ jobs:
             echo "Security plugin is NOT available"
             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
           fi
-
       - name: Run AD Backwards Compatibility Tests
         run: |
           echo "Running backwards compatibility tests ..."
           ./gradlew bwcTestSuite -Dtests.security.manager=false
-
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:

@@ -95,4 +95,5 @@ public class CommonErrorMessages {
         + " characters";
     public static String INVALID_CHAR_IN_RESULT_INDEX_NAME =
         "Result index name has invalid character. Valid characters are a-z, 0-9, -(hyphen) and _(underscore)";
+    public static String INVALID_RESULT_INDEX_MAPPING = "Result index mapping is not correct for index: ";
 }
