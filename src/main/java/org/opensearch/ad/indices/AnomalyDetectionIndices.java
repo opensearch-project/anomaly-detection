@@ -335,7 +335,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     public <T> void validateCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
         try {
-            if (!isValidResultIndex(resultIndex)) {
+            if (!isValidResultIndexMapping(resultIndex)) {
                 logger.warn("Can't create detector with custom result index {} as its mapping is invalid", resultIndex);
                 listener.onFailure(new IllegalArgumentException(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex));
                 return;
@@ -378,7 +378,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             listener.onFailure(new EndRunException(CAN_NOT_FIND_RESULT_INDEX + resultIndex, true));
             return;
         }
-        if (!isValidResultIndex(resultIndex)) {
+        if (!isValidResultIndexMapping(resultIndex)) {
             listener.onFailure(new EndRunException("Result index mapping is not correct", true));
             return;
         }
@@ -403,7 +403,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param resultIndex result index
      * @return true if result index mapping is valid
      */
-    public boolean isValidResultIndex(String resultIndex) {
+    public boolean isValidResultIndexMapping(String resultIndex) {
         try {
             IndexMetadata indexMetadata = clusterService.state().metadata().index(resultIndex);
             Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();

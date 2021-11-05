@@ -136,34 +136,29 @@ public class ValidateAnomalyDetectorTransportAction extends
             listener.onFailure(exception);
         });
         checkIndicesAndExecute(detector.getIndices(), () -> {
-            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-                ValidateAnomalyDetectorActionHandler handler = new ValidateAnomalyDetectorActionHandler(
-                    clusterService,
-                    client,
-                    validateListener,
-                    anomalyDetectionIndices,
-                    detector,
-                    request.getRequestTimeout(),
-                    request.getMaxSingleEntityAnomalyDetectors(),
-                    request.getMaxMultiEntityAnomalyDetectors(),
-                    request.getMaxAnomalyFeatures(),
-                    RestRequest.Method.POST,
-                    xContentRegistry,
-                    user,
-                    searchFeatureDao,
-                    request.getValidationType()
-                );
-                try {
-                    handler.start();
-                } catch (Exception exception) {
-                    String errorMessage = String
-                        .format(Locale.ROOT, "Unknown exception caught while validating detector %s", request.getDetector());
-                    logger.error(errorMessage, exception);
-                    listener.onFailure(exception);
-                }
-            } catch (Exception e) {
-                logger.error(e);
-                listener.onFailure(e);
+            ValidateAnomalyDetectorActionHandler handler = new ValidateAnomalyDetectorActionHandler(
+                clusterService,
+                client,
+                validateListener,
+                anomalyDetectionIndices,
+                detector,
+                request.getRequestTimeout(),
+                request.getMaxSingleEntityAnomalyDetectors(),
+                request.getMaxMultiEntityAnomalyDetectors(),
+                request.getMaxAnomalyFeatures(),
+                RestRequest.Method.POST,
+                xContentRegistry,
+                user,
+                searchFeatureDao,
+                request.getValidationType()
+            );
+            try {
+                handler.start();
+            } catch (Exception exception) {
+                String errorMessage = String
+                    .format(Locale.ROOT, "Unknown exception caught while validating detector %s", request.getDetector());
+                logger.error(errorMessage, exception);
+                listener.onFailure(exception);
             }
         }, listener);
     }

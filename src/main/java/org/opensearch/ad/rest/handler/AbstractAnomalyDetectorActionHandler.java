@@ -231,30 +231,32 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             createOrUpdateDetector();
             return;
         }
-        // if only validate API called then check if any errors occur for custom result index
-        // and wrap them as ADValidationException so they are properly returned as ADValidationResponse
-        // also make sure not to create actual index when validating if it doesn't exist
-        if (this.isDryRun) {
-            anomalyDetectionIndices
-                .validateCustomResultIndexAndExecute(
-                    resultIndex,
-                    () -> createOrUpdateDetector(),
-                    ActionListener.wrap(response -> createOrUpdateDetector(), ex -> {
-                        logger.error(ex);
-                        listener
-                            .onFailure(
-                                new ADValidationException(
-                                    ex.getMessage(),
-                                    DetectorValidationIssueType.RESULT_INDEX,
-                                    ValidationAspect.DETECTOR
-                                )
-                            );
-                        return;
-                    })
-                );
-            return;
-        }
 
+        if (this.isDryRun) {
+            if (anomalyDetectionIndices.doesIndexExist(resultIndex)) {
+                anomalyDetectionIndices
+                    .validateCustomResultIndexAndExecute(
+                        resultIndex,
+                        () -> createOrUpdateDetector(),
+                        ActionListener.wrap(r -> createOrUpdateDetector(), ex -> {
+                            logger.error(ex);
+                            listener
+                                .onFailure(
+                                    new ADValidationException(
+                                        ex.getMessage(),
+                                        DetectorValidationIssueType.RESULT_INDEX,
+                                        ValidationAspect.DETECTOR
+                                    )
+                                );
+                            return;
+                        })
+                    );
+                return;
+            } else {
+                createOrUpdateDetector();
+                return;
+            }
+        }
         // user custom result index if not validate
         anomalyDetectionIndices.initCustomResultIndexAndExecute(resultIndex, () -> createOrUpdateDetector(), listener);
     }
