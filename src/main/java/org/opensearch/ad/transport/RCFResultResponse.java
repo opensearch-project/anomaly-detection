@@ -28,13 +28,24 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
     public static final String FOREST_SIZE_JSON_KEY = "forestSize";
     public static final String ATTRIBUTION_JSON_KEY = "attribution";
     public static final String TOTAL_UPDATES_JSON_KEY = "total_updates";
-    private double rcfScore;
-    private double confidence;
-    private int forestSize;
+    public static final String RELATIVE_INDEX_FIELD_JSON_KEY = "relativeIndex";
+    public static final String PAST_VALUES_FIELD_JSON_KEY = "pastValues";
+    public static final String EXPECTED_VAL_LIST_FIELD_JSON_KEY = "expectedValuesList";
+    public static final String LIKELIHOOD_FIELD_JSON_KEY = "likelihoodOfValues";
+    public static final String THRESHOLD_FIELD_JSON_KEY = "threshold";
+
+    private Double rcfScore;
+    private Double confidence;
+    private Integer forestSize;
     private double[] attribution;
-    private long totalUpdates = 0;
+    private Long totalUpdates = 0L;
     private Version remoteAdVersion;
-    private double anomalyGrade;
+    private Double anomalyGrade;
+    private Integer relativeIndex;
+    private double[] pastValues;
+    private double[][] expectedValuesList;
+    private double[] likelihoodOfValues;
+    private Double threshold;
 
     public RCFResultResponse(
         double rcfScore,
@@ -43,7 +54,12 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         double[] attribution,
         long totalUpdates,
         double grade,
-        Version remoteAdVersion
+        Version remoteAdVersion,
+        Integer relativeIndex,
+        double[] pastValues,
+        double[][] expectedValuesList,
+        double[] likelihoodOfValues,
+        Double threshold
     ) {
         this.rcfScore = rcfScore;
         this.confidence = confidence;
@@ -52,29 +68,59 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         this.totalUpdates = totalUpdates;
         this.anomalyGrade = grade;
         this.remoteAdVersion = remoteAdVersion;
+        this.relativeIndex = relativeIndex;
+        this.pastValues = pastValues;
+        this.expectedValuesList = expectedValuesList;
+        this.likelihoodOfValues = likelihoodOfValues;
+        this.threshold = threshold;
     }
 
     public RCFResultResponse(StreamInput in) throws IOException {
         super(in);
-        rcfScore = in.readDouble();
-        confidence = in.readDouble();
-        forestSize = in.readVInt();
-        attribution = in.readDoubleArray();
+        this.rcfScore = in.readDouble();
+        this.confidence = in.readDouble();
+        this.forestSize = in.readVInt();
+        this.attribution = in.readDoubleArray();
         if (in.available() > 0) {
-            totalUpdates = in.readLong();
-            anomalyGrade = in.readDouble();
+            this.totalUpdates = in.readLong();
+            this.anomalyGrade = in.readDouble();
+            this.relativeIndex = in.readOptionalInt();
+
+            if (in.readBoolean()) {
+                this.pastValues = in.readDoubleArray();
+            } else {
+                this.pastValues = null;
+            }
+
+            if (in.readBoolean()) {
+                int numberofExpectedVals = in.readVInt();
+                this.expectedValuesList = new double[numberofExpectedVals][];
+                for (int i = 0; i < numberofExpectedVals; i++) {
+                    expectedValuesList[i] = in.readDoubleArray();
+                }
+            } else {
+                this.expectedValuesList = null;
+            }
+
+            if (in.readBoolean()) {
+                this.likelihoodOfValues = in.readDoubleArray();
+            } else {
+                this.likelihoodOfValues = null;
+            }
+
+            this.threshold = in.readOptionalDouble();
         }
     }
 
-    public double getRCFScore() {
+    public Double getRCFScore() {
         return rcfScore;
     }
 
-    public double getConfidence() {
+    public Double getConfidence() {
         return confidence;
     }
 
-    public int getForestSize() {
+    public Integer getForestSize() {
         return forestSize;
     }
 
@@ -88,12 +134,32 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         return attribution;
     }
 
-    public long getTotalUpdates() {
+    public Long getTotalUpdates() {
         return totalUpdates;
     }
 
-    public double getAnomalyGrade() {
+    public Double getAnomalyGrade() {
         return anomalyGrade;
+    }
+
+    public Integer getRelativeIndex() {
+        return relativeIndex;
+    }
+
+    public double[] getPastValues() {
+        return pastValues;
+    }
+
+    public double[][] getExpectedValuesList() {
+        return expectedValuesList;
+    }
+
+    public double[] getLikelihoodOfValues() {
+        return likelihoodOfValues;
+    }
+
+    public Double getThreshold() {
+        return threshold;
     }
 
     @Override
@@ -105,6 +171,34 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
             out.writeLong(totalUpdates);
             out.writeDouble(anomalyGrade);
+            out.writeOptionalInt(relativeIndex);
+
+            if (pastValues != null) {
+                out.writeBoolean(true);
+                out.writeDoubleArray(pastValues);
+            } else {
+                out.writeBoolean(false);
+            }
+
+            if (expectedValuesList != null) {
+                out.writeBoolean(true);
+                int numberofExpectedVals = expectedValuesList.length;
+                out.writeVInt(expectedValuesList.length);
+                for (int i = 0; i < numberofExpectedVals; i++) {
+                    out.writeDoubleArray(expectedValuesList[i]);
+                }
+            } else {
+                out.writeBoolean(false);
+            }
+
+            if (likelihoodOfValues != null) {
+                out.writeBoolean(true);
+                out.writeDoubleArray(likelihoodOfValues);
+            } else {
+                out.writeBoolean(false);
+            }
+
+            out.writeOptionalDouble(threshold);
         }
     }
 
@@ -117,6 +211,11 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(ATTRIBUTION_JSON_KEY, attribution);
         builder.field(TOTAL_UPDATES_JSON_KEY, totalUpdates);
         builder.field(CommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
+        builder.field(RELATIVE_INDEX_FIELD_JSON_KEY, relativeIndex);
+        builder.field(PAST_VALUES_FIELD_JSON_KEY, pastValues);
+        builder.field(EXPECTED_VAL_LIST_FIELD_JSON_KEY, expectedValuesList);
+        builder.field(LIKELIHOOD_FIELD_JSON_KEY, likelihoodOfValues);
+        builder.field(THRESHOLD_FIELD_JSON_KEY, threshold);
         builder.endObject();
         return builder;
     }

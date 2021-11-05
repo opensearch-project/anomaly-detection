@@ -364,29 +364,28 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             }
 
             if (result != null && result.getRcfScore() > 0) {
+                AnomalyResult resultToSave = result
+                    .toAnomalyResult(
+                        detector,
+                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis()),
+                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + detector.getDetectorIntervalInMilliseconds()),
+                        Instant.now(),
+                        Instant.now(),
+                        ParseUtils.getFeatureData(origRequest.getCurrentFeature(), detector),
+                        entity,
+                        indexUtil.getSchemaVersion(ADIndex.RESULT),
+                        modelId,
+                        null,
+                        null
+                    );
+
                 resultWriteQueue
                     .put(
                         new ResultWriteRequest(
                             origRequest.getExpirationEpochMs(),
                             detectorId,
                             result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                            new AnomalyResult(
-                                detectorId,
-                                null,
-                                result.getRcfScore(),
-                                result.getGrade(),
-                                result.getConfidence(),
-                                ParseUtils.getFeatureData(origRequest.getCurrentFeature(), detector),
-                                Instant.ofEpochMilli(origRequest.getDataStartTimeMillis()),
-                                Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + detector.getDetectorIntervalInMilliseconds()),
-                                Instant.now(),
-                                Instant.now(),
-                                null,
-                                origRequest.getEntity(),
-                                detector.getUser(),
-                                indexUtil.getSchemaVersion(ADIndex.RESULT),
-                                modelState.getModelId()
-                            ),
+                            resultToSave,
                             detector.getResultIndex()
                         )
                     );

@@ -83,6 +83,7 @@ import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuild
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
+import com.carrotsearch.hppc.DoubleArrayList;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -713,5 +714,14 @@ public final class ParseUtils {
             set2.addAll(list2);
         }
         return Objects.equals(set1, set2);
+    }
+
+    public static double[] parseDoubleArray(XContentParser parser) throws IOException {
+        DoubleArrayList oldValList = new DoubleArrayList();
+        ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+        while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+            oldValList.add(parser.doubleValue());
+        }
+        return oldValList.toArray();
     }
 }

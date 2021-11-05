@@ -21,8 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParseField;
 import org.opensearch.common.io.stream.StreamInput;
@@ -35,14 +40,12 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.commons.authuser.User;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Include result returned from RCF model and feature data.
- * TODO: fix rotating anomaly result index
  */
 public class AnomalyResult implements ToXContentObject, Writeable {
-
+    private static final Logger LOG = LogManager.getLogger(ThresholdingResult.class);
     public static final String PARSE_FIELD_NAME = "AnomalyResult";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
         AnomalyResult.class,
@@ -64,27 +67,13 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String USER_FIELD = "user";
     public static final String TASK_ID_FIELD = "task_id";
     public static final String MODEL_ID_FIELD = "model_id";
-    // TODO: use the file anomaly-results.json as the single source of truth for AD result index mapping.
-    // Support upgrading custom result index.
-    public static final ImmutableMap<String, String> AD_RESULT_FIELD_CONFIGS = ImmutableMap
-        .<String, String>builder()
-        .put(ANOMALY_GRADE_FIELD, "{type=double}")
-        .put(ANOMALY_SCORE_FIELD, "{type=double}")
-        .put(CONFIDENCE_FIELD, "{type=double}")
-        .put(DATA_START_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
-        .put(DATA_END_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
-        .put(DETECTOR_ID_FIELD, "{type=keyword}")
-        .put(EXECUTION_START_TIME_FIELD, "{type=date, format=strict_date_time||epoch_millis}")
-        .put(FEATURE_DATA_FIELD, "{type=nested, properties={data={type=double}, feature_id={type=keyword}}}")
-        .put(MODEL_ID_FIELD, "{type=keyword}")
-        .put(TASK_ID_FIELD, "{type=keyword}")
-        .put(
-            USER_FIELD,
-            "{type=nested, properties={backend_roles={type=text, fields={keyword={type=keyword}}}, custom_attribute_names={type=text,"
-                + " fields={keyword={type=keyword}}}, name={type=text, fields={keyword={type=keyword, ignore_above=256}}},"
-                + " roles={type=text, fields={keyword={type=keyword}}}}}"
-        )
-        .build();
+    public static final String APPROX_ANOMALY_START_FIELD = "approx_anomaly_start_time";
+    public static final String RELEVANT_ATTRIBUTION_FIELD = "relevant_attribution";
+    public static final String PAST_VALUES_FIELD = "past_values";
+    public static final String EXPECTED_VALUES_FIELD = "expected_values";
+    public static final String THRESHOLD_FIELD = "threshold";
+    // unused currently. added since odfe 1.4
+    public static final String IS_ANOMALY_FIELD = "is_anomaly";
 
     private final String detectorId;
     private final String taskId;
@@ -112,42 +101,122 @@ public class AnomalyResult implements ToXContentObject, Writeable {
      */
     private final String modelId;
 
-    public AnomalyResult(
-        String detectorId,
-        Double anomalyScore,
-        Double anomalyGrade,
-        Double confidence,
-        List<FeatureData> featureData,
-        Instant dataStartTime,
-        Instant dataEndTime,
-        Instant executionStartTime,
-        Instant executionEndTime,
-        String error,
-        User user,
-        Integer schemaVersion
-    ) {
-        this(
-            detectorId,
-            anomalyScore,
-            anomalyGrade,
-            confidence,
-            featureData,
-            dataStartTime,
-            dataEndTime,
-            executionStartTime,
-            executionEndTime,
-            error,
-            null,
-            user,
-            schemaVersion
-        );
-    }
+    /**
+     * the approximate time of current anomaly. We might detect anomaly late.  This field
+     * is the approximate anomaly time.  I called it approximate because rcf may
+     * not receive continuous data. To make it precise, I have to query previous
+     * anomaly results and find the what timestamp correspond to a few data points
+     * back. Instead, RCF returns the index of anomaly relative to current timestamp.
+     * So approAnomalyStartTime is current time + interval * relativeIndex
+     * Note {@code relativeIndex <= 0}.  If the shingle size is 4, for example shingle is
+     * [0, 0, 1, 0], and this shingle is detected as anomaly, and actually the
+     * anomaly is caused by the third item "1", then the relativeIndex will be
+     * -1.
+     */
+    private final Instant approxAnomalyStartTime;
 
+    // a flattened version denoting the basic contribution of each input variable
+    private final List<DataByFeatureId> relevantAttribution;
+
+    /*
+    pastValues is related to relativeIndex, startOfAnomaly and anomaly grade.
+    So if we detect anomaly late, we get the baseDimension values from the past (current is 0).
+    That is, we look back relativeIndex * baseDimensions.
+    
+    For example, current shingle is
+    "currentValues": [
+    6819.0,
+    2375.3333333333335,
+    0.0,
+    49882.0,
+    92070.0,
+    5084.0,
+    2072.809523809524,
+    0.0,
+    43529.0,
+    91169.0,
+    8129.0,
+    2582.892857142857,
+    12.0,
+    54241.0,
+    84596.0,
+    11174.0,
+    3092.9761904761904,
+    24.0,
+    64952.0,
+    78024.0,
+    14220.0,
+    3603.059523809524,
+    37.0,
+    75664.0,
+    71451.0,
+    17265.0,
+    4113.142857142857,
+    49.0,
+    86376.0,
+    64878.0,
+    16478.0,
+    3761.4166666666665,
+    37.0,
+    78990.0,
+    70057.0,
+    15691.0,
+    3409.690476190476,
+    24.0,
+    71604.0,
+    75236.0
+    ],
+    Since rcf returns relativeIndex is -2, we look back baseDimension * 2 and get the pastValues:
+    "pastValues": [
+    17265.0,
+    4113.142857142857,
+    49.0,
+    86376.0,
+    64878.0
+    ],
+    
+    So pastValues is null when relativeIndex is 0 or startOfAnomaly is true
+    or the current shingle is not an anomaly.
+    
+    In the UX, if pastValues value is null, we can just show attribution/expected
+    value and it is implicit this is due to current input; if pastValues is not
+    null, it means the the attribution/expected values are from an old value
+    (e.g., 2 steps ago with data [1,2,3]) and we can add a text to explain that.
+    */
+    private final List<DataByFeatureId> pastValues;
+
+    /*
+     * The expected value is only calculated for anomalous detection intervals,
+     * and will generate expected value for each feature if detector has multiple
+     * features.
+     * Currently we expect one set of expected values. In the future, we
+     * might give different expected values with differently likelihood. So
+     * the two-dimensional array allows us to future-proof our applications.
+     * Also, expected values correspond to pastValues if present or current input
+     * point otherwise. If pastValues is present, we can add a text on UX to explain
+     * we found an anomaly from the past.
+     Example:
+     "expected_value": [{
+        "likelihood": 0.8,
+        "value_list": [{
+                "feature_id": "blah",
+                "value": 1
+            },
+            {
+                "feature_id": "blah2",
+                "value": 1
+            }
+        ]
+    }]*/
+    private final List<ExpectedValueList> expectedValuesList;
+
+    // rcf score threshold at the time of writing a result
+    private final Double threshold;
+
+    // used when indexing exception or error or an empty result
     public AnomalyResult(
         String detectorId,
-        Double anomalyScore,
-        Double anomalyGrade,
-        Double confidence,
+        String taskId,
         List<FeatureData> featureData,
         Instant dataStartTime,
         Instant dataEndTime,
@@ -156,14 +225,15 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         String error,
         Entity entity,
         User user,
-        Integer schemaVersion
+        Integer schemaVersion,
+        String modelId
     ) {
         this(
             detectorId,
-            null,
-            anomalyScore,
-            anomalyGrade,
-            confidence,
+            taskId,
+            Double.NaN,
+            Double.NaN,
+            Double.NaN,
             featureData,
             dataStartTime,
             dataEndTime,
@@ -173,6 +243,11 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             entity,
             user,
             schemaVersion,
+            modelId,
+            null,
+            null,
+            null,
+            null,
             null
         );
     }
@@ -192,7 +267,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Entity entity,
         User user,
         Integer schemaVersion,
-        String modelId
+        String modelId,
+        Instant approxAnomalyStartTime,
+        List<DataByFeatureId> relevantAttribution,
+        List<DataByFeatureId> pastValues,
+        List<ExpectedValueList> expectedValuesList,
+        Double threshold
     ) {
         this.detectorId = detectorId;
         this.taskId = taskId;
@@ -209,6 +289,163 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.user = user;
         this.schemaVersion = schemaVersion;
         this.modelId = modelId;
+        this.approxAnomalyStartTime = approxAnomalyStartTime;
+        this.relevantAttribution = relevantAttribution;
+        this.pastValues = pastValues;
+        this.expectedValuesList = expectedValuesList;
+        this.threshold = threshold;
+    }
+
+    /**
+     * Factory method that converts raw rcf results to an instance of AnomalyResult
+     * @param detectorId Detector Id
+     * @param intervalMillis Detector interval
+     * @param taskId Task Id
+     * @param rcfScore RCF score
+     * @param grade anomaly grade
+     * @param confidence data confidence
+     * @param featureData Feature data
+     * @param dataStartTime Data start time
+     * @param dataEndTime Data end time
+     * @param executionStartTime Execution start time
+     * @param executionEndTime Execution end time
+     * @param error Error
+     * @param entity Entity accessor
+     * @param user the user who created a detector
+     * @param schemaVersion Result schema version
+     * @param modelId Model Id
+     * @param relevantAttribution Attribution of the anomaly
+     * @param relativeIndex The index of anomaly point relative to current point.
+     * @param pastValues The input that caused anomaly if we detector anomaly late
+     * @param expectedValuesList Expected values
+     * @param likelihoodOfValues Likelihood of the expected values
+     * @param threshold Current threshold
+     * @return the converted AnomalyResult instance
+     */
+    public static AnomalyResult fromRawTRCFResult(
+        String detectorId,
+        long intervalMillis,
+        String taskId,
+        Double rcfScore,
+        Double grade,
+        Double confidence,
+        List<FeatureData> featureData,
+        Instant dataStartTime,
+        Instant dataEndTime,
+        Instant executionStartTime,
+        Instant executionEndTime,
+        String error,
+        Entity entity,
+        User user,
+        Integer schemaVersion,
+        String modelId,
+        double[] relevantAttribution,
+        Integer relativeIndex,
+        double[] pastValues,
+        double[][] expectedValuesList,
+        double[] likelihoodOfValues,
+        Double threshold
+    ) {
+        List<DataByFeatureId> convertedRelevantAttribution = null;
+        List<DataByFeatureId> convertedPastValuesList = null;
+        List<ExpectedValueList> convertedExpectedValues = null;
+
+        if (grade > 0) {
+            int featureSize = featureData.size();
+            if (relevantAttribution != null) {
+                if (relevantAttribution.length == featureSize) {
+                    convertedRelevantAttribution = new ArrayList<>(featureSize);
+                    for (int j = 0; j < featureSize; j++) {
+                        convertedRelevantAttribution.add(new DataByFeatureId(featureData.get(j).getFeatureId(), relevantAttribution[j]));
+                    }
+                } else {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "Attribution array size does not match.  Expected [{}] but got [{}]",
+                                featureSize,
+                                relevantAttribution.length
+                            )
+                        );
+                }
+            }
+
+            if (pastValues != null) {
+                if (pastValues.length == featureSize) {
+                    convertedPastValuesList = new ArrayList<>(featureSize);
+                    for (int j = 0; j < featureSize; j++) {
+                        convertedPastValuesList.add(new DataByFeatureId(featureData.get(j).getFeatureId(), pastValues[j]));
+                    }
+                } else {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "Past value array size does not match.  Expected [{}] but got [{}]",
+                                featureSize,
+                                pastValues.length
+                            )
+                        );
+                }
+            }
+
+            if (expectedValuesList != null && expectedValuesList.length > 0) {
+                int numberOfExpectedLists = expectedValuesList.length;
+                int numberOfExpectedVals = expectedValuesList[0].length;
+                if (numberOfExpectedVals == featureSize && likelihoodOfValues.length == numberOfExpectedLists) {
+                    convertedExpectedValues = new ArrayList<>(numberOfExpectedLists);
+                    for (int j = 0; j < numberOfExpectedLists; j++) {
+                        List<DataByFeatureId> valueList = new ArrayList<>(featureSize);
+                        for (int k = 0; k < featureSize; k++) {
+                            valueList.add(new DataByFeatureId(featureData.get(k).getFeatureId(), expectedValuesList[j][k]));
+                        }
+                        convertedExpectedValues.add(new ExpectedValueList(likelihoodOfValues[j], valueList));
+                    }
+                } else if (numberOfExpectedVals != featureSize) {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "expected value array mismatch.  Expected [{}] actual [{}].",
+                                featureSize,
+                                numberOfExpectedVals
+                            )
+                        );
+                } else {
+                    LOG
+                        .error(
+                            new ParameterizedMessage(
+                                "likelihood and expected array mismatch: Likelihood [{}] expected value [{}].",
+                                likelihoodOfValues.length,
+                                numberOfExpectedLists
+                            )
+                        );
+                }
+            }
+        }
+
+        return new AnomalyResult(
+            detectorId,
+            taskId,
+            rcfScore,
+            grade,
+            confidence,
+            featureData,
+            dataStartTime,
+            dataEndTime,
+            executionStartTime,
+            executionEndTime,
+            error,
+            entity,
+            user,
+            schemaVersion,
+            modelId,
+            (relativeIndex == null || dataStartTime == null)
+                ? null
+                : Instant.ofEpochMilli(dataStartTime.toEpochMilli() + relativeIndex * intervalMillis),
+            convertedRelevantAttribution,
+            convertedPastValuesList,
+            convertedExpectedValues,
+            threshold
+        );
     }
 
     public AnomalyResult(StreamInput input) throws IOException {
@@ -239,6 +476,41 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         this.schemaVersion = input.readInt();
         this.taskId = input.readOptionalString();
         this.modelId = input.readOptionalString();
+
+        // if anomaly is caused by current input, we don't show approximate time
+        this.approxAnomalyStartTime = input.readOptionalInstant();
+
+        int attributeNumber = input.readVInt();
+        if (attributeNumber <= 0) {
+            this.relevantAttribution = null;
+        } else {
+            this.relevantAttribution = new ArrayList<>(attributeNumber);
+            for (int i = 0; i < attributeNumber; i++) {
+                relevantAttribution.add(new DataByFeatureId(input));
+            }
+        }
+
+        int pastValueNumber = input.readVInt();
+        if (pastValueNumber <= 0) {
+            this.pastValues = null;
+        } else {
+            this.pastValues = new ArrayList<>(pastValueNumber);
+            for (int i = 0; i < pastValueNumber; i++) {
+                pastValues.add(new DataByFeatureId(input));
+            }
+        }
+
+        int expectedValuesNumber = input.readVInt();
+        if (expectedValuesNumber <= 0) {
+            this.expectedValuesList = null;
+        } else {
+            this.expectedValuesList = new ArrayList<>();
+            for (int i = 0; i < expectedValuesNumber; i++) {
+                expectedValuesList.add(new ExpectedValueList(input));
+            }
+        }
+
+        this.threshold = input.readOptionalDouble();
     }
 
     @Override
@@ -293,6 +565,27 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         if (modelId != null) {
             xContentBuilder.field(MODEL_ID_FIELD, modelId);
         }
+
+        // output extra fields such as attribution and expected only when this is an anomaly
+        if (anomalyGrade != null && anomalyGrade > 0) {
+            if (approxAnomalyStartTime != null) {
+                xContentBuilder.field(APPROX_ANOMALY_START_FIELD, approxAnomalyStartTime.toEpochMilli());
+            }
+            if (relevantAttribution != null) {
+                xContentBuilder.array(RELEVANT_ATTRIBUTION_FIELD, relevantAttribution.toArray());
+            }
+            if (pastValues != null) {
+                xContentBuilder.array(PAST_VALUES_FIELD, pastValues.toArray());
+            }
+
+            if (expectedValuesList != null) {
+                xContentBuilder.array(EXPECTED_VALUES_FIELD, expectedValuesList.toArray());
+            }
+        }
+
+        if (threshold != null && !threshold.isNaN()) {
+            xContentBuilder.field(THRESHOLD_FIELD, threshold);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -312,6 +605,11 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         String taskId = null;
         String modelId = null;
+        Instant approAnomalyStartTime = null;
+        List<DataByFeatureId> relavantAttribution = new ArrayList<>();
+        List<DataByFeatureId> pastValues = new ArrayList<>();
+        List<ExpectedValueList> expectedValues = new ArrayList<>();
+        Double threshold = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -367,11 +665,36 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 case MODEL_ID_FIELD:
                     modelId = parser.text();
                     break;
+                case APPROX_ANOMALY_START_FIELD:
+                    approAnomalyStartTime = ParseUtils.toInstant(parser);
+                    break;
+                case RELEVANT_ATTRIBUTION_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        relavantAttribution.add(DataByFeatureId.parse(parser));
+                    }
+                    break;
+                case PAST_VALUES_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        pastValues.add(DataByFeatureId.parse(parser));
+                    }
+                    break;
+                case EXPECTED_VALUES_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        expectedValues.add(ExpectedValueList.parse(parser));
+                    }
+                    break;
+                case THRESHOLD_FIELD:
+                    threshold = parser.doubleValue();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
             }
         }
+
         return new AnomalyResult(
             detectorId,
             taskId,
@@ -387,7 +710,12 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             entity,
             user,
             schemaVersion,
-            modelId
+            modelId,
+            approAnomalyStartTime,
+            relavantAttribution,
+            pastValues,
+            expectedValues,
+            threshold
         );
     }
 
@@ -399,19 +727,24 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         if (o == null || getClass() != o.getClass())
             return false;
         AnomalyResult that = (AnomalyResult) o;
-        return Objects.equal(getDetectorId(), that.getDetectorId())
-            && Objects.equal(getTaskId(), that.getTaskId())
-            && Objects.equal(getAnomalyScore(), that.getAnomalyScore())
-            && Objects.equal(getAnomalyGrade(), that.getAnomalyGrade())
-            && Objects.equal(getConfidence(), that.getConfidence())
-            && Objects.equal(getFeatureData(), that.getFeatureData())
-            && Objects.equal(getDataStartTime(), that.getDataStartTime())
-            && Objects.equal(getDataEndTime(), that.getDataEndTime())
-            && Objects.equal(getExecutionStartTime(), that.getExecutionStartTime())
-            && Objects.equal(getExecutionEndTime(), that.getExecutionEndTime())
-            && Objects.equal(getError(), that.getError())
-            && Objects.equal(getEntity(), that.getEntity())
-            && Objects.equal(getModelId(), that.getModelId());
+        return Objects.equal(detectorId, that.detectorId)
+            && Objects.equal(taskId, that.taskId)
+            && Objects.equal(anomalyScore, that.anomalyScore)
+            && Objects.equal(anomalyGrade, that.anomalyGrade)
+            && Objects.equal(confidence, that.confidence)
+            && Objects.equal(featureData, that.featureData)
+            && Objects.equal(dataStartTime, that.dataStartTime)
+            && Objects.equal(dataEndTime, that.dataEndTime)
+            && Objects.equal(executionStartTime, that.executionStartTime)
+            && Objects.equal(executionEndTime, that.executionEndTime)
+            && Objects.equal(error, that.error)
+            && Objects.equal(entity, that.entity)
+            && Objects.equal(modelId, that.modelId)
+            && Objects.equal(approxAnomalyStartTime, that.approxAnomalyStartTime)
+            && Objects.equal(relevantAttribution, that.relevantAttribution)
+            && Objects.equal(pastValues, that.pastValues)
+            && Objects.equal(expectedValuesList, that.expectedValuesList)
+            && Objects.equal(threshold, that.threshold);
     }
 
     @Generated
@@ -419,19 +752,24 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public int hashCode() {
         return Objects
             .hashCode(
-                getDetectorId(),
-                getTaskId(),
-                getAnomalyScore(),
-                getAnomalyGrade(),
-                getConfidence(),
-                getFeatureData(),
-                getDataStartTime(),
-                getDataEndTime(),
-                getExecutionStartTime(),
-                getExecutionEndTime(),
-                getError(),
-                getEntity(),
-                getModelId()
+                detectorId,
+                taskId,
+                anomalyScore,
+                anomalyGrade,
+                confidence,
+                featureData,
+                dataStartTime,
+                dataEndTime,
+                executionStartTime,
+                executionEndTime,
+                error,
+                entity,
+                modelId,
+                approxAnomalyStartTime,
+                relevantAttribution,
+                pastValues,
+                expectedValuesList,
+                threshold
             );
     }
 
@@ -452,6 +790,11 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .append("error", error)
             .append("entity", entity)
             .append("modelId", modelId)
+            .append("approAnomalyStartTime", approxAnomalyStartTime)
+            .append("relavantAttribution", relevantAttribution)
+            .append("pastValues", pastValues)
+            .append("expectedValuesList", StringUtils.join(expectedValuesList, "|"))
+            .append("threshold", threshold)
             .toString();
     }
 
@@ -507,6 +850,26 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         return modelId;
     }
 
+    public Instant getApproAnomalyStartTime() {
+        return approxAnomalyStartTime;
+    }
+
+    public List<DataByFeatureId> getRelavantAttribution() {
+        return relevantAttribution;
+    }
+
+    public List<DataByFeatureId> getPastValues() {
+        return pastValues;
+    }
+
+    public List<ExpectedValueList> getExpectedValuesList() {
+        return expectedValuesList;
+    }
+
+    public Double getThreshold() {
+        return threshold;
+    }
+
     /**
      * Anomaly result index consists of overwhelmingly (99.5%) zero-grade non-error documents.
      * This function exclude the majority case.
@@ -548,14 +911,42 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         out.writeInt(schemaVersion);
         out.writeOptionalString(taskId);
         out.writeOptionalString(modelId);
+
+        out.writeOptionalInstant(approxAnomalyStartTime);
+
+        if (relevantAttribution != null) {
+            out.writeVInt(relevantAttribution.size());
+            for (DataByFeatureId attribution : relevantAttribution) {
+                attribution.writeTo(out);
+            }
+        } else {
+            out.writeVInt(0);
+        }
+
+        if (pastValues != null) {
+            out.writeVInt(pastValues.size());
+            for (DataByFeatureId value : pastValues) {
+                value.writeTo(out);
+            }
+        } else {
+            out.writeVInt(0);
+        }
+
+        if (expectedValuesList != null) {
+            out.writeVInt(expectedValuesList.size());
+            for (ExpectedValueList value : expectedValuesList) {
+                value.writeTo(out);
+            }
+        } else {
+            out.writeVInt(0);
+        }
+
+        out.writeOptionalDouble(threshold);
     }
 
     public static AnomalyResult getDummyResult() {
         return new AnomalyResult(
             DUMMY_DETECTOR_ID,
-            Double.NaN,
-            Double.NaN,
-            Double.NaN,
             null,
             null,
             null,
@@ -563,7 +954,10 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             null,
             null,
             null,
-            CommonValue.NO_SCHEMA_VERSION
+            null,
+            null,
+            CommonValue.NO_SCHEMA_VERSION,
+            null
         );
     }
 }

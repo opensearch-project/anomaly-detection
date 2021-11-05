@@ -34,9 +34,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ADResultBulkRequest;
@@ -50,8 +50,6 @@ import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionExceptio
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPool;
-
-import com.google.common.collect.ImmutableList;
 
 public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     ResultWriteWorker resultWriteQueue;
@@ -106,24 +104,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
 
-        detectResult = new AnomalyResult(
-            randomAlphaOfLength(5),
-            randomAlphaOfLength(5),
-            0.8,
-            Double.NaN,
-            Double.NaN,
-            ImmutableList.of(),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            randomAlphaOfLength(5),
-            null,
-            null,
-            CommonValue.NO_SCHEMA_VERSION,
-            randomAlphaOfLength(5)
-        );
-
+        detectResult = TestHelpers.randomHCADAnomalyDetectResult(0.8, Double.NaN, null);
     }
 
     public void testRegular() {
