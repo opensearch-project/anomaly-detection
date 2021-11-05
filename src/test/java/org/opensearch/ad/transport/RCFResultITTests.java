@@ -22,7 +22,7 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 @OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
-public class ThresholdResultIT extends OpenSearchIntegTestCase {
+public class RCFResultITTests extends OpenSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
@@ -34,18 +34,18 @@ public class ThresholdResultIT extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
-    public void testEmptyID() throws ExecutionException, InterruptedException {
-        ThresholdResultRequest request = new ThresholdResultRequest("", "123-threshold", 2.5d);
+    public void testEmptyFeature() throws ExecutionException, InterruptedException {
+        RCFResultRequest request = new RCFResultRequest("123", "123-rcfmodel-1", new double[] {});
 
-        ActionFuture<ThresholdResultResponse> future = client().execute(ThresholdResultAction.INSTANCE, request);
+        ActionFuture<RCFResultResponse> future = client().execute(RCFResultAction.INSTANCE, request);
 
         expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
     }
 
     public void testIDIsNull() throws ExecutionException, InterruptedException {
-        ThresholdResultRequest request = new ThresholdResultRequest(null, "123-threshold", 2.5d);
+        RCFResultRequest request = new RCFResultRequest(null, "123-rcfmodel-1", new double[] { 0 });
 
-        ActionFuture<ThresholdResultResponse> future = client().execute(ThresholdResultAction.INSTANCE, request);
+        ActionFuture<RCFResultResponse> future = client().execute(RCFResultAction.INSTANCE, request);
 
         expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
     }

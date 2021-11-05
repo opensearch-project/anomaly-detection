@@ -17,12 +17,13 @@ import java.util.concurrent.ExecutionException;
 
 import org.opensearch.action.ActionFuture;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 @OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
-public class DeleteIT extends OpenSearchIntegTestCase {
+public class DeleteITTests extends ADIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
