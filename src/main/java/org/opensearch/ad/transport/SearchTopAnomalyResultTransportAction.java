@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -40,6 +39,7 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.client.Client;
+import org.opensearch.common.Strings;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
@@ -309,8 +309,9 @@ public class SearchTopAnomalyResultTransportAction extends
             SearchRequest searchRequest = generateSearchRequest(request);
 
             // Adding search over any custom result indices
-            String customResultIndex = Strings.trimToNull(getAdResponse.getDetector().getResultIndex());
-            if (customResultIndex != null) {
+            String rawCustomResultIndex = getAdResponse.getDetector().getResultIndex();
+            String customResultIndex = rawCustomResultIndex == null ? null : rawCustomResultIndex.trim();
+            if (!Strings.isNullOrEmpty(customResultIndex)) {
                 searchRequest.indices(defaultIndex, customResultIndex);
             }
 
