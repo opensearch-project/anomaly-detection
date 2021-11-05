@@ -236,7 +236,7 @@ public class CustomIndexTests extends AbstractADTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(adIndices.isValidResultIndex(customIndexName));
+        assertTrue(adIndices.isValidResultIndexMapping(customIndexName));
     }
 
     /**
@@ -269,7 +269,7 @@ public class CustomIndexTests extends AbstractADTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(adIndices.isValidResultIndex(customIndexName));
+        assertTrue(adIndices.isValidResultIndexMapping(customIndexName));
     }
 
     /**
@@ -301,7 +301,7 @@ public class CustomIndexTests extends AbstractADTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(adIndices.isValidResultIndex(customIndexName));
+        assertTrue(adIndices.isValidResultIndexMapping(customIndexName));
     }
 
     public void testInCorrectMapping() throws IOException {
@@ -336,7 +336,7 @@ public class CustomIndexTests extends AbstractADTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(!adIndices.isValidResultIndex(customIndexName));
+        assertTrue(!adIndices.isValidResultIndexMapping(customIndexName));
     }
 
 }
