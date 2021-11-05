@@ -232,10 +232,37 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             return;
         }
 
-        // user custom result index
+        if (this.isDryRun) {
+            if (anomalyDetectionIndices.doesIndexExist(resultIndex)) {
+                anomalyDetectionIndices
+                    .validateCustomResultIndexAndExecute(
+                        resultIndex,
+                        () -> createOrUpdateDetector(),
+                        ActionListener.wrap(r -> createOrUpdateDetector(), ex -> {
+                            logger.error(ex);
+                            listener
+                                .onFailure(
+                                    new ADValidationException(
+                                        ex.getMessage(),
+                                        DetectorValidationIssueType.RESULT_INDEX,
+                                        ValidationAspect.DETECTOR
+                                    )
+                                );
+                            return;
+                        })
+                    );
+                return;
+            } else {
+                createOrUpdateDetector();
+                return;
+            }
+        }
+        // use custom result index if not validating and resultIndex not null
         anomalyDetectionIndices.initCustomResultIndexAndExecute(resultIndex, () -> createOrUpdateDetector(), listener);
     }
 
+    // if isDryRun is true then this method is being executed through Validation API meaning actual
+    // index won't be created, only validation checks will be executed throughout the class
     private void createOrUpdateDetector() {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist() && !this.isDryRun) {
