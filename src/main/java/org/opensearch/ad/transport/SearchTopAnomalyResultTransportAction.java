@@ -437,7 +437,7 @@ public class SearchTopAnomalyResultTransportAction extends
                     aggBuilder.aggregateAfter(afterKey);
 
                     // Searching more, using an updated source with an after_key
-                    SearchRequest searchRequest = customResultIndex == null
+                    SearchRequest searchRequest = Strings.isNullOrEmpty(customResultIndex)
                         ? new SearchRequest().indices(defaultIndex)
                         : new SearchRequest().indices(defaultIndex, customResultIndex);
                     searchHandler.search(searchRequest.source(searchSourceBuilder), this);
