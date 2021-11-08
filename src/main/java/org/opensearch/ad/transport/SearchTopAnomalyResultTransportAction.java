@@ -487,8 +487,8 @@ public class SearchTopAnomalyResultTransportAction extends
         // Adding the date range and anomaly grade filters (needed regardless of real-time or historical)
         RangeQueryBuilder dateRangeFilter = QueryBuilders
             .rangeQuery(AnomalyResult.DATA_END_TIME_FIELD)
-            .gte(request.getStartTime())
-            .lte(request.getEndTime());
+            .gte(request.getStartTime().toEpochMilli())
+            .lte(request.getEndTime().toEpochMilli());
         RangeQueryBuilder anomalyGradeFilter = QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_GRADE_FIELD).gt(0);
         query.filter(dateRangeFilter).filter(anomalyGradeFilter);
 
