@@ -297,7 +297,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                null
+                detector.getResultIndex()
             ),
             detectorJob,
             historicalAdTask,
@@ -448,6 +448,40 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
+    public Response createSearchRole(String role, String index) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/roles/" + role,
+                null,
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n"
+                            + "\"cluster_permissions\": [\n"
+                            + "],\n"
+                            + "\"index_permissions\": [\n"
+                            + "{\n"
+                            + "\"index_patterns\": [\n"
+                            + "\""
+                            + index
+                            + "\"\n"
+                            + "],\n"
+                            + "\"dls\": \"\",\n"
+                            + "\"fls\": [],\n"
+                            + "\"masked_fields\": [],\n"
+                            + "\"allowed_actions\": [\n"
+                            + "\"indices:data/read/search\"\n"
+                            + "]\n"
+                            + "}\n"
+                            + "],\n"
+                            + "\"tenant_permissions\": []\n"
+                            + "}"
+                    ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
     public Response deleteUser(String user) throws IOException {
         return TestHelpers
             .makeRequest(
@@ -508,6 +542,29 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                     ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
+    }
+
+    protected AnomalyDetector cloneDetector(AnomalyDetector anomalyDetector, String resultIndex) {
+        AnomalyDetector detector = new AnomalyDetector(
+            null,
+            null,
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(10),
+            anomalyDetector.getTimeField(),
+            anomalyDetector.getIndices(),
+            anomalyDetector.getFeatureAttributes(),
+            anomalyDetector.getFilterQuery(),
+            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getWindowDelay(),
+            anomalyDetector.getShingleSize(),
+            anomalyDetector.getUiMetadata(),
+            anomalyDetector.getSchemaVersion(),
+            Instant.now(),
+            anomalyDetector.getCategoryField(),
+            null,
+            resultIndex
+        );
+        return detector;
     }
 
 }
