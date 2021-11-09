@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.ToXContent;
@@ -43,6 +44,26 @@ public class AnomalyDetectorTests extends AbstractADTest {
         detectorString = detectorString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testParseAnomalyDetectorWithCustomIndex() throws IOException {
+        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        AnomalyDetector detector = TestHelpers
+            .randomDetector(
+                ImmutableList.of(TestHelpers.randomFeature()),
+                randomAlphaOfLength(5),
+                randomIntBetween(1, 5),
+                randomAlphaOfLength(5),
+                ImmutableList.of(randomAlphaOfLength(5)),
+                resultIndex
+            );
+        String detectorString = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(detectorString);
+        detectorString = detectorString
+            .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getResultIndex());
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 

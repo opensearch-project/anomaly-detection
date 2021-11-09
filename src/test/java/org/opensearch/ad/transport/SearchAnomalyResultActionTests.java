@@ -12,6 +12,7 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.TestHelpers.matchAllRequest;
+import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
 
 import java.io.IOException;
 
@@ -28,7 +29,9 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         createADResultIndex();
         String adResultId = createADResult(TestHelpers.randomAnomalyDetectResult());
 
-        SearchResponse searchResponse = client().execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest()).actionGet(10000);
+        SearchResponse searchResponse = client()
+            .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
+            .actionGet(10000);
         assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
 
         assertEquals(adResultId, searchResponse.getInternalResponse().hits().getAt(0).getId());
@@ -37,8 +40,12 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
     @Test
     public void testNoIndex() {
         deleteIndexIfExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        SearchResponse searchResponse = client().execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest()).actionGet(10000);
-        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> client()
+                .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
+                .actionGet(10000)
+        );
     }
 
 }

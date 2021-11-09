@@ -23,6 +23,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.DetectionDateRange;
@@ -47,12 +48,17 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient elkClient;
     String fishUser = "fish";
     RestClient fishClient;
+    String goatUser = "goat";
+    RestClient goatClient;
+    private String indexAllAccessRole = "index_all_access";
+    private String indexSearchAccessRole = "index_all_search";
 
     @Before
     public void setupSecureTests() throws IOException {
         if (!isHttps())
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
-        createIndexRole("index_all_access", "*");
+        createIndexRole(indexAllAccessRole, "*");
+        createSearchRole(indexSearchAccessRole, "*");
         createUser(aliceUser, aliceUser, new ArrayList<>(Arrays.asList("odfe")));
         aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, aliceUser)
             .setSocketTimeout(60000)
@@ -83,9 +89,15 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             .setSocketTimeout(60000)
             .build();
 
+        createUser(goatUser, goatUser, new ArrayList<>(Arrays.asList("opensearch")));
+        goatClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), goatUser, goatUser)
+            .setSocketTimeout(60000)
+            .build();
+
         createRoleMapping("anomaly_read_access", new ArrayList<>(Arrays.asList(bobUser)));
-        createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser)));
-        createRoleMapping("index_all_access", new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser)));
+        createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
+        createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser)));
+        createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
     }
 
     @After
@@ -96,12 +108,14 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         dogClient.close();
         elkClient.close();
         fishClient.close();
+        goatClient.close();
         deleteUser(aliceUser);
         deleteUser(bobUser);
         deleteUser(catUser);
         deleteUser(dogUser);
         deleteUser(elkUser);
         deleteUser(fishUser);
+        deleteUser(goatUser);
     }
 
     public void testCreateAnomalyDetectorWithWriteAccess() throws IOException {
@@ -276,6 +290,23 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         String indexName = anomalyDetector.getIndices().get(0);
         Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, elkClient); });
         Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:data/read/search]"));
+    }
+
+    public void testCreateAnomalyDetectorWithCustomResultIndex() throws IOException {
+        // User alice has AD full access and index permission, so can create detector
+        AnomalyDetector anomalyDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        // User elk has AD full access, but has no read permission of index
+
+        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        AnomalyDetector detector = cloneDetector(anomalyDetector, resultIndex);
+        // User goat has no permission to create index
+        Exception exception = expectThrows(IOException.class, () -> { createAnomalyDetector(detector, true, goatClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:admin/create]"));
+
+        // User cat has permission to create index
+        resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
+        AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(anomalyDetector, resultIndex), true, catClient);
+        assertEquals(resultIndex, detectorOfCat.getResultIndex());
     }
 
     public void testPreviewAnomalyDetectorWithWriteAccess() throws IOException {
