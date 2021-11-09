@@ -60,17 +60,26 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
+
+        // resultIndex could be concrete index or index pattern
+        String resultIndex = Strings.trimToNull(request.param(RESULT_INDEX));
+        boolean onlyQueryCustomResultIndex = request.paramAsBoolean("only_query_custom_result_index", false);
+        if (resultIndex == null && onlyQueryCustomResultIndex) {
+            throw new IllegalStateException("No custom result index set.");
+        }
+
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
         searchSourceBuilder.fetchSource(getSourceContext(request));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
 
-        // resultIndex could be concrete index or index pattern
-        String resultIndex = Strings.trimToNull(request.param(RESULT_INDEX));
-
         if (resultIndex != null) {
-            searchRequest.indices(resultIndex);
+            if (onlyQueryCustomResultIndex) {
+                searchRequest.indices(resultIndex);
+            } else {
+                searchRequest.indices(this.index, resultIndex);
+            }
         }
         return channel -> client.execute(actionType, searchRequest, search(channel));
     }
