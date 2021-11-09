@@ -91,7 +91,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         String[] concreteIndices = indexNameExpressionResolver
             .concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpandOpen(), indices);
         if (concreteIndices == null || concreteIndices.length == 0) {
-            // No custom result indices found, just search default result index
+            // No result indices found, will throw exception
             listener.onFailure(new IllegalArgumentException("No indices found"));
             return;
         }
@@ -120,6 +120,8 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 // Search result indices of all detectors. User may create index with same prefix of custom result index
                 // which not used for AD, so we should avoid searching extra indices which not used by anomaly detectors.
+                // Variable used in lambda expression should be final or effectively final, so copy to a final boolean and
+                // use the final boolean in lambda below.
                 boolean finalOnlyQueryCustomResultIndex = onlyQueryCustomResultIndex;
                 client.search(searchResultIndex, ActionListener.wrap(allResultIndicesResponse -> {
                     Aggregations aggregations = allResultIndicesResponse.getAggregations();
