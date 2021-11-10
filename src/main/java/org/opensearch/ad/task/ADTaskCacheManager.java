@@ -970,13 +970,21 @@ public class ADTaskCacheManager {
 
     /**
      * Try to get semaphore to update detector task.
+     *
+     * If the timeout is less than or equal to zero, will not wait at all to get 1 permit.
+     * If permit is available, will acquire 1 permit and return true immediately. If no permit,
+     * will wait for other thread release. If no permit available until timeout elapses, will
+     * return false.
+     *
      * @param detectorId detector id
+     * @param timeoutInMillis timeout in milliseconds to wait for a permit, zero or negative means don't wait at all
      * @return true if can get semaphore
+     * @throws InterruptedException if the current thread is interrupted
      */
-    public boolean tryAcquireTaskUpdatingSemaphore(String detectorId) {
+    public boolean tryAcquireTaskUpdatingSemaphore(String detectorId, long timeoutInMillis) throws InterruptedException {
         ADHCBatchTaskCache taskCache = hcBatchTaskCaches.get(detectorId);
         if (taskCache != null) {
-            return taskCache.tryAcquireTaskUpdatingSemaphore();
+            return taskCache.tryAcquireTaskUpdatingSemaphore(timeoutInMillis);
         }
         return false;
     }

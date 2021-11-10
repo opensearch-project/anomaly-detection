@@ -18,6 +18,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -104,8 +105,8 @@ public class ADHCBatchTaskCache {
         return topEntityCount;
     }
 
-    public boolean tryAcquireTaskUpdatingSemaphore() {
-        return detectorTaskUpdatingSemaphore.tryAcquire();
+    public boolean tryAcquireTaskUpdatingSemaphore(long timeoutInMillis) throws InterruptedException {
+        return detectorTaskUpdatingSemaphore.tryAcquire(timeoutInMillis, TimeUnit.MILLISECONDS);
     }
 
     public void releaseTaskUpdatingSemaphore() {
