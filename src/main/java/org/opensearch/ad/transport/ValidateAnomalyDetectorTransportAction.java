@@ -191,6 +191,7 @@ public class ValidateAnomalyDetectorTransportAction extends
             case SHINGLE_SIZE_FIELD:
             case WINDOW_DELAY:
             case RESULT_INDEX:
+            case GENERAL_SETTINGS:
             case INDICES:
                 errorMessage = originalErrorMessage;
                 break;
