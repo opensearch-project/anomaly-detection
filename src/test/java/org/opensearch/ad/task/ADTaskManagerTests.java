@@ -792,6 +792,13 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         ActionListener<AnomalyDetectorJobResponse> actionListener = mock(ActionListener.class);
         ADTask adTask = randomAdTask();
         String entity = randomAlphaOfLength(5);
+        ExecutorService executeService = mock(ExecutorService.class);
+        when(threadPool.executor(anyString())).thenReturn(executeService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executeService).execute(any());
         when(adTaskCacheManager.removeRunningEntity(anyString(), anyString())).thenReturn(true);
         when(adTaskCacheManager.getPendingEntityCount(anyString())).thenReturn(randomIntBetween(1, 10));
         adTaskManager.removeStaleRunningEntity(adTask, entity, transportService, actionListener);
