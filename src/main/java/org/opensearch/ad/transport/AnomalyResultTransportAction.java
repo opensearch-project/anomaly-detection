@@ -507,7 +507,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } else {
                 listener
                     .onResponse(
-                        new AnomalyResultResponse(new ArrayList<FeatureData>(), null, null, anomalyDetector.getDetectorIntervalInMinutes())
+                        new AnomalyResultResponse(
+                            new ArrayList<FeatureData>(),
+                            null,
+                            null,
+                            anomalyDetector.getDetectorIntervalInMinutes(),
+                            true
+                        )
                     );
             }
             return;
@@ -568,13 +574,19 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     LOG.debug("No data in current detection window between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
-                            new AnomalyResultResponse(new ArrayList<FeatureData>(), "No data in current detection window", null, null)
+                            new AnomalyResultResponse(
+                                new ArrayList<FeatureData>(),
+                                "No data in current detection window",
+                                null,
+                                null,
+                                false
+                            )
                         );
                 } else {
                     LOG.debug("Return at least current feature value between {} and {} for {}", dataStartTime, dataEndTime, adID);
                     listener
                         .onResponse(
-                            new AnomalyResultResponse(featureInResponse, "No full shingle in current detection window", null, null)
+                            new AnomalyResultResponse(featureInResponse, "No full shingle in current detection window", null, null, false)
                         );
                 }
                 return;
