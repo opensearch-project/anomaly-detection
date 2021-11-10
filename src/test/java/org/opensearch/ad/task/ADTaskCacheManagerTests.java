@@ -385,12 +385,12 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertFalse(adTaskCacheManager.hasDeletedDetectorTask());
     }
 
-    public void testAcquireTaskUpdatingSemaphore() throws IOException {
+    public void testAcquireTaskUpdatingSemaphore() throws IOException, InterruptedException {
         String detectorId = randomAlphaOfLength(10);
         ADTask adTask = TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR);
         adTaskCacheManager.add(detectorId, adTask);
-        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
-        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId, 0));
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId, 0));
     }
 
     public void testGetTasksOfDetectorWithNonExistingDetectorId() throws IOException {
@@ -653,18 +653,18 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(newState, adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId));
     }
 
-    public void testReleaseTaskUpdatingSemaphore() throws IOException {
+    public void testReleaseTaskUpdatingSemaphore() throws IOException, InterruptedException {
         String detectorId = randomAlphaOfLength(5);
         ADTask adTask = TestHelpers.randomAdTask(ADTaskType.HISTORICAL_HC_DETECTOR);
-        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId, 0));
         adTaskCacheManager.releaseTaskUpdatingSemaphore(detectorId);
-        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId, 0));
 
         adTaskCacheManager.add(detectorId, adTask);
-        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
-        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId, 0));
+        assertFalse(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId, 0));
         adTaskCacheManager.releaseTaskUpdatingSemaphore(detectorId);
-        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId));
+        assertTrue(adTaskCacheManager.tryAcquireTaskUpdatingSemaphore(detectorId, 0));
     }
 
     public void testCleanExpiredHCBatchTaskRunStates() {
