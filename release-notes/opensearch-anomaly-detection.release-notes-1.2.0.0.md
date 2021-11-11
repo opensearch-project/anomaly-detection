@@ -26,6 +26,10 @@ Compatible with OpenSearch 1.2.0
 * wait for some time to get semaphore when set HC detector task as done ([#300](https://github.com/opensearch-project/anomaly-detection/pull/300))
 * added switch case for general settings issues ([#305](https://github.com/opensearch-project/anomaly-detection/pull/305))
 
+### Infrastructure
+
+* Adding support for integration tests with remote cluster. ([#298](https://github.com/opensearch-project/anomaly-detection/pull/298))
+
 ### Documentation
 
 * correct copyright notice; remove old copyright from ODFE ([#257](https://github.com/opensearch-project/anomaly-detection/pull/257))
