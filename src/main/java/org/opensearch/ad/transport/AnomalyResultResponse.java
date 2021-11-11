@@ -62,7 +62,13 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
     private Double threshold;
 
     // used when returning an error/exception or empty result
-    public AnomalyResultResponse(List<FeatureData> features, String error, Long rcfTotalUpdates, Long detectorIntervalInMinutes) {
+    public AnomalyResultResponse(
+        List<FeatureData> features,
+        String error,
+        Long rcfTotalUpdates,
+        Long detectorIntervalInMinutes,
+        Boolean isHCDetector
+    ) {
         this(
             Double.NaN,
             Double.NaN,
@@ -71,7 +77,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
             error,
             rcfTotalUpdates,
             detectorIntervalInMinutes,
-            null,
+            isHCDetector,
             null,
             null,
             null,
