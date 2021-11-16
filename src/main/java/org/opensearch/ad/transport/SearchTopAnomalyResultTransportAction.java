@@ -187,7 +187,7 @@ public class SearchTopAnomalyResultTransportAction extends
     private final Client client;
     private Clock clock;
 
-    private enum OrderType {
+    public enum OrderType {
         SEVERITY("severity"),
         OCCURRENCE("occurrence");
 

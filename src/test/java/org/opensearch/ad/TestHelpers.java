@@ -75,6 +75,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.model.DataByFeatureId;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -461,6 +462,12 @@ public class TestHelpers {
             randomUser(),
             null
         );
+    }
+
+    public static AnomalyResultBucket randomAnomalyResultBucket() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(randomAlphaOfLength(5), randomAlphaOfLength(5));
+        return new AnomalyResultBucket(map, randomInt(), randomDouble());
     }
 
     public static class AnomalyDetectorBuilder {
