@@ -849,6 +849,10 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomHCADAnomalyDetectResult(double score, double grade, String error) {
+        return randomHCADAnomalyDetectResult(null, null, score, grade, error);
+    }
+
+    public static AnomalyResult randomHCADAnomalyDetectResult(String detectorId, String taskId, double score, double grade, String error) {
         List<DataByFeatureId> relavantAttribution = new ArrayList<DataByFeatureId>();
         relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
         relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
@@ -864,8 +868,8 @@ public class TestHelpers {
         expectedValuesList.add(new ExpectedValueList(randomDoubleBetween(0, 1.0, true), expectedValues));
 
         return new AnomalyResult(
-            randomAlphaOfLength(5),
-            null,
+            detectorId == null ? randomAlphaOfLength(5) : detectorId,
+            taskId,
             score,
             grade,
             randomDouble(),
