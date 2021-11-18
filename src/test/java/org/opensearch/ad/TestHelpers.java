@@ -16,14 +16,7 @@ import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-import static org.opensearch.test.OpenSearchTestCase.buildNewFakeTransportAddress;
-import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
-import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
-import static org.opensearch.test.OpenSearchTestCase.randomDouble;
-import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomInt;
-import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomLong;
+import static org.opensearch.test.OpenSearchTestCase.*;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
@@ -66,6 +59,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -379,6 +373,33 @@ public class TestHelpers {
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomFeature(true)),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
+            null,
+            randomInt(),
+            Instant.now(),
+            categoryFields,
+            randomUser(),
+            null
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorUsingCategoryFields(
+        String detectorId,
+        String timeField,
+        List<String> indices,
+        List<String> categoryFields
+    ) throws IOException {
+        return new AnomalyDetector(
+            detectorId,
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            timeField,
+            indices,
             ImmutableList.of(randomFeature(true)),
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -853,6 +874,18 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomHCADAnomalyDetectResult(String detectorId, String taskId, double score, double grade, String error) {
+        return randomHCADAnomalyDetectResult(detectorId, taskId, null, score, grade, error);
+    }
+
+    // TODO: support custom data start/end times so search top anomaly results API can explicitly match results in certain time ranges
+    public static AnomalyResult randomHCADAnomalyDetectResult(
+        String detectorId,
+        String taskId,
+        Map<String, Object> entityAttrs,
+        double score,
+        double grade,
+        String error
+    ) {
         List<DataByFeatureId> relavantAttribution = new ArrayList<DataByFeatureId>();
         relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
         relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
@@ -879,7 +912,9 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error,
-            Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)),
+            entityAttrs == null
+                ? Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5))
+                : Entity.createEntityByReordering(entityAttrs),
             randomUser(),
             CommonValue.NO_SCHEMA_VERSION,
             null,
@@ -1001,6 +1036,44 @@ public class TestHelpers {
     }
 
     public static void createIndex(RestClient client, String indexName, HttpEntity data) throws IOException {
+        TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                "/" + indexName + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
+                ImmutableMap.of(),
+                data,
+                null
+            );
+    }
+
+    public static void createIndexWithHCADFields(RestClient client, String indexName, Map<String, String> categoryFieldsAndTypes)
+        throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        for (Map.Entry<String, String> entry : categoryFieldsAndTypes.entrySet()) {
+            indexMappings.append("\"" + entry.getKey() + "\":{\"type\":\"" + entry.getValue() + "\"},");
+        }
+        indexMappings.append("\"timestamp\":{\"type\":\"date\"}");
+        indexMappings.append("}}");
+        createEmptyIndex(client, indexName);
+        createIndexMapping(client, indexName, TestHelpers.toHttpEntity(indexMappings.toString()));
+    }
+
+    public static void createAnomalyResultIndex(RestClient client) throws IOException {
+        createEmptyIndex(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        createIndexMapping(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS, toHttpEntity(AnomalyDetectionIndices.getAnomalyResultMappings()));
+    }
+
+    public static void createEmptyIndex(RestClient client, String indexName) throws IOException {
+        TestHelpers.makeRequest(client, "PUT", "/" + indexName, ImmutableMap.of(), "", null);
+    }
+
+    public static void createIndexMapping(RestClient client, String indexName, HttpEntity mappings) throws IOException {
+        TestHelpers.makeRequest(client, "POST", "/" + indexName + "/_mapping", ImmutableMap.of(), mappings, null);
+    }
+
+    public static void ingestDataToIndex(RestClient client, String indexName, HttpEntity data) throws IOException {
         TestHelpers
             .makeRequest(
                 client,

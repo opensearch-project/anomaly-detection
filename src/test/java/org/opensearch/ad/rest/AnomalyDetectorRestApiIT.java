@@ -19,10 +19,13 @@ import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandle
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
@@ -31,10 +34,12 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
@@ -1503,5 +1508,134 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             messageMap.get("category_field").get("message")
         );
 
+    }
+
+    public void testSearchTopAnomalyResultsOnNonExistentResultIndex() throws IOException {
+        String indexName = randomAlphaOfLength(10).toLowerCase();
+        Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
+            {
+                put("keyword-field", "keyword");
+                put("ip-field", "ip");
+            }
+        };
+        String testIndexData = "{\"keyword-field\": \"test-value\"}";
+        TestHelpers.createIndexWithHCADFields(client(), indexName, categoryFieldsAndTypes);
+        TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
+        AnomalyDetector detector = createAnomalyDetector(
+            TestHelpers
+                .randomAnomalyDetectorUsingCategoryFields(
+                    randomAlphaOfLength(10),
+                    "timestamp",
+                    ImmutableList.of(indexName),
+                    categoryFieldsAndTypes.keySet().stream().collect(Collectors.toList())
+                ),
+            true,
+            client()
+        );
+
+        // Delete any existing result index
+        if (indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            deleteIndex(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        }
+        Response response = searchTopAnomalyResults(
+            detector.getDetectorId(),
+            false,
+            "{\"size\":3,\"category_field\":[\"keyword-field\"]," + "\"start_time_ms\":0, \"end_time_ms\":1}",
+            client()
+        );
+        Map<String, Object> responseMap = entityAsMap(response);
+        @SuppressWarnings("unchecked")
+        List<AnomalyResultBucket> buckets = (ArrayList<AnomalyResultBucket>) XContentMapValues.extractValue("buckets", responseMap);
+        assertEquals(0, buckets.size());
+    }
+
+    public void testSearchTopAnomalyResultsOnEmptyResultIndex() throws IOException {
+        String indexName = randomAlphaOfLength(10).toLowerCase();
+        Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
+            {
+                put("keyword-field", "keyword");
+                put("ip-field", "ip");
+            }
+        };
+        String testIndexData = "{\"keyword-field\": \"test-value\"}";
+        TestHelpers.createIndexWithHCADFields(client(), indexName, categoryFieldsAndTypes);
+        TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
+        AnomalyDetector detector = createAnomalyDetector(
+            TestHelpers
+                .randomAnomalyDetectorUsingCategoryFields(
+                    randomAlphaOfLength(10),
+                    "timestamp",
+                    ImmutableList.of(indexName),
+                    categoryFieldsAndTypes.keySet().stream().collect(Collectors.toList())
+                ),
+            true,
+            client()
+        );
+
+        // Clear any existing result index, create an empty one
+        if (indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            deleteIndex(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        }
+        TestHelpers.createAnomalyResultIndex(client());
+        Response response = searchTopAnomalyResults(
+            detector.getDetectorId(),
+            false,
+            "{\"size\":3,\"category_field\":[\"keyword-field\"]," + "\"start_time_ms\":0, \"end_time_ms\":1}",
+            client()
+        );
+        Map<String, Object> responseMap = entityAsMap(response);
+        @SuppressWarnings("unchecked")
+        List<AnomalyResultBucket> buckets = (ArrayList<AnomalyResultBucket>) XContentMapValues.extractValue("buckets", responseMap);
+        assertEquals(0, buckets.size());
+    }
+
+    public void testSearchTopAnomalyResultsOnPopulatedResultIndex() throws IOException {
+        String indexName = randomAlphaOfLength(10).toLowerCase();
+        Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
+            {
+                put("keyword-field", "keyword");
+                put("ip-field", "ip");
+            }
+        };
+        String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
+        TestHelpers.createIndexWithHCADFields(client(), indexName, categoryFieldsAndTypes);
+        TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
+        AnomalyDetector detector = createAnomalyDetector(
+            TestHelpers
+                .randomAnomalyDetectorUsingCategoryFields(
+                    randomAlphaOfLength(10),
+                    "timestamp",
+                    ImmutableList.of(indexName),
+                    categoryFieldsAndTypes.keySet().stream().collect(Collectors.toList())
+                ),
+            true,
+            client()
+        );
+
+        // Create the result index and ingest a single matching result
+        if (!indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            TestHelpers.createAnomalyResultIndex(client());
+        }
+        Map<String, Object> entityAttrs = new HashMap<String, Object>() {
+            {
+                put("keyword-field", "field-1");
+                put("ip-field", "1.2.3.4");
+            }
+        };
+        AnomalyResult anomalyResult = TestHelpers
+            .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs, 0.5, 0.5, null);
+        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult));
+
+        // Call API
+        Response response = searchTopAnomalyResults(
+            detector.getDetectorId(),
+            false,
+            "{\"size\":3,\"category_field\":[\"keyword-field\"]," + "\"start_time_ms\":0, \"end_time_ms\":2637192593138}",
+            client()
+        );
+        Map<String, Object> responseMap = entityAsMap(response);
+        @SuppressWarnings("unchecked")
+        List<AnomalyResultBucket> buckets = (ArrayList<AnomalyResultBucket>) XContentMapValues.extractValue("buckets", responseMap);
+        assertEquals(1, buckets.size());
     }
 }
