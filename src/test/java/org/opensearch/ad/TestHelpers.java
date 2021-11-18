@@ -414,6 +414,34 @@ public class TestHelpers {
         );
     }
 
+    public static AnomalyDetector randomAnomalyDetectorUsingCategoryFields(
+            String detectorId,
+            String timeField,
+            List<String> indices,
+            List<String> categoryFields,
+            String resultIndex
+    ) throws IOException {
+        return new AnomalyDetector(
+                detectorId,
+                randomLong(),
+                randomAlphaOfLength(20),
+                randomAlphaOfLength(30),
+                timeField,
+                indices,
+                ImmutableList.of(randomFeature(true)),
+                randomQuery(),
+                randomIntervalTimeConfiguration(),
+                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+                randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
+                null,
+                randomInt(),
+                Instant.now(),
+                categoryFields,
+                randomUser(),
+                resultIndex
+        );
+    }
+
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features) throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
@@ -870,11 +898,11 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomHCADAnomalyDetectResult(double score, double grade, String error) {
-        return randomHCADAnomalyDetectResult(null, null, score, grade, error);
+        return randomHCADAnomalyDetectResult(null, null, score, grade, error, null, null);
     }
 
-    public static AnomalyResult randomHCADAnomalyDetectResult(String detectorId, String taskId, double score, double grade, String error) {
-        return randomHCADAnomalyDetectResult(detectorId, taskId, null, score, grade, error);
+    public static AnomalyResult randomHCADAnomalyDetectResult(String detectorId, String taskId, double score, double grade, String error, Long startTimeEpochMillis, Long endTimeEpochMillis) {
+        return randomHCADAnomalyDetectResult(detectorId, taskId, null, score, grade, error, startTimeEpochMillis, endTimeEpochMillis);
     }
 
     // TODO: support custom data start/end times so search top anomaly results API can explicitly match results in certain time ranges
@@ -884,7 +912,9 @@ public class TestHelpers {
         Map<String, Object> entityAttrs,
         double score,
         double grade,
-        String error
+        String error,
+        Long startTimeEpochMillis,
+        Long endTimeEpochMillis
     ) {
         List<DataByFeatureId> relavantAttribution = new ArrayList<DataByFeatureId>();
         relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
@@ -907,10 +937,10 @@ public class TestHelpers {
             grade,
             randomDouble(),
             ImmutableList.of(randomFeatureData(), randomFeatureData()),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            startTimeEpochMillis == null ? Instant.now().truncatedTo(ChronoUnit.SECONDS) : Instant.ofEpochMilli(startTimeEpochMillis),
+            endTimeEpochMillis == null ? Instant.now().truncatedTo(ChronoUnit.SECONDS) : Instant.ofEpochMilli(endTimeEpochMillis),
+            startTimeEpochMillis == null ? Instant.now().truncatedTo(ChronoUnit.SECONDS) : Instant.ofEpochMilli(startTimeEpochMillis),
+            endTimeEpochMillis == null ? Instant.now().truncatedTo(ChronoUnit.SECONDS) : Instant.ofEpochMilli(endTimeEpochMillis),
             error,
             entityAttrs == null
                 ? Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5))

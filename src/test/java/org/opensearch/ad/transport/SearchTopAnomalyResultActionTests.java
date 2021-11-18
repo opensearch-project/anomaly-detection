@@ -118,7 +118,7 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
 
     @Ignore
     public void testSearchOnNonMatchingResults() throws IOException {
-        AnomalyResult nonMatchingResult = TestHelpers.randomHCADAnomalyDetectResult(detectorId + "-invalid", taskId, 0.5, 0.5, null);
+        AnomalyResult nonMatchingResult = TestHelpers.randomHCADAnomalyDetectResult(detectorId + "-invalid", taskId, 0.5, 0.5, null, null, null);
         createADResult(nonMatchingResult);
         SearchTopAnomalyResultRequest searchRequest = new SearchTopAnomalyResultRequest(
             detectorId,

@@ -35,11 +35,11 @@ import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
@@ -1510,6 +1510,161 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     }
 
+    public void testSearchTopAnomalyResultsWithInvalidInputs() throws IOException {
+        String indexName = randomAlphaOfLength(10).toLowerCase();
+        Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
+            {
+                put("keyword-field", "keyword");
+                put("ip-field", "ip");
+            }
+        };
+        String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
+        TestHelpers.createIndexWithHCADFields(client(), indexName, categoryFieldsAndTypes);
+        TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
+        AnomalyDetector detector = createAnomalyDetector(
+            TestHelpers
+                .randomAnomalyDetectorUsingCategoryFields(
+                    randomAlphaOfLength(10),
+                    "timestamp",
+                    ImmutableList.of(indexName),
+                    categoryFieldsAndTypes.keySet().stream().collect(Collectors.toList())
+                ),
+            true,
+            client()
+        );
+
+        // Missing start time
+        Exception missingStartTimeException = expectThrows(
+            IOException.class,
+            () -> { searchTopAnomalyResults(detector.getDetectorId(), false, "{\"end_time_ms\":2}", client()); }
+        );
+        assertTrue(missingStartTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
+
+        // Missing end time
+        Exception missingEndTimeException = expectThrows(
+            IOException.class,
+            () -> { searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1}", client()); }
+        );
+        assertTrue(missingEndTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
+
+        // Start time > end time
+        Exception invalidTimeException = expectThrows(
+            IOException.class,
+            () -> { searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":2, \"end_time_ms\":1}", client()); }
+        );
+        assertTrue(invalidTimeException.getMessage().contains("Start time should be before end time"));
+
+        // Invalid detector ID
+        Exception invalidDetectorIdException = expectThrows(
+            IOException.class,
+            () -> {
+                searchTopAnomalyResults(detector.getDetectorId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
+            }
+        );
+        assertTrue(invalidDetectorIdException.getMessage().contains("Can't find detector with id"));
+
+        // Invalid order field
+        Exception invalidOrderException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(
+                detector.getDetectorId(),
+                false,
+                "{\"start_time_ms\":1, \"end_time_ms\":2, \"order\":\"invalid-order\"}",
+                client()
+            );
+        });
+        assertTrue(invalidOrderException.getMessage().contains("Ordering by invalid-order is not a valid option"));
+
+        // Negative size field
+        Exception negativeSizeException = expectThrows(
+            IOException.class,
+            () -> {
+                searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":-1}", client());
+            }
+        );
+        assertTrue(negativeSizeException.getMessage().contains("Size must be a positive integer"));
+
+        // Zero size field
+        Exception zeroSizeException = expectThrows(
+            IOException.class,
+            () -> {
+                searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":0}", client());
+            }
+        );
+        assertTrue(zeroSizeException.getMessage().contains("Size must be a positive integer"));
+
+        // Too large size field
+        Exception tooLargeSizeException = expectThrows(
+            IOException.class,
+            () -> {
+                searchTopAnomalyResults(
+                    detector.getDetectorId(),
+                    false,
+                    "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":9999999}",
+                    client()
+                );
+            }
+        );
+        assertTrue(tooLargeSizeException.getMessage().contains("Size cannot exceed"));
+
+        // No existing task ID for detector
+        Exception noTaskIdException = expectThrows(
+                IOException.class,
+                () -> {
+                    searchTopAnomalyResults(
+                            detector.getDetectorId(),
+                            true,
+                            "{\"start_time_ms\":1, \"end_time_ms\":2}",
+                            client()
+                    );
+                }
+        );
+        assertTrue(noTaskIdException.getMessage().contains("No historical tasks found for detector ID " + detector.getDetectorId()));
+
+        // Invalid category fields
+        Exception invalidCategoryFieldsException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(
+                detector.getDetectorId(),
+                false,
+                "{\"start_time_ms\":1, \"end_time_ms\":2, \"category_field\":[\"invalid-field\"]}",
+                client()
+            );
+        });
+        assertTrue(
+            invalidCategoryFieldsException
+                .getMessage()
+                .contains("Category field invalid-field doesn't exist for detector ID " + detector.getDetectorId())
+        );
+
+        // Using detector with no category fields
+        AnomalyDetector detectorWithNoCategoryFields = createAnomalyDetector(
+            TestHelpers
+                .randomAnomalyDetectorUsingCategoryFields(
+                    randomAlphaOfLength(10),
+                    "timestamp",
+                    ImmutableList.of(indexName),
+                    ImmutableList.of()
+                ),
+            true,
+            client()
+        );
+        Exception noCategoryFieldsException = expectThrows(
+            IOException.class,
+            () -> {
+                searchTopAnomalyResults(
+                    detectorWithNoCategoryFields.getDetectorId(),
+                    false,
+                    "{\"start_time_ms\":1, \"end_time_ms\":2}",
+                    client()
+                );
+            }
+        );
+        assertTrue(
+            noCategoryFieldsException
+                .getMessage()
+                .contains("No category fields found for detector ID " + detectorWithNoCategoryFields.getDetectorId())
+        );
+    }
+
     public void testSearchTopAnomalyResultsOnNonExistentResultIndex() throws IOException {
         String indexName = randomAlphaOfLength(10).toLowerCase();
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
@@ -1545,7 +1700,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         Map<String, Object> responseMap = entityAsMap(response);
         @SuppressWarnings("unchecked")
-        List<AnomalyResultBucket> buckets = (ArrayList<AnomalyResultBucket>) XContentMapValues.extractValue("buckets", responseMap);
+        List<Map<String, Object>> buckets = (ArrayList<Map<String, Object>>) XContentMapValues.extractValue("buckets", responseMap);
         assertEquals(0, buckets.size());
     }
 
@@ -1585,7 +1740,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         Map<String, Object> responseMap = entityAsMap(response);
         @SuppressWarnings("unchecked")
-        List<AnomalyResultBucket> buckets = (ArrayList<AnomalyResultBucket>) XContentMapValues.extractValue("buckets", responseMap);
+        List<Map<String, Object>> buckets = (ArrayList<Map<String, Object>>) XContentMapValues.extractValue("buckets", responseMap);
         assertEquals(0, buckets.size());
     }
 
@@ -1612,10 +1767,121 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             client()
         );
 
-        // Create the result index and ingest a single matching result
+        // Ingest some sample results
         if (!indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
             TestHelpers.createAnomalyResultIndex(client());
         }
+        Map<String, Object> entityAttrs1 = new HashMap<String, Object>() {
+            {
+                put("keyword-field", "field-1");
+                put("ip-field", "1.2.3.4");
+            }
+        };
+        Map<String, Object> entityAttrs2 = new HashMap<String, Object>() {
+            {
+                put("keyword-field", "field-2");
+                put("ip-field", "5.6.7.8");
+            }
+        };
+        Map<String, Object> entityAttrs3 = new HashMap<String, Object>() {
+            {
+                put("keyword-field", "field-2");
+                put("ip-field", "5.6.7.8");
+            }
+        };
+        AnomalyResult anomalyResult1 = TestHelpers
+            .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs1, 0.5, 0.8, null, 5L, 5L);
+        AnomalyResult anomalyResult2 = TestHelpers
+            .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs2, 0.5, 0.5, null, 5L, 5L);
+        AnomalyResult anomalyResult3 = TestHelpers
+            .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs3, 0.5, 0.2, null, 5L, 5L);
+
+        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult1));
+        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult2));
+        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult3));
+
+        // Sorting by severity
+        Response severityResponse = searchTopAnomalyResults(
+            detector.getDetectorId(),
+            false,
+            "{\"category_field\":[\"keyword-field\"]," + "\"start_time_ms\":0, \"end_time_ms\":10, \"order\":\"severity\"}",
+            client()
+        );
+        Map<String, Object> severityResponseMap = entityAsMap(severityResponse);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> severityBuckets = (ArrayList<Map<String, Object>>) XContentMapValues.extractValue("buckets", severityResponseMap);
+        assertEquals(2, severityBuckets.size());
+        @SuppressWarnings("unchecked")
+        Map<String, String> severityBucketKey1 = (Map<String, String>) severityBuckets.get(0).get("key");
+        @SuppressWarnings("unchecked")
+        Map<String, String> severityBucketKey2 = (Map<String, String>) severityBuckets.get(1).get("key");
+        assertEquals("field-1", severityBucketKey1.get("keyword-field"));
+        assertEquals("field-2", severityBucketKey2.get("keyword-field"));
+
+        // Sorting by occurrence
+        Response occurrenceResponse = searchTopAnomalyResults(
+                detector.getDetectorId(),
+                false,
+                "{\"category_field\":[\"keyword-field\"]," + "\"start_time_ms\":0, \"end_time_ms\":10, \"order\":\"occurrence\"}",
+                client()
+        );
+        Map<String, Object> occurrenceResponseMap = entityAsMap(occurrenceResponse);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> occurrenceBuckets = (ArrayList<Map<String, Object>>) XContentMapValues.extractValue("buckets", occurrenceResponseMap);
+        assertEquals(2, occurrenceBuckets.size());
+        @SuppressWarnings("unchecked")
+        Map<String, String> occurrenceBucketKey1 = (Map<String, String>) occurrenceBuckets.get(0).get("key");
+        @SuppressWarnings("unchecked")
+        Map<String, String> occurrenceBucketKey2 = (Map<String, String>) occurrenceBuckets.get(1).get("key");
+        assertEquals("field-2", occurrenceBucketKey1.get("keyword-field"));
+        assertEquals("field-1", occurrenceBucketKey2.get("keyword-field"));
+
+        // Sorting using all category fields
+        Response allFieldsResponse = searchTopAnomalyResults(
+                detector.getDetectorId(),
+                false,
+                "{\"category_field\":[\"keyword-field\", \"ip-field\"]," + "\"start_time_ms\":0, \"end_time_ms\":10, \"order\":\"severity\"}",
+                client()
+        );
+        Map<String, Object> allFieldsResponseMap = entityAsMap(allFieldsResponse);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> allFieldsBuckets = (ArrayList<Map<String, Object>>) XContentMapValues.extractValue("buckets", allFieldsResponseMap);
+        assertEquals(2, allFieldsBuckets.size());
+        @SuppressWarnings("unchecked")
+        Map<String, String> allFieldsBucketKey1 = (Map<String, String>) allFieldsBuckets.get(0).get("key");
+        @SuppressWarnings("unchecked")
+        Map<String, String> allFieldsBucketKey2 = (Map<String, String>) allFieldsBuckets.get(1).get("key");
+        assertEquals("field-1", allFieldsBucketKey1.get("keyword-field"));
+        assertEquals("1.2.3.4", allFieldsBucketKey1.get("ip-field"));
+        assertEquals("field-2", allFieldsBucketKey2.get("keyword-field"));
+        assertEquals("5.6.7.8", allFieldsBucketKey2.get("ip-field"));
+    }
+
+    public void testSearchTopAnomalyResultsWithCustomResultIndex() throws IOException {
+        String indexName = randomAlphaOfLength(10).toLowerCase();
+        String customResultIndexName = CommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase();
+        Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
+            {
+                put("keyword-field", "keyword");
+                put("ip-field", "ip");
+            }
+        };
+        String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
+        TestHelpers.createIndexWithHCADFields(client(), indexName, categoryFieldsAndTypes);
+        TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
+        AnomalyDetector detector = createAnomalyDetector(
+                TestHelpers
+                        .randomAnomalyDetectorUsingCategoryFields(
+                                randomAlphaOfLength(10),
+                                "timestamp",
+                                ImmutableList.of(indexName),
+                                categoryFieldsAndTypes.keySet().stream().collect(Collectors.toList()),
+                                customResultIndexName
+                        ),
+                true,
+                client()
+        );
+
         Map<String, Object> entityAttrs = new HashMap<String, Object>() {
             {
                 put("keyword-field", "field-1");
@@ -1623,19 +1889,22 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             }
         };
         AnomalyResult anomalyResult = TestHelpers
-            .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs, 0.5, 0.5, null);
-        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult));
+                .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs, 0.5, 0.8, null, 5L, 5L);
+        TestHelpers.ingestDataToIndex(client(), customResultIndexName, TestHelpers.toHttpEntity(anomalyResult));
 
-        // Call API
         Response response = searchTopAnomalyResults(
-            detector.getDetectorId(),
-            false,
-            "{\"size\":3,\"category_field\":[\"keyword-field\"]," + "\"start_time_ms\":0, \"end_time_ms\":2637192593138}",
-            client()
+                detector.getDetectorId(),
+                false,
+                "{\"start_time_ms\":0, \"end_time_ms\":10}",
+                client()
         );
         Map<String, Object> responseMap = entityAsMap(response);
         @SuppressWarnings("unchecked")
-        List<AnomalyResultBucket> buckets = (ArrayList<AnomalyResultBucket>) XContentMapValues.extractValue("buckets", responseMap);
+        List<Map<String, Object>> buckets = (ArrayList<Map<String, Object>>) XContentMapValues.extractValue("buckets", responseMap);
         assertEquals(1, buckets.size());
+        @SuppressWarnings("unchecked")
+        Map<String, String> bucketKey1 = (Map<String, String>) buckets.get(0).get("key");
+        assertEquals("field-1", bucketKey1.get("keyword-field"));
+        assertEquals("1.2.3.4", bucketKey1.get("ip-field"));
     }
 }
