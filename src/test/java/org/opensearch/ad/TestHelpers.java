@@ -415,30 +415,30 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetectorUsingCategoryFields(
-            String detectorId,
-            String timeField,
-            List<String> indices,
-            List<String> categoryFields,
-            String resultIndex
+        String detectorId,
+        String timeField,
+        List<String> indices,
+        List<String> categoryFields,
+        String resultIndex
     ) throws IOException {
         return new AnomalyDetector(
-                detectorId,
-                randomLong(),
-                randomAlphaOfLength(20),
-                randomAlphaOfLength(30),
-                timeField,
-                indices,
-                ImmutableList.of(randomFeature(true)),
-                randomQuery(),
-                randomIntervalTimeConfiguration(),
-                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
-                randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
-                null,
-                randomInt(),
-                Instant.now(),
-                categoryFields,
-                randomUser(),
-                resultIndex
+            detectorId,
+            randomLong(),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(30),
+            timeField,
+            indices,
+            ImmutableList.of(randomFeature(true)),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
+            null,
+            randomInt(),
+            Instant.now(),
+            categoryFields,
+            randomUser(),
+            resultIndex
         );
     }
 
@@ -901,7 +901,15 @@ public class TestHelpers {
         return randomHCADAnomalyDetectResult(null, null, score, grade, error, null, null);
     }
 
-    public static AnomalyResult randomHCADAnomalyDetectResult(String detectorId, String taskId, double score, double grade, String error, Long startTimeEpochMillis, Long endTimeEpochMillis) {
+    public static AnomalyResult randomHCADAnomalyDetectResult(
+        String detectorId,
+        String taskId,
+        double score,
+        double grade,
+        String error,
+        Long startTimeEpochMillis,
+        Long endTimeEpochMillis
+    ) {
         return randomHCADAnomalyDetectResult(detectorId, taskId, null, score, grade, error, startTimeEpochMillis, endTimeEpochMillis);
     }
 
