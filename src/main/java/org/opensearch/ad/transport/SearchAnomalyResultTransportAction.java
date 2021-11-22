@@ -90,19 +90,21 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
 
         String[] concreteIndices = indexNameExpressionResolver
             .concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpandOpen(), indices);
-        if (concreteIndices == null || concreteIndices.length == 0) {
-            // No result indices found, will throw exception
-            listener.onFailure(new IllegalArgumentException("No indices found"));
-            return;
-        }
+        // If concreteIndices is null or empty, don't throw exception. Detector list page will search both
+        // default and custom result indices to get anomaly of last 24 hours. If throw exception, detector
+        // list page will throw error and won't show any detector.
 
         Set<String> customResultIndices = new HashSet<>();
-        for (String index : concreteIndices) {
-            if (index.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
-                customResultIndices.add(index);
+        if (concreteIndices != null) {
+            for (String index : concreteIndices) {
+                if (index.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
+                    customResultIndices.add(index);
+                }
             }
         }
 
+        // If user need to query custom result index only, and that custom result index deleted. Then
+        // we should not search anymore. Just throw exception here.
         if (onlyQueryCustomResultIndex && customResultIndices.size() == 0) {
             listener.onFailure(new IllegalArgumentException("No custom result indices found"));
             return;
