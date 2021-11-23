@@ -10,11 +10,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.Assert;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class SearchTopAnomalyResultRequestTests extends OpenSearchTestCase {
@@ -43,6 +46,41 @@ public class SearchTopAnomalyResultRequestTests extends OpenSearchTestCase {
         assertEquals(originalRequest.getOrder(), parsedRequest.getOrder());
         assertEquals(originalRequest.getStartTime(), parsedRequest.getStartTime());
         assertEquals(originalRequest.getEndTime(), parsedRequest.getEndTime());
+    }
+
+    public void testParse() throws IOException {
+        String detectorId = "test-detector-id";
+        boolean historical = false;
+        String taskId = "test-task-id";
+        int size = 5;
+        List<String> categoryFields = Arrays.asList("field-1", "field-2");
+        String order = "severity";
+        Instant startTime = Instant.ofEpochMilli(1234);
+        Instant endTime = Instant.ofEpochMilli(5678);
+
+        XContentBuilder xContentBuilder = TestHelpers
+            .builder()
+            .startObject()
+            .field("task_id", taskId)
+            .field("size", size)
+            .field("category_field", categoryFields)
+            .field("order", order)
+            // TODO: confirm if these should be longs or Instants
+            .field("start_time_ms", startTime.toEpochMilli())
+            .field("end_time_ms", endTime.toEpochMilli())
+            .endObject();
+
+        String requestAsXContentString = TestHelpers.xContentBuilderToString(xContentBuilder);
+        SearchTopAnomalyResultRequest parsedRequest = SearchTopAnomalyResultRequest
+            .parse(TestHelpers.parser(requestAsXContentString), "test-detector-id", false);
+        assertEquals(taskId, parsedRequest.getTaskId());
+        assertEquals((Integer) size, parsedRequest.getSize());
+        assertEquals(categoryFields, parsedRequest.getCategoryFields());
+        assertEquals(order, parsedRequest.getOrder());
+        assertEquals(startTime.toEpochMilli(), parsedRequest.getStartTime().toEpochMilli());
+        assertEquals(endTime.toEpochMilli(), parsedRequest.getEndTime().toEpochMilli());
+        assertEquals(detectorId, parsedRequest.getDetectorId());
+        assertEquals(historical, parsedRequest.getHistorical());
     }
 
     public void testNullTaskIdIsValid() {
