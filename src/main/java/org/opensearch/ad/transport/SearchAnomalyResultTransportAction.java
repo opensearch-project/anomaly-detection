@@ -90,19 +90,28 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
 
         String[] concreteIndices = indexNameExpressionResolver
             .concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpandOpen(), indices);
-        if (concreteIndices == null || concreteIndices.length == 0) {
-            // No result indices found, will throw exception
-            listener.onFailure(new IllegalArgumentException("No indices found"));
-            return;
-        }
+        // If concreteIndices is null or empty, don't throw exception. Detector list page will search both
+        // default and custom result indices to get anomaly of last 24 hours. If throw exception, detector
+        // list page will throw error and won't show any detector.
+        // If a cluster has no custom result indices, and some new non-custom-result-detector that hasn't
+        // finished one interval (where no default result index exists), then no result indices found. We
+        // will still search ".opendistro-anomaly-results*" (even these default indices don't exist) to
+        // return an empty SearchResponse. This search looks unnecessary, but this can make sure the
+        // detector list page show all detectors correctly. The other solution is to catch errors from
+        // frontend when search anomaly results to make sure frontend won't crash. Check this Github issue:
+        // https://github.com/opensearch-project/anomaly-detection-dashboards-plugin/issues/154
 
         Set<String> customResultIndices = new HashSet<>();
-        for (String index : concreteIndices) {
-            if (index.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
-                customResultIndices.add(index);
+        if (concreteIndices != null) {
+            for (String index : concreteIndices) {
+                if (index.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
+                    customResultIndices.add(index);
+                }
             }
         }
 
+        // If user need to query custom result index only, and that custom result index deleted. Then
+        // we should not search anymore. Just throw exception here.
         if (onlyQueryCustomResultIndex && customResultIndices.size() == 0) {
             listener.onFailure(new IllegalArgumentException("No custom result indices found"));
             return;
