@@ -231,7 +231,7 @@ public class SearchTopAnomalyResultTransportActionTests extends ADIntegTestCase 
     public void testListenerTimesOutWithPartialResults() {
         ActionListener<SearchTopAnomalyResultResponse> mockListener = mock(ActionListener.class);
         SearchTopAnomalyResultTransportAction.TopAnomalyResultListener listener = action.new TopAnomalyResultListener(
-            mockListener, new SearchSourceBuilder(), 1000, // this will be guaranteed to hit the expiration
+            mockListener, new SearchSourceBuilder(), 1000, // this is guaranteed to be an expired timestamp
             10, SearchTopAnomalyResultTransportAction.OrderType.OCCURRENCE, "custom-result-index-name"
         );
 

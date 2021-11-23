@@ -65,7 +65,6 @@ public class SearchTopAnomalyResultRequestTests extends OpenSearchTestCase {
             .field("size", size)
             .field("category_field", categoryFields)
             .field("order", order)
-            // TODO: confirm if these should be longs or Instants
             .field("start_time_ms", startTime.toEpochMilli())
             .field("end_time_ms", endTime.toEpochMilli())
             .endObject();

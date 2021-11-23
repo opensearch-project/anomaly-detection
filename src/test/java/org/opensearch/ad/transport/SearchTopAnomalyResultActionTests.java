@@ -28,7 +28,6 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
     private String testIndex;
     private String detectorId;
     private String taskId;
-    // private Instant testDataTimeStamp;
     private Instant startTime;
     private Instant endTime;
     private ImmutableList<String> categoryFields;
@@ -50,7 +49,6 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
         super.setUp();
         testIndex = "test_data";
         taskId = "test-task-id";
-        // testDataTimeStamp = Instant.now();
         startTime = Instant.now().minus(10, ChronoUnit.DAYS);
         endTime = Instant.now();
         categoryFields = ImmutableList.of("test-field-1", "test-field-2");
@@ -96,8 +94,8 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             1,
             Arrays.asList(categoryFields.get(0)),
             "invalid-order",
-            Instant.now().minus(10, ChronoUnit.DAYS),
-            Instant.now()
+            startTime,
+            endTime
         );
         expectThrows(
             IllegalArgumentException.class,
@@ -113,8 +111,8 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             -1,
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
-            Instant.now().minus(10, ChronoUnit.DAYS),
-            Instant.now()
+            startTime,
+            endTime
         );
         expectThrows(
             IllegalArgumentException.class,
@@ -130,8 +128,8 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             0,
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
-            Instant.now().minus(10, ChronoUnit.DAYS),
-            Instant.now()
+            startTime,
+            endTime
         );
         expectThrows(
             IllegalArgumentException.class,
@@ -147,8 +145,8 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             9999999,
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
-            Instant.now().minus(10, ChronoUnit.DAYS),
-            Instant.now()
+            startTime,
+            endTime
         );
         expectThrows(
             IllegalArgumentException.class,
@@ -165,7 +163,7 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
             null,
-            Instant.now()
+            endTime
         );
         expectThrows(
             IllegalArgumentException.class,
@@ -181,7 +179,7 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             1,
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
-            Instant.now().minus(10, ChronoUnit.DAYS),
+            startTime,
             null
         );
         expectThrows(
@@ -198,8 +196,8 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             1,
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
-            Instant.now(),
-            Instant.now().minus(10, ChronoUnit.DAYS)
+            endTime,
+            startTime
         );
         expectThrows(
             IllegalArgumentException.class,
@@ -231,8 +229,8 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             1,
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
-            Instant.now().minus(10, ChronoUnit.DAYS),
-            Instant.now()
+            startTime,
+            endTime
         );
         expectThrows(Exception.class, () -> client().execute(SearchTopAnomalyResultAction.INSTANCE, searchRequest).actionGet(10_000));
     }
@@ -256,8 +254,8 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
             1,
             Arrays.asList(categoryFields.get(0)),
             SearchTopAnomalyResultTransportAction.OrderType.SEVERITY.getName(),
-            Instant.now().minus(10, ChronoUnit.DAYS),
-            Instant.now()
+            startTime,
+            endTime
         );
         expectThrows(
             IllegalArgumentException.class,

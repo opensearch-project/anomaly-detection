@@ -913,7 +913,6 @@ public class TestHelpers {
         return randomHCADAnomalyDetectResult(detectorId, taskId, null, score, grade, error, startTimeEpochMillis, endTimeEpochMillis);
     }
 
-    // TODO: support custom data start/end times so search top anomaly results API can explicitly match results in certain time ranges
     public static AnomalyResult randomHCADAnomalyDetectResult(
         String detectorId,
         String taskId,
