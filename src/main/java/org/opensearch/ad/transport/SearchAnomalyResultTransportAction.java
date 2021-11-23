@@ -99,7 +99,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         // return an empty SearchResponse. This search looks unnecessary, but this can make sure the
         // detector list page show all detectors correctly. The other solution is to catch errors from
         // frontend when search anomaly results to make sure frontend won't crash. Check this Github issue:
-        // https://github.com/opensearch-project/anomaly-detection-dashboards-plugin/issues/153
+        // https://github.com/opensearch-project/anomaly-detection-dashboards-plugin/issues/154
 
         Set<String> customResultIndices = new HashSet<>();
         if (concreteIndices != null) {
