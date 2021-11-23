@@ -56,7 +56,6 @@ public class DetectorProfileTests extends OpenSearchTestCase {
         BytesStreamOutput output = new BytesStreamOutput();
         detectorProfile.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        // StreamInput input = output.bytes().streamInput();
         DetectorProfile parsedDetectorProfile = new DetectorProfile(input);
         assertEquals("Detector profile serialization doesn't work", detectorProfile, parsedDetectorProfile);
     }

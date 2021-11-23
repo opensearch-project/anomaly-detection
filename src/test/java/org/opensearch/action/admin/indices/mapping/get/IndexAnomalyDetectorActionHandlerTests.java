@@ -32,6 +32,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
@@ -46,10 +47,12 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
@@ -65,6 +68,8 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  *
@@ -702,5 +707,68 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         // make sure execution passes all necessary checks
         assertTrue(value instanceof IllegalStateException);
         assertTrue(value.getMessage().contains("NodeClient has not been initialized"));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testValidateAnomalyDetectorWithDuplicateFeatureAggregationNames() throws IOException {
+        Feature featureOne = TestHelpers.randomFeature("featureName", "test-1");
+        Feature featureTwo = TestHelpers.randomFeature("featureNameTwo", "test-1");
+        AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableList.of(featureOne, featureTwo));
+        SearchResponse detectorResponse = mock(SearchResponse.class);
+        int totalHits = 9;
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
+
+        // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
+        // we can also use spy to overstep the final methods
+        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
+            @Override
+            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                try {
+                    if (action.equals(SearchAction.INSTANCE)) {
+                        listener.onResponse((Response) detectorResponse);
+                    } else {
+                        // we need to put the test in the same package of GetFieldMappingsResponse since its constructor is package private
+                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "A", TEXT_FIELD_TYPE)
+                        );
+                        listener.onResponse((Response) response);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        handler = new IndexAnomalyDetectorActionHandler(
+            clusterService,
+            client,
+            transportService,
+            channel,
+            anomalyDetectionIndices,
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            anomalyDetector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            method,
+            xContentRegistry(),
+            null,
+            adTaskManager,
+            searchFeatureDao
+        );
+        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
+        handler.start();
+        verify(channel).onFailure(response.capture());
+        Exception value = response.getValue();
+        assertTrue(value instanceof OpenSearchStatusException);
+        assertTrue(value.getMessage().contains(CommonErrorMessages.DUPLICATE_FEATURE_AGGREGATION_NAMES));
     }
 }

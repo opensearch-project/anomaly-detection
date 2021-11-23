@@ -405,7 +405,6 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
             SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
-
             client
                 .search(
                     searchRequest,

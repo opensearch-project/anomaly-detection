@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.unit.TimeValue;
@@ -65,6 +66,23 @@ public class AnomalyDetectorTests extends AbstractADTest {
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
         assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getResultIndex());
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
+    }
+
+    public void testAnomalyDetectorWithInvalidCustomIndex() throws Exception {
+        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test@@";
+        TestHelpers
+            .assertFailWith(
+                ADValidationException.class,
+                () -> (TestHelpers
+                    .randomDetector(
+                        ImmutableList.of(TestHelpers.randomFeature()),
+                        randomAlphaOfLength(5),
+                        randomIntBetween(1, 5),
+                        randomAlphaOfLength(5),
+                        ImmutableList.of(randomAlphaOfLength(5)),
+                        resultIndex
+                    ))
+            );
     }
 
     public void testParseAnomalyDetectorWithoutParams() throws IOException {
@@ -227,6 +245,44 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
             + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
         TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+    }
+
+    public void testParseAnomalyDetectorWithInvalidDetectorIntervalUnits() {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Millis\"}},\"window_delay\":{\"period\":{\"interval\":973,"
+            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
+            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals(
+            String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
+            exception.getMessage()
+        );
+    }
+
+    public void testParseAnomalyDetectorInvalidWindowDelayUnits() {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"description\":"
+            + "\"ClrcaMpuLfeDSlVduRcKlqPZyqWDBf\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
+            + "\"unit\":\"Millis\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
+            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals(
+            String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
+            exception.getMessage()
+        );
     }
 
     public void testParseAnomalyDetectorWithNullUiMetadata() throws IOException {

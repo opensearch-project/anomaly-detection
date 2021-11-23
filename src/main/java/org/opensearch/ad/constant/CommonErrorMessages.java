@@ -73,8 +73,10 @@ public class CommonErrorMessages {
     public static String HISTORICAL_ANALYSIS_CANCELLED = "Historical analysis cancelled by user";
     public static String HC_DETECTOR_TASK_IS_UPDATING = "HC detector task is updating";
     public static String NEGATIVE_TIME_CONFIGURATION = "should be non-negative";
+    public static String INVALID_TIME_CONFIGURATION_UNITS = "Timezone %s is not supported";
     public static String INVALID_DETECTOR_NAME =
         "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
+    public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Detector has duplicate feature aggregation query names: ";
 
     public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
     public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";
