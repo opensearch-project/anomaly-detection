@@ -40,12 +40,10 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
     @Test
     public void testNoIndex() {
         deleteIndexIfExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> client()
-                .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
-                .actionGet(10000)
-        );
+        SearchResponse searchResponse = client()
+            .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
+            .actionGet(10000);
+        assertEquals(0, searchResponse.getHits().getTotalHits().value);
     }
 
 }
