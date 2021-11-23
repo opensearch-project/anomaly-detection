@@ -182,7 +182,7 @@ public class SearchTopAnomalyResultTransportAction extends
     private static final String defaultIndex = ALL_AD_RESULTS_INDEX_PATTERN;
     private static final String COUNT_FIELD = "_count";
     private static final String BUCKET_SORT_FIELD = "bucket_sort";
-    private static final String MULTI_BUCKETS_FIELD = "multi_buckets";
+    public static final String MULTI_BUCKETS_FIELD = "multi_buckets";
     private static final Logger logger = LogManager.getLogger(SearchTopAnomalyResultTransportAction.class);
     private final Client client;
     private Clock clock;
