@@ -22,6 +22,9 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.google.common.collect.ImmutableList;
 
+// Only invalid test cases are covered here. This is due to issues with the lang-painless module not
+// being installed on test clusters spun up in OpenSearchIntegTestCase classes (which this class extends),
+// which is needed for executing the API on ingested data. Valid test cases are covered at the REST layer.
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST)
 public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTestCase {
 

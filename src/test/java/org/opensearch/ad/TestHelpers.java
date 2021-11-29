@@ -366,24 +366,11 @@ public class TestHelpers {
 
     public static AnomalyDetector randomAnomalyDetectorUsingCategoryFields(String detectorId, List<String> categoryFields)
         throws IOException {
-        return new AnomalyDetector(
+        return randomAnomalyDetectorUsingCategoryFields(
             detectorId,
-            randomLong(),
-            randomAlphaOfLength(20),
-            randomAlphaOfLength(30),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
-            ImmutableList.of(randomFeature(true)),
-            randomQuery(),
-            randomIntervalTimeConfiguration(),
-            new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
-            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
-            null,
-            randomInt(),
-            Instant.now(),
-            categoryFields,
-            randomUser(),
-            null
+            categoryFields
         );
     }
 
@@ -393,25 +380,7 @@ public class TestHelpers {
         List<String> indices,
         List<String> categoryFields
     ) throws IOException {
-        return new AnomalyDetector(
-            detectorId,
-            randomLong(),
-            randomAlphaOfLength(20),
-            randomAlphaOfLength(30),
-            timeField,
-            indices,
-            ImmutableList.of(randomFeature(true)),
-            randomQuery(),
-            randomIntervalTimeConfiguration(),
-            new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
-            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
-            null,
-            randomInt(),
-            Instant.now(),
-            categoryFields,
-            randomUser(),
-            null
-        );
+        return randomAnomalyDetectorUsingCategoryFields(detectorId, timeField, indices, categoryFields, null);
     }
 
     public static AnomalyDetector randomAnomalyDetectorUsingCategoryFields(
@@ -1097,7 +1066,7 @@ public class TestHelpers {
         createIndexMapping(client, indexName, TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
-    public static void createAnomalyResultIndex(RestClient client) throws IOException {
+    public static void createEmptyAnomalyResultIndex(RestClient client) throws IOException {
         createEmptyIndex(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         createIndexMapping(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS, toHttpEntity(AnomalyDetectionIndices.getAnomalyResultMappings()));
     }

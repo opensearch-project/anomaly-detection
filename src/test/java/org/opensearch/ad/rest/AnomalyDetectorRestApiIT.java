@@ -1723,7 +1723,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         if (indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
             deleteIndex(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         }
-        TestHelpers.createAnomalyResultIndex(client());
+        TestHelpers.createEmptyAnomalyResultIndex(client());
         Response response = searchTopAnomalyResults(
             detector.getDetectorId(),
             false,
@@ -1761,7 +1761,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         // Ingest some sample results
         if (!indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            TestHelpers.createAnomalyResultIndex(client());
+            TestHelpers.createEmptyAnomalyResultIndex(client());
         }
         Map<String, Object> entityAttrs1 = new HashMap<String, Object>() {
             {
