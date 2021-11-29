@@ -1,4 +1,4 @@
-## Version 1.2.0.0 Release Notes
+## Version 1.2.0.1 Release Notes
 
 Compatible with OpenSearch 1.2.0
 
