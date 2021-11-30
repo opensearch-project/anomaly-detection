@@ -13,6 +13,7 @@ package org.opensearch.ad.constant;
 
 import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
+import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.MAX_DETECTOR_NAME_SIZE;
 
 import java.util.Locale;
 
@@ -98,4 +99,7 @@ public class CommonErrorMessages {
     public static String INVALID_CHAR_IN_RESULT_INDEX_NAME =
         "Result index name has invalid character. Valid characters are a-z, 0-9, -(hyphen) and _(underscore)";
     public static String INVALID_RESULT_INDEX_MAPPING = "Result index mapping is not correct for index: ";
+    public static String INVALID_DETECTOR_NAME_SIZE = "Name should be shortened. The maximum limit is "
+        + MAX_DETECTOR_NAME_SIZE
+        + " characters.";
 }

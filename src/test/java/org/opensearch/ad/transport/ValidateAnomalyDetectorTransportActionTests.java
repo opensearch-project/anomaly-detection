@@ -61,8 +61,6 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     @Test
     public void testValidateAnomalyDetectorWithNoIndexFound() throws IOException {
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now());
-        Instant startTime = Instant.now().minus(1, ChronoUnit.DAYS);
-        // ingestTestDataValidate(anomalyDetector.getIndices().get(0), startTime, 1, "error");
         ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),

@@ -119,7 +119,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String FEATURE_WITH_INVALID_QUERY_MSG = FEATURE_INVALID_MSG_PREFIX + " causing a runtime exception: ";
     public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
         "Feature has an unknown exception caught while executing the feature query: ";
-
+    public static final String VALIDATION_FEATURE_FAILURE = "Validation failed for feature(s) of detector %s";
     public static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
     public static final Integer MAX_DETECTOR_NAME_SIZE = 64;
 
@@ -303,7 +303,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             listener
                 .onFailure(
                     new ADValidationException(
-                        "Name should be shortened. The maximum limit is " + MAX_DETECTOR_NAME_SIZE + " characters.",
+                        CommonErrorMessages.INVALID_DETECTOR_NAME_SIZE,
                         DetectorValidationIssueType.NAME,
                         ValidationAspect.DETECTOR
                     )
@@ -816,7 +816,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
                 validateFeatureQueriesListener,
                 anomalyDetector.getFeatureAttributes().size(),
-                String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
+                String.format(Locale.ROOT, VALIDATION_FEATURE_FAILURE, anomalyDetector.getName()),
                 false
             );
 

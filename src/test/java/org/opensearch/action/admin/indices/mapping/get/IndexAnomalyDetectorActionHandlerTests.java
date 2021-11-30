@@ -728,16 +728,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                 ActionListener<Response> listener
             ) {
                 try {
-                    if (action.equals(SearchAction.INSTANCE)) {
-                        listener.onResponse((Response) detectorResponse);
-                    } else {
-                        // we need to put the test in the same package of GetFieldMappingsResponse since its constructor is package private
-                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "A", TEXT_FIELD_TYPE)
-                        );
-                        listener.onResponse((Response) response);
-                    }
-                } catch (IOException e) {
+                    listener.onResponse((Response) detectorResponse);
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
