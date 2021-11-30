@@ -130,12 +130,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]"));
     }
 
-    // public void testValidateAnomalyDetectorWithWriteAccess() throws IOException {
-    // // User Alice has AD full access, should be able to validate a detector
-    // AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-    // Assert.assertNotNull("User alice could not create detector", aliceDetector.getDetectorId());
-    // }
-
     public void testStartDetectorWithReadAccess() throws IOException {
         // User Bob has AD read access, should not be able to modify a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);

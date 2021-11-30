@@ -710,7 +710,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void testValidateAnomalyDetectorWithDuplicateFeatureAggregationNames() throws IOException {
+    public void testCreateAnomalyDetectorWithDuplicateFeatureAggregationNames() throws IOException {
         Feature featureOne = TestHelpers.randomFeature("featureName", "test-1");
         Feature featureTwo = TestHelpers.randomFeature("featureNameTwo", "test-1");
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableList.of(featureOne, featureTwo));

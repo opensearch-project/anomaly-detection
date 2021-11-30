@@ -182,10 +182,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return TestHelpers.makeRequest(client, "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null);
     }
 
-    // protected Response validateAnomalyDetector(AnomalyDetector detector, RestClient client) {
-    //
-    // }
-
     protected Response previewAnomalyDetector(String detectorId, RestClient client, AnomalyDetectorExecutionInput input)
         throws IOException {
         return TestHelpers
