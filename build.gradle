@@ -132,7 +132,6 @@ configurations.all {
 
 configurations {
     testCompile {
-        exclude group: 'org.elasticsearch', module: 'securemock'
         exclude group: 'org.hamcrest', module: 'hamcrest-core'
     }
 }
