@@ -12,17 +12,18 @@
 package org.opensearch.ad.model;
 
 import java.io.IOException;
+import java.util.Map;
 
+import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class DetectorProfileTests extends OpenSearchTestCase {
 
-    public void testParseDetectorProfile() throws IOException {
-        String detectorId = randomAlphaOfLength(10);
-        String[] runningEntities = new String[] { randomAlphaOfLength(5) };
-        DetectorProfile detectorProfile = new DetectorProfile.Builder()
+    private DetectorProfile createRandomDetectorProfile() {
+        return new DetectorProfile.Builder()
             .state(DetectorState.INIT)
             .error(randomAlphaOfLength(5))
             .modelProfile(
@@ -52,11 +53,34 @@ public class DetectorProfileTests extends OpenSearchTestCase {
                 )
             )
             .build();
+    }
 
+    public void testParseDetectorProfile() throws IOException {
+        DetectorProfile detectorProfile = createRandomDetectorProfile();
         BytesStreamOutput output = new BytesStreamOutput();
         detectorProfile.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         DetectorProfile parsedDetectorProfile = new DetectorProfile(input);
         assertEquals("Detector profile serialization doesn't work", detectorProfile, parsedDetectorProfile);
+    }
+
+    public void testMergeDetectorProfile() {
+        DetectorProfile detectorProfileOne = createRandomDetectorProfile();
+        DetectorProfile detectorProfileTwo = createRandomDetectorProfile();
+        String errorPreMerge = detectorProfileOne.getError();
+        detectorProfileOne.merge(detectorProfileTwo);
+        assertTrue(detectorProfileOne.toString().contains(detectorProfileTwo.getError()));
+        assertFalse(detectorProfileOne.toString().contains(errorPreMerge));
+        assertTrue(detectorProfileOne.toString().contains(detectorProfileTwo.getCoordinatingNode()));
+    }
+
+    public void testDetectorProfileToXContent() throws IOException {
+        DetectorProfile detectorProfile = createRandomDetectorProfile();
+        String detectorProfileString = TestHelpers.xContentBuilderToString(detectorProfile.toXContent(TestHelpers.builder()));
+        XContentParser parser = TestHelpers.parser(detectorProfileString);
+        Map<String, Object> parsedMap = parser.map();
+        assertEquals(detectorProfile.getCoordinatingNode(), parsedMap.get("coordinating_node"));
+        assertEquals(detectorProfile.getState().toString(), parsedMap.get("state"));
+        assertTrue(parsedMap.get("models").toString().contains(detectorProfile.getModelProfile()[0].getModelId()));
     }
 }

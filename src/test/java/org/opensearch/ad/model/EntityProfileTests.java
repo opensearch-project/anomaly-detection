@@ -32,6 +32,7 @@ public class EntityProfileTests extends AbstractADTest {
 
         profile1.merge(profile2);
         assertEquals(profile1.getState(), EntityState.INIT);
+        assertTrue(profile1.toString().contains(EntityState.INIT.toString()));
     }
 
     public void testToXContent() throws IOException, JsonPathNotFoundException {
