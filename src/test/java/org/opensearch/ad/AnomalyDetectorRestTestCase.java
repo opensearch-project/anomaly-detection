@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Map;
 
 import org.apache.http.HttpHeaders;
@@ -364,6 +365,25 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 ImmutableMap.of("name", name),
                 "",
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response searchTopAnomalyResults(String detectorId, boolean historical, String bodyAsJsonString, RestClient client)
+        throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI
+                    + "/"
+                    + detectorId
+                    + "/"
+                    + RestHandlerUtils.RESULTS
+                    + "/"
+                    + RestHandlerUtils.TOP_ANOMALIES,
+                Collections.singletonMap("historical", String.valueOf(historical)),
+                TestHelpers.toHttpEntity(bodyAsJsonString),
+                new ArrayList<>()
             );
     }
 
