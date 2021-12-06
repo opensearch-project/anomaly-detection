@@ -14,6 +14,8 @@ package org.opensearch.ad.model;
 import java.io.IOException;
 import java.util.Map;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
+import org.opensearch.ad.annotation.Generated;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -21,6 +23,8 @@ import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation.Bucket;
 import org.opensearch.search.aggregations.metrics.InternalMax;
+
+import com.google.common.base.Objects;
 
 /**
  * Represents a single bucket when retrieving top anomaly results for HC detectors
@@ -70,6 +74,34 @@ public class AnomalyResultBucket implements ToXContentObject, Writeable {
         out.writeMap(key);
         out.writeInt(docCount);
         out.writeDouble(maxAnomalyGrade);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        AnomalyResultBucket that = (AnomalyResultBucket) o;
+        return Objects.equal(getKey(), that.getKey())
+            && Objects.equal(getDocCount(), that.getDocCount())
+            && Objects.equal(getMaxAnomalyGrade(), that.getMaxAnomalyGrade());
+    }
+
+    @Generated
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getKey(), getDocCount(), getMaxAnomalyGrade());
+    }
+
+    @Generated
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+            .append("key", key)
+            .append("docCount", docCount)
+            .append("maxAnomalyGrade", maxAnomalyGrade)
+            .toString();
     }
 
     public Map<String, Object> getKey() {

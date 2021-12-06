@@ -48,6 +48,7 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
     private Instant endTime;
 
     public SearchTopAnomalyResultRequest(StreamInput in) throws IOException {
+        super(in);
         detectorId = in.readOptionalString();
         taskId = in.readOptionalString();
         historical = in.readBoolean();
