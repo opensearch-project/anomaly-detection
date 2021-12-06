@@ -238,4 +238,18 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         return getADTask(response.getId());
     }
+
+    public ADTask startHistoricalAnalysis(String detectorId, Instant startTime, Instant endTime) throws IOException {
+        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+        AnomalyDetectorJobRequest request = new AnomalyDetectorJobRequest(
+            detectorId,
+            dateRange,
+            true,
+            UNASSIGNED_SEQ_NO,
+            UNASSIGNED_PRIMARY_TERM,
+            START_JOB
+        );
+        AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
+        return getADTask(response.getId());
+    }
 }
