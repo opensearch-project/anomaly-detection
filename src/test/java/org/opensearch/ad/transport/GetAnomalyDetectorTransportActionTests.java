@@ -233,6 +233,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         Map<String, Object> map = TestHelpers.XContentBuilderToMap(builder);
         Map<String, Object> parsedInitProgress = (Map<String, Object>) (map.get(CommonName.INIT_PROGRESS));
         Assert.assertEquals(initProgress.getPercentage(), parsedInitProgress.get(InitProgressProfile.PERCENTAGE).toString());
+        assertTrue(initProgress.toString().contains("[percentage=99%,estimated_minutes_left=2,needed_shingles=2]"));
         Assert
             .assertEquals(
                 String.valueOf(initProgress.getEstimatedMinutesLeft()),

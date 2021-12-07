@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.xcontent.XContentParser;
@@ -82,5 +84,11 @@ public class DetectorProfileTests extends OpenSearchTestCase {
         assertEquals(detectorProfile.getCoordinatingNode(), parsedMap.get("coordinating_node"));
         assertEquals(detectorProfile.getState().toString(), parsedMap.get("state"));
         assertTrue(parsedMap.get("models").toString().contains(detectorProfile.getModelProfile()[0].getModelId()));
+    }
+
+    public void testDetectorProfileName() throws IllegalArgumentException {
+        DetectorProfileName.getName(CommonName.AD_TASK);
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> DetectorProfileName.getName("abc"));
+        assertEquals(exception.getMessage(), CommonErrorMessages.NON_SUPPORTED_PROFILE_TYPE);
     }
 }
