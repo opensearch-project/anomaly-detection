@@ -52,7 +52,7 @@ public class CommonErrorMessages {
     public static final String BUG_RESPONSE = "We might have bugs.";
     public static final String INDEX_NOT_FOUND = "index does not exist";
     public static final String NOT_EXISTENT_VALIDATION_TYPE = "The given validation type doesn't exist";
-    public static final String NON_SUPPORTED_PROFILE_TYPE = "Unsupported profile types";
+    public static final String UNSUPPORTED_PROFILE_TYPE = "Unsupported profile types";
 
     private static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field/s.";
 

@@ -69,7 +69,7 @@ public enum DetectorProfileName implements Name {
             case CommonName.AD_TASK:
                 return AD_TASK;
             default:
-                throw new IllegalArgumentException(CommonErrorMessages.NON_SUPPORTED_PROFILE_TYPE);
+                throw new IllegalArgumentException(CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
         }
     }
 

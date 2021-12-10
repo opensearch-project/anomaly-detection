@@ -89,6 +89,6 @@ public class DetectorProfileTests extends OpenSearchTestCase {
     public void testDetectorProfileName() throws IllegalArgumentException {
         DetectorProfileName.getName(CommonName.AD_TASK);
         IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> DetectorProfileName.getName("abc"));
-        assertEquals(exception.getMessage(), CommonErrorMessages.NON_SUPPORTED_PROFILE_TYPE);
+        assertEquals(exception.getMessage(), CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
     }
 }
