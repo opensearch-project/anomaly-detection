@@ -587,4 +587,16 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return detector;
     }
 
+    protected Response validateAnomalyDetector(AnomalyDetector detector, RestClient client) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(detector),
+                null
+            );
+    }
+
 }
