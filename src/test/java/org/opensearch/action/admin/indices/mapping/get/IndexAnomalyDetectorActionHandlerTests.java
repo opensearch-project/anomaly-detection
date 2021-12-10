@@ -714,30 +714,21 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         Feature featureOne = TestHelpers.randomFeature("featureName", "test-1");
         Feature featureTwo = TestHelpers.randomFeature("featureNameTwo", "test-1");
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableList.of(featureOne, featureTwo));
-        SearchResponse detectorResponse = mock(SearchResponse.class);
-        int totalHits = 9;
-        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
-
-        // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
-        // we can also use spy to overstep the final methods
-        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
-            @Override
-            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-                ActionType<Response> action,
-                Request request,
-                ActionListener<Response> listener
-            ) {
-                try {
-                    listener.onResponse((Response) detectorResponse);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
+        SearchResponse mockResponse = mock(SearchResponse.class);
+        when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(9));
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(args[0] instanceof SearchRequest);
+            assertTrue(args[1] instanceof ActionListener);
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            listener.onResponse(mockResponse);
+            return null;
+        }).when(clientMock).search(any(SearchRequest.class), any());
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
-            client,
+            clientMock,
             transportService,
             channel,
             anomalyDetectionIndices,
