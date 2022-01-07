@@ -392,7 +392,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Alice has AD full access, should be able to validate a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
         Response validateResponse = validateAnomalyDetector(aliceDetector, aliceClient);
-        Assert.assertNotNull("User alice validatedDetector", validateResponse);
+        Assert.assertNotNull("User alice validated detector successfully", validateResponse);
     }
 
     public void testValidateAnomalyDetectorWithNoADAccess() throws IOException {
@@ -407,7 +407,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Bob has AD read access, should still be able to validate a detector
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
         Response validateResponse = validateAnomalyDetector(detector, bobClient);
-        Assert.assertNotNull("User bob validatedDetector", validateResponse);
+        Assert.assertNotNull("User bob validated detector successfully", validateResponse);
     }
 
     public void testValidateAnomalyDetectorWithNoReadPermissionOfIndex() throws IOException {
