@@ -7,6 +7,7 @@ package org.opensearch.ad.model;
 
 import java.io.IOException;
 import java.time.Instant;
+
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
