@@ -31,6 +31,7 @@ import org.opensearch.common.UUIDs;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -108,11 +109,28 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
         response.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ADTaskProfileNodeResponse parsedResponse = ADTaskProfileNodeResponse.readNodeResponse(input);
-        // if (response.getAdTaskProfile() != null) {
-        // assertTrue(response.getAdTaskProfile().equals(parsedResponse.getAdTaskProfile()));
-        // } else {
-        // assertNull(parsedResponse.getAdTaskProfile());
-        // }
+        if (response.getAdTaskProfile() != null) {
+            assertTrue(response.getAdTaskProfile().equals(parsedResponse.getAdTaskProfile()));
+        } else {
+            assertNull(parsedResponse.getAdTaskProfile());
+        }
+    }
+
+    public void testADTaskProfileParse() throws IOException {
+        ADTaskProfile adTaskProfile = new ADTaskProfile(
+            randomAlphaOfLength(5),
+            randomInt(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            randomLong(),
+            randomAlphaOfLength(5)
+        );
+        String adTaskProfileString = TestHelpers
+            .xContentBuilderToString(adTaskProfile.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        ADTaskProfile parsedADTaskProfile = ADTaskProfile.parse(TestHelpers.parser(adTaskProfileString));
+        assertEquals(adTaskProfile, parsedADTaskProfile);
+        assertEquals(parsedADTaskProfile.toString(), adTaskProfile.toString());
     }
 
     @Ignore

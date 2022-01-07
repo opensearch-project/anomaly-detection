@@ -14,6 +14,7 @@ package org.opensearch.ad.model;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.util.Objects;
 
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -268,5 +269,39 @@ public class ADEntityTaskProfile implements ToXContentObject, Writeable {
 
     public void setAdTaskType(String adTaskType) {
         this.adTaskType = adTaskType;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        ADEntityTaskProfile that = (ADEntityTaskProfile) o;
+        return Objects.equals(shingleSize, that.shingleSize)
+            && Objects.equals(rcfTotalUpdates, that.rcfTotalUpdates)
+            && Objects.equals(thresholdModelTrained, that.thresholdModelTrained)
+            && Objects.equals(thresholdModelTrainingDataSize, that.thresholdModelTrainingDataSize)
+            && Objects.equals(modelSizeInBytes, that.modelSizeInBytes)
+            && Objects.equals(nodeId, that.nodeId)
+            && Objects.equals(taskId, that.taskId)
+            && Objects.equals(adTaskType, that.adTaskType)
+            && Objects.equals(entity, that.entity);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects
+            .hash(
+                shingleSize,
+                rcfTotalUpdates,
+                thresholdModelTrained,
+                thresholdModelTrainingDataSize,
+                modelSizeInBytes,
+                nodeId,
+                entity,
+                taskId,
+                adTaskType
+            );
     }
 }
