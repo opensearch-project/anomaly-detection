@@ -21,6 +21,7 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Feature;
+import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
@@ -83,6 +84,26 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         AggregatorFactories.Builder agg = ParseUtils
             .parseAggregators("{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}", TestHelpers.xContentRegistry(), "test");
         assertEquals("test", agg.getAggregatorFactories().iterator().next().getName());
+    }
+
+    public void testParseAggregatorsWithInvalidAggregationName() throws IOException {
+        XContentParser parser = ParseUtils.parser("{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}", TestHelpers.xContentRegistry());
+        Exception ex = expectThrows(ParsingException.class, () -> ParseUtils.parseAggregators(parser, 0, "#@?><:{"));
+        assertTrue(ex.getMessage().contains("Aggregation names must be alpha-numeric and can only contain '_' and '-'"));
+    }
+
+    public void testParseAggregatorsWithTwoAggregationTypes() throws IOException {
+        XContentParser parser = ParseUtils
+            .parser("{\"test\":{\"avg\":{\"field\":\"value\"},\"sum\":{\"field\":\"value\"}}}", TestHelpers.xContentRegistry());
+        Exception ex = expectThrows(ParsingException.class, () -> ParseUtils.parseAggregators(parser, 0, "test"));
+        assertTrue(ex.getMessage().contains("Found two aggregation type definitions in"));
+    }
+
+    public void testParseAggregatorsWithNullAggregationDefinition() throws IOException {
+        String aggName = "test";
+        XContentParser parser = ParseUtils.parser("{\"test\":{}}", TestHelpers.xContentRegistry());
+        Exception ex = expectThrows(ParsingException.class, () -> ParseUtils.parseAggregators(parser, 0, aggName));
+        assertTrue(ex.getMessage().contains("Missing definition for aggregation [" + aggName + "]"));
     }
 
     public void testParseAggregatorsWithAggregationQueryStringAndNullAggName() throws IOException {

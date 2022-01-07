@@ -1443,8 +1443,17 @@ public class TestHelpers {
         DetectorValidationIssue issue = new DetectorValidationIssue(
             ValidationAspect.DETECTOR,
             DetectorValidationIssueType.NAME,
+            randomAlphaOfLength(5)
+        );
+        return issue;
+    }
+
+    public static DetectorValidationIssue randomDetectorValidationIssueWithSubIssues(Map<String, String> subIssues) {
+        DetectorValidationIssue issue = new DetectorValidationIssue(
+            ValidationAspect.DETECTOR,
+            DetectorValidationIssueType.NAME,
             randomAlphaOfLength(5),
-            null,
+            subIssues,
             null
         );
         return issue;

@@ -13,6 +13,7 @@ package org.opensearch.ad.constant;
 
 import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
+import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.MAX_DETECTOR_NAME_SIZE;
 
 import java.util.Locale;
 
@@ -51,6 +52,7 @@ public class CommonErrorMessages {
     public static final String BUG_RESPONSE = "We might have bugs.";
     public static final String INDEX_NOT_FOUND = "index does not exist";
     public static final String NOT_EXISTENT_VALIDATION_TYPE = "The given validation type doesn't exist";
+    public static final String UNSUPPORTED_PROFILE_TYPE = "Unsupported profile types";
 
     private static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field/s.";
 
@@ -73,8 +75,10 @@ public class CommonErrorMessages {
     public static String HISTORICAL_ANALYSIS_CANCELLED = "Historical analysis cancelled by user";
     public static String HC_DETECTOR_TASK_IS_UPDATING = "HC detector task is updating";
     public static String NEGATIVE_TIME_CONFIGURATION = "should be non-negative";
+    public static String INVALID_TIME_CONFIGURATION_UNITS = "Time unit %s is not supported";
     public static String INVALID_DETECTOR_NAME =
         "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
+    public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Detector has duplicate feature aggregation query names: ";
 
     public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
     public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";
@@ -96,4 +100,7 @@ public class CommonErrorMessages {
     public static String INVALID_CHAR_IN_RESULT_INDEX_NAME =
         "Result index name has invalid character. Valid characters are a-z, 0-9, -(hyphen) and _(underscore)";
     public static String INVALID_RESULT_INDEX_MAPPING = "Result index mapping is not correct for index: ";
+    public static String INVALID_DETECTOR_NAME_SIZE = "Name should be shortened. The maximum limit is "
+        + MAX_DETECTOR_NAME_SIZE
+        + " characters.";
 }
