@@ -121,7 +121,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
     @SuppressWarnings("unchecked")
     public void testValidateMoreThanThousandSingleEntityDetectorLimit() throws IOException {
         SearchResponse mockResponse = mock(SearchResponse.class);
-        int totalHits = 1001;
+        int totalHits = maxSingleEntityAnomalyDetectors + 1;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -152,7 +152,6 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             searchFeatureDao,
             ValidationAspect.DETECTOR.getName()
         );
-
         handler.start();
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
@@ -172,7 +171,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
     public void testValidateMoreThanTenMultiEntityDetectorsLimit() throws IOException {
         SearchResponse mockResponse = mock(SearchResponse.class);
 
-        int totalHits = 11;
+        int totalHits = maxMultiEntityAnomalyDetectors + 1;
 
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
@@ -204,7 +203,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             xContentRegistry(),
             null,
             searchFeatureDao,
-            ValidationAspect.DETECTOR.getName()
+            ""
         );
         handler.start();
 

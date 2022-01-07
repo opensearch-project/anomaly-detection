@@ -27,6 +27,7 @@ import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.common.Strings;
@@ -151,7 +152,7 @@ public final class RestHandlerUtils {
             errorMsgBuilder.append(". ");
         }
         if (duplicateFeatureAggNames.size() > 0) {
-            errorMsgBuilder.append("Detector has duplicate feature aggregation query names: ");
+            errorMsgBuilder.append(CommonErrorMessages.DUPLICATE_FEATURE_AGGREGATION_NAMES);
             errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
         }
         return errorMsgBuilder.toString();

@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.opensearch.ad.Name;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 
 public enum DetectorProfileName implements Name {
@@ -68,7 +69,7 @@ public enum DetectorProfileName implements Name {
             case CommonName.AD_TASK:
                 return AD_TASK;
             default:
-                throw new IllegalArgumentException("Unsupported profile types");
+                throw new IllegalArgumentException(CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
         }
     }
 

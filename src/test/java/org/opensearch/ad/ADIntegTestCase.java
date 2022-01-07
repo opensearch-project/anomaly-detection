@@ -136,6 +136,10 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         createIndex(CommonName.ANOMALY_RESULT_INDEX_ALIAS, AnomalyDetectionIndices.getAnomalyResultMappings());
     }
 
+    public void createCustomADResultIndex(String indexName) throws IOException {
+        createIndex(indexName, AnomalyDetectionIndices.getAnomalyResultMappings());
+    }
+
     public void createDetectionStateIndex() throws IOException {
         createIndex(CommonName.DETECTION_STATE_INDEX, AnomalyDetectionIndices.getDetectionStateMappings());
     }

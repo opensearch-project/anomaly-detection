@@ -46,7 +46,7 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
             );
         }
         if (!SUPPORTED_UNITS.contains(unit)) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Timezone %s is not supported", unit));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, unit));
         }
         this.interval = interval;
         this.unit = unit;
