@@ -70,7 +70,6 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             new TimeValue(5_000L)
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
-        System.out.println("response: " + response.getIssue());
         assertNotNull(response.getIssue());
         assertEquals(DetectorValidationIssueType.INDICES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
