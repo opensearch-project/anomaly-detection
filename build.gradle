@@ -590,6 +590,7 @@ dependencies {
     // used for serializing/deserializing rcf models.
     compile group: 'io.protostuff', name: 'protostuff-core', version: '1.7.4'
     compile group: 'io.protostuff', name: 'protostuff-runtime', version: '1.7.4'
+    compileOnly group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
 
     compile "org.jacoco:org.jacoco.agent:0.8.5"
     compile ("org.jacoco:org.jacoco.ant:0.8.5") {
@@ -607,7 +608,6 @@ dependencies {
     testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.7'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
-    testImplementation group: 'org.javassist', name: 'javassist', version: '3.27.0-GA'
     testCompile group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
     testCompile group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
