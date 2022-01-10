@@ -50,6 +50,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient fishClient;
     String goatUser = "goat";
     RestClient goatClient;
+    String lionUser = "lion";
+    RestClient lionClient;
     private String indexAllAccessRole = "index_all_access";
     private String indexSearchAccessRole = "index_all_search";
 
@@ -94,9 +96,14 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             .setSocketTimeout(60000)
             .build();
 
+        createUser(lionUser, lionUser, new ArrayList<>(Arrays.asList("opensearch")));
+        lionClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), lionUser, lionUser)
+            .setSocketTimeout(60000)
+            .build();
+
         createRoleMapping("anomaly_read_access", new ArrayList<>(Arrays.asList(bobUser)));
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
-        createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser)));
+        createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
     }
 
@@ -109,6 +116,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         elkClient.close();
         fishClient.close();
         goatClient.close();
+        lionClient.close();
         deleteUser(aliceUser);
         deleteUser(bobUser);
         deleteUser(catUser);
@@ -116,6 +124,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         deleteUser(elkUser);
         deleteUser(fishUser);
         deleteUser(goatUser);
+        deleteUser(lionUser);
     }
 
     public void testCreateAnomalyDetectorWithWriteAccess() throws IOException {
@@ -377,5 +386,47 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             () -> { previewAnomalyDetector(aliceDetector.getDetectorId(), elkClient, input); }
         );
         Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:data/read/search]"));
+    }
+
+    public void testValidateAnomalyDetectorWithWriteAccess() throws IOException {
+        // User Alice has AD full access, should be able to validate a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        Response validateResponse = validateAnomalyDetector(aliceDetector, aliceClient);
+        Assert.assertNotNull("User alice validated detector successfully", validateResponse);
+    }
+
+    public void testValidateAnomalyDetectorWithNoADAccess() throws IOException {
+        // User Lion has no AD access at all, should not be able to validate a detector
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
+        Exception exception = expectThrows(IOException.class, () -> { validateAnomalyDetector(detector, lionClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/validate]"));
+
+    }
+
+    public void testValidateAnomalyDetectorWithReadAccess() throws IOException {
+        // User Bob has AD read access, should still be able to validate a detector
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
+        Response validateResponse = validateAnomalyDetector(detector, bobClient);
+        Assert.assertNotNull("User bob validated detector successfully", validateResponse);
+    }
+
+    public void testValidateAnomalyDetectorWithNoReadPermissionOfIndex() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
+        enableFilterBy();
+        // User elk has no read permission of index, can't validate detector
+        Exception exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, elkClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:data/read/search]"));
+    }
+
+    public void testValidateAnomalyDetectorWithNoBackendRole() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
+        enableFilterBy();
+        // User Dog has AD full access, but has no backend role
+        // When filter by is enabled, we block validating Detectors
+        Exception exception = expectThrows(IOException.class, () -> { validateAnomalyDetector(detector, dogClient); });
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")
+            );
     }
 }
