@@ -9,3 +9,4 @@ Compatible with OpenSearch 1.2.4
 ### Bug Fixes
 
 * fix missing commons-lang3;update job scheduler plugin zip ([#364](https://github.com/opensearch-project/anomaly-detection/pull/364))
+* remove jcenter dependency ([#361](https://github.com/opensearch-project/anomaly-detection/pull/361))
