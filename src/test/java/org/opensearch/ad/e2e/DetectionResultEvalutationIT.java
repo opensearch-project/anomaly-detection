@@ -57,7 +57,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
             disableResourceNotFoundFaultTolerence();
-            verifyAnomaly("synthetic", 1, 1500, 8, .5, .9, 10);
+            verifyAnomaly("synthetic", 1, 1500, 8, .4, .9, 10);
         }
     }
 
