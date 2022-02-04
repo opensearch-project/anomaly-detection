@@ -102,7 +102,7 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
-        force "com.fasterxml.jackson.core:jackson-core:2.11.4"
+        force "com.fasterxml.jackson.core:jackson-core:2.12.6"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
@@ -112,7 +112,7 @@ configurations.all {
         force "net.bytebuddy:byte-buddy:1.9.15"
         force "net.bytebuddy:byte-buddy-agent:1.9.15"
         force "com.google.code.gson:gson:2.8.9"
-        force "junit:junit:4.12"
+        force "junit:junit:4.13.2"
     }
 }
 
@@ -565,7 +565,7 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     compile "org.opensearch:common-utils:${common_utils_version}"
     compile "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
+    compile group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
     compile group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
@@ -575,9 +575,9 @@ dependencies {
 
     // force Jackson version to avoid version conflict issue
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
-    implementation "com.fasterxml.jackson.core:jackson-core:2.11.4"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.11.4"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.11.4"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.12.6"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.12.6"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.12.6"
     compile files('lib/randomcutforest-parkservices-2.0.1.jar')
     compile files('lib/randomcutforest-core-2.0.1.jar')
 
@@ -609,7 +609,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
-    testCompileOnly 'junit:junit:4.12'
+    testCompileOnly 'junit:junit:4.13.2'
 }
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
