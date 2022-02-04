@@ -109,7 +109,6 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     @SuppressWarnings("unchecked")
     private List<String> startHistoricalAnalysis(int categoryFieldSize, String resultIndex) throws Exception {
         AnomalyDetector detector = createAnomalyDetector(categoryFieldSize, resultIndex);
-        Thread.sleep(2500); // sleep some time before starting historical analysis to avoid flaky test
         String detectorId = detector.getDetectorId();
 
         // start historical detector
