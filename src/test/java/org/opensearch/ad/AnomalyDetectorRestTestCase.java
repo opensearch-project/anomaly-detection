@@ -150,6 +150,11 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             }
         } while (i < MAX_RETRY_TIMES);
         assertNotNull("Can't get anomaly detector from index", detectorInIndex);
+        try {
+            Thread.sleep(2500);
+        } catch (InterruptedException ex) {
+            logger.error("Failed to sleep after creating detector", ex);
+        }
         return detectorInIndex;
     }
 

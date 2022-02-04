@@ -282,7 +282,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-        Thread.sleep(2000);
 
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -368,7 +367,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null
         );
 
-        Thread.sleep(2000); // sleep some time before updating to avoid flaky test
         TestHelpers
             .makeRequest(
                 client(),
@@ -690,7 +688,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-        Thread.sleep(2000); // sleep some time before deleting to avoid flaky test
         Response response = TestHelpers
             .makeRequest(
                 client(),
@@ -721,7 +718,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testDeleteAnomalyDetectorWithNoAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-        Thread.sleep(2500); // sleep some time before starting detector to avoid flaky testtestStopNonExistingAdJob
         Response response = TestHelpers
             .makeRequest(
                 client(),
@@ -736,7 +732,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testDeleteAnomalyDetectorWithRunningAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-        Thread.sleep(2500); // sleep some time before starting detector to avoid flaky test
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -767,7 +762,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testUpdateAnomalyDetectorWithRunningAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-        Thread.sleep(2500); // sleep some time before starting detector to avoid flaky test
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -820,7 +814,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testGetDetectorWithAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-        Thread.sleep(2500); // sleep some time before starting detector to avoid flaky test
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -863,8 +856,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-        // sometimes it fails to start detector as it's not able to find detector yet, sleep 2 seconds
-        Thread.sleep(2000);
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -1000,8 +991,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStopNonExistingAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-        // sometimes it fails to start detector as not able to find detector, sleep 2 seconds
-        Thread.sleep(2000);
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -1124,16 +1113,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testAllProfileAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
-        // sometimes it fails to get detector as not able to find detector after creation, sleep 2 seconds
-        Thread.sleep(2000);
         Response profileResponse = getDetectorProfile(detector.getDetectorId(), true);
         assertEquals("Incorrect profile status", RestStatus.OK, TestHelpers.restStatus(profileResponse));
     }
 
     public void testCustomizedProfileAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
-        // sometimes it fails to get detector as not able to find detector after creation, sleep 2 seconds
-        Thread.sleep(2000);
         Response profileResponse = getDetectorProfile(detector.getDetectorId(), true, "/models/", client());
         assertEquals("Incorrect profile status", RestStatus.OK, TestHelpers.restStatus(profileResponse));
     }
