@@ -721,6 +721,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testDeleteAnomalyDetectorWithNoAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
+        Thread.sleep(2500); // sleep some time before starting detector to avoid flaky testtestStopNonExistingAdJob
         Response response = TestHelpers
             .makeRequest(
                 client(),
@@ -766,7 +767,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testUpdateAnomalyDetectorWithRunningAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-
+        Thread.sleep(2500); // sleep some time before starting detector to avoid flaky test
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -817,9 +818,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    public void testGetDetectorWithAdJob() throws IOException {
+    public void testGetDetectorWithAdJob() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-
+        Thread.sleep(2500); // sleep some time before starting detector to avoid flaky test
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
