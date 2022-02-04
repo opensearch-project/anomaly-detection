@@ -1760,7 +1760,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Ingest some sample results
-        //deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         if (!indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
             TestHelpers.createEmptyAnomalyResultIndex(adminClient());
         }
