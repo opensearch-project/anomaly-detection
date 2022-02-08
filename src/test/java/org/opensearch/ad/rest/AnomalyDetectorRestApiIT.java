@@ -1681,8 +1681,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Delete any existing result index
-        if (indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            deleteIndex(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        if (indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         }
         Response response = searchTopAnomalyResults(
             detector.getDetectorId(),
@@ -1720,10 +1720,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Clear any existing result index, create an empty one
-        if (indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            deleteIndex(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        if (indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         }
-        TestHelpers.createEmptyAnomalyResultIndex(client());
+        TestHelpers.createEmptyAnomalyResultIndex(adminClient());
         Response response = searchTopAnomalyResults(
             detector.getDetectorId(),
             false,
@@ -1760,8 +1760,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Ingest some sample results
-        if (!indexExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            TestHelpers.createEmptyAnomalyResultIndex(client());
+        if (!indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            TestHelpers.createEmptyAnomalyResultIndex(adminClient());
         }
         Map<String, Object> entityAttrs1 = new HashMap<String, Object>() {
             {
@@ -1788,9 +1788,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyResult anomalyResult3 = TestHelpers
             .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs3, 0.5, 0.2, null, 5L, 5L);
 
-        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult1));
-        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult2));
-        TestHelpers.ingestDataToIndex(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult3));
+        TestHelpers.ingestDataToIndex(adminClient(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult1));
+        TestHelpers.ingestDataToIndex(adminClient(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult2));
+        TestHelpers.ingestDataToIndex(adminClient(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult3));
 
         // Sorting by severity
         Response severityResponse = searchTopAnomalyResults(
