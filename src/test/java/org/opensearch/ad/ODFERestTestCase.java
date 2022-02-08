@@ -51,6 +51,7 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 /**
@@ -90,9 +91,19 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             .build();
     }
 
+    // Utility fn for deleting indices. Should only be used when not allowed in a regular context
+    // (e.g., deleting system indices)
     protected static void deleteIndexWithAdminClient(String name) throws IOException {
         Request request = new Request("DELETE", "/" + name);
         adminClient().performRequest(request);
+    }
+
+    // Utility fn for checking if an index exists. Should only be used when not allowed in a regular context
+    // (e.g., checking existence of system indices)
+    protected static boolean indexExistsWithAdminClient(String indexName) throws IOException {
+        Request request = new Request("HEAD", "/" + indexName);
+        Response response = adminClient().performRequest(request);
+        return RestStatus.OK.getStatus() == response.getStatusLine().getStatusCode();
     }
 
     @Override
