@@ -150,6 +150,14 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             }
         } while (i < MAX_RETRY_TIMES);
         assertNotNull("Can't get anomaly detector from index", detectorInIndex);
+        // Adding additional sleep time in order to have more time between AD Creation and whichever
+        // step comes next in terms of accessing/update/deleting the detector, this will help avoid
+        // lots of flaky tests
+        try {
+            Thread.sleep(2500);
+        } catch (InterruptedException ex) {
+            logger.error("Failed to sleep after creating detector", ex);
+        }
         return detectorInIndex;
     }
 

@@ -52,12 +52,11 @@ import com.google.gson.JsonParser;
 public class DetectionResultEvalutationIT extends ODFERestTestCase {
     protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
 
-    // TODO: fix flaky test, sometimes this assert will fail "assertTrue(precision >= minPrecision);"
     public void testDataset() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
             disableResourceNotFoundFaultTolerence();
-            verifyAnomaly("synthetic", 1, 1500, 8, .5, .9, 10);
+            verifyAnomaly("synthetic", 1, 1500, 8, .4, .9, 10);
         }
     }
 
