@@ -68,6 +68,7 @@ apply plugin: 'eclipse'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    customDistributionUrl = System.getProperty("customDistributionUrl")
 }
 
 allprojects {
