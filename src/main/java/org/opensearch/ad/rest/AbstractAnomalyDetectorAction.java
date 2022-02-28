@@ -11,12 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DETECTION_INTERVAL;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DETECTION_WINDOW_DELAY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.*;
 
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -39,6 +34,7 @@ public abstract class AbstractAnomalyDetectorAction extends BaseRestHandler {
         this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
         this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings);
         this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
+        // this.trainSampleTimeRangeInHours = TRAIN_SAMPLE_TIME_RANGE_IN_HOURS.get(settings);
         // TODO: will add more cluster setting consumer later
         // TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);

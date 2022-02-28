@@ -21,14 +21,17 @@ import static org.opensearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalid
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
@@ -60,9 +63,11 @@ import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.MergeableList;
 import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
@@ -81,6 +86,8 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.transport.TransportService;
+
+import com.google.common.collect.Sets;
 
 /**
  * Abstract Anomaly detector REST action handler to process POST/PUT request.
@@ -102,6 +109,9 @@ import org.opensearch.transport.TransportService;
  *  <p>This means that if the AD index doesn't exist at the time request is received it wont be created.
  *  Furthermore, this means that the AD won't actually be created and all exceptions will be wrapped into
  *  DetectorValidationResponses hence the user will be notified which validation checks didn't pass.</p>
+ *  <p>After completing all the first round of validation which is identical to the checks that are done for the
+ *  create/update APIs, this code will check if the validation type is 'model' and if true it will
+ *  instantiate the <code>ModelValidationActionHandler</code> class and run the non-blocker validation logic</p>
  *  </ul>
  */
 public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionResponse> {
@@ -113,15 +123,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "A categorical field must be of type keyword or ip.";
     public static final String CATEGORY_NOT_FOUND_ERR_MSG = "Can't find the categorical field %s";
     public static final String DUPLICATE_DETECTOR_MSG = "Cannot create anomaly detector with name [%s] as it's already used by detector %s";
-    // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
-    public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";
-    public static final String FEATURE_WITH_EMPTY_DATA_MSG = FEATURE_INVALID_MSG_PREFIX + " returning empty aggregated data: ";
-    public static final String FEATURE_WITH_INVALID_QUERY_MSG = FEATURE_INVALID_MSG_PREFIX + " causing a runtime exception: ";
-    public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
-        "Feature has an unknown exception caught while executing the feature query: ";
-    public static final String VALIDATION_FEATURE_FAILURE = "Validation failed for feature(s) of detector %s";
     public static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
     public static final Integer MAX_DETECTOR_NAME_SIZE = 64;
+    private static final Set<ValidationAspect> DEFAULT_VALIDATION_ASPECTS = Sets.newHashSet(ValidationAspect.DETECTOR);
 
     protected final AnomalyDetectionIndices anomalyDetectionIndices;
     protected final String detectorId;
@@ -146,6 +150,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     protected final ADTaskManager adTaskManager;
     protected final SearchFeatureDao searchFeatureDao;
     protected final boolean isDryRun;
+    protected final Clock clock;
+    protected final String validationType;
 
     /**
      * Constructor function.
@@ -153,7 +159,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
      * @param transportService        ES transport service
-     * @param listener                 ES channel used to construct bytes / builder based outputs, and send responses
+     * @param listener                ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
      * @param detectorId              detector identifier
      * @param seqNo                   sequence number of last modification
@@ -169,7 +175,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      * @param user                    User context
      * @param adTaskManager           AD Task manager
      * @param searchFeatureDao        Search feature dao
-     * @param isDryRun                 Whether handler is dryrun or not
+     * @param isDryRun                Whether handler is dryrun or not
+     * @param validationType          Whether validation is for detector or model
+     * @param clock                   clock object to know when to timeout
      */
     public AbstractAnomalyDetectorActionHandler(
         ClusterService clusterService,
@@ -191,7 +199,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         User user,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao,
-        boolean isDryRun
+        String validationType,
+        boolean isDryRun,
+        Clock clock
     ) {
         this.clusterService = clusterService;
         this.client = client;
@@ -212,7 +222,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         this.user = user;
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;
+        this.validationType = validationType;
         this.isDryRun = isDryRun;
+        this.clock = clock;
     }
 
     /**
@@ -310,7 +322,71 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 );
             return;
         }
-        prepareAnomalyDetectorIndexing(indexingDryRun);
+        validateTimeField(indexingDryRun);
+    }
+
+    protected void validateTimeField(boolean indexingDryRun) {
+        GetFieldMappingsRequest getMappingsRequest = new GetFieldMappingsRequest();
+        getMappingsRequest.indices(anomalyDetector.getIndices().toArray(new String[0])).fields(anomalyDetector.getTimeField());
+        getMappingsRequest.indicesOptions(IndicesOptions.strictExpand());
+
+        // comments explaining fieldMappingResponse parsing can be found inside following method:
+        // AbstractAnomalyDetectorActionHandler.validateCategoricalField(String, boolean)
+        ActionListener<GetFieldMappingsResponse> mappingsListener = ActionListener.wrap(getMappingsResponse -> {
+            boolean foundField = false;
+            Map<String, Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse
+                .mappings();
+
+            for (Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByType : mappingsByIndex.values()) {
+                for (Map<String, GetFieldMappingsResponse.FieldMappingMetadata> mappingsByField : mappingsByType.values()) {
+                    for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
+
+                        GetFieldMappingsResponse.FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
+                        if (fieldMetadata != null) {
+                            // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
+                            Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
+                            if (fieldMap != null) {
+                                for (Object type : fieldMap.values()) {
+                                    if (type instanceof Map) {
+                                        foundField = true;
+                                        Map<String, Object> metadataMap = (Map<String, Object>) type;
+                                        String typeName = (String) metadataMap.get(CommonName.TYPE);
+                                        if (!typeName.equals(CommonName.DATE)) {
+                                            listener
+                                                .onFailure(
+                                                    new ADValidationException(
+                                                        CommonErrorMessages.INVALID_TIMESTAMP,
+                                                        DetectorValidationIssueType.TIMEFIELD_FIELD,
+                                                        ValidationAspect.DETECTOR
+                                                    )
+                                                );
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!foundField) {
+                listener
+                    .onFailure(
+                        new ADValidationException(
+                            CommonErrorMessages.NON_EXISTENT_TIMESTAMP,
+                            DetectorValidationIssueType.TIMEFIELD_FIELD,
+                            ValidationAspect.DETECTOR
+                        )
+                    );
+                return;
+            }
+            prepareAnomalyDetectorIndexing(indexingDryRun);
+        }, error -> {
+            String message = String.format(Locale.ROOT, "Fail to get the index mapping of %s", anomalyDetector.getIndices());
+            logger.error(message, error);
+            listener.onFailure(new IllegalArgumentException(message));
+        });
+        client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
     }
 
     /**
@@ -676,8 +752,37 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         if (!indexingDryRun) {
             indexAnomalyDetector(detectorId);
         } else {
-            logger.info("Skipping indexing detector. No issue found so far.");
+            finishDetectorValidationOrContinueToModelValidation();
+        }
+    }
+
+    protected Set<ValidationAspect> getValidationTypes(String validationType) {
+        if (StringUtils.isBlank(validationType)) {
+            return DEFAULT_VALIDATION_ASPECTS;
+        } else {
+            Set<String> typesInRequest = new HashSet<>(Arrays.asList(validationType.split(",")));
+            return ValidationAspect
+                .getNames(Sets.intersection(RestValidateAnomalyDetectorAction.ALL_VALIDATION_ASPECTS_STRS, typesInRequest));
+        }
+    }
+
+    protected void finishDetectorValidationOrContinueToModelValidation() {
+        logger.info("Skipping indexing detector. No blocking issue found so far.");
+        if (!getValidationTypes(validationType).contains(ValidationAspect.MODEL)) {
             listener.onResponse(null);
+        } else {
+            ModelValidationActionHandler modelValidationActionHandler = new ModelValidationActionHandler(
+                clusterService,
+                client,
+                (ActionListener<ValidateAnomalyDetectorResponse>) listener,
+                anomalyDetector,
+                requestTimeout,
+                xContentRegistry,
+                searchFeatureDao,
+                validationType,
+                clock
+            );
+            modelValidationActionHandler.checkIfMultiEntityDetector();
         }
     }
 
@@ -816,7 +921,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
                 validateFeatureQueriesListener,
                 anomalyDetector.getFeatureAttributes().size(),
-                String.format(Locale.ROOT, VALIDATION_FEATURE_FAILURE, anomalyDetector.getName()),
+                String.format(Locale.ROOT, CommonErrorMessages.VALIDATION_FEATURE_FAILURE, anomalyDetector.getName()),
                 false
             );
 
@@ -837,18 +942,17 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                             new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
                         );
                 } else {
-                    String errorMessage = FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
+                    String errorMessage = CommonErrorMessages.FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
                     logger.error(errorMessage);
                     multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
                 }
             }, e -> {
                 String errorMessage;
                 if (isExceptionCausedByInvalidQuery(e)) {
-                    errorMessage = FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
+                    errorMessage = CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
                 } else {
-                    errorMessage = UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
+                    errorMessage = CommonErrorMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
                 }
-
                 logger.error(errorMessage, e);
                 multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
             }));

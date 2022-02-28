@@ -79,6 +79,8 @@ public class CommonErrorMessages {
     public static String INVALID_DETECTOR_NAME =
         "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
     public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Detector has duplicate feature aggregation query names: ";
+    public static String INVALID_TIMESTAMP = "Timestamp must be of type date";
+    public static String NON_EXISTENT_TIMESTAMP = "Timestamp not found in index mapping";
 
     public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
     public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";
@@ -103,4 +105,22 @@ public class CommonErrorMessages {
     public static String INVALID_DETECTOR_NAME_SIZE = "Name should be shortened. The maximum limit is "
         + MAX_DETECTOR_NAME_SIZE
         + " characters.";
+
+    public static String WINDOW_DELAY_REC = "We suggest using a window delay value of at least: ";
+    public static String NOT_ENOUGH_HISTORICAL_DATA = "There isn't enough historical data found with current configurations";
+    public static String DETECTOR_INTERVAL_REC = "We suggest using a detector interval of : ";
+    public static String RAW_DATA_TOO_SPARSE = "Given index data is potentially too sparse for model training.";
+    public static String MODEL_VALIDATION_FAILED_UNEXPECTEDLY = "Model validation experienced issues completing.";
+    public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied.";
+    public static String CATEGORY_FIELD_TOO_SPARSE = "Data is most likely too sparse with the given category fields";
+    public static String FEATURE_QUERY_TOO_SPARSE = "Given data is most likely too sparse when given feature query is applied: ";
+
+    // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
+    public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";
+    public static final String FEATURE_WITH_EMPTY_DATA_MSG = FEATURE_INVALID_MSG_PREFIX + " returning empty aggregated data: ";
+    public static final String FEATURE_WITH_INVALID_QUERY_MSG = FEATURE_INVALID_MSG_PREFIX + " causing a runtime exception: ";
+    public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
+        "Feature has an unknown exception caught while executing the feature query: ";
+    public static final String VALIDATION_FEATURE_FAILURE = "Validation failed for feature(s) of detector %s";
+
 }

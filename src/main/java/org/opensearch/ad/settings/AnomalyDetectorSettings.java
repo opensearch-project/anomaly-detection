@@ -789,4 +789,13 @@ public final class AnomalyDetectorSettings {
     // Cold start setting
     // ======================================
     public static int MAX_COLD_START_ROUNDS = 2;
+
+    // ======================================
+    // Validate Detector API setting
+    // ======================================
+    public static final long TOP_VALIDATE_TIMEOUT_IN_MILLIS = 60_000;
+    public static final long MAX_INTERVAL_REC_LENGTH_IN_MINUTES = 120L;
+    public static final double INTERVAL_RECOMMENDATION_MULTIPLIER = 1.2;
+    public static final double INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE = 0.75;
+    public static final double CONFIG_BUCKET_MINIMUM_SUCCESS_RATE = 0.25;
 }
