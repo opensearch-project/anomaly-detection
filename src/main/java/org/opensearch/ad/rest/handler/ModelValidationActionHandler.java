@@ -134,11 +134,11 @@ public class ModelValidationActionHandler {
     }
 
     // Need to first check if multi entity detector or not before doing any sort of validation.
-    // If detector is HCAD then we will find the top entity and treat that single entity for
+    // If detector is HCAD then we will find the top entity and treat as single entity for
     // validation purposes
     public void checkIfMultiEntityDetector() {
         ActionListener<Map<String, Object>> recommendationListener = ActionListener
-            .wrap(topEntity -> startIntervalRecommendation(topEntity), exception -> {
+            .wrap(topEntity -> getLatestDateForValidation(topEntity), exception -> {
                 listener.onFailure(exception);
                 logger.error("Failed to get top entity for categorical field", exception);
             });
@@ -149,8 +149,11 @@ public class ModelValidationActionHandler {
         }
     }
 
+    // For single category HCAD, this method uses bucket aggregation and sort to get the category field
+    // that have the highest document count in order to use that top entity for further validation
+    // For multi-category HCADs we use a composite aggregation to find the top fields for the entity
+    // with the highest doc count.
     private void getTopEntity(ActionListener<Map<String, Object>> topEntityListener) {
-        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         AggregationBuilder bucketAggs;
         Map<String, Object> topKeys = new HashMap<>();
         if (anomalyDetector.getCategoryField().size() == 1) {
@@ -159,7 +162,6 @@ public class ModelValidationActionHandler {
                 .field(anomalyDetector.getCategoryField().get(0))
                 .order(BucketOrder.count(true));
         } else {
-
             bucketAggs = AggregationBuilders
                 .composite(
                     AGG_NAME_TOP,
@@ -177,11 +179,7 @@ public class ModelValidationActionHandler {
                 );
         }
 
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .query(boolQueryBuilder)
-            .aggregation(bucketAggs)
-            .trackTotalHits(false)
-            .size(0);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(bucketAggs).trackTotalHits(false).size(0);
         SearchRequest searchRequest = new SearchRequest()
             .indices(anomalyDetector.getIndices().toArray(new String[0]))
             .source(searchSourceBuilder);
@@ -211,12 +209,14 @@ public class ModelValidationActionHandler {
                             .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()))
                     );
             }
+            for (Map.Entry<String, Object> entry : topKeys.entrySet()) {
+                if (entry.getValue() == null) {
+                    topEntityListener.onResponse(Collections.emptyMap());
+                    return;
+                }
+            }
             topEntityListener.onResponse(topKeys);
         }, topEntityListener::onFailure));
-    }
-
-    private void startIntervalRecommendation(Map<String, Object> topEntity) {
-        getLatestDateForValidation(topEntity);
     }
 
     private void getLatestDateForValidation(Map<String, Object> topEntity) {
@@ -224,7 +224,6 @@ public class ModelValidationActionHandler {
             .wrap(latest -> getSampleRangesForValidationChecks(latest, anomalyDetector, listener, topEntity), exception -> {
                 listener.onFailure(exception);
                 logger.error("Failed to create search request for last data point", exception);
-                return;
             });
         searchFeatureDao.getLatestDataTime(anomalyDetector, latestTimeListener);
     }
@@ -261,7 +260,6 @@ public class ModelValidationActionHandler {
             getBucketAggregates(timeRangeEnd, listener, topEntity);
         } catch (IOException e) {
             listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
-            return;
         }
     }
 
@@ -274,6 +272,17 @@ public class ModelValidationActionHandler {
         AggregationBuilder aggregation = getBucketAggregation(latestTime);
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         if (anomalyDetector.isMultientityDetector()) {
+            if (topEntity.isEmpty()) {
+                listener
+                    .onFailure(
+                        new ADValidationException(
+                            CommonErrorMessages.CATEGORY_FIELD_NO_DATA,
+                            DetectorValidationIssueType.CATEGORY,
+                            ValidationAspect.MODEL
+                        )
+                    );
+                return;
+            }
             for (Map.Entry<String, Object> entry : topEntity.entrySet()) {
                 query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
             }
@@ -296,7 +305,6 @@ public class ModelValidationActionHandler {
             .wrap(interval -> processIntervalRecommendation(interval, latestTime), exception -> {
                 listener.onFailure(exception);
                 logger.error("Failed to get interval recommendation", exception);
-                return;
             });
         client
             .search(
@@ -323,13 +331,9 @@ public class ModelValidationActionHandler {
     }
 
     /**
-     * ActionListener class to handle bucketed search results in a paginated fashion.
-     * Note that the bucket_sort aggregation is a pipeline aggregation, and is executed
-     * after all non-pipeline aggregations (including the composite bucket aggregation).
-     * Because of this, the sorting is only done locally based on the buckets
-     * in the current page. To get around this issue, we use a max
-     * heap and add all results to the heap until there are no more result buckets,
-     * to get the globally sorted set of result buckets.
+     * ActionListener class to handle execution of multiple bucket aggregations one after the other
+     * Bucket aggregation with different interval lengths are executed one by one to check if the data is dense enough
+     * We only need to execute the next query if the previous one led to data that is too sparse.
      */
     class DetectorIntervalRecommendationListener implements ActionListener<SearchResponse> {
         private final ActionListener<IntervalTimeConfiguration> intervalListener;
@@ -408,7 +412,6 @@ public class ModelValidationActionHandler {
                     // which further means the next step is to go through A/B validation checks
                 } else {
                     intervalListener.onResponse(null);
-                    return;
                 }
 
             } catch (Exception e) {
@@ -604,7 +607,6 @@ public class ModelValidationActionHandler {
                         ValidationAspect.MODEL
                     )
                 );
-            return;
         } else {
             try {
                 checkFeatureQuery(latestTime);
