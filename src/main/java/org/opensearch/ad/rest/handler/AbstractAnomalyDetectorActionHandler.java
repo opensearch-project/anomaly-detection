@@ -351,10 +351,6 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                                     if (type instanceof Map) {
                                         foundField = true;
                                         Map<String, Object> metadataMap = (Map<String, Object>) type;
-                                        System.out.println("metadata");
-                                        for (Map.Entry<String, Object> entry : metadataMap.entrySet()) {
-                                            System.out.println(entry.getKey() + ":" + entry.getValue().toString());
-                                        }
                                         String typeName = (String) metadataMap.get(CommonName.TYPE);
                                         if (!typeName.equals(CommonName.DATE_TYPE)) {
                                             listener
