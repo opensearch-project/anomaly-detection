@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -126,7 +125,6 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    @Ignore
     public void testValidateMoreThanThousandSingleEntityDetectorLimit() throws IOException {
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = maxSingleEntityAnomalyDetectors + 1;
@@ -177,7 +175,6 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    @Ignore
     public void testValidateMoreThanTenMultiEntityDetectorsLimit() throws IOException {
         SearchResponse mockResponse = mock(SearchResponse.class);
 

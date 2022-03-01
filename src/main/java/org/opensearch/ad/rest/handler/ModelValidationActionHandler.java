@@ -7,10 +7,9 @@ package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CONFIG_BUCKET_MINIMUM_SUCCESS_RATE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.INTERVAL_RECOMMENDATION_MULTIPLIER;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_INTERVAL_REC_LENGTH_IN_MINUTES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.TOP_VALIDATE_TIMEOUT_IN_MILLIS;
-import static org.opensearch.ad.util.ParseUtils.parseAggregators;
-import static org.opensearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -57,11 +55,9 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
-import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
@@ -86,6 +82,7 @@ import org.opensearch.search.sort.SortOrder;
 // TODO: potentially change where this is located
 public class ModelValidationActionHandler {
     protected static final String AGG_NAME_TOP = "top_agg";
+    protected static final String AGGREGATION = "agg";
     protected final AnomalyDetector anomalyDetector;
     protected final ClusterService clusterService;
     protected final Logger logger = LogManager.getLogger(AbstractAnomalyDetectorActionHandler.class);
@@ -234,22 +231,12 @@ public class ModelValidationActionHandler {
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         Map<String, Object> topEntity
     ) {
-        if (!latestTime.isPresent()) {
+        if (!latestTime.isPresent() || latestTime.get() <= 0) {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.NOT_ENOUGH_HISTORICAL_DATA,
-                        DetectorValidationIssueType.GENERAL_DATA,
-                        ValidationAspect.MODEL
-                    )
-                );
-            return;
-        } else if (latestTime.get() <= 0) {
-            listener
-                .onFailure(
-                    new ADValidationException(
-                        CommonErrorMessages.NOT_ENOUGH_HISTORICAL_DATA,
-                        DetectorValidationIssueType.GENERAL_DATA,
+                        CommonErrorMessages.TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA,
+                        DetectorValidationIssueType.TIMEFIELD_FIELD,
                         ValidationAspect.MODEL
                     )
                 );
@@ -287,11 +274,7 @@ public class ModelValidationActionHandler {
                 query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
             }
         }
-        if (anomalyDetector.isMultiCategoryDetector()) {
-            for (String category : anomalyDetector.getCategoryField()) {
-                query.filter(QueryBuilders.existsQuery(category));
-            }
-        }
+
         for (String featureField : featureFields) {
             query.filter(QueryBuilders.existsQuery(featureField));
         }
@@ -358,7 +341,7 @@ public class ModelValidationActionHandler {
 
         private AggregationBuilder getNewAggregationBuilder(long newInterval) {
             return AggregationBuilders
-                .dateHistogram("agg")
+                .dateHistogram(AGGREGATION)
                 .field(anomalyDetector.getTimeField())
                 .minDocCount(0)
                 .hardBounds(getTimeRangeBounds(latestTime, new IntervalTimeConfiguration(newInterval, ChronoUnit.MINUTES)))
@@ -382,8 +365,8 @@ public class ModelValidationActionHandler {
                 }
 
                 double fullBucketRate = processBucketAggregationResults(aggregate);
-                long newInterval = (long) Math.ceil(convertIntervalToMinutes(detectorInterval) + 1);
-                // If rate is below success minimum then call search again.
+                long newInterval = (long) Math.ceil(convertIntervalToMinutes(detectorInterval) * INTERVAL_RECOMMENDATION_MULTIPLIER);
+                // If rate is above success minimum then return interval suggestion.
                 if (fullBucketRate > INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
                     intervalListener.onResponse(this.detectorInterval);
                 } else if (expirationEpochMs < clock.millis()) {
@@ -421,12 +404,22 @@ public class ModelValidationActionHandler {
 
         @Override
         public void onFailure(Exception e) {
-            logger.error("Failed to paginate top anomaly results", e);
-            listener.onFailure(e);
+            logger.error("Failed to recommend new interval", e);
+            listener
+                .onFailure(
+                    new ADValidationException(
+                        CommonErrorMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
+                        DetectorValidationIssueType.MODEL_VALIDATION_ISSUE,
+                        ValidationAspect.MODEL
+                    )
+                );
         }
     }
 
     private void processIntervalRecommendation(IntervalTimeConfiguration interval, long latestTime) {
+        // if interval suggestion is null that means no interval could be found with all the configurations
+        // applied, our next step then is to check density just with the raw data and then add each configuration
+        // one at a time to try and find root cause of low density
         if (interval == null) {
             checkRawDataSparsity(latestTime);
         } else {
@@ -451,7 +444,7 @@ public class ModelValidationActionHandler {
 
     private AggregationBuilder getBucketAggregation(long latestTime) {
         return AggregationBuilders
-            .dateHistogram("agg")
+            .dateHistogram(AGGREGATION)
             .field(anomalyDetector.getTimeField())
             .minDocCount(0)
             .hardBounds(getTimeRangeBounds(latestTime, (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()))
@@ -465,19 +458,8 @@ public class ModelValidationActionHandler {
     private void checkRawDataSparsity(long latestTime) {
         AggregationBuilder aggregation = getBucketAggregation(latestTime);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(aggregation).size(0).timeout(requestTimeout);
-        try {
-            AggregatorFactories.Builder internalAgg = parseAggregators(
-                anomalyDetector.getFeatureAttributes().get(0).getAggregation().toString(),
-                xContentRegistry,
-                anomalyDetector.getFeatureAttributes().get(0).getId()
-            );
-            aggregation.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
-            SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]))
-                .source(searchSourceBuilder);
-            client.search(searchRequest, ActionListener.wrap(response -> processRawDataResults(response, latestTime), listener::onFailure));
-        } catch (Exception ex) {
-            listener.onFailure(ex);
-        }
+        SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        client.search(searchRequest, ActionListener.wrap(response -> processRawDataResults(response, latestTime), listener::onFailure));
     }
 
     private Histogram checkBucketResultErrors(SearchResponse response) {
@@ -497,7 +479,7 @@ public class ModelValidationActionHandler {
                 );
             return null;
         }
-        Histogram aggregate = aggs.get("agg");
+        Histogram aggregate = aggs.get(AGGREGATION);
         if (aggregate == null) {
             listener.onFailure(new IllegalArgumentException("Failed to find valid aggregation result"));
             return null;
@@ -548,6 +530,9 @@ public class ModelValidationActionHandler {
                         ValidationAspect.MODEL
                     )
                 );
+            // blocks below are executed if data is dense enough with filter query applied.
+            // If HCAD then category fields will be added to bucket aggregation to see if they
+            // are the root cause of the issues and if not the feature queries will be checked for sparsity
         } else if (anomalyDetector.isMultientityDetector()) {
             getTopEntityForCategoryField(latestTime);
         } else {
@@ -571,17 +556,6 @@ public class ModelValidationActionHandler {
     }
 
     private void checkCategoryFieldSparsity(Map<String, Object> topEntity, long latestTime) {
-        if (topEntity.isEmpty()) {
-            listener
-                .onFailure(
-                    new ADValidationException(
-                        CommonErrorMessages.CATEGORY_FIELD_TOO_SPARSE,
-                        DetectorValidationIssueType.CATEGORY,
-                        ValidationAspect.MODEL
-                    )
-                );
-            return;
-        }
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         for (Map.Entry<String, Object> entry : topEntity.entrySet()) {
             query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
@@ -625,7 +599,7 @@ public class ModelValidationActionHandler {
                         new ADValidationException(
                             exception.getMessage(),
                             DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                            ValidationAspect.DETECTOR
+                            ValidationAspect.MODEL
                         )
                     );
             });
@@ -667,14 +641,8 @@ public class ModelValidationActionHandler {
                         .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(new double[] { fullBucketRate }))));
                 }
             }, e -> {
-                String errorMessage;
-                if (isExceptionCausedByInvalidQuery(e)) {
-                    errorMessage = CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
-                } else {
-                    errorMessage = CommonErrorMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
-                }
-                logger.error(errorMessage, e);
-                multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
+                logger.error("failed getting results with feature query applied", e);
+                multiFeatureQueriesResponseListener.onFailure(e);
             }));
         }
     }

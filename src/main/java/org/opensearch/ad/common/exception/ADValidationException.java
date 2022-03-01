@@ -74,7 +74,7 @@ public class ADValidationException extends AnomalyDetectionException {
         }
 
         if (intervalSuggestion != null) {
-            sb.append("interval Suggestion: ");
+            sb.append(" interval suggestion: ");
             sb.append(intervalSuggestion.getInterval());
             sb.append(intervalSuggestion.getUnit());
         }

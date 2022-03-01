@@ -79,8 +79,8 @@ public class CommonErrorMessages {
     public static String INVALID_DETECTOR_NAME =
         "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
     public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Detector has duplicate feature aggregation query names: ";
-    public static String INVALID_TIMESTAMP = "Timestamp must be of type date";
-    public static String NON_EXISTENT_TIMESTAMP = "Timestamp not found in index mapping";
+    public static String INVALID_TIMESTAMP = "Timestamp field: (%s) must be of type date";
+    public static String NON_EXISTENT_TIMESTAMP = "Timestamp field: (%s) is not found in index mapping:";
 
     public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
     public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";
@@ -107,11 +107,12 @@ public class CommonErrorMessages {
         + " characters.";
 
     public static String WINDOW_DELAY_REC = "We suggest using a window delay value of at least: ";
-    public static String NOT_ENOUGH_HISTORICAL_DATA = "There isn't enough historical data found with current configurations.";
-    public static String DETECTOR_INTERVAL_REC = "We suggest using a detector interval of: ";
+    public static String TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA =
+        "There isn't enough historical data found with current timefield selected.";
+    public static String DETECTOR_INTERVAL_REC = "Suggested detector interval: ";
     public static String RAW_DATA_TOO_SPARSE = "Given index data is potentially too sparse for model training.";
     public static String MODEL_VALIDATION_FAILED_UNEXPECTEDLY = "Model validation experienced issues completing.";
-    public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied.";
+    public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied. Consider changing the data filter";
     public static String CATEGORY_FIELD_TOO_SPARSE = "Data is most likely too sparse with the given category fields.";
     public static String CATEGORY_FIELD_NO_DATA = "No entity was found with the given categorical fields.";
     public static String FEATURE_QUERY_TOO_SPARSE = "Given data is most likely too sparse when given feature query is applied: ";

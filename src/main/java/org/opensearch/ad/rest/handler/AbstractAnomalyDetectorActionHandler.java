@@ -326,8 +326,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     }
 
     protected void validateTimeField(boolean indexingDryRun) {
+        String givenTimeField = anomalyDetector.getTimeField();
         GetFieldMappingsRequest getMappingsRequest = new GetFieldMappingsRequest();
-        getMappingsRequest.indices(anomalyDetector.getIndices().toArray(new String[0])).fields(anomalyDetector.getTimeField());
+        getMappingsRequest.indices(anomalyDetector.getIndices().toArray(new String[0])).fields(givenTimeField);
         getMappingsRequest.indicesOptions(IndicesOptions.strictExpand());
 
         // comments explaining fieldMappingResponse parsing can be found inside following method:
@@ -350,12 +351,16 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                                     if (type instanceof Map) {
                                         foundField = true;
                                         Map<String, Object> metadataMap = (Map<String, Object>) type;
+                                        System.out.println("metadata");
+                                        for (Map.Entry<String, Object> entry : metadataMap.entrySet()) {
+                                            System.out.println(entry.getKey() + ":" + entry.getValue().toString());
+                                        }
                                         String typeName = (String) metadataMap.get(CommonName.TYPE);
-                                        if (!typeName.equals(CommonName.DATE)) {
+                                        if (!typeName.equals(CommonName.DATE_TYPE)) {
                                             listener
                                                 .onFailure(
                                                     new ADValidationException(
-                                                        CommonErrorMessages.INVALID_TIMESTAMP,
+                                                        String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIMESTAMP, givenTimeField),
                                                         DetectorValidationIssueType.TIMEFIELD_FIELD,
                                                         ValidationAspect.DETECTOR
                                                     )
@@ -373,7 +378,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 listener
                     .onFailure(
                         new ADValidationException(
-                            CommonErrorMessages.NON_EXISTENT_TIMESTAMP,
+                            String.format(Locale.ROOT, CommonErrorMessages.NON_EXISTENT_TIMESTAMP, givenTimeField),
                             DetectorValidationIssueType.TIMEFIELD_FIELD,
                             ValidationAspect.DETECTOR
                         )
