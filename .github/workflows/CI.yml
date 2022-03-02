@@ -8,11 +8,10 @@ on:
       - "*"
 
 jobs:
-
   Build-ad:
     strategy:
       matrix:
-        java: [8, 11, 14, 17]
+        java: [8, 11, 14]
 
     name: Build and Test Anomaly detection Plugin
     runs-on: ubuntu-latest
