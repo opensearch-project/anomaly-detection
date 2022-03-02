@@ -115,7 +115,8 @@ public class CommonErrorMessages {
     public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied. Consider changing the data filter";
     public static String CATEGORY_FIELD_TOO_SPARSE = "Data is most likely too sparse with the given category fields.";
     public static String CATEGORY_FIELD_NO_DATA = "No entity was found with the given categorical fields.";
-    public static String FEATURE_QUERY_TOO_SPARSE = "Given data is most likely too sparse when given feature query is applied: ";
+    public static String FEATURE_QUERY_TOO_SPARSE =
+        "Given data is most likely too sparse when given feature queries are applied. Consider revising feature queries.";
 
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
     public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";

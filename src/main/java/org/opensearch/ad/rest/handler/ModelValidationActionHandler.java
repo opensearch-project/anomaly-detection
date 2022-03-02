@@ -7,8 +7,10 @@ package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CONFIG_BUCKET_MINIMUM_SUCCESS_RATE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.INTERVAL_RECOMMENDATION_MULTIPLIER;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_INTERVAL_REC_LENGTH_IN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TIMES_DECREASING_INTERVAL;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.TOP_VALIDATE_TIMEOUT_IN_MILLIS;
 
 import java.io.IOException;
@@ -16,12 +18,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -33,20 +33,16 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssueType;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.model.MergeableList;
 import org.opensearch.ad.model.TimeConfiguration;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
-import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -297,7 +293,9 @@ public class ModelValidationActionHandler {
                     searchRequest.source(),
                     (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval(),
                     clock.millis() + TOP_VALIDATE_TIMEOUT_IN_MILLIS,
-                    latestTime
+                    latestTime,
+                    false,
+                    MAX_TIMES_DECREASING_INTERVAL
                 )
             );
     }
@@ -324,19 +322,25 @@ public class ModelValidationActionHandler {
         IntervalTimeConfiguration detectorInterval;
         private final long expirationEpochMs;
         private final long latestTime;
+        boolean decreasingInterval;
+        int numTimesDecreasing; // maximum amount of times we will try decreasing interval for recommendation
 
         DetectorIntervalRecommendationListener(
             ActionListener<IntervalTimeConfiguration> intervalListener,
             SearchSourceBuilder searchSourceBuilder,
             IntervalTimeConfiguration detectorInterval,
             long expirationEpochMs,
-            long latestTime
+            long latestTime,
+            boolean decreasingInterval,
+            int numTimesDecreasing
         ) {
             this.intervalListener = intervalListener;
             this.searchSourceBuilder = searchSourceBuilder;
             this.detectorInterval = detectorInterval;
             this.expirationEpochMs = expirationEpochMs;
             this.latestTime = latestTime;
+            this.decreasingInterval = decreasingInterval;
+            this.numTimesDecreasing = numTimesDecreasing;
         }
 
         private AggregationBuilder getNewAggregationBuilder(long newInterval) {
@@ -364,21 +368,41 @@ public class ModelValidationActionHandler {
                     return;
                 }
 
+                long newInterval;
+                if (decreasingInterval) {
+                    newInterval = (long) Math
+                        .ceil(convertIntervalToMinutes(detectorInterval) * INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER);
+                } else {
+                    newInterval = (long) Math
+                        .ceil(convertIntervalToMinutes(detectorInterval) * INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER);
+                }
                 double fullBucketRate = processBucketAggregationResults(aggregate);
-                long newInterval = (long) Math.ceil(convertIntervalToMinutes(detectorInterval) * INTERVAL_RECOMMENDATION_MULTIPLIER);
                 // If rate is above success minimum then return interval suggestion.
                 if (fullBucketRate > INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
                     intervalListener.onResponse(this.detectorInterval);
                 } else if (expirationEpochMs < clock.millis()) {
                     listener
                         .onFailure(
-                            new AnomalyDetectionException(
-                                "Timed out getting interval recommendation. Please continue with detector creation."
+                            new ADValidationException(
+                                CommonErrorMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
+                                DetectorValidationIssueType.MODEL_VALIDATION_ISSUE,
+                                ValidationAspect.MODEL
                             )
                         );
                     logger.info("Timed out getting interval recommendation");
-                } else if (newInterval < MAX_INTERVAL_REC_LENGTH_IN_MINUTES) {
-                    this.detectorInterval = new IntervalTimeConfiguration(newInterval, ChronoUnit.MINUTES);
+                    // keep trying higher intervals as new interval is below max, and we aren't decreasing yet
+                } else if (newInterval < MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
+                    searchWithDifferentInterval(newInterval);
+                    // The below block is executed only the first time when new interval is above max and
+                    // we aren't decreasing yet, at this point
+                } else if (newInterval >= MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
+                    IntervalTimeConfiguration givenInterval = (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval();
+                    this.detectorInterval = new IntervalTimeConfiguration(
+                        (long) Math.ceil(convertIntervalToMinutes(givenInterval) * INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER),
+                        ChronoUnit.MINUTES
+                    );
+                    this.decreasingInterval = true;
+                    this.numTimesDecreasing -= 1;
                     // Searching again using an updated interval
                     SearchSourceBuilder updatedSearchSourceBuilder = getSearchSourceBuilder(
                         searchSourceBuilder.query(),
@@ -391,7 +415,13 @@ public class ModelValidationActionHandler {
                                 .source(updatedSearchSourceBuilder),
                             this
                         );
-                    // this case means all intervals up to max interval recommendation length have been tried
+                    // In this case decreasingInterval has to be true already, so we will stop
+                    // when the next new interval is below or equal to 0, or we have decreased up to max times
+                } else if (numTimesDecreasing >= 0 || newInterval <= 0) {
+                    this.numTimesDecreasing -= 1;
+                    searchWithDifferentInterval(newInterval);
+                    // this case means all intervals up to max interval recommendation length and down to either
+                    // 0 or until we tried 10 lower intervals than the one given have been tried
                     // which further means the next step is to go through A/B validation checks
                 } else {
                     intervalListener.onResponse(null);
@@ -400,6 +430,20 @@ public class ModelValidationActionHandler {
             } catch (Exception e) {
                 onFailure(e);
             }
+        }
+
+        private void searchWithDifferentInterval(long newIntervalValue) {
+            this.detectorInterval = new IntervalTimeConfiguration(newIntervalValue, ChronoUnit.MINUTES);
+            // Searching again using an updated interval
+            SearchSourceBuilder updatedSearchSourceBuilder = getSearchSourceBuilder(
+                searchSourceBuilder.query(),
+                getNewAggregationBuilder(newIntervalValue)
+            );
+            client
+                .search(
+                    new SearchRequest().indices(anomalyDetector.getIndices().toArray(new String[0])).source(updatedSearchSourceBuilder),
+                    this
+                );
         }
 
         @Override
@@ -591,60 +635,37 @@ public class ModelValidationActionHandler {
         }
     }
 
-    private void checkFeatureQuery(long latestTime) throws IOException {
-        ActionListener<MergeableList<double[]>> validateFeatureQueriesListener = ActionListener
-            .wrap(response -> { windowDelayRecommendation(latestTime); }, exception -> {
-                listener
-                    .onFailure(
-                        new ADValidationException(
-                            exception.getMessage(),
-                            DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                            ValidationAspect.MODEL
-                        )
-                    );
-            });
-        MultiResponsesDelegateActionListener<MergeableList<double[]>> multiFeatureQueriesResponseListener =
-            new MultiResponsesDelegateActionListener<>(
-                validateFeatureQueriesListener,
-                anomalyDetector.getFeatureAttributes().size(),
-                String.format(Locale.ROOT, CommonErrorMessages.VALIDATION_FEATURE_FAILURE, anomalyDetector.getName()),
-                false
-            );
-
-        for (Feature feature : anomalyDetector.getFeatureAttributes()) {
-            AggregationBuilder aggregation = getBucketAggregation(latestTime);
-            BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
-            List<String> featureFields = ParseUtils.getFieldNamesForFeature(feature, xContentRegistry);
-            for (String featureField : featureFields) {
-                query.filter(QueryBuilders.existsQuery(featureField));
-            }
-            SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
-            SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]))
-                .source(searchSourceBuilder);
-            client.search(searchRequest, ActionListener.wrap(response -> {
-                Histogram aggregate = checkBucketResultErrors(response);
-                if (aggregate == null) {
-                    return;
-                }
-                double fullBucketRate = processBucketAggregationResults(aggregate);
-                if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
-                    multiFeatureQueriesResponseListener
-                        .onFailure(
-                            new ADValidationException(
-                                CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE + feature.getName(),
-                                DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                                ValidationAspect.MODEL
-                            )
-                        );
-                } else {
-                    multiFeatureQueriesResponseListener
-                        .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(new double[] { fullBucketRate }))));
-                }
-            }, e -> {
-                logger.error("failed getting results with feature query applied", e);
-                multiFeatureQueriesResponseListener.onFailure(e);
-            }));
+    private void processFeatureQuery(SearchResponse response, long latestTime) {
+        Histogram aggregate = checkBucketResultErrors(response);
+        if (aggregate == null) {
+            return;
         }
+
+        double fullBucketRate = processBucketAggregationResults(aggregate);
+        if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+            listener
+                .onFailure(
+                    new ADValidationException(
+                        CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE,
+                        DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                        ValidationAspect.MODEL
+                    )
+                );
+            return;
+        }
+        windowDelayRecommendation(latestTime);
+    }
+
+    private void checkFeatureQuery(long latestTime) throws IOException {
+        List<String> featureFields = ParseUtils.getFeatureFieldNames(anomalyDetector, xContentRegistry);
+        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
+        for (String featureField : featureFields) {
+            query.filter(QueryBuilders.existsQuery(featureField));
+        }
+        SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
+        SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        client.search(searchRequest, ActionListener.wrap(response -> processFeatureQuery(response, latestTime), listener::onFailure));
     }
 
     private void windowDelayRecommendation(long latestTime) {

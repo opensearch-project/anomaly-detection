@@ -795,7 +795,12 @@ public final class AnomalyDetectorSettings {
     // ======================================
     public static final long TOP_VALIDATE_TIMEOUT_IN_MILLIS = 60_000;
     public static final long MAX_INTERVAL_REC_LENGTH_IN_MINUTES = 120L;
-    public static final double INTERVAL_RECOMMENDATION_MULTIPLIER = 1.2;
+    public static final double INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER = 1.2;
+    public static final double INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER = 0.8;
     public static final double INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE = 0.75;
     public static final double CONFIG_BUCKET_MINIMUM_SUCCESS_RATE = 0.25;
+    // This value is set to decrease the number of times we decrease the interval when recommending a new one
+    // The reason we need a max is because user could give an arbitrarly large interval where we don't know even
+    // with multiplying the interval down how many intervals will be tried.
+    public static final int MAX_TIMES_DECREASING_INTERVAL = 10;
 }

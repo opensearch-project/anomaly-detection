@@ -172,8 +172,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         String originalErrorMessage = exception.getMessage();
         String errorMessage = "";
         Map<String, String> subIssues = null;
-        IntervalTimeConfiguration intervalSuggestion = null;
-
+        IntervalTimeConfiguration intervalSuggestion = exception.getIntervalSuggestion();
         switch (exception.getType()) {
             case FEATURE_ATTRIBUTES:
                 int firstLeftBracketIndex = originalErrorMessage.indexOf("[");
@@ -191,16 +190,10 @@ public class ValidateAnomalyDetectorTransportAction extends
             case NAME:
             case CATEGORY:
             case DETECTION_INTERVAL:
-                if (exception.getAspect().equals(ValidationAspect.MODEL)) {
-                    intervalSuggestion = exception.getIntervalSuggestion();
-                }
             case FILTER_QUERY:
             case TIMEFIELD_FIELD:
             case SHINGLE_SIZE_FIELD:
             case WINDOW_DELAY:
-                if (exception.getAspect().equals(ValidationAspect.MODEL)) {
-                    intervalSuggestion = exception.getIntervalSuggestion();
-                }
             case RESULT_INDEX:
             case GENERAL_SETTINGS:
             case MODEL_VALIDATION_ISSUE:
