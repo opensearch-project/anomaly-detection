@@ -196,7 +196,8 @@ public class ValidateAnomalyDetectorTransportAction extends
             case WINDOW_DELAY:
             case RESULT_INDEX:
             case GENERAL_SETTINGS:
-            case MODEL_VALIDATION_ISSUE:
+            case AGGREGATION:
+            case TIMEOUT:
             case INDICES:
                 errorMessage = originalErrorMessage;
                 break;

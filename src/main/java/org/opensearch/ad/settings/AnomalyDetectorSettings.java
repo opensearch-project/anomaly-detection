@@ -793,8 +793,8 @@ public final class AnomalyDetectorSettings {
     // ======================================
     // Validate Detector API setting
     // ======================================
-    public static final long TOP_VALIDATE_TIMEOUT_IN_MILLIS = 60_000;
-    public static final long MAX_INTERVAL_REC_LENGTH_IN_MINUTES = 120L;
+    public static final long TOP_VALIDATE_TIMEOUT_IN_MILLIS = 10_000;
+    public static final long MAX_INTERVAL_REC_LENGTH_IN_MINUTES = 60L;
     public static final double INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER = 1.2;
     public static final double INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER = 0.8;
     public static final double INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE = 0.75;

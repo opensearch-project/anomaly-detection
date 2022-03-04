@@ -80,7 +80,7 @@ public class CommonErrorMessages {
         "Valid characters for detector name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
     public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Detector has duplicate feature aggregation query names: ";
     public static String INVALID_TIMESTAMP = "Timestamp field: (%s) must be of type date";
-    public static String NON_EXISTENT_TIMESTAMP = "Timestamp field: (%s) is not found in index mapping:";
+    public static String NON_EXISTENT_TIMESTAMP = "Timestamp field: (%s) is not found in index mapping";
 
     public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
     public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";
@@ -106,17 +106,23 @@ public class CommonErrorMessages {
         + MAX_DETECTOR_NAME_SIZE
         + " characters.";
 
-    public static String WINDOW_DELAY_REC = "We suggest using a window delay value of at least: ";
+    public static String WINDOW_DELAY_REC =
+        "Latest seen data point is at least %d minutes ago, consider changing window delay to at least %d minutes.";
     public static String TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA =
         "There isn't enough historical data found with current timefield selected.";
-    public static String DETECTOR_INTERVAL_REC = "Suggested detector interval: ";
-    public static String RAW_DATA_TOO_SPARSE = "Given index data is potentially too sparse for model training.";
+    public static String DETECTOR_INTERVAL_REC =
+        "The selected detector interval might collect sparse data. Consider increasing interval range too: ";
+    public static String RAW_DATA_TOO_SPARSE =
+        "Given index data is potentially too sparse for model training. Consider changing interval length or ingesting more data";
     public static String MODEL_VALIDATION_FAILED_UNEXPECTEDLY = "Model validation experienced issues completing.";
     public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied. Consider changing the data filter";
-    public static String CATEGORY_FIELD_TOO_SPARSE = "Data is most likely too sparse with the given category fields.";
-    public static String CATEGORY_FIELD_NO_DATA = "No entity was found with the given categorical fields.";
+    public static String CATEGORY_FIELD_TOO_SPARSE =
+        "Data is most likely too sparse with the given category fields. Consider revising category field/s or ingesting more data ";
+    public static String CATEGORY_FIELD_NO_DATA =
+        "No entity was found with the given categorical fields. Consider revising category field/s or ingesting more data";
     public static String FEATURE_QUERY_TOO_SPARSE =
         "Given data is most likely too sparse when given feature queries are applied. Consider revising feature queries.";
+    public static String TIMEOUT_ON_INTERVAL_REC = "Timed out getting interval recommendation";
 
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
     public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";

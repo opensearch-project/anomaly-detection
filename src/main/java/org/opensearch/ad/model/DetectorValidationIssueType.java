@@ -25,8 +25,9 @@ public enum DetectorValidationIssueType implements Name {
     WINDOW_DELAY(AnomalyDetector.WINDOW_DELAY_FIELD),
     GENERAL_SETTINGS(AnomalyDetector.GENERAL_SETTINGS),
     RESULT_INDEX(AnomalyDetector.RESULT_INDEX_FIELD),
-    MODEL_VALIDATION_ISSUE(AnomalyDetector.MODEL_VALIDATION_ISSUE); // this is a unique case where aggregation failed but
-                                                                    // don't want to throw exception
+    TIMEOUT(AnomalyDetector.TIMEOUT),
+    AGGREGATION(AnomalyDetector.AGGREGATION); // this is a unique case where aggregation failed but
+                                              // don't want to throw exception
 
     private String name;
 

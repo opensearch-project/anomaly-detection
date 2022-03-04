@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -51,6 +52,7 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
@@ -147,69 +149,93 @@ public class ModelValidationActionHandler {
     // For multi-category HCADs we use a composite aggregation to find the top fields for the entity
     // with the highest doc count.
     private void getTopEntity(ActionListener<Map<String, Object>> topEntityListener) {
-        AggregationBuilder bucketAggs;
-        Map<String, Object> topKeys = new HashMap<>();
-        if (anomalyDetector.getCategoryField().size() == 1) {
-            bucketAggs = AggregationBuilders
-                .terms(AGG_NAME_TOP)
-                .field(anomalyDetector.getCategoryField().get(0))
-                .order(BucketOrder.count(true));
-        } else {
-            bucketAggs = AggregationBuilders
-                .composite(
-                    AGG_NAME_TOP,
-                    anomalyDetector
-                        .getCategoryField()
-                        .stream()
-                        .map(f -> new TermsValuesSourceBuilder(f).field(f))
-                        .collect(Collectors.toList())
-                )
-                .size(1000)
-                .subAggregation(
-                    PipelineAggregatorBuilders
-                        .bucketSort("bucketSort", Collections.singletonList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
-                        .size(1)
-                );
-        }
+        ActionListener<Optional<Long>> minTimeListener = ActionListener.wrap(earliest -> {
+            if (earliest.isPresent() && earliest.get() > 0) {
+                // only look at top entities from the earliest time point to now so future data isn't used
+                RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
+                    .from(earliest.get())
+                    .to(Instant.now().toEpochMilli());
+                AggregationBuilder bucketAggs;
+                Map<String, Object> topKeys = new HashMap<>();
+                if (anomalyDetector.getCategoryField().size() == 1) {
+                    bucketAggs = AggregationBuilders
+                        .terms(AGG_NAME_TOP)
+                        .field(anomalyDetector.getCategoryField().get(0))
+                        .order(BucketOrder.count(true));
+                } else {
+                    bucketAggs = AggregationBuilders
+                        .composite(
+                            AGG_NAME_TOP,
+                            anomalyDetector
+                                .getCategoryField()
+                                .stream()
+                                .map(f -> new TermsValuesSourceBuilder(f).field(f))
+                                .collect(Collectors.toList())
+                        )
+                        .size(1000)
+                        .subAggregation(
+                            PipelineAggregatorBuilders
+                                .bucketSort("bucketSort", Collections.singletonList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
+                                .size(1)
+                        );
+                }
 
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(bucketAggs).trackTotalHits(false).size(0);
-        SearchRequest searchRequest = new SearchRequest()
-            .indices(anomalyDetector.getIndices().toArray(new String[0]))
-            .source(searchSourceBuilder);
-        client.search(searchRequest, ActionListener.wrap(response -> {
-            Aggregations aggs = response.getAggregations();
-            if (aggs == null) {
-                topEntityListener.onResponse(Collections.emptyMap());
-                return;
-            }
-            if (anomalyDetector.getCategoryField().size() == 1) {
-                Terms entities = aggs.get(AGG_NAME_TOP);
-                Object key = entities
-                    .getBuckets()
-                    .stream()
-                    .max(Comparator.comparingInt(entry -> (int) entry.getDocCount()))
-                    .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-                    .orElse(null);
-                topKeys.put(anomalyDetector.getCategoryField().get(0), key);
-            } else {
-                CompositeAggregation compositeAgg = aggs.get(AGG_NAME_TOP);
-                topKeys
-                    .putAll(
-                        compositeAgg
+                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+                    .query(rangeQuery)
+                    .aggregation(bucketAggs)
+                    .trackTotalHits(false)
+                    .size(0);
+                SearchRequest searchRequest = new SearchRequest()
+                    .indices(anomalyDetector.getIndices().toArray(new String[0]))
+                    .source(searchSourceBuilder);
+                client.search(searchRequest, ActionListener.wrap(response -> {
+                    Aggregations aggs = response.getAggregations();
+                    if (aggs == null) {
+                        topEntityListener.onResponse(Collections.emptyMap());
+                        return;
+                    }
+                    if (anomalyDetector.getCategoryField().size() == 1) {
+                        Terms entities = aggs.get(AGG_NAME_TOP);
+                        Object key = entities
                             .getBuckets()
                             .stream()
-                            .flatMap(bucket -> bucket.getKey().entrySet().stream()) // this would create a flattened stream of map entries
-                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()))
-                    );
+                            .max(Comparator.comparingInt(entry -> (int) entry.getDocCount()))
+                            .map(MultiBucketsAggregation.Bucket::getKeyAsString)
+                            .orElse(null);
+                        topKeys.put(anomalyDetector.getCategoryField().get(0), key);
+                    } else {
+                        CompositeAggregation compositeAgg = aggs.get(AGG_NAME_TOP);
+                        topKeys
+                            .putAll(
+                                compositeAgg
+                                    .getBuckets()
+                                    .stream()
+                                    .flatMap(bucket -> bucket.getKey().entrySet().stream()) // this would create a flattened stream of map
+                                                                                            // entries
+                                    .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()))
+                            );
+                    }
+                    for (Map.Entry<String, Object> entry : topKeys.entrySet()) {
+                        if (entry.getValue() == null) {
+                            topEntityListener.onResponse(Collections.emptyMap());
+                            return;
+                        }
+                    }
+                    topEntityListener.onResponse(topKeys);
+                }, topEntityListener::onFailure));
             }
-            for (Map.Entry<String, Object> entry : topKeys.entrySet()) {
-                if (entry.getValue() == null) {
-                    topEntityListener.onResponse(Collections.emptyMap());
-                    return;
-                }
-            }
-            topEntityListener.onResponse(topKeys);
-        }, topEntityListener::onFailure));
+        }, exception -> {
+            logger.error("Failed to create search request for minimum data point", exception);
+            listener
+                .onFailure(
+                    new ADValidationException(
+                        CommonErrorMessages.TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA,
+                        DetectorValidationIssueType.TIMEFIELD_FIELD,
+                        ValidationAspect.MODEL
+                    )
+                );
+        });
+        searchFeatureDao.getMinDataTime(anomalyDetector, minTimeListener);
     }
 
     private void getLatestDateForValidation(Map<String, Object> topEntity) {
@@ -252,7 +278,10 @@ public class ModelValidationActionHandler {
         Map<String, Object> topEntity
     ) throws IOException {
         List<String> featureFields = ParseUtils.getFeatureFieldNames(anomalyDetector, xContentRegistry);
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getBucketAggregation(
+            latestTime,
+            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
+        );
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         if (anomalyDetector.isMultientityDetector()) {
             if (topEntity.isEmpty()) {
@@ -343,23 +372,6 @@ public class ModelValidationActionHandler {
             this.numTimesDecreasing = numTimesDecreasing;
         }
 
-        private AggregationBuilder getNewAggregationBuilder(long newInterval) {
-            return AggregationBuilders
-                .dateHistogram(AGGREGATION)
-                .field(anomalyDetector.getTimeField())
-                .minDocCount(0)
-                .hardBounds(getTimeRangeBounds(latestTime, new IntervalTimeConfiguration(newInterval, ChronoUnit.MINUTES)))
-                .fixedInterval(DateHistogramInterval.minutes((int) newInterval));
-        }
-
-        private long convertIntervalToMinutes(IntervalTimeConfiguration interval) {
-            long currentInterval = interval.getInterval();
-            if (interval.getUnit() == ChronoUnit.MILLIS) {
-                currentInterval /= 60000;
-            }
-            return currentInterval;
-        }
-
         @Override
         public void onResponse(SearchResponse response) {
             try {
@@ -368,13 +380,17 @@ public class ModelValidationActionHandler {
                     return;
                 }
 
-                long newInterval;
+                long newIntervalMinute;
                 if (decreasingInterval) {
-                    newInterval = (long) Math
-                        .ceil(convertIntervalToMinutes(detectorInterval) * INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER);
+                    newIntervalMinute = (long) Math
+                        .floor(
+                            IntervalTimeConfiguration.getIntervalInMinute(detectorInterval) * INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER
+                        );
                 } else {
-                    newInterval = (long) Math
-                        .ceil(convertIntervalToMinutes(detectorInterval) * INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER);
+                    newIntervalMinute = (long) Math
+                        .ceil(
+                            IntervalTimeConfiguration.getIntervalInMinute(detectorInterval) * INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER
+                        );
                 }
                 double fullBucketRate = processBucketAggregationResults(aggregate);
                 // If rate is above success minimum then return interval suggestion.
@@ -384,29 +400,36 @@ public class ModelValidationActionHandler {
                     listener
                         .onFailure(
                             new ADValidationException(
-                                CommonErrorMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
-                                DetectorValidationIssueType.MODEL_VALIDATION_ISSUE,
+                                CommonErrorMessages.TIMEOUT_ON_INTERVAL_REC,
+                                DetectorValidationIssueType.TIMEOUT,
                                 ValidationAspect.MODEL
                             )
                         );
-                    logger.info("Timed out getting interval recommendation");
+                    logger.info(CommonErrorMessages.TIMEOUT_ON_INTERVAL_REC);
                     // keep trying higher intervals as new interval is below max, and we aren't decreasing yet
-                } else if (newInterval < MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
-                    searchWithDifferentInterval(newInterval);
+                } else if (newIntervalMinute < MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
+                    searchWithDifferentInterval(newIntervalMinute);
                     // The below block is executed only the first time when new interval is above max and
                     // we aren't decreasing yet, at this point
-                } else if (newInterval >= MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
+                } else if (newIntervalMinute >= MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
                     IntervalTimeConfiguration givenInterval = (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval();
                     this.detectorInterval = new IntervalTimeConfiguration(
-                        (long) Math.ceil(convertIntervalToMinutes(givenInterval) * INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER),
+                        (long) Math
+                            .floor(
+                                IntervalTimeConfiguration.getIntervalInMinute(givenInterval) * INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER
+                            ),
                         ChronoUnit.MINUTES
                     );
+                    if (detectorInterval.getInterval() <= 0) {
+                        intervalListener.onResponse(null);
+                        return;
+                    }
                     this.decreasingInterval = true;
                     this.numTimesDecreasing -= 1;
                     // Searching again using an updated interval
                     SearchSourceBuilder updatedSearchSourceBuilder = getSearchSourceBuilder(
                         searchSourceBuilder.query(),
-                        getNewAggregationBuilder(newInterval)
+                        getBucketAggregation(this.latestTime, new IntervalTimeConfiguration(newIntervalMinute, ChronoUnit.MINUTES))
                     );
                     client
                         .search(
@@ -417,9 +440,9 @@ public class ModelValidationActionHandler {
                         );
                     // In this case decreasingInterval has to be true already, so we will stop
                     // when the next new interval is below or equal to 0, or we have decreased up to max times
-                } else if (numTimesDecreasing >= 0 || newInterval <= 0) {
+                } else if (numTimesDecreasing >= 0 && newIntervalMinute > 0) {
                     this.numTimesDecreasing -= 1;
-                    searchWithDifferentInterval(newInterval);
+                    searchWithDifferentInterval(newIntervalMinute);
                     // this case means all intervals up to max interval recommendation length and down to either
                     // 0 or until we tried 10 lower intervals than the one given have been tried
                     // which further means the next step is to go through A/B validation checks
@@ -432,12 +455,12 @@ public class ModelValidationActionHandler {
             }
         }
 
-        private void searchWithDifferentInterval(long newIntervalValue) {
-            this.detectorInterval = new IntervalTimeConfiguration(newIntervalValue, ChronoUnit.MINUTES);
+        private void searchWithDifferentInterval(long newIntervalMinuteValue) {
+            this.detectorInterval = new IntervalTimeConfiguration(newIntervalMinuteValue, ChronoUnit.MINUTES);
             // Searching again using an updated interval
             SearchSourceBuilder updatedSearchSourceBuilder = getSearchSourceBuilder(
                 searchSourceBuilder.query(),
-                getNewAggregationBuilder(newIntervalValue)
+                getBucketAggregation(this.latestTime, new IntervalTimeConfiguration(newIntervalMinuteValue, ChronoUnit.MINUTES))
             );
             client
                 .search(
@@ -453,7 +476,7 @@ public class ModelValidationActionHandler {
                 .onFailure(
                     new ADValidationException(
                         CommonErrorMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
-                        DetectorValidationIssueType.MODEL_VALIDATION_ISSUE,
+                        DetectorValidationIssueType.AGGREGATION,
                         ValidationAspect.MODEL
                     )
                 );
@@ -486,13 +509,13 @@ public class ModelValidationActionHandler {
         }
     }
 
-    private AggregationBuilder getBucketAggregation(long latestTime) {
+    private AggregationBuilder getBucketAggregation(long latestTime, IntervalTimeConfiguration detectorInterval) {
         return AggregationBuilders
             .dateHistogram(AGGREGATION)
             .field(anomalyDetector.getTimeField())
-            .minDocCount(0)
-            .hardBounds(getTimeRangeBounds(latestTime, (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()))
-            .fixedInterval(DateHistogramInterval.minutes((int) anomalyDetector.getDetectorIntervalInMinutes()));
+            .minDocCount(1)
+            .hardBounds(getTimeRangeBounds(latestTime, detectorInterval))
+            .fixedInterval(DateHistogramInterval.minutes((int) IntervalTimeConfiguration.getIntervalInMinute(detectorInterval)));
     }
 
     private SearchSourceBuilder getSearchSourceBuilder(QueryBuilder query, AggregationBuilder aggregation) {
@@ -500,7 +523,10 @@ public class ModelValidationActionHandler {
     }
 
     private void checkRawDataSparsity(long latestTime) {
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getBucketAggregation(
+            latestTime,
+            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
+        );
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(aggregation).size(0).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(response -> processRawDataResults(response, latestTime), listener::onFailure));
@@ -517,7 +543,7 @@ public class ModelValidationActionHandler {
                 .onFailure(
                     new ADValidationException(
                         CommonErrorMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
-                        DetectorValidationIssueType.MODEL_VALIDATION_ISSUE,
+                        DetectorValidationIssueType.AGGREGATION,
                         ValidationAspect.MODEL
                     )
                 );
@@ -552,7 +578,10 @@ public class ModelValidationActionHandler {
     }
 
     private void checkDataFilterSparsity(long latestTime) {
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getBucketAggregation(
+            latestTime,
+            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
+        );
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
@@ -604,7 +633,10 @@ public class ModelValidationActionHandler {
         for (Map.Entry<String, Object> entry : topEntity.entrySet()) {
             query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
         }
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getBucketAggregation(
+            latestTime,
+            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
+        );
         SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(response -> processTopEntityResults(response, latestTime), listener::onFailure));
@@ -658,7 +690,10 @@ public class ModelValidationActionHandler {
 
     private void checkFeatureQuery(long latestTime) throws IOException {
         List<String> featureFields = ParseUtils.getFeatureFieldNames(anomalyDetector, xContentRegistry);
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getBucketAggregation(
+            latestTime,
+            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
+        );
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         for (String featureField : featureFields) {
             query.filter(QueryBuilders.existsQuery(featureField));
@@ -675,7 +710,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.WINDOW_DELAY_REC + minutesSinceLastStamp,
+                        String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, minutesSinceLastStamp, minutesSinceLastStamp),
                         DetectorValidationIssueType.WINDOW_DELAY,
                         ValidationAspect.MODEL,
                         new IntervalTimeConfiguration(minutesSinceLastStamp, ChronoUnit.MINUTES)
@@ -683,7 +718,16 @@ public class ModelValidationActionHandler {
                 );
             return;
         }
-        listener.onResponse(null);
+        // This case has been reached if no interval or window delay recommendation was found and no configuration took down bucket
+        // rate bellow the config bucket rate minimum.
+        listener
+            .onFailure(
+                new ADValidationException(
+                    CommonErrorMessages.RAW_DATA_TOO_SPARSE,
+                    DetectorValidationIssueType.INDICES,
+                    ValidationAspect.MODEL
+                )
+            );
     }
 
     private LongBounds getTimeRangeBounds(long endMillis, IntervalTimeConfiguration detectorIntervalInMinutes) {
