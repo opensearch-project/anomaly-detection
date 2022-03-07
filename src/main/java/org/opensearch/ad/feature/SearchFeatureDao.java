@@ -496,24 +496,6 @@ public class SearchFeatureDao extends AbstractRetriever {
             );
     }
 
-    /**
-     * Get the entity's earliest timestamps
-     * @param detector detector config
-     * @param listener listener to return back the requested timestamps
-     */
-    public void getMinDataTime(AnomalyDetector detector, ActionListener<Optional<Long>> listener) {
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.min(AGG_NAME_MIN).field(detector.getTimeField()))
-            .trackTotalHits(false)
-            .size(0);
-        SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
-            .search(
-                searchRequest,
-                ActionListener.wrap(response -> { listener.onResponse(parseMinDataTime(response)); }, listener::onFailure)
-            );
-    }
-
     private Optional<Long> parseMinDataTime(SearchResponse searchResponse) {
         Optional<Map<String, Aggregation>> mapOptional = Optional
             .ofNullable(searchResponse)
