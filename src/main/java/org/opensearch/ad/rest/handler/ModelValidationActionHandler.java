@@ -149,93 +149,81 @@ public class ModelValidationActionHandler {
     // For multi-category HCADs we use a composite aggregation to find the top fields for the entity
     // with the highest doc count.
     private void getTopEntity(ActionListener<Map<String, Object>> topEntityListener) {
-        ActionListener<Optional<Long>> minTimeListener = ActionListener.wrap(earliest -> {
-            if (earliest.isPresent() && earliest.get() > 0) {
-                // only look at top entities from the earliest time point to now so future data isn't used
-                RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
-                    .from(earliest.get())
-                    .to(Instant.now().toEpochMilli());
-                AggregationBuilder bucketAggs;
-                Map<String, Object> topKeys = new HashMap<>();
-                if (anomalyDetector.getCategoryField().size() == 1) {
-                    bucketAggs = AggregationBuilders
-                        .terms(AGG_NAME_TOP)
-                        .field(anomalyDetector.getCategoryField().get(0))
-                        .order(BucketOrder.count(true));
-                } else {
-                    bucketAggs = AggregationBuilders
-                        .composite(
-                            AGG_NAME_TOP,
-                            anomalyDetector
-                                .getCategoryField()
-                                .stream()
-                                .map(f -> new TermsValuesSourceBuilder(f).field(f))
-                                .collect(Collectors.toList())
-                        )
-                        .size(1000)
-                        .subAggregation(
-                            PipelineAggregatorBuilders
-                                .bucketSort("bucketSort", Collections.singletonList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
-                                .size(1)
-                        );
-                }
-
-                SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-                    .query(rangeQuery)
-                    .aggregation(bucketAggs)
-                    .trackTotalHits(false)
-                    .size(0);
-                SearchRequest searchRequest = new SearchRequest()
-                    .indices(anomalyDetector.getIndices().toArray(new String[0]))
-                    .source(searchSourceBuilder);
-                client.search(searchRequest, ActionListener.wrap(response -> {
-                    Aggregations aggs = response.getAggregations();
-                    if (aggs == null) {
-                        topEntityListener.onResponse(Collections.emptyMap());
-                        return;
-                    }
-                    if (anomalyDetector.getCategoryField().size() == 1) {
-                        Terms entities = aggs.get(AGG_NAME_TOP);
-                        Object key = entities
+        // Look at data back to the lower bound given the max interval we recommend or one given
+        long maxIntervalInMinutes = Math.max(MAX_INTERVAL_REC_LENGTH_IN_MINUTES, anomalyDetector.getDetectorIntervalInMinutes());
+        LongBounds timeRangeBounds = getTimeRangeBounds(
+            Instant.now().toEpochMilli(),
+            new IntervalTimeConfiguration(maxIntervalInMinutes, ChronoUnit.MINUTES)
+        );
+        RangeQueryBuilder rangeQuery = new RangeQueryBuilder(anomalyDetector.getTimeField())
+            .from(timeRangeBounds.getMin())
+            .to(timeRangeBounds.getMax());
+        AggregationBuilder bucketAggs;
+        Map<String, Object> topKeys = new HashMap<>();
+        if (anomalyDetector.getCategoryField().size() == 1) {
+            bucketAggs = AggregationBuilders
+                .terms(AGG_NAME_TOP)
+                .field(anomalyDetector.getCategoryField().get(0))
+                .order(BucketOrder.count(true));
+        } else {
+            bucketAggs = AggregationBuilders
+                .composite(
+                    AGG_NAME_TOP,
+                    anomalyDetector
+                        .getCategoryField()
+                        .stream()
+                        .map(f -> new TermsValuesSourceBuilder(f).field(f))
+                        .collect(Collectors.toList())
+                )
+                .size(1000)
+                .subAggregation(
+                    PipelineAggregatorBuilders
+                        .bucketSort("bucketSort", Collections.singletonList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
+                        .size(1)
+                );
+        }
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+            .query(rangeQuery)
+            .aggregation(bucketAggs)
+            .trackTotalHits(false)
+            .size(0);
+        SearchRequest searchRequest = new SearchRequest()
+            .indices(anomalyDetector.getIndices().toArray(new String[0]))
+            .source(searchSourceBuilder);
+        client.search(searchRequest, ActionListener.wrap(response -> {
+            Aggregations aggs = response.getAggregations();
+            if (aggs == null) {
+                topEntityListener.onResponse(Collections.emptyMap());
+                return;
+            }
+            if (anomalyDetector.getCategoryField().size() == 1) {
+                Terms entities = aggs.get(AGG_NAME_TOP);
+                Object key = entities
+                    .getBuckets()
+                    .stream()
+                    .max(Comparator.comparingInt(entry -> (int) entry.getDocCount()))
+                    .map(MultiBucketsAggregation.Bucket::getKeyAsString)
+                    .orElse(null);
+                topKeys.put(anomalyDetector.getCategoryField().get(0), key);
+            } else {
+                CompositeAggregation compositeAgg = aggs.get(AGG_NAME_TOP);
+                topKeys
+                    .putAll(
+                        compositeAgg
                             .getBuckets()
                             .stream()
-                            .max(Comparator.comparingInt(entry -> (int) entry.getDocCount()))
-                            .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-                            .orElse(null);
-                        topKeys.put(anomalyDetector.getCategoryField().get(0), key);
-                    } else {
-                        CompositeAggregation compositeAgg = aggs.get(AGG_NAME_TOP);
-                        topKeys
-                            .putAll(
-                                compositeAgg
-                                    .getBuckets()
-                                    .stream()
-                                    .flatMap(bucket -> bucket.getKey().entrySet().stream()) // this would create a flattened stream of map
-                                                                                            // entries
-                                    .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()))
-                            );
-                    }
-                    for (Map.Entry<String, Object> entry : topKeys.entrySet()) {
-                        if (entry.getValue() == null) {
-                            topEntityListener.onResponse(Collections.emptyMap());
-                            return;
-                        }
-                    }
-                    topEntityListener.onResponse(topKeys);
-                }, topEntityListener::onFailure));
+                            .flatMap(bucket -> bucket.getKey().entrySet().stream()) // this would create a flattened stream of map entries
+                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()))
+                    );
             }
-        }, exception -> {
-            logger.error("Failed to create search request for minimum data point", exception);
-            listener
-                .onFailure(
-                    new ADValidationException(
-                        CommonErrorMessages.TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA,
-                        DetectorValidationIssueType.TIMEFIELD_FIELD,
-                        ValidationAspect.MODEL
-                    )
-                );
-        });
-        searchFeatureDao.getMinDataTime(anomalyDetector, minTimeListener);
+            for (Map.Entry<String, Object> entry : topKeys.entrySet()) {
+                if (entry.getValue() == null) {
+                    topEntityListener.onResponse(Collections.emptyMap());
+                    return;
+                }
+            }
+            topEntityListener.onResponse(topKeys);
+        }, topEntityListener::onFailure));
     }
 
     private void getLatestDateForValidation(Map<String, Object> topEntity) {
@@ -410,7 +398,8 @@ public class ModelValidationActionHandler {
                 } else if (newIntervalMinute < MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
                     searchWithDifferentInterval(newIntervalMinute);
                     // The below block is executed only the first time when new interval is above max and
-                    // we aren't decreasing yet, at this point
+                    // we aren't decreasing yet, at this point we will start decreasing for the first time
+                    // if we are inside the below block
                 } else if (newIntervalMinute >= MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
                     IntervalTimeConfiguration givenInterval = (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval();
                     this.detectorInterval = new IntervalTimeConfiguration(
@@ -718,8 +707,11 @@ public class ModelValidationActionHandler {
                 );
             return;
         }
-        // This case has been reached if no interval or window delay recommendation was found and no configuration took down bucket
-        // rate bellow the config bucket rate minimum.
+        // This case has been reached if no interval recommendation was found that leads to a bucket success rate of >= 0.75
+        // but no single configuration during the following checks reduced the bucket success rate below 0.25
+        // This means the rate with all configs applied was below 0.75 but the rate when checking each configuration at time
+        // was always above 0.25 meaning the best suggestion is to simply ingest more data since we have no more insight
+        // regarding the root cause of the lower density.
         listener
             .onFailure(
                 new ADValidationException(

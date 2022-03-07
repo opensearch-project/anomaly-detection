@@ -12,13 +12,13 @@
 package org.opensearch.action.admin.indices.mapping.get;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -31,6 +31,10 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionResponse;
+import org.opensearch.action.ActionType;
+import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
@@ -47,6 +51,7 @@ import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.Client;
+import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -129,22 +134,47 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = maxSingleEntityAnomalyDetectors + 1;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+        SearchResponse detectorResponse = mock(SearchResponse.class);
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
+        SearchResponse userIndexResponse = mock(SearchResponse.class);
+        int userIndexHits = 0;
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
 
-            assertTrue(args[0] instanceof SearchRequest);
-            assertTrue(args[1] instanceof ActionListener);
+        // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
+        // we can also use spy to overstep the final methods
+        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
+            @Override
+            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                try {
+                    if (action.equals(SearchAction.INSTANCE)) {
+                        assertTrue(request instanceof SearchRequest);
+                        SearchRequest searchRequest = (SearchRequest) request;
+                        if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
+                            listener.onResponse((Response) detectorResponse);
+                        } else {
+                            listener.onResponse((Response) userIndexResponse);
+                        }
+                    } else {
+                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
+                        );
+                        listener.onResponse((Response) response);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
 
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
-            listener.onResponse(mockResponse);
-
-            return null;
-        }).when(clientMock).search(any(SearchRequest.class), any());
+        NodeClient clientSpy = spy(client);
 
         handler = new ValidateAnomalyDetectorActionHandler(
             clusterService,
-            clientMock,
+            clientSpy,
             channel,
             anomalyDetectionIndices,
             TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null, true),
@@ -161,7 +191,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         );
         handler.start();
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
-        verify(clientMock, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
+        verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof ADValidationException);
@@ -176,29 +206,51 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testValidateMoreThanTenMultiEntityDetectorsLimit() throws IOException {
-        SearchResponse mockResponse = mock(SearchResponse.class);
+        String field = "a";
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 
+        SearchResponse detectorResponse = mock(SearchResponse.class);
         int totalHits = maxMultiEntityAnomalyDetectors + 1;
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
-        when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
+        SearchResponse userIndexResponse = mock(SearchResponse.class);
+        int userIndexHits = 0;
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
+        // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
+        // we can also use spy to overstep the final methods
+        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
+            @Override
+            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                try {
+                    if (action.equals(SearchAction.INSTANCE)) {
+                        assertTrue(request instanceof SearchRequest);
+                        SearchRequest searchRequest = (SearchRequest) request;
+                        if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
+                            listener.onResponse((Response) detectorResponse);
+                        } else {
+                            listener.onResponse((Response) userIndexResponse);
+                        }
+                    } else {
+                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, "date")
+                        );
+                        listener.onResponse((Response) response);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
 
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
-
-            assertTrue(args[0] instanceof SearchRequest);
-            assertTrue(args[1] instanceof ActionListener);
-
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
-
-            listener.onResponse(mockResponse);
-
-            return null;
-        }).when(clientMock).search(any(SearchRequest.class), any());
+        NodeClient clientSpy = spy(client);
 
         handler = new ValidateAnomalyDetectorActionHandler(
             clusterService,
-            clientMock,
+            clientSpy,
             channel,
             anomalyDetectionIndices,
             detector,
@@ -214,9 +266,8 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             clock
         );
         handler.start();
-
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
-        verify(clientMock, times(1)).search(any(SearchRequest.class), any());
+        verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof ADValidationException);
