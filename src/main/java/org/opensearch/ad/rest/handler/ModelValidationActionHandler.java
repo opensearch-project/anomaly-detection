@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -697,8 +696,8 @@ public class ModelValidationActionHandler {
         client.search(searchRequest, ActionListener.wrap(response -> processFeatureQuery(response, latestTime), listener::onFailure));
     }
 
-    private void sendWindowDelayRec(long latestTime) {
-        long minutesSinceLastStamp = TimeUnit.MILLISECONDS.toMinutes(Instant.now().toEpochMilli() - latestTime);
+    private void sendWindowDelayRec(long latestTimeInMillis) {
+        long minutesSinceLastStamp = (long) Math.ceil((Instant.now().toEpochMilli() - latestTimeInMillis) / 60000.0);
         listener
             .onFailure(
                 new ADValidationException(
