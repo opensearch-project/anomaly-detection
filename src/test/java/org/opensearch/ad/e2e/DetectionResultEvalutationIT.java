@@ -334,7 +334,6 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         RestClient client = client();
         long recDetectorIntervalMillis = 180000;
         long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
-        System.out.println(recDetectorIntervalMinutes);
         List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
         indexTrainData("validation", data, 2000, client);
         indexTestData(data, "validation", 2000, client);

@@ -132,8 +132,6 @@ public class ModelValidationActionHandler {
     // If detector is HCAD then we will find the top entity and treat as single entity for
     // validation purposes
     public void checkIfMultiEntityDetector() {
-        System.out.println("inside here");
-
         ActionListener<Map<String, Object>> recommendationListener = ActionListener
             .wrap(topEntity -> getLatestDateForValidation(topEntity), exception -> {
                 listener.onFailure(exception);
@@ -383,7 +381,6 @@ public class ModelValidationActionHandler {
                         );
                 }
                 double fullBucketRate = processBucketAggregationResults(aggregate);
-                System.out.println("full bucket rate: " + fullBucketRate);
                 // If rate is above success minimum then return interval suggestion.
                 if (fullBucketRate > INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
                     intervalListener.onResponse(this.detectorInterval);
