@@ -18,7 +18,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -31,11 +30,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
-import org.opensearch.action.ActionType;
-import org.opensearch.action.search.SearchAction;
-import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
@@ -139,36 +133,41 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
         when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
+        AnomalyDetector singleEntityDetector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null, true);
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
-            @Override
-            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-                ActionType<Response> action,
-                Request request,
-                ActionListener<Response> listener
-            ) {
-                try {
-                    if (action.equals(SearchAction.INSTANCE)) {
-                        assertTrue(request instanceof SearchRequest);
-                        SearchRequest searchRequest = (SearchRequest) request;
-                        if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
-                            listener.onResponse((Response) detectorResponse);
-                        } else {
-                            listener.onResponse((Response) userIndexResponse);
-                        }
-                    } else {
-                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
-                        );
-                        listener.onResponse((Response) response);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
+
+        NodeClient client = IndexAnomalyDetectorActionHandlerTests
+            .getCustomNodeClient(detectorResponse, userIndexResponse, singleEntityDetector, threadPool);
+
+        // NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
+        // @Override
+        // public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+        // ActionType<Response> action,
+        // Request request,
+        // ActionListener<Response> listener
+        // ) {
+        // try {
+        // if (action.equals(SearchAction.INSTANCE)) {
+        // assertTrue(request instanceof SearchRequest);
+        // SearchRequest searchRequest = (SearchRequest) request;
+        // if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
+        // listener.onResponse((Response) detectorResponse);
+        // } else {
+        // listener.onResponse((Response) userIndexResponse);
+        // }
+        // } else {
+        // GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+        // TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
+        // );
+        // listener.onResponse((Response) response);
+        // }
+        // } catch (IOException e) {
+        // e.printStackTrace();
+        // }
+        // }
+        // };
 
         NodeClient clientSpy = spy(client);
 
@@ -177,7 +176,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             clientSpy,
             channel,
             anomalyDetectionIndices,
-            TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null, true),
+            singleEntityDetector,
             requestTimeout,
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
@@ -218,34 +217,8 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
-            @Override
-            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-                ActionType<Response> action,
-                Request request,
-                ActionListener<Response> listener
-            ) {
-                try {
-                    if (action.equals(SearchAction.INSTANCE)) {
-                        assertTrue(request instanceof SearchRequest);
-                        SearchRequest searchRequest = (SearchRequest) request;
-                        if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
-                            listener.onResponse((Response) detectorResponse);
-                        } else {
-                            listener.onResponse((Response) userIndexResponse);
-                        }
-                    } else {
-                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, "date")
-                        );
-                        listener.onResponse((Response) response);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-
+        NodeClient client = IndexAnomalyDetectorActionHandlerTests
+            .getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
         NodeClient clientSpy = spy(client);
 
         handler = new ValidateAnomalyDetectorActionHandler(

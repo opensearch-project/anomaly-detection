@@ -111,9 +111,9 @@ public class CommonErrorMessages {
     public static String TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA =
         "There isn't enough historical data found with current timefield selected.";
     public static String DETECTOR_INTERVAL_REC =
-        "The selected detector interval might collect sparse data. Consider increasing interval range too: ";
+        "The selected detector interval might collect sparse data. Consider changing interval length too: ";
     public static String RAW_DATA_TOO_SPARSE =
-        "Given index data is potentially too sparse for model training. Consider changing interval length or ingesting more data";
+        "Source index data is potentially too sparse for model training. Consider changing interval length or ingesting more data";
     public static String MODEL_VALIDATION_FAILED_UNEXPECTEDLY = "Model validation experienced issues completing.";
     public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied. Consider changing the data filter";
     public static String CATEGORY_FIELD_TOO_SPARSE =
@@ -121,7 +121,7 @@ public class CommonErrorMessages {
     public static String CATEGORY_FIELD_NO_DATA =
         "No entity was found with the given categorical fields. Consider revising category field/s or ingesting more data";
     public static String FEATURE_QUERY_TOO_SPARSE =
-        "Given data is most likely too sparse when given feature queries are applied. Consider revising feature queries.";
+        "Data is most likely too sparse when given feature queries are applied. Consider revising feature queries.";
     public static String TIMEOUT_ON_INTERVAL_REC = "Timed out getting interval recommendation";
 
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction

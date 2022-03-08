@@ -212,7 +212,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse);
+        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
         NodeClient clientSpy = spy(client);
 
         handler = new IndexAnomalyDetectorActionHandler(
@@ -501,7 +501,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         } else {
             assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.CATEGORICAL_FIELD_TYPE_ERR_MSG));
         }
-
     }
 
     @Ignore
@@ -519,8 +518,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         testUpdateTemplate(TEXT_FIELD_TYPE);
     }
 
-    private NodeClient getCustomNodeClient(SearchResponse detectorResponse, SearchResponse userIndexResponse) {
-        return new NodeClient(Settings.EMPTY, threadPool) {
+    public static NodeClient getCustomNodeClient(
+        SearchResponse detectorResponse,
+        SearchResponse userIndexResponse,
+        AnomalyDetector detector,
+        ThreadPool pool
+    ) {
+        return new NodeClient(Settings.EMPTY, pool) {
             @Override
             public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
                 ActionType<Response> action,
@@ -562,7 +566,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse);
+        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
         NodeClient clientSpy = spy(client);
 
         handler = new IndexAnomalyDetectorActionHandler(
