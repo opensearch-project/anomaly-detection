@@ -336,7 +336,6 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
         List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
         indexTrainData("validation", data, 2000, client);
-        indexTestData(data, "validation", 2000, client);
         long detectorInterval = 1;
         String requestBody = String
             .format(
@@ -391,19 +390,6 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         client.performRequest(request);
         Thread.sleep(1_000);
         data.stream().limit(trainTestSplit).forEach(r -> {
-            try {
-                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
-                req.setJsonEntity(r.toString());
-                client.performRequest(req);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-        Thread.sleep(1_000);
-    }
-
-    private void indexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
-        data.stream().skip(trainTestSplit).forEach(r -> {
             try {
                 Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
                 req.setJsonEntity(r.toString());

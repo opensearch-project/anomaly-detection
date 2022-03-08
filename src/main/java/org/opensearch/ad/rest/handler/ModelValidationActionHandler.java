@@ -552,7 +552,7 @@ public class ModelValidationActionHandler {
             return;
         }
         double fullBucketRate = processBucketAggregationResults(aggregate);
-        if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+        if (fullBucketRate < INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
             listener
                 .onFailure(
                     new ADValidationException(
