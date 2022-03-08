@@ -481,6 +481,11 @@ public class ModelValidationActionHandler {
         } else {
             if (interval.equals(anomalyDetector.getDetectionInterval())) {
                 logger.info("Using the current interval there is enough dense data ");
+                // Check if there is a window delay recommendation if everything else is successful and send exception
+                if (Instant.now().toEpochMilli() - latestTime > timeConfigToMilliSec(anomalyDetector.getWindowDelay())) {
+                    sendWindowDelayRec(latestTime);
+                    return;
+                }
                 // The rate of buckets with at least 1 doc with given interval is above the success rate
                 listener.onResponse(null);
                 return;
@@ -692,26 +697,33 @@ public class ModelValidationActionHandler {
         client.search(searchRequest, ActionListener.wrap(response -> processFeatureQuery(response, latestTime), listener::onFailure));
     }
 
+    private void sendWindowDelayRec(long latestTime) {
+        long minutesSinceLastStamp = TimeUnit.MILLISECONDS.toMinutes(Instant.now().toEpochMilli() - latestTime);
+        listener
+            .onFailure(
+                new ADValidationException(
+                    String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, minutesSinceLastStamp, minutesSinceLastStamp),
+                    DetectorValidationIssueType.WINDOW_DELAY,
+                    ValidationAspect.MODEL,
+                    new IntervalTimeConfiguration(minutesSinceLastStamp, ChronoUnit.MINUTES)
+                )
+            );
+    }
+
     private void windowDelayRecommendation(long latestTime) {
-        long delayMillis = timeConfigToMilliSec(anomalyDetector.getWindowDelay());
-        if ((Instant.now().toEpochMilli() - latestTime > delayMillis)) {
-            long minutesSinceLastStamp = TimeUnit.MILLISECONDS.toMinutes(Instant.now().toEpochMilli() - latestTime);
-            listener
-                .onFailure(
-                    new ADValidationException(
-                        String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, minutesSinceLastStamp, minutesSinceLastStamp),
-                        DetectorValidationIssueType.WINDOW_DELAY,
-                        ValidationAspect.MODEL,
-                        new IntervalTimeConfiguration(minutesSinceLastStamp, ChronoUnit.MINUTES)
-                    )
-                );
+        // Check if there is a better window-delay to recommend and if one was recommended
+        // then send exception and return, otherwise continue to let user know data is too sparse as explained below
+        if (Instant.now().toEpochMilli() - latestTime > timeConfigToMilliSec(anomalyDetector.getWindowDelay())) {
+            sendWindowDelayRec(latestTime);
             return;
         }
-        // This case has been reached if no interval recommendation was found that leads to a bucket success rate of >= 0.75
-        // but no single configuration during the following checks reduced the bucket success rate below 0.25
-        // This means the rate with all configs applied was below 0.75 but the rate when checking each configuration at time
-        // was always above 0.25 meaning the best suggestion is to simply ingest more data since we have no more insight
-        // regarding the root cause of the lower density.
+        // This case has been reached if following conditions are met:
+        // 1. no interval recommendation was found that leads to a bucket success rate of >= 0.75
+        // 2. bucket success rate with the given interval and just raw data is also below 0.75.
+        // 3. no single configuration during the following checks reduced the bucket success rate below 0.25
+        // This means the rate with all configs applied or just raw data was below 0.75 but the rate when checking each configuration at
+        // a time was always above 0.25 meaning the best suggestion is to simply ingest more data or change interval since
+        // we have no more insight regarding the root cause of the lower density.
         listener
             .onFailure(
                 new ADValidationException(

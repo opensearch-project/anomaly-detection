@@ -110,16 +110,20 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    private AnomalyDetector createIndexAndGetAnomalyDetector() throws IOException {
-        TestHelpers.createIndexWithTimeField(client(), INDEX_NAME, TIME_FIELD);
+    private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName) throws IOException {
+        return createIndexAndGetAnomalyDetector(indexName, ImmutableList.of(TestHelpers.randomFeature(true)));
+    }
+
+    private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features) throws IOException {
+        TestHelpers.createIndexWithTimeField(client(), indexName, TIME_FIELD);
         String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
-        TestHelpers.ingestDataToIndex(client(), INDEX_NAME, TestHelpers.toHttpEntity(testIndexData));
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, INDEX_NAME);
+        TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
         return detector;
     }
 
     public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {
-        AnomalyDetector detector = createIndexAndGetAnomalyDetector();
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         AnomalyDetector detectorDuplicateName = new AnomalyDetector(
             AnomalyDetector.NO_ID,
             randomLong(),
@@ -157,7 +161,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testCreateAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createIndexAndGetAnomalyDetector();
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
         Exception ex = expectThrows(
@@ -186,7 +190,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetectorCategoryField() throws Exception {
-        AnomalyDetector detector = createIndexAndGetAnomalyDetector();
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Response response = TestHelpers
             .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
@@ -246,7 +250,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetector() throws Exception {
-        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(), true, client());
+        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(INDEX_NAME), true, client());
         String newDescription = randomAlphaOfLength(5);
         AnomalyDetector newDetector = new AnomalyDetector(
             detector.getDetectorId(),
@@ -307,13 +311,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetectorNameToExisting() throws Exception {
-        AnomalyDetector detector1 = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
-        String indexName1 = detector1.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName1, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
-        AnomalyDetector detector2 = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
-        String indexName2 = detector2.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName2, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
-
+        AnomalyDetector detector1 = createIndexAndGetAnomalyDetector("index-test-one");
+        AnomalyDetector detector2 = createIndexAndGetAnomalyDetector("index-test-two");
         AnomalyDetector newDetector1WithDetector2Name = new AnomalyDetector(
             detector1.getDetectorId(),
             detector1.getVersion(),
@@ -351,7 +350,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetectorNameToNew() throws Exception {
-        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(), true, client());
+        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(INDEX_NAME), true, client());
         AnomalyDetector detectorWithNewName = new AnomalyDetector(
             detector.getDetectorId(),
             detector.getVersion(),
@@ -766,7 +765,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testUpdateAnomalyDetectorWithRunningAdJob() throws Exception {
-        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(), true, client());
+        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(INDEX_NAME), true, client());
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -1196,7 +1195,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testBackwardCompatibilityWithOpenDistro() throws IOException {
         // Create a detector
-        AnomalyDetector detector = createIndexAndGetAnomalyDetector();
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         // Verify the detector is created using legacy _opendistro API
         Response response = TestHelpers
             .makeRequest(
@@ -1233,7 +1232,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testValidateAnomalyDetectorWithDuplicateName() throws Exception {
-        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(), true, client());
+        AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(INDEX_NAME), true, client());
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1331,9 +1330,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testValidateAnomalyDetectorWithNoIssue() throws Exception {
-        String indexName = "testindex";
-        TestHelpers.createIndexWithTimeField(client(), "testindex", TIME_FIELD);
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName);
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1348,9 +1345,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testValidateAnomalyDetectorOnWrongValidationType() throws Exception {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
-        String indexName = detector.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
@@ -1359,7 +1354,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/models",
                         ImmutableMap.of(),
                         TestHelpers.toHttpEntity(detector),
                         null
@@ -1429,8 +1424,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testValidateAnomalyDetectorWithFeatureQueryReturningNoData() throws Exception {
         Feature emptyFeature = TestHelpers.randomFeature("f-empty", "cpu", "avg", true);
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, "index-test", ImmutableList.of(emptyFeature));
-        TestHelpers.createIndexWithTimeField(client(), "index-test", TIME_FIELD);
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME, ImmutableList.of(emptyFeature));
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1452,10 +1446,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryRuntimeException() throws Exception {
-        String nonNumericField = "_type";
-        Feature nonNumericFeature = TestHelpers.randomFeature("non-numeric-feature", nonNumericField, "avg", true);
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, "index-test", ImmutableList.of(nonNumericFeature));
-        TestHelpers.createIndexWithTimeField(client(), "index-test", TIME_FIELD);
+        Feature nonNumericFeature = TestHelpers.randomFeature("non-numeric-feature", "_type", "avg", true);
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME, ImmutableList.of(nonNumericFeature));
         Response resp = TestHelpers
             .makeRequest(
                 client(),

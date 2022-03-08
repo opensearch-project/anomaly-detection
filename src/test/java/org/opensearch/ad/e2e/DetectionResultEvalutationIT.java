@@ -367,6 +367,44 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         );
     }
 
+    public void testValidationWindowDelayRecommendation() throws Exception {
+        RestClient client = client();
+        long recDetectorIntervalMillis = 180000;
+        // this would be equivalent to the window delay in this data test
+        long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
+        List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
+        indexTrainData("validation", data, 2000, client);
+        long detectorInterval = 4;
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"validation\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }"
+                    + ",\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                detectorInterval
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("model", responseMap);
+        assertEquals(
+            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +recDetectorIntervalMinutes, recDetectorIntervalMinutes),
+            messageMap.get("window_delay").get("message")
+        );
+    }
+
     private List<JsonObject> createData(int numOfDataPoints, long detectorIntervalMS) {
         List<JsonObject> list = new ArrayList<>();
         for (int i = 1; i < numOfDataPoints; i++) {
