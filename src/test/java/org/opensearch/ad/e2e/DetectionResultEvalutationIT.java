@@ -399,8 +399,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         @SuppressWarnings("unchecked")
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("model", responseMap);
+        // adding plus one since window delay always rounds up another minute
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +recDetectorIntervalMinutes, recDetectorIntervalMinutes),
+            String
+                .format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +recDetectorIntervalMinutes + 1, recDetectorIntervalMinutes + 1),
             messageMap.get("window_delay").get("message")
         );
     }
