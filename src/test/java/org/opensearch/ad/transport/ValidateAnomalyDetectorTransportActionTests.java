@@ -266,7 +266,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         AnomalyDetector anomalyDetector = TestHelpers
             .randomDetector(
                 ImmutableList.of(TestHelpers.randomFeature()),
-                randomAlphaOfLength(5).toLowerCase(),
+                randomAlphaOfLength(5).toLowerCase(Locale.ROOT),
                 randomIntBetween(1, 5),
                 timeField,
                 null,
@@ -304,7 +304,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         AnomalyDetector anomalyDetector = TestHelpers
             .randomDetector(
                 ImmutableList.of(TestHelpers.randomFeature()),
-                randomAlphaOfLength(5).toLowerCase(),
+                randomAlphaOfLength(5).toLowerCase(Locale.ROOT),
                 randomIntBetween(1, 5),
                 timeField,
                 null,
@@ -333,7 +333,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         AnomalyDetector anomalyDetector = TestHelpers
             .randomDetector(
                 ImmutableList.of(TestHelpers.randomFeature()),
-                randomAlphaOfLength(5).toLowerCase(),
+                randomAlphaOfLength(5).toLowerCase(Locale.ROOT),
                 randomIntBetween(1, 5),
                 timeField,
                 null,
@@ -360,7 +360,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             "#$32",
             randomAlphaOfLength(5),
             timeField,
-            ImmutableList.of(randomAlphaOfLength(5).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
             ImmutableList.of(TestHelpers.randomFeature()),
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -396,7 +396,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             "abababababababababababababababababababababababababababababababababababababababababababababababab",
             randomAlphaOfLength(5),
             timeField,
-            ImmutableList.of(randomAlphaOfLength(5).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
             ImmutableList.of(TestHelpers.randomFeature()),
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),

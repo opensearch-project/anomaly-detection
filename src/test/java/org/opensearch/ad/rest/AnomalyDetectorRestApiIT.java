@@ -1499,7 +1499,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsWithInvalidInputs() throws IOException {
-        String indexName = randomAlphaOfLength(10).toLowerCase();
+        String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
                 put("keyword-field", "keyword");
@@ -1647,7 +1647,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsOnNonExistentResultIndex() throws IOException {
-        String indexName = randomAlphaOfLength(10).toLowerCase();
+        String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
                 put("keyword-field", "keyword");
@@ -1686,7 +1686,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsOnEmptyResultIndex() throws IOException {
-        String indexName = randomAlphaOfLength(10).toLowerCase();
+        String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
                 put("keyword-field", "keyword");
@@ -1726,7 +1726,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsOnPopulatedResultIndex() throws IOException {
-        String indexName = randomAlphaOfLength(10).toLowerCase();
+        String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
                 put("keyword-field", "keyword");
@@ -1842,8 +1842,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsWithCustomResultIndex() throws IOException {
-        String indexName = randomAlphaOfLength(10).toLowerCase();
-        String customResultIndexName = CommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase();
+        String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
+        String customResultIndexName = CommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
                 put("keyword-field", "keyword");
