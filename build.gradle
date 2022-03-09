@@ -480,6 +480,7 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.AnomalyDetectorPlugin',
         'org.opensearch.ad.settings.AnomalyDetectorSettings',
 
+        //TODO: Add more cases for model validation API, both UT and IT
         //TODO: add more test cases later for these package
         'org.opensearch.ad.model.*',
         'org.opensearch.ad.rest.*',

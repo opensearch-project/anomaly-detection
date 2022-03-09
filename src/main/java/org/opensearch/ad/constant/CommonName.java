@@ -89,6 +89,7 @@ public class CommonName {
     public static final String TYPE = "type";
     public static final String KEYWORD_TYPE = "keyword";
     public static final String IP_TYPE = "ip";
+    public static final String DATE_TYPE = "date";
 
     // used for updating mapping
     public static final String SCHEMA_VERSION_FIELD = "schema_version";
@@ -134,7 +135,8 @@ public class CommonName {
     // Validation
     // ======================================
     // detector validation aspect
-    public static final String DETECTOR = "detector";
+    public static final String DETECTOR_ASPECT = "detector";
+    public static final String MODEL_ASPECT = "model";
 
     // ======================================
     // Used for custom AD result index

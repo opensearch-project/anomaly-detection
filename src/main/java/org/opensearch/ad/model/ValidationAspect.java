@@ -28,7 +28,8 @@ import org.opensearch.ad.constant.CommonName;
  * </ul>
  */
 public enum ValidationAspect implements Name {
-    DETECTOR(CommonName.DETECTOR);
+    DETECTOR(CommonName.DETECTOR_ASPECT),
+    MODEL(CommonName.MODEL_ASPECT);
 
     private String name;
 
@@ -48,8 +49,10 @@ public enum ValidationAspect implements Name {
 
     public static ValidationAspect getName(String name) {
         switch (name) {
-            case CommonName.DETECTOR:
+            case CommonName.DETECTOR_ASPECT:
                 return DETECTOR;
+            case CommonName.MODEL_ASPECT:
+                return MODEL;
             default:
                 throw new IllegalArgumentException("Unsupported validation aspects");
         }

@@ -11,17 +11,12 @@
 
 package org.opensearch.ad.rest.handler;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.time.Clock;
 
-import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.ValidationAspect;
-import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -30,16 +25,11 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.rest.RestRequest;
 
-import com.google.common.collect.Sets;
-
 /**
  * Anomaly detector REST action handler to process POST request.
  * POST request is for validating anomaly detector against detector and/or model configs.
  */
 public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> {
-
-    private static final Set<ValidationAspect> DEFAULT_VALIDATION_ASPECTS = Sets.newHashSet(ValidationAspect.DETECTOR);
-    private final Set<ValidationAspect> aspects;
 
     /**
      * Constructor function.
@@ -57,7 +47,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      * @param xContentRegistry                Registry which is used for XContentParser
      * @param user                            User context
      * @param searchFeatureDao                Search feature DAO
-     * @param validationType                         specified type for validation
+     * @param validationType                  Specified type for validation
+     * @param clock                           Clock object to know when to timeout
      */
     public ValidateAnomalyDetectorActionHandler(
         ClusterService clusterService,
@@ -73,7 +64,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         NamedXContentRegistry xContentRegistry,
         User user,
         SearchFeatureDao searchFeatureDao,
-        String validationType
+        String validationType,
+        Clock clock
     ) {
         super(
             clusterService,
@@ -95,36 +87,21 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             user,
             null,
             searchFeatureDao,
-            true
+            validationType,
+            true,
+            clock
         );
-        this.aspects = getValidationTypes(validationType);
     }
 
-    // All current validation that is done in the AbstractAnomalyDetectorActionHandler that is called
+    // If validation type is detector then all validation in AbstractAnomalyDetectorActionHandler that is called
     // by super.start() involves validation checks against the detector configurations,
     // any issues raised here would block user from creating the anomaly detector.
+    // If validation Aspect is of type model then further non-blocker validation will be executed
+    // after the blocker validation is executed. Any issues that are raised for model validation
+    // are simply warnings for the user in terms of how configuration could be changed to lead to
+    // a higher likelihood of model training completing successfully
     @Override
     public void start() {
         super.start();
-    }
-
-    // Future additional implementation of the validation API will include model validation
-    // which are for non-blocker issues meaning detector creation can be executed after
-    // and only suggestions are given on how to improve configs.
-    // PR outlining the blocker level validations already implemented above:
-    // https://github.com/opensearch-project/anomaly-detection/pull/231
-    // TODO: add implementation for model config validation
-    private void validateModelConfig() {
-
-    }
-
-    private Set<ValidationAspect> getValidationTypes(String validationType) {
-        if (StringUtils.isBlank(validationType)) {
-            return DEFAULT_VALIDATION_ASPECTS;
-        } else {
-            Set<String> typesInRequest = new HashSet<>(Arrays.asList(validationType.split(",")));
-            return ValidationAspect
-                .getNames(Sets.intersection(RestValidateAnomalyDetectorAction.ALL_VALIDATION_ASPECTS_STRS, typesInRequest));
-        }
     }
 }
