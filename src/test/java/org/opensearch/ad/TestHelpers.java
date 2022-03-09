@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -270,7 +271,7 @@ public class TestHelpers {
         List<String> categoryFields
     ) throws IOException {
         return randomAnomalyDetector(
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             features,
             uiMetadata,
             lastUpdateTime,
@@ -369,7 +370,7 @@ public class TestHelpers {
         return randomAnomalyDetectorUsingCategoryFields(
             detectorId,
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             categoryFields
         );
     }
@@ -412,7 +413,7 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features) throws IOException {
-        return randomAnomalyDetector(randomAlphaOfLength(5), randomAlphaOfLength(10).toLowerCase(), features);
+        return randomAnomalyDetector(randomAlphaOfLength(5), randomAlphaOfLength(10).toLowerCase(Locale.ROOT), features);
     }
 
     public static AnomalyDetector randomAnomalyDetector(String timefield, String indexName) throws IOException {
@@ -426,7 +427,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             timefield,
-            ImmutableList.of(indexName.toLowerCase()),
+            ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
             features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -448,7 +449,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(),
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -475,7 +476,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(randomFeature()),
             randomQuery(),
             interval,
@@ -502,7 +503,7 @@ public class TestHelpers {
         private String name = randomAlphaOfLength(20);
         private String description = randomAlphaOfLength(30);
         private String timeField = randomAlphaOfLength(5);
-        private List<String> indices = ImmutableList.of(randomAlphaOfLength(10).toLowerCase());
+        private List<String> indices = ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT));
         private List<Feature> featureAttributes = ImmutableList.of(randomFeature(true));
         private QueryBuilder filterQuery;
         private TimeConfiguration detectionInterval = randomIntervalTimeConfiguration();
@@ -640,7 +641,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(randomFeature(featureEnabled)),
             randomQuery(),
             interval,
@@ -1066,8 +1067,8 @@ public class TestHelpers {
         indexMappings.append("{\"properties\":{");
         indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
         indexMappings.append("}}");
-        createIndex(client, indexName.toLowerCase(), TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
-        createIndexMapping(client, indexName.toLowerCase(), TestHelpers.toHttpEntity(indexMappings.toString()));
+        createIndex(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+        createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
     public static void createEmptyIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
@@ -1075,8 +1076,8 @@ public class TestHelpers {
         indexMappings.append("{\"properties\":{");
         indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
         indexMappings.append("}}");
-        createEmptyIndex(client, indexName.toLowerCase());
-        createIndexMapping(client, indexName.toLowerCase(), TestHelpers.toHttpEntity(indexMappings.toString()));
+        createEmptyIndex(client, indexName.toLowerCase(Locale.ROOT));
+        createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
     public static void createIndexWithHCADFields(RestClient client, String indexName, Map<String, String> categoryFieldsAndTypes)

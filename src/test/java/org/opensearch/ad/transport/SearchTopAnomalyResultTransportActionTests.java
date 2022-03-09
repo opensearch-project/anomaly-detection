@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.junit.Before;
@@ -93,7 +94,7 @@ public class SearchTopAnomalyResultTransportActionTests extends ADIntegTestCase 
 
     public void testSearchOnNonExistingResultIndex() throws IOException {
         deleteIndexIfExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        String testIndexName = randomAlphaOfLength(10).toLowerCase();
+        String testIndexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         ImmutableList<String> categoryFields = ImmutableList.of("test-field-1", "test-field-2");
         String detectorId = createDetector(
             TestHelpers

@@ -21,6 +21,7 @@ import static org.opensearch.ad.model.ADTaskAction.START;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Locale;
 
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
@@ -65,7 +66,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(),
             randomQuery(),
             randomIntervalTimeConfiguration(),
