@@ -61,6 +61,13 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
         return new IntervalTimeConfiguration(input);
     }
 
+    public static long getIntervalInMinute(IntervalTimeConfiguration interval) {
+        if (interval.getUnit() == ChronoUnit.SECONDS) {
+            return interval.getInterval() / 60;
+        }
+        return interval.getInterval();
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeLong(this.interval);

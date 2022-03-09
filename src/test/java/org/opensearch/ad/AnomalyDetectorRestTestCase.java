@@ -154,7 +154,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         // step comes next in terms of accessing/update/deleting the detector, this will help avoid
         // lots of flaky tests
         try {
-            Thread.sleep(2500);
+            Thread.sleep(5000);
         } catch (InterruptedException ex) {
             logger.error("Failed to sleep after creating detector", ex);
         }

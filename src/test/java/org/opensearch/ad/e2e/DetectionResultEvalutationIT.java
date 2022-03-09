@@ -36,18 +36,24 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.opensearch.ad.ODFERestTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
 import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 public class DetectionResultEvalutationIT extends ODFERestTestCase {
     protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
@@ -322,5 +328,114 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         request.setJsonEntity(Strings.toString(settingCommand));
 
         adminClient().performRequest(request);
+    }
+
+    public void testValidationIntervalRecommendation() throws Exception {
+        RestClient client = client();
+        long recDetectorIntervalMillis = 180000;
+        long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
+        List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
+        indexTrainData("validation", data, 2000, client);
+        long detectorInterval = 1;
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"validation\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }"
+                    + ",\"window_delay\":{\"period\":{\"interval\":10,\"unit\":\"Minutes\"}}}",
+                detectorInterval
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("model", responseMap);
+        assertEquals(
+            CommonErrorMessages.DETECTOR_INTERVAL_REC + recDetectorIntervalMinutes,
+            messageMap.get("detection_interval").get("message")
+        );
+    }
+
+    public void testValidationWindowDelayRecommendation() throws Exception {
+        RestClient client = client();
+        long recDetectorIntervalMillis = 180000;
+        // this would be equivalent to the window delay in this data test
+        long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
+        List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
+        indexTrainData("validation", data, 2000, client);
+        long detectorInterval = 4;
+        String requestBody = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"validation\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }"
+                    + ",\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                detectorInterval
+            );
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
+                ImmutableMap.of(),
+                toHttpEntity(requestBody),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("model", responseMap);
+        assertEquals(
+            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +recDetectorIntervalMinutes, recDetectorIntervalMinutes),
+            messageMap.get("window_delay").get("message")
+        );
+    }
+
+    private List<JsonObject> createData(int numOfDataPoints, long detectorIntervalMS) {
+        List<JsonObject> list = new ArrayList<>();
+        for (int i = 1; i < numOfDataPoints; i++) {
+            long valueFeature1 = randomLongBetween(1, 10000000);
+            long valueFeature2 = randomLongBetween(1, 10000000);
+            JsonObject obj = new JsonObject();
+            JsonElement element = new JsonPrimitive(Instant.now().toEpochMilli() - (detectorIntervalMS * i));
+            obj.add("timestamp", element);
+            obj.add("Feature1", new JsonPrimitive(valueFeature1));
+            obj.add("Feature2", new JsonPrimitive(valueFeature2));
+            list.add(obj);
+        }
+        return list;
+    }
+
+    private void indexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client) throws Exception {
+        Request request = new Request("PUT", datasetName);
+        String requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+            + " \"Feature1\": { \"type\": \"long\" }, \"Feature2\": { \"type\": \"long\" } } } }";
+        request.setJsonEntity(requestBody);
+        client.performRequest(request);
+        Thread.sleep(1_000);
+        data.stream().limit(trainTestSplit).forEach(r -> {
+            try {
+                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
+                req.setJsonEntity(r.toString());
+                client.performRequest(req);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        Thread.sleep(1_000);
     }
 }
