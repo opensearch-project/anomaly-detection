@@ -412,13 +412,21 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features) throws IOException {
+        return randomAnomalyDetector(randomAlphaOfLength(5), randomAlphaOfLength(10).toLowerCase(), features);
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(String timefield, String indexName) throws IOException {
+        return randomAnomalyDetector(timefield, indexName, ImmutableList.of(randomFeature(true)));
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(String timefield, String indexName, List<Feature> features) throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
-            randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            timefield,
+            ImmutableList.of(indexName.toLowerCase()),
             features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -1051,6 +1059,24 @@ public class TestHelpers {
                 data,
                 null
             );
+    }
+
+    public static void createIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        indexMappings.append("}}");
+        createIndex(client, indexName.toLowerCase(), TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+        createIndexMapping(client, indexName.toLowerCase(), TestHelpers.toHttpEntity(indexMappings.toString()));
+    }
+
+    public static void createEmptyIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        indexMappings.append("}}");
+        createEmptyIndex(client, indexName.toLowerCase());
+        createIndexMapping(client, indexName.toLowerCase(), TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
     public static void createIndexWithHCADFields(RestClient client, String indexName, Map<String, String> categoryFieldsAndTypes)

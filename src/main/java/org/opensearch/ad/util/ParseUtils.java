@@ -724,4 +724,42 @@ public final class ParseUtils {
         }
         return oldValList.toArray();
     }
+
+    public static List<String> parseAggregationRequest(XContentParser parser) throws IOException {
+        List<String> fieldNames = new ArrayList<>();
+        XContentParser.Token token;
+        while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
+            if (token == XContentParser.Token.FIELD_NAME) {
+                final String field = parser.currentName();
+                switch (field) {
+                    case "field":
+                        parser.nextToken();
+                        fieldNames.add(parser.textOrNull());
+                        break;
+                    default:
+                        parser.skipChildren();
+                        break;
+                }
+            }
+        }
+        return fieldNames;
+    }
+
+    public static List<String> getFeatureFieldNames(AnomalyDetector detector, NamedXContentRegistry xContentRegistry) throws IOException {
+        List<String> featureFields = new ArrayList<>();
+        for (Feature feature : detector.getFeatureAttributes()) {
+            featureFields.add(getFieldNamesForFeature(feature, xContentRegistry).get(0));
+        }
+        return featureFields;
+    }
+
+    public static List<String> getFieldNamesForFeature(Feature feature, NamedXContentRegistry xContentRegistry) throws IOException {
+        ParseUtils.parseAggregators(feature.getAggregation().toString(), xContentRegistry, feature.getId());
+        XContentParser parser = XContentType.JSON
+            .xContent()
+            .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, feature.getAggregation().toString());
+        parser.nextToken();
+        return ParseUtils.parseAggregationRequest(parser);
+    }
+
 }

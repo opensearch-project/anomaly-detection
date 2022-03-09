@@ -322,4 +322,11 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
             .parseAggregation("{\"" + aggregationName + "\":{\"max\":{\"field\":\"" + fieldName + "\"}}}");
         return new Feature(randomAlphaOfLength(5), featureName, true, aggregationBuilder);
     }
+
+    public Feature sumValueFeature(String aggregationName, String fieldName, String featureName) throws IOException {
+        AggregationBuilder aggregationBuilder = TestHelpers
+            .parseAggregation("{\"" + aggregationName + "\":{\"value_count\":{\"field\":\"" + fieldName + "\"}}}");
+        return new Feature(randomAlphaOfLength(5), featureName, true, aggregationBuilder);
+    }
+
 }

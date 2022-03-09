@@ -97,7 +97,9 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
             user,
             adTaskManager,
             searchFeatureDao,
-            false
+            null,
+            false,
+            null
         );
     }
 
