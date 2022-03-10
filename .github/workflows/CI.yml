@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         java: [8, 11, 14]
+      fail-fast: false
 
     name: Build and Test Anomaly detection Plugin
     runs-on: ubuntu-latest
