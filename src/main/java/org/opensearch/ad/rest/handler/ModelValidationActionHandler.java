@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -38,11 +40,14 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssueType;
+import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.model.MergeableList;
 import org.opensearch.ad.model.TimeConfiguration;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
+import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -52,6 +57,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
@@ -264,7 +270,6 @@ public class ModelValidationActionHandler {
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         Map<String, Object> topEntity
     ) throws IOException {
-        List<String> featureFields = ParseUtils.getFeatureFieldNames(anomalyDetector, xContentRegistry);
         AggregationBuilder aggregation = getBucketAggregation(
             latestTime,
             (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
@@ -287,9 +292,6 @@ public class ModelValidationActionHandler {
             }
         }
 
-        for (String featureField : featureFields) {
-            query.filter(QueryBuilders.existsQuery(featureField));
-        }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(query)
             .aggregation(aggregation)
@@ -603,7 +605,7 @@ public class ModelValidationActionHandler {
             getTopEntityForCategoryField(latestTime);
         } else {
             try {
-                checkFeatureQuery(latestTime);
+                checkFeatureQueryDelegate(latestTime);
             } catch (Exception ex) {
                 logger.error(ex);
                 listener.onFailure(ex);
@@ -652,7 +654,7 @@ public class ModelValidationActionHandler {
                 );
         } else {
             try {
-                checkFeatureQuery(latestTime);
+                checkFeatureQueryDelegate(latestTime);
             } catch (Exception ex) {
                 logger.error(ex);
                 listener.onFailure(ex);
@@ -660,40 +662,64 @@ public class ModelValidationActionHandler {
         }
     }
 
-    private void processFeatureQuery(SearchResponse response, long latestTime) {
-        Histogram aggregate = checkBucketResultErrors(response);
-        if (aggregate == null) {
-            return;
-        }
+    private void checkFeatureQueryDelegate(long latestTime) throws IOException {
+        ActionListener<MergeableList<double[]>> validateFeatureQueriesListener = ActionListener
+            .wrap(response -> { windowDelayRecommendation(latestTime); }, exception -> {
+                listener
+                    .onFailure(
+                        new ADValidationException(
+                            exception.getMessage(),
+                            DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                            ValidationAspect.MODEL
+                        )
+                    );
+            });
+        MultiResponsesDelegateActionListener<MergeableList<double[]>> multiFeatureQueriesResponseListener =
+            new MultiResponsesDelegateActionListener<>(
+                validateFeatureQueriesListener,
+                anomalyDetector.getFeatureAttributes().size(),
+                CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE,
+                false
+            );
 
-        double fullBucketRate = processBucketAggregationResults(aggregate);
-        if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
-            listener
-                .onFailure(
-                    new ADValidationException(
-                        CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE,
-                        DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                        ValidationAspect.MODEL
-                    )
-                );
-            return;
+        for (Feature feature : anomalyDetector.getFeatureAttributes()) {
+            AggregationBuilder aggregation = getBucketAggregation(
+                latestTime,
+                (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
+            );
+            BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
+            List<String> featureFields = ParseUtils.getFieldNamesForFeature(feature, xContentRegistry);
+            for (String featureField : featureFields) {
+                query.filter(QueryBuilders.existsQuery(featureField));
+            }
+            SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
+            SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]))
+                .source(searchSourceBuilder);
+            client.search(searchRequest, ActionListener.wrap(response -> {
+                Histogram aggregate = checkBucketResultErrors(response);
+                if (aggregate == null) {
+                    return;
+                }
+                double fullBucketRate = processBucketAggregationResults(aggregate);
+                if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+                    multiFeatureQueriesResponseListener
+                        .onFailure(
+                            new ADValidationException(
+                                CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE,
+                                DetectorValidationIssueType.FEATURE_ATTRIBUTES,
+                                ValidationAspect.MODEL
+                            )
+                        );
+                } else {
+                    multiFeatureQueriesResponseListener
+                        .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(new double[] { fullBucketRate }))));
+                }
+            }, e -> {
+                logger.error(e);
+                multiFeatureQueriesResponseListener
+                    .onFailure(new OpenSearchStatusException(CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE, RestStatus.BAD_REQUEST, e));
+            }));
         }
-        windowDelayRecommendation(latestTime);
-    }
-
-    private void checkFeatureQuery(long latestTime) throws IOException {
-        List<String> featureFields = ParseUtils.getFeatureFieldNames(anomalyDetector, xContentRegistry);
-        AggregationBuilder aggregation = getBucketAggregation(
-            latestTime,
-            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
-        );
-        BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
-        for (String featureField : featureFields) {
-            query.filter(QueryBuilders.existsQuery(featureField));
-        }
-        SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
-        SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client.search(searchRequest, ActionListener.wrap(response -> processFeatureQuery(response, latestTime), listener::onFailure));
     }
 
     private void sendWindowDelayRec(long latestTimeInMillis) {
