@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.opensearch.OpenSearchStatusException;
@@ -143,6 +144,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     }
 
     public void testStartHistoricalAnalysisForSingleCategoryHCWithUser() throws IOException, InterruptedException {
+        Assume.assumeTrue(System.getProperty("java.specification.version").compareTo("1.9") >= 0);
+
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "1", DEFAULT_IP, 2000, false);
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "2", DEFAULT_IP, 2000, false);
         AnomalyDetector detector = TestHelpers

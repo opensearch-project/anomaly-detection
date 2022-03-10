@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.AfterClass;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -97,26 +98,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     private RestRequest.Method method;
     private ADTaskManager adTaskManager;
     private SearchFeatureDao searchFeatureDao;
-
-    /**
-     * Mockito does not allow mock final methods.  Make my own delegates and mock them.
-     *
-     */
-    class NodeClientDelegate extends NodeClient {
-
-        NodeClientDelegate(Settings settings, ThreadPool threadPool) {
-            super(settings, threadPool);
-        }
-
-        public <Request extends ActionRequest, Response extends ActionResponse> void execute2(
-            ActionType<Response> action,
-            Request request,
-            ActionListener<Response> listener
-        ) {
-            super.execute(action, request, listener);
-        }
-
-    }
 
     @BeforeClass
     public static void beforeClass() {
@@ -201,6 +182,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMoreThanTenThousandSingleEntityDetectors() throws IOException {
+        Assume.assumeTrue(System.getProperty("java.specification.version").compareTo("1.9") >= 0);
+
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = 1001;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -555,6 +538,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMoreThanTenMultiEntityDetectors() throws IOException {
+        Assume.assumeTrue(System.getProperty("java.specification.version").compareTo("1.9") >= 0);
+
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
         SearchResponse detectorResponse = mock(SearchResponse.class);
