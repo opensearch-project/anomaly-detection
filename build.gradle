@@ -521,6 +521,7 @@ List<String> jacocoExclusions = [
         // TODO: fix unstable code coverage caused by null NodeClient issue
         // https://github.com/opensearch-project/anomaly-detection/issues/241
         'org.opensearch.ad.task.ADBatchTaskRunner',
+        'org.opensearch.ad.task.ADTaskManager',
         
         //TODO: custom result index caused coverage drop
         'org.opensearch.ad.indices.AnomalyDetectionIndices',
