@@ -165,7 +165,7 @@ public class ADTaskCacheManager {
      * Put AD task into cache.
      * If AD task is already in cache, will throw {@link IllegalArgumentException}
      * If there is one AD task in cache for detector, will throw {@link IllegalArgumentException}
-     * If there is no enough memory for this AD task, will throw {@link LimitExceededException}
+     * If there is not enough memory for this AD task, will throw {@link LimitExceededException}
      *
      * @param adTask AD task
      */
@@ -182,7 +182,7 @@ public class ADTaskCacheManager {
         checkRunningTaskLimit();
         long neededCacheSize = calculateADTaskCacheSize(adTask);
         if (!memoryTracker.canAllocateReserved(neededCacheSize)) {
-            throw new LimitExceededException("No enough memory to run detector");
+            throw new LimitExceededException("Not enough memory to run detector");
         }
         memoryTracker.consumeMemory(neededCacheSize, true, HISTORICAL_SINGLE_ENTITY_DETECTOR);
         ADBatchTaskCache taskCache = new ADBatchTaskCache(adTask);
