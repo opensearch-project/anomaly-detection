@@ -182,7 +182,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMoreThanTenThousandSingleEntityDetectors() throws IOException {
-        Assume.assumeTrue(System.getProperty("java.specification.version").compareTo("1.9") >= 0);
+        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
 
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = 1001;
@@ -538,7 +538,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMoreThanTenMultiEntityDetectors() throws IOException {
-        Assume.assumeTrue(System.getProperty("java.specification.version").compareTo("1.9") >= 0);
+        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
 
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));

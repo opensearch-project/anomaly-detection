@@ -126,7 +126,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testValidateMoreThanThousandSingleEntityDetectorLimit() throws IOException {
-        Assume.assumeTrue(System.getProperty("java.specification.version").compareTo("1.9") >= 0);
+        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
 
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = maxSingleEntityAnomalyDetectors + 1;
@@ -208,7 +208,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testValidateMoreThanTenMultiEntityDetectorsLimit() throws IOException {
-        Assume.assumeTrue(System.getProperty("java.specification.version").compareTo("1.9") >= 0);
+        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
 
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
