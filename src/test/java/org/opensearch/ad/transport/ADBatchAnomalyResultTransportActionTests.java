@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.Assume;
 import org.junit.Before;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.get.GetResponse;
@@ -149,8 +148,6 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
     }
 
     public void testMultipleTasks() throws IOException, InterruptedException {
-        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
-
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 2));
 
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
