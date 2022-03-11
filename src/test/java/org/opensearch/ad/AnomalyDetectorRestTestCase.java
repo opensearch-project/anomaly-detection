@@ -125,6 +125,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     }
 
     protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, RestClient client) throws IOException {
+        TestHelpers.createIndexWithTimeField(client(), detector.getIndices().get(0), detector.getTimeField());
         Response response = TestHelpers
             .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
