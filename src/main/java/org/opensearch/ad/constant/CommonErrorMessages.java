@@ -111,7 +111,7 @@ public class CommonErrorMessages {
     public static String TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA =
         "There isn't enough historical data found with current timefield selected.";
     public static String DETECTOR_INTERVAL_REC =
-        "The selected detector interval might collect sparse data. Consider changing interval length too: ";
+        "The selected detector interval might collect sparse data. Consider changing interval length to: ";
     public static String RAW_DATA_TOO_SPARSE =
         "Source index data is potentially too sparse for model training. Consider changing interval length or ingesting more data";
     public static String MODEL_VALIDATION_FAILED_UNEXPECTEDLY = "Model validation experienced issues completing.";
