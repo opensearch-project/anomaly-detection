@@ -94,7 +94,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
 
     public void testHistoricalAnalysisWithSmallHistoricalDateRange() throws IOException, InterruptedException {
         DetectionDateRange dateRange = new DetectionDateRange(startTime, startTime.plus(10, ChronoUnit.MINUTES));
-        testInvalidDetectionDateRange(dateRange, "There is no enough data to train model");
+        testInvalidDetectionDateRange(dateRange, "There is not enough data to train model");
     }
 
     public void testHistoricalAnalysisWithValidDateRange() throws IOException, InterruptedException {
