@@ -22,6 +22,8 @@ import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.InternalAggregations;
+import org.opensearch.search.aggregations.bucket.InternalSingleBucketAggregation;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
@@ -30,8 +32,49 @@ import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 public abstract class AbstractRetriever {
-    protected double parseAggregation(Aggregation aggregation) {
+    protected double parseAggregation(Aggregation aggregationToParse) {
         Double result = null;
+        /* example InternalSingleBucketAggregation: filter aggregation like
+           "t_shirts": {
+                "filter": {
+                    "bool": {
+                        "should": [
+                            {
+                                "term": {
+                                    "issueType": "foo"
+                                }
+                            }
+                            ...
+                            ],
+                            "minimum_should_match": "1",
+                            "boost": 1
+                    }
+                },
+                "aggs": {
+                    "impactUniqueAccounts": {
+                        "aggregation": {
+                            "field": "account"
+                        }
+                    }
+                }
+            }
+        
+            would produce an InternalFilter (a subtype of InternalSingleBucketAggregation) with a sub-aggregation
+            InternalCardinality that is also a SingleValue
+        */
+
+        if (aggregationToParse instanceof InternalSingleBucketAggregation) {
+            InternalAggregations bucket = ((InternalSingleBucketAggregation) aggregationToParse).getAggregations();
+            if (bucket != null) {
+                List<Aggregation> aggrs = bucket.asList();
+                if (aggrs.size() == 1) {
+                    // we only accept a single value as feature
+                    aggregationToParse = aggrs.get(0);
+                }
+            }
+        }
+
+        final Aggregation aggregation = aggregationToParse;
         if (aggregation instanceof SingleValue) {
             result = ((SingleValue) aggregation).value();
         } else if (aggregation instanceof InternalTDigestPercentiles) {
