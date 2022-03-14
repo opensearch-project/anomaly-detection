@@ -24,7 +24,6 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Locale;
 
-import org.junit.Assume;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -126,8 +125,6 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testValidateMoreThanThousandSingleEntityDetectorLimit() throws IOException {
-        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
-
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = maxSingleEntityAnomalyDetectors + 1;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -208,8 +205,6 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testValidateMoreThanTenMultiEntityDetectorsLimit() throws IOException {
-        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
-
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 

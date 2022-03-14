@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.AfterClass;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -182,8 +181,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMoreThanTenThousandSingleEntityDetectors() throws IOException {
-        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
-
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = 1001;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -538,8 +535,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testMoreThanTenMultiEntityDetectors() throws IOException {
-        Assume.assumeFalse(System.getProperty("java.specification.version").compareTo("1.8") == 0);
-
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
         SearchResponse detectorResponse = mock(SearchResponse.class);
