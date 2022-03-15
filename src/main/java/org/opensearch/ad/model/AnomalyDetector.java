@@ -420,7 +420,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         TimeValue defaultDetectionWindowDelay
     ) throws IOException {
         String name = null;
-        String description = null;
+        String description = "";
         String timeField = null;
         List<String> indices = new ArrayList<String>();
         QueryBuilder filterQuery = QueryBuilders.matchAllQuery();
