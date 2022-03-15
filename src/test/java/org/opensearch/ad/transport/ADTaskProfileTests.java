@@ -171,9 +171,6 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
         } else {
             assertEquals(profile.getTaskId(), parsedProfile.getAdTaskProfile().getTaskId());
         }
-        // assertEquals(profile, adTaskProfileNodeResponses.get(0).getAdTaskProfile());
-
-        // assertEquals(profile, response2.getNodes().get(0).getAdTaskProfile());
     }
 
     public void testADTaskProfileParseFullConstructor() throws IOException {

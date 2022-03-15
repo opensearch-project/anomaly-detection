@@ -478,43 +478,31 @@ task release(type: Copy, group: 'build') {
 List<String> jacocoExclusions = [
         // code for configuration, settings, etc is excluded from coverage
         'org.opensearch.ad.AnomalyDetectorPlugin',
-        'org.opensearch.ad.settings.AnomalyDetectorSettings',
 
-        //TODO: Add more cases for model validation API, both UT and IT
-        //TODO: add more test cases later for these package
-        'org.opensearch.ad.model.*',
+        'org.opensearch.ad.model.ModelProfileOnNode',
+        'org.opensearch.ad.model.InitProgressProfile',
+        'org.opensearch.ad.model.ADTaskProfile',
+        'org.opensearch.ad.model.AnomalyResultBucket',
+        'org.opensearch.ad.model.EntityProfileName',
         'org.opensearch.ad.rest.*',
-        'org.opensearch.ad.transport.handler.DetectionStateHandler',
         'org.opensearch.ad.AnomalyDetectorJobRunner',
 
         // Class containing just constants.  Don't need to test
         'org.opensearch.ad.constant.*',
 
-        // mostly skeleton code.  Tested major logic in restful api tests
-        'org.opensearch.ad.settings.EnabledSetting',
-
-        'org.opensearch.ad.common.exception.FeatureNotAvailableException',
-        'org.opensearch.ad.common.exception.AnomalyDetectionException',
+        //'org.opensearch.ad.common.exception.AnomalyDetectionException',
         'org.opensearch.ad.util.ClientUtil',
 
         'org.opensearch.ad.transport.StopDetectorRequest',
         'org.opensearch.ad.transport.StopDetectorResponse',
-        'org.opensearch.ad.transport.StopDetectorTransportAction',
-        'org.opensearch.ad.transport.DeleteDetectorAction',
-        'org.opensearch.ad.transport.CronTransportAction',
         'org.opensearch.ad.transport.CronRequest',
-        'org.opensearch.ad.transport.ADStatsNodesAction',
         'org.opensearch.ad.AnomalyDetectorRunner',
-        'org.opensearch.ad.util.ParseUtils',
 
         // related to transport actions added for security
-        'org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction',
         'org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
-        'org.opensearch.ad.transport.SearchAnomalyDetectorTransportAction*',
         'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction*',
         'org.opensearch.ad.transport.SearchAnomalyResultTransportAction*',
         'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
-
 
         // TODO: unified flow caused coverage drop
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
@@ -522,11 +510,11 @@ List<String> jacocoExclusions = [
         // https://github.com/opensearch-project/anomaly-detection/issues/241
         'org.opensearch.ad.task.ADBatchTaskRunner',
         'org.opensearch.ad.task.ADTaskManager',
-        
+
         //TODO: custom result index caused coverage drop
-        'org.opensearch.ad.indices.AnomalyDetectionIndices',
         'org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler'
 ]
+
 
 jacocoTestCoverageVerification {
     violationRules {

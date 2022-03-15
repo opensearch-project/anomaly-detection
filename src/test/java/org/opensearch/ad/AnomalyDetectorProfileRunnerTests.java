@@ -634,4 +634,10 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         }), stateNError);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
+
+    public void testInitProgressProfile() {
+        InitProgressProfile progressOne = new InitProgressProfile("0%", 0, requiredSamples);
+        InitProgressProfile progressTwo = new InitProgressProfile("0%", 0, requiredSamples);
+        assertTrue(progressOne.equals(progressTwo));
+    }
 }

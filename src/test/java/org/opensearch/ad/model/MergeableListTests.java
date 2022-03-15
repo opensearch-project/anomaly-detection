@@ -31,12 +31,22 @@ public class MergeableListTests extends AbstractADTest {
         ls1.add("item1");
         ls1.add("item2");
         List<String> ls2 = new ArrayList<String>();
-        ls1.add("item3");
-        ls1.add("item4");
+        ls2.add("item3");
+        ls2.add("item4");
         MergeableList<String> mergeListOne = new MergeableList<>(ls1);
         MergeableList<String> mergeListTwo = new MergeableList<>(ls2);
         mergeListOne.merge(mergeListTwo);
         assertEquals(4, mergeListOne.getElements().size());
         assertEquals("item3", mergeListOne.getElements().get(2));
+    }
+
+    public void testMergeableListFailMerge() {
+        List<String> ls1 = new ArrayList<>();
+        ls1.add("item1");
+        ls1.add("item2");
+        MergeableList<String> mergeListOne = new MergeableList<>(ls1);
+        MergeableList<String> mergeListTwo = new MergeableList<>(null);
+        mergeListOne.merge(mergeListTwo);
+        assertEquals(2, mergeListOne.getElements().size());
     }
 }
