@@ -257,7 +257,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
             xContentBuilder.field(ENTITY_TASK_PROFILE_FIELD, entityTaskProfiles.toArray());
         }
         if (latestHCTaskRunTime != null) {
-            xContentBuilder.field(ENTITY_TASK_PROFILE_FIELD, latestHCTaskRunTime);
+            xContentBuilder.field(LATEST_HC_TASK_RUN_TIME_FIELD, latestHCTaskRunTime);
         }
         return xContentBuilder.endObject();
     }
