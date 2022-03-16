@@ -638,6 +638,8 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
     public void testInitProgressProfile() {
         InitProgressProfile progressOne = new InitProgressProfile("0%", 0, requiredSamples);
         InitProgressProfile progressTwo = new InitProgressProfile("0%", 0, requiredSamples);
+        InitProgressProfile progressThree = new InitProgressProfile("96%", 2, requiredSamples);
         assertTrue(progressOne.equals(progressTwo));
+        assertFalse(progressOne.equals(progressThree));
     }
 }
