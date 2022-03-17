@@ -21,6 +21,7 @@ import static org.mockito.Mockito.verify;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -70,7 +71,10 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
         setUpSavingAnomalyResultIndex(false);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length >= 2
+            );
             IndexRequest request = invocation.getArgument(0);
             ActionListener<IndexResponse> listener = invocation.getArgument(1);
             assertTrue(request != null && listener != null);
@@ -186,7 +190,10 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length >= 2
+            );
             IndexRequest request = invocation.getArgument(0);
             ActionListener<IndexResponse> listener = invocation.getArgument(1);
             assertTrue(request != null && listener != null);

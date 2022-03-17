@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 
 import org.junit.Before;
 import org.opensearch.ad.AbstractADTest;
@@ -83,7 +84,10 @@ public class MasterEventListenerTests extends AbstractADTest {
     public void testBeforeStop() {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 1);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 1
+            );
 
             LifecycleListener listener = null;
             if (args[0] instanceof LifecycleListener) {

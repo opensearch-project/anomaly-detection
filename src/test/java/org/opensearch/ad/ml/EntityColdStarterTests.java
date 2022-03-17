@@ -739,7 +739,7 @@ public class EntityColdStarterTests extends AbstractADTest {
                 .build();
 
             long seed = new Random().nextLong();
-            System.out.println("seed = " + seed);
+            LOG.info("seed = " + seed);
             // create labelled data
             MultiDimDataWithTime dataWithKeys = LabelledAnomalyGenerator
                 .getMultiDimData(dataSize + detector.getShingleSize() - 1, 50, 100, 5, seed, baseDimension, false, trainTestSplit, delta);

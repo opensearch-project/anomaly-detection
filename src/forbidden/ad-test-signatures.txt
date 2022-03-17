@@ -1,0 +1,16 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+@defaultMessage use format with Locale
+java.lang.String#format(java.lang.String,java.lang.Object[])
+java.util.concurrent.ThreadLocalRandom
+
+java.security.MessageDigest#clone() @ use org.opensearch.common.hash.MessageDigests
+
+@defaultMessage Don't use MethodHandles in slow ways, don't be lenient in tests.
+java.lang.invoke.MethodHandle#invoke(java.lang.Object[])
+java.lang.invoke.MethodHandle#invokeWithArguments(java.lang.Object[])
+java.lang.invoke.MethodHandle#invokeWithArguments(java.util.List)
+java.lang.Math#random() @ Use one of the various randomization methods from LuceneTestCase or OpenSearchTestCase for reproducibility

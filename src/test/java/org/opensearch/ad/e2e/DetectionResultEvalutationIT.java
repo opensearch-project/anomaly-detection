@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.time.Clock;
+import java.nio.charset.Charset;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -84,8 +85,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     ) throws Exception {
         RestClient client = client();
 
-        String dataFileName = String.format("data/%s.data", datasetName);
-        String labelFileName = String.format("data/%s.label", datasetName);
+        String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
+        String labelFileName = String.format(Locale.ROOT, "data/%s.label", datasetName);
 
         List<JsonObject> data = getData(dataFileName);
         List<Entry<Instant, Instant>> anomalies = getAnomalyWindows(labelFileName);
@@ -318,8 +319,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     private List<Entry<Instant, Instant>> getAnomalyWindows(String labalFileName) throws Exception {
-        JsonArray windows = new JsonParser()
-            .parse(new FileReader(new File(getClass().getResource(labalFileName).toURI())))
+        JsonArray windows = JsonParser
+            .parseReader(new FileReader(new File(getClass().getResource(labalFileName).toURI()), Charset.defaultCharset()))
             .getAsJsonArray();
         List<Entry<Instant, Instant>> anomalies = new ArrayList<>(windows.size());
         for (int i = 0; i < windows.size(); i++) {
@@ -437,8 +438,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     private List<JsonObject> getData(String datasetFileName) throws Exception {
-        JsonArray jsonArray = new JsonParser()
-            .parse(new FileReader(new File(getClass().getResource(datasetFileName).toURI())))
+        JsonArray jsonArray = JsonParser
+            .parseReader(new FileReader(new File(getClass().getResource(datasetFileName).toURI()), Charset.defaultCharset()))
             .getAsJsonArray();
         List<JsonObject> list = new ArrayList<>(jsonArray.size());
         jsonArray.iterator().forEachRemaining(i -> list.add(i.getAsJsonObject()));
@@ -447,7 +448,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
     private Map<String, Object> getDetectionResult(String detectorId, Instant begin, Instant end, RestClient client) {
         try {
-            Request request = new Request("POST", String.format("/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId));
+            Request request = new Request(
+                "POST",
+                String.format(Locale.ROOT, "/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId)
+            );
             request
                 .setJsonEntity(
                     String.format(Locale.ROOT, "{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli())
@@ -585,7 +589,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         Thread.sleep(1_000);
         data.stream().limit(trainTestSplit).forEach(r -> {
             try {
-                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
+                Request req = new Request("POST", String.format(Locale.ROOT, "/%s/_doc/", datasetName));
                 req.setJsonEntity(r.toString());
                 client.performRequest(req);
             } catch (Exception e) {

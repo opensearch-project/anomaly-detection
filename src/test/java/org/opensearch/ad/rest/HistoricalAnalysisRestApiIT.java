@@ -289,7 +289,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
 
         waitUntilTaskDone(detectorId);
 
-        String query = String.format("{\"query\":{\"term\":{\"detector_id\":{\"value\":\"%s\"}}}}", detectorId);
+        String query = String.format(Locale.ROOT, "{\"query\":{\"term\":{\"detector_id\":{\"value\":\"%s\"}}}}", detectorId);
         Response response = TestHelpers
             .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/tasks/_search", ImmutableMap.of(), query, null);
         String searchResult = EntityUtils.toString(response.getEntity());

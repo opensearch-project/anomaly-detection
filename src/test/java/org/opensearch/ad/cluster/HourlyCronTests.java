@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -64,7 +65,10 @@ public class HourlyCronTests extends AbstractADTest {
         Client client = mock(Client.class);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 3);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 3
+            );
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<CronResponse> listener = (ActionListener<CronResponse>) args[2];
