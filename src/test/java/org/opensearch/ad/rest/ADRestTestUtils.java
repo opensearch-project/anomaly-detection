@@ -33,6 +33,9 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
+import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -50,6 +53,7 @@ import com.google.common.collect.ImmutableMap;
 
 //TODO: remove duplicate code in HistoricalAnalysisRestTestCase
 public class ADRestTestUtils {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(ADRestTestUtils.class);
     public enum DetectorType {
         SINGLE_ENTITY_DETECTOR,
         SINGLE_CATEGORY_HC_DETECTOR,
@@ -472,7 +476,7 @@ public class ADRestTestUtils {
             try {
                 adTaskProfile = getADTaskProfile(client, detectorId);
             } catch (Exception e) {
-                e.printStackTrace();
+                LOG.error("failed to get ADTaskProfile", e);
             } finally {
                 Thread.sleep(1000);
             }

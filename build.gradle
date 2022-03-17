@@ -128,12 +128,9 @@ tasks.named('forbiddenApisMain').configure {
 }
 
 //Adds custom file that only has some of the checks for testApis checks since too many violations
-// For example, we have to allow @Test to be used in test classes not inherited from LuceneTestCase.
-// example: warning for every file: `Forbidden annotation use: org.junit.Test [defaultMessage Just name your test method testFooBar]`
+//For example, we have to allow @Test to be used in test classes not inherited from LuceneTestCase.
+//example: warning for every file: `Forbidden annotation use: org.junit.Test [defaultMessage Just name your test method testFooBar]`
 forbiddenApisTest.setSignaturesFiles(files('src/forbidden/ad-test-signatures.txt'))
-
-//removed jdk-system-out since we have e.printStackTrace() added at times for exception messages
-forbiddenApisTest.setBundledSignatures(['jdk-deprecated', 'jdk-unsafe', 'jdk-non-portable'] as Set<String>)
 
 // Allow test cases to be named Tests without having to be inherited from LuceneTestCase.
 // see https://github.com/elastic/elasticsearch/blob/323f312bbc829a63056a79ebe45adced5099f6e6/buildSrc/src/main/java/org/elasticsearch/gradle/precommit/TestingConventionsTasks.java

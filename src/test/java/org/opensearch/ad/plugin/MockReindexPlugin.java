@@ -86,7 +86,7 @@ public class MockReindexPlugin extends Plugin implements ActionPlugin {
                     false
                 );
             } catch (IOException exception) {
-                exception.printStackTrace();
+                logger.error(exception);
             }
             listener.onResponse(response);
         }

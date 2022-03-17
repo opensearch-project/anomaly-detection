@@ -163,7 +163,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 }
             } catch (Exception e) {
                 errors++;
-                e.printStackTrace();
+                logger.error("failed to get detection results", e);
             }
         }
         return new double[] { positives, truePositives, positiveAnomalies.size(), errors };
