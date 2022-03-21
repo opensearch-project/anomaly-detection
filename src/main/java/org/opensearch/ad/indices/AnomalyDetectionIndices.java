@@ -921,7 +921,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                         .putMapping(
                             new PutMappingRequest()
                                 .indices(adIndex.getIndexName())
-                                .type(CommonName.MAPPING_TYPE)
                                 .source(adIndex.getMapping(), XContentType.JSON),
                             ActionListener.wrap(putMappingResponse -> {
                                 if (putMappingResponse.isAcknowledged()) {

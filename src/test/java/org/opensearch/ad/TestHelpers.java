@@ -236,7 +236,7 @@ public class TestHelpers {
     }
 
     public static NamedXContentRegistry xContentRegistry() {
-        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+        SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
         return new NamedXContentRegistry(searchModule.getNamedXContents());
     }
 
@@ -661,7 +661,7 @@ public class TestHelpers {
             + "\"max_expansions\":50,\"fuzzy_transpositions\":true,\"lenient\":false,\"zero_terms_query\":\"NONE\","
             + "\"auto_generate_synonyms_phrase_query\":true,\"boost\":1}}}}";
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+        SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
         XContentParser parser = XContentType.JSON
             .xContent()
             .createParser(new NamedXContentRegistry(searchModule.getNamedXContents()), LoggingDeprecationHandler.INSTANCE, query);
@@ -1123,7 +1123,6 @@ public class TestHelpers {
         return new GetResponse(
             new GetResult(
                 indexName,
-                MapperService.SINGLE_MAPPING_NAME,
                 id,
                 UNASSIGNED_SEQ_NO,
                 0,
@@ -1141,7 +1140,6 @@ public class TestHelpers {
         return new GetResponse(
             new GetResult(
                 indexName,
-                MapperService.SINGLE_MAPPING_NAME,
                 id,
                 UNASSIGNED_SEQ_NO,
                 0,

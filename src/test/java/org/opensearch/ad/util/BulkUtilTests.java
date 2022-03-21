@@ -38,12 +38,12 @@ public class BulkUtilTests extends OpenSearchTestCase {
         itemResponses[0] = new BulkItemResponse(
             0,
             randomFrom(DocWriteRequest.OpType.values()),
-            new Failure(indexName, type, idPrefix + 0, new VersionConflictEngineException(shardId, "", "blah"))
+            new Failure(indexName, idPrefix + 0, new VersionConflictEngineException(shardId, "", "blah"))
         );
         itemResponses[1] = new BulkItemResponse(
             1,
             randomFrom(DocWriteRequest.OpType.values()),
-            new IndexResponse(shardId, "type", idPrefix + 1, 1, 1, randomInt(), true)
+            new IndexResponse(shardId, idPrefix + 1, 1, 1, randomInt(), true)
         );
         BulkResponse response = new BulkResponse(itemResponses, 0);
 

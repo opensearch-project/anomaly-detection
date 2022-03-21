@@ -19,7 +19,7 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
-@OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
+@OpenSearchIntegTestCase.ClusterScope()
 public class ADStatsITTests extends OpenSearchIntegTestCase {
 
     @Override
@@ -27,10 +27,6 @@ public class ADStatsITTests extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
-    @Override
-    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
-    }
 
     public void testNormalADStats() throws ExecutionException, InterruptedException {
         ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);

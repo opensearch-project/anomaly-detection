@@ -334,7 +334,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         UpdateResponse updateResponse = new UpdateResponse(
             new ReplicationResponse.ShardInfo(3, 2),
             new ShardId(CommonName.CHECKPOINT_INDEX_NAME, "uuid", 2),
-            CommonName.CHECKPOINT_INDEX_NAME,
             "1",
             7,
             17,
@@ -389,7 +388,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         UpdateResponse updateResponse = new UpdateResponse(
             new ReplicationResponse.ShardInfo(3, 2),
             new ShardId(CommonName.CHECKPOINT_INDEX_NAME, "uuid", 2),
-            CommonName.CHECKPOINT_INDEX_NAME,
             "1",
             7,
             17,
@@ -605,7 +603,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
                 DocWriteRequest.OpType.UPDATE,
                 new BulkItemResponse.Failure(
                     CommonName.CHECKPOINT_INDEX_NAME,
-                    CommonName.MAPPING_TYPE,
                     failedId[i],
                     new VersionConflictEngineException(shardId, "id", "test")
                 )
@@ -616,7 +613,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             bulkItemResponses[i] = new BulkItemResponse(
                 i,
                 DocWriteRequest.OpType.UPDATE,
-                new UpdateResponse(shardId, CommonName.MAPPING_TYPE, "1", 0L, 1L, 1L, DocWriteResponse.Result.CREATED)
+                new UpdateResponse(shardId, "1", 0L, 1L, 1L, DocWriteResponse.Result.CREATED)
             );
         }
 
@@ -653,7 +650,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
                 null,
                 new MultiGetResponse.Failure(
                     CommonName.CHECKPOINT_INDEX_NAME,
-                    "_doc",
                     "modelId",
                     new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME)
                 )

@@ -22,16 +22,11 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
-@OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
+@OpenSearchIntegTestCase.ClusterScope()
 public class DeleteITTests extends ADIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
-    }
-
-    @Override
-    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 

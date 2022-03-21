@@ -226,8 +226,8 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             } else {
                 SearchHits collapsedHits = new SearchHits(
                     new SearchHit[] {
-                        new SearchHit(2, "ID", new Text("type"), Collections.emptyMap(), Collections.emptyMap()),
-                        new SearchHit(3, "ID", new Text("type"), Collections.emptyMap(), Collections.emptyMap()) },
+                        new SearchHit(2, "ID", Collections.emptyMap(), Collections.emptyMap()),
+                        new SearchHit(3, "ID", Collections.emptyMap(), Collections.emptyMap()) },
                     new TotalHits(1, TotalHits.Relation.EQUAL_TO),
                     1.0F
                 );

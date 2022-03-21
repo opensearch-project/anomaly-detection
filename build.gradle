@@ -28,6 +28,8 @@ buildscript {
         maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
+        maven { url "https://mvnrepository.com/artifact/io.protostuff/protostuff-core" }
+        maven { url "https://mvnrepository.com/artifact/io.protostuff/protostuff-runtime" }
     }
 
     dependencies {
@@ -38,7 +40,7 @@ buildscript {
 plugins {
     id 'nebula.ospackage' version "8.3.0" apply false
     id "com.diffplug.gradle.spotless" version "3.26.1"
-    id 'java-library'
+    id 'java'
 }
 
 tasks.withType(JavaCompile) {
@@ -56,6 +58,8 @@ repositories {
     maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
+    maven { url "https://mvnrepository.com/artifact/io.protostuff/protostuff-core" }
+    maven { url "https://mvnrepository.com/artifact/io.protostuff/protostuff-runtime" }
 }
 
 apply plugin: 'java'
@@ -116,7 +120,7 @@ configurations.all {
 }
 
 configurations {
-    testCompile {
+    testImplementation {
         exclude group: 'org.hamcrest', module: 'hamcrest-core'
     }
 }
@@ -583,8 +587,8 @@ dependencies {
     api files('lib/randomcutforest-core-2.0.1.jar')
 
     // used for serializing/deserializing rcf models.
-    api group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
-    api group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
+    compileOnlyApi group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
+    compileOnlyApi group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
     api group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
 
     api "org.jacoco:org.jacoco.agent:0.8.5"
@@ -594,7 +598,7 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm-tree'
     }
 
-    testCompile group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
+    testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.25.0'
     testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
@@ -603,11 +607,11 @@ dependencies {
     testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.7'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
-    testCompile group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
-    testCompile group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.2'
+    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.7.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
     testCompileOnly 'junit:junit:4.13.2'

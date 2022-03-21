@@ -134,7 +134,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
             responses[0] = new BulkItemResponse(
                 0,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new IndexResponse(shardId, "_doc", "id", 1, 1, 1, true)
+                new IndexResponse(shardId, "id", 1, 1, 1, true)
             );
             listener.onResponse(new BulkResponse(responses, 1));
 
@@ -154,7 +154,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
             responses[0] = new BulkItemResponse(
                 0,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new IndexResponse(shardId, "_doc", "id", 1, 1, 1, true)
+                new IndexResponse(shardId, "id", 1, 1, 1, true)
             );
             listener.onResponse(new BulkResponse(responses, 1));
 
@@ -291,7 +291,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
             responses[0] = new BulkItemResponse(
                 0,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new Failure(shardId.getIndexName(), "_doc", "id1", new VersionConflictEngineException(shardId, "id1", "blah"))
+                new Failure(shardId.getIndexName(),"id1", new VersionConflictEngineException(shardId, "id1", "blah"))
             );
             listener.onResponse(new BulkResponse(responses, 1));
 

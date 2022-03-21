@@ -280,7 +280,7 @@ public class AbstractADTest extends OpenSearchTestCase {
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
-        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+        SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
         List<NamedXContentRegistry.Entry> entries = searchModule.getNamedXContents();
         entries
             .addAll(

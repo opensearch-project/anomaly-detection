@@ -33,8 +33,7 @@ public class ExceptionUtilsTests extends OpenSearchTestCase {
         ReplicationResponse.ShardInfo shardInfo = new ReplicationResponse.ShardInfo(2, 1, failure);
         IndexResponse indexResponse = new IndexResponse(
             shardId,
-            randomAlphaOfLength(5),
-            randomAlphaOfLength(5),
+            "id",
             randomLong(),
             randomLong(),
             randomLong(),
@@ -49,8 +48,7 @@ public class ExceptionUtilsTests extends OpenSearchTestCase {
         ShardId shardId = new ShardId(randomAlphaOfLength(5), randomAlphaOfLength(5), 1);
         IndexResponse indexResponse = new IndexResponse(
             shardId,
-            randomAlphaOfLength(5),
-            randomAlphaOfLength(5),
+            "id",
             randomLong(),
             randomLong(),
             randomLong(),

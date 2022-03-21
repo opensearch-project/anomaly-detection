@@ -188,7 +188,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
             assertTrue(request != null && listener != null);
             ShardId shardId = new ShardId(new Index(ANOMALY_DETECTOR_JOB_INDEX, randomAlphaOfLength(10)), 0);
-            listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
+            listener.onResponse(new IndexResponse(shardId, request.id(), 1, 1, 1, true));
 
             return null;
         }).when(client).index(any(), any());
@@ -322,7 +322,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
-                    MapperService.SINGLE_MAPPING_NAME,
                     jobParameter.getName(),
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -357,7 +356,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             ActionListener<IndexResponse> listener = invocation.getArgument(1);
             ShardId shardId = new ShardId(new Index(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, randomAlphaOfLength(10)), 0);
             if (disableSuccessfully) {
-                listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
+                listener.onResponse(new IndexResponse(shardId, request.id(), 1, 1, 1, true));
             } else {
                 listener.onResponse(null);
             }
