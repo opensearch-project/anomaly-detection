@@ -18,17 +18,24 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_U
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
@@ -83,9 +90,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         List<JsonObject> data = getData(dataFileName);
         List<Entry<Instant, Instant>> anomalies = getAnomalyWindows(labelFileName);
 
-        bulkIndexTrainData(datasetName, data, trainTestSplit, client);
-        String detectorId = createDetector(datasetName, intervalMinutes, client);
-        startDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client, null);
+        // single-stream detector can use window delay 0 here because we give the run api the actual data time
+        String detectorId = createDetector(datasetName, intervalMinutes, client, null, 0);
+        simulateSingleStreamStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
         bulkIndexTestData(data, datasetName, trainTestSplit, client);
         double[] testResults = getTestResults(detectorId, data, trainTestSplit, intervalMinutes, anomalies, client);
         verifyTestResults(testResults, anomalies, minPrecision, minRecall, maxError);
@@ -160,7 +168,18 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         return new double[] { positives, truePositives, positiveAnomalies.size(), errors };
     }
 
-    private void startDetector(
+    /**
+     * Simulate starting detector without waiting for job scheduler to run. Our build process is already very slow (takes 10 mins+)
+     * to finish integration tests. This method triggers run API to simulate job scheduler execution in a fast-paced way.
+     * @param detectorId Detector Id
+     * @param data Data in Json format
+     * @param trainTestSplit Training data size
+     * @param shingleSize Shingle size
+     * @param intervalMinutes Detector Interval
+     * @param client OpenSearch Client
+     * @throws Exception when failing to query/indexing from/to OpenSearch
+     */
+    private void simulateSingleStreamStartDetector(
         String detectorId,
         List<JsonObject> data,
         int trainTestSplit,
@@ -197,20 +216,89 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         } while (true);
     }
 
-    private String createDetector(String datasetName, int intervalMinutes, RestClient client) throws Exception {
-        Request request = new Request("POST", "/_opendistro/_anomaly_detection/detectors/");
-        String requestBody = String
-            .format(
-                Locale.ROOT,
-                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
-                    + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
-                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
-                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
-                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
-                    + "\"schema_version\": 0 }",
-                datasetName,
-                intervalMinutes
-            );
+    /**
+     * Different from simulateSingleStreamStartDetector, getDetectionResult is an async process and we cannot use exception to decide if
+     * a detector finishes initialization or not.
+     * @param detectorId Detector Id
+     * @param data Data in Json format
+     * @param trainTestSplit Training data size
+     * @param shingleSize Shingle size
+     * @param intervalMinutes Detector Interval
+     * @param client OpenSearch Client
+     * @throws Exception when failing to query/indexing from/to OpenSearch
+     */
+    private void simulateHCADStartDetector(
+        String detectorId,
+        List<JsonObject> data,
+        int trainTestSplit,
+        int shingleSize,
+        int intervalMinutes,
+        RestClient client
+    ) throws Exception {
+
+        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
+
+        Instant begin = null;
+        Instant end = null;
+        for (int i = 0; i < shingleSize; i++) {
+            begin = trainTime.minus(intervalMinutes * (shingleSize - 1 - i), ChronoUnit.MINUTES);
+            end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
+            try {
+                getDetectionResult(detectorId, begin, end, client);
+            } catch (Exception e) {}
+        }
+        // It takes time to wait for model initialization
+        long startTime = System.currentTimeMillis();
+        long duration = 0;
+        do {
+            Thread.sleep(5_000);
+            String initProgress = profileDetectorInitProgress(detectorId, client);
+            if (initProgress.equals("100%")) {
+                break;
+            }
+            getDetectionResult(detectorId, begin, end, client);
+            duration = System.currentTimeMillis() - startTime;
+        } while (duration <= 60_000);
+    }
+
+    private String createDetector(String datasetName, int intervalMinutes, RestClient client, String categoryField, long windowDelayInMins)
+        throws Exception {
+        Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/");
+        String requestBody = null;
+        if (Strings.isEmpty(categoryField)) {
+            requestBody = String
+                .format(
+                    Locale.ROOT,
+                    "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                        + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                        + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                        + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                        + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
+                        + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
+                        + "\"schema_version\": 0 }",
+                    datasetName,
+                    intervalMinutes,
+                    windowDelayInMins
+                );
+        } else {
+            requestBody = String
+                .format(
+                    Locale.ROOT,
+                    "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                        + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                        + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                        + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                        + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
+                        + "\"category_field\": [\"%s\"], "
+                        + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
+                        + "\"schema_version\": 0  }",
+                    datasetName,
+                    intervalMinutes,
+                    categoryField,
+                    windowDelayInMins
+                );
+        }
+
         request.setJsonEntity(requestBody);
         Map<String, Object> response = entityAsMap(client.performRequest(request));
         String detectorId = (String) response.get("_id");
@@ -232,10 +320,24 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         return anomalies;
     }
 
-    private void bulkIndexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client) throws Exception {
+    private void bulkIndexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client, String categoryField)
+        throws Exception {
         Request request = new Request("PUT", datasetName);
-        String requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
-            + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
+        String requestBody = null;
+        if (Strings.isEmpty(categoryField)) {
+            requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+                + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
+        } else {
+            requestBody = String
+                .format(
+                    Locale.ROOT,
+                    "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+                        + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" },"
+                        + "\"%s\": { \"type\": \"keyword\"} } } }",
+                    categoryField
+                );
+        }
+
         request.setJsonEntity(requestBody);
         setWarningHandler(request, false);
         client.performRequest(request);
@@ -256,6 +358,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
         Thread.sleep(1_000);
+        waitAllSyncheticDataIngested(trainTestSplit, datasetName, client);
     }
 
     private void bulkIndexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
@@ -274,6 +377,44 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
         Thread.sleep(1_000);
+        waitAllSyncheticDataIngested(data.size(), datasetName, client);
+    }
+
+    private void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
+        int maxWaitCycles = 3;
+        do {
+            Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
+            request
+                .setJsonEntity(
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "{\"query\": {"
+                                + "        \"match_all\": {}"
+                                + "    },"
+                                + "    \"size\": 1,"
+                                + "    \"sort\": ["
+                                + "       {"
+                                + "         \"timestamp\": {"
+                                + "           \"order\": \"desc\""
+                                + "         }"
+                                + "       }"
+                                + "   ]}"
+                        )
+                );
+            // Make sure all of the test data has been ingested
+            // Expected response:
+            // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
+            Response response = client.performRequest(request);
+            JsonObject json = new JsonParser().parse(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
+            JsonElement hit = json.getAsJsonObject("hits").getAsJsonArray("hits").get(0);
+            if (expectedSize - 1 == hit.getAsJsonObject().getAsJsonPrimitive("_id").getAsLong()) {
+                break;
+            } else {
+                request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
+                client.performRequest(request);
+            }
+        } while (maxWaitCycles-- >= 0);
     }
 
     private void setWarningHandler(Request request, boolean strictDeprecationMode) {
@@ -439,5 +580,126 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             }
         });
         Thread.sleep(1_000);
+    }
+
+    public void testRestartHCADDetector() throws Exception {
+        // TODO: this test case will run for a much longer time and timeout with security enabled
+        if (!isHttps()) {
+            int maxRetries = 3;
+            int i = 0;
+            for (; i < maxRetries; i++) {
+                try {
+                    disableResourceNotFoundFaultTolerence();
+                    verifyRestart("synthetic", 1, 8);
+                    break;
+                } catch (Throwable throwable) {
+                    LOG.info("Retry restart test case", throwable);
+                    cleanUpCluster();
+                    wipeAllODFEIndices();
+                }
+            }
+            assertTrue("failed all retries", i < maxRetries);
+        }
+    }
+
+    private void verifyRestart(String datasetName, int intervalMinutes, int shingleSize) throws Exception {
+        RestClient client = client();
+
+        String dataFileName = String.format("data/%s.data", datasetName);
+
+        List<JsonObject> data = getData(dataFileName);
+
+        String categoricalField = "host";
+        String tsField = "timestamp";
+
+        Clock clock = Clock.systemUTC();
+        long currentMilli = clock.millis();
+        int trainTestSplit = 1500;
+
+        // e.g., 2019-11-01T00:03:00Z
+        String pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+        simpleDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        // calculate the gap between current time and the beginning of last shingle
+        // the gap is used to adjust input training data's time so that the last
+        // few items of training data maps to current time. We need this adjustment
+        // because CompositeRetriever will compare expiry time with current time in hasNext
+        // method. The expiry time is calculated using request (one parameter of the run API)
+        // end time plus some fraciton of interval. If the expiry time is less than
+        // current time, CompositeRetriever thinks this request expires and refuses to start
+        // querying. So this adjustment is to make the following simulateHCADStartDetector work.
+        String lastTrainShingleStartTime = data.get(trainTestSplit - shingleSize).getAsJsonPrimitive(tsField).getAsString();
+        Date date = simpleDateFormat.parse(lastTrainShingleStartTime);
+        long diff = currentMilli - date.getTime();
+        TimeUnit time = TimeUnit.MINUTES;
+        // by the time we trigger the run API, a few seconds have passed. +5 to make the adjusted time more than current time.
+        long gap = time.convert(diff, TimeUnit.MILLISECONDS) + 5;
+
+        Calendar c = Calendar.getInstance();
+        c.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+        // only change training data as we only need to make sure detector is fully initialized
+        for (int i = 0; i < trainTestSplit; i++) {
+            JsonObject row = data.get(i);
+            // add categorical field since the original data is for single-stream detectors
+            row.addProperty(categoricalField, "host1");
+
+            String dateString = row.getAsJsonPrimitive(tsField).getAsString();
+            date = simpleDateFormat.parse(dateString);
+            c.setTime(date);
+            c.add(Calendar.MINUTE, (int) gap);
+            String adjustedDate = simpleDateFormat.format(c.getTime());
+            row.addProperty(tsField, adjustedDate);
+        }
+
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client, categoricalField);
+
+        String detectorId = createDetector(datasetName, intervalMinutes, client, categoricalField, 0);
+        // cannot stop without actually starting detector because ad complains no ad job index
+        startDetector(detectorId, client);
+        // it would be long if we wait for the job actually run the work periodically; speed it up by using simulateHCADStartDetector
+        simulateHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        String initProgress = profileDetectorInitProgress(detectorId, client);
+        assertEquals("init progress is " + initProgress, "100%", initProgress);
+        stopDetector(detectorId, client);
+        // restart detector
+        startDetector(detectorId, client);
+        simulateHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        initProgress = profileDetectorInitProgress(detectorId, client);
+        assertEquals("init progress is " + initProgress, "100%", initProgress);
+    }
+
+    private void stopDetector(String detectorId, RestClient client) throws Exception {
+        Request request = new Request("POST", String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_stop", detectorId));
+
+        Map<String, Object> response = entityAsMap(client.performRequest(request));
+        String responseDetectorId = (String) response.get("_id");
+        assertEquals(detectorId, responseDetectorId);
+    }
+
+    private void startDetector(String detectorId, RestClient client) throws Exception {
+        Request request = new Request("POST", String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_start", detectorId));
+
+        Map<String, Object> response = entityAsMap(client.performRequest(request));
+        String responseDetectorId = (String) response.get("_id");
+        assertEquals(detectorId, responseDetectorId);
+    }
+
+    private String profileDetectorInitProgress(String detectorId, RestClient client) throws Exception {
+        Request request = new Request(
+            "GET",
+            String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_profile/init_progress", detectorId)
+        );
+
+        Map<String, Object> response = entityAsMap(client.performRequest(request));
+        /*
+         * Example response:
+         * {
+         *   "init_progress": {
+         *      "percentage": "100%"
+         *    }
+         *   }
+         */
+        return (String) ((Map<String, Object>) response.get("init_progress")).get("percentage");
     }
 }

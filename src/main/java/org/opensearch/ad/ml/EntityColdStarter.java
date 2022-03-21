@@ -37,6 +37,7 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.CleanState;
 import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.DoorKeeper;
@@ -63,7 +64,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  * Training models for HCAD detectors
  *
  */
-public class EntityColdStarter implements MaintenanceState {
+public class EntityColdStarter implements MaintenanceState, CleanState {
     private static final Logger logger = LogManager.getLogger(EntityColdStarter.class);
     private final Clock clock;
     private final ThreadPool threadPool;
@@ -742,5 +743,10 @@ public class EntityColdStarter implements MaintenanceState {
                 doorKeeper.maintenance();
             }
         });
+    }
+
+    @Override
+    public void clear(String detectorId) {
+        doorKeepers.remove(detectorId);
     }
 }
