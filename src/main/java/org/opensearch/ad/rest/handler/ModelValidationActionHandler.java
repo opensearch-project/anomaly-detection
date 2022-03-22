@@ -82,7 +82,7 @@ import org.opensearch.search.sort.SortOrder;
  * different varying intervals in order to find the best interval for the data. If no interval is found with all
  * configuration applied then each configuration is tested sequentially for sparsity</p>
  */
-// TODO: potentially change where this is located
+// TODO: Add more UT and IT
 public class ModelValidationActionHandler {
     protected static final String AGG_NAME_TOP = "top_agg";
     protected static final String AGGREGATION = "agg";

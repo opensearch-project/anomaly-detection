@@ -27,9 +27,7 @@ import test.org.opensearch.ad.util.JsonDeserializer;
 public class EntityProfileTests extends AbstractADTest {
     public void testMerge() {
         EntityProfile profile1 = new EntityProfile(null, -1, -1, null, null, EntityState.INIT);
-
         EntityProfile profile2 = new EntityProfile(null, -1, -1, null, null, EntityState.UNKNOWN);
-
         profile1.merge(profile2);
         assertEquals(profile1.getState(), EntityState.INIT);
         assertTrue(profile1.toString().contains(EntityState.INIT.toString()));
@@ -45,6 +43,24 @@ public class EntityProfileTests extends AbstractADTest {
         assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
 
         EntityProfile profile2 = new EntityProfile(null, -1, -1, null, null, EntityState.UNKNOWN);
+
+        builder = jsonBuilder();
+        profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
+        json = Strings.toString(builder);
+
+        assertTrue(false == JsonDeserializer.hasChildNode(json, CommonName.STATE));
+    }
+
+    public void testToXContentTimeStampAboveZero() throws IOException, JsonPathNotFoundException {
+        EntityProfile profile1 = new EntityProfile(null, 1, 1, null, null, EntityState.INIT);
+
+        XContentBuilder builder = jsonBuilder();
+        profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
+        String json = Strings.toString(builder);
+
+        assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
+
+        EntityProfile profile2 = new EntityProfile(null, 1, 1, null, null, EntityState.UNKNOWN);
 
         builder = jsonBuilder();
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);

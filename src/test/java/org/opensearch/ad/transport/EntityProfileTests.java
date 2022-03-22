@@ -38,6 +38,7 @@ import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
@@ -371,5 +372,12 @@ public class EntityProfileTests extends AbstractADTest {
         assertTrue(false == set.contains(response));
         set.add(response);
         assertTrue(set.contains(response));
+    }
+
+    public void testEntityProfileName() {
+        assertEquals("state", EntityProfileName.getName(CommonName.STATE).getName());
+        assertEquals("models", EntityProfileName.getName(CommonName.MODELS).getName());
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> EntityProfileName.getName("abc"));
+        assertEquals(exception.getMessage(), CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
     }
 }

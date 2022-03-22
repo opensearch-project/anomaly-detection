@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.opensearch.ad.Name;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 
 public enum EntityProfileName implements Name {
@@ -50,7 +51,7 @@ public enum EntityProfileName implements Name {
             case CommonName.MODELS:
                 return MODELS;
             default:
-                throw new IllegalArgumentException("Unsupported profile types");
+                throw new IllegalArgumentException(CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
         }
     }
 

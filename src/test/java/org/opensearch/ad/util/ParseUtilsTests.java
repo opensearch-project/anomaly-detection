@@ -16,6 +16,7 @@ import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
@@ -275,5 +276,15 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         assertFalse(
             ParseUtils.listEqualsWithoutConsideringOrder(ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5)))
         );
+    }
+
+    public void testGetFeatureFieldNames() throws IOException {
+        Feature feature1 = TestHelpers.randomFeature("feature-name1", "field-name1", "sum", true);
+        Feature feature2 = TestHelpers.randomFeature("feature-name2", "field-name2", "sum", true);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(feature1, feature2), null, now);
+        List<String> fieldNames = ParseUtils.getFeatureFieldNames(detector, TestHelpers.xContentRegistry());
+        assertTrue(fieldNames.contains("field-name1"));
+        assertTrue(fieldNames.contains("field-name2"));
     }
 }
