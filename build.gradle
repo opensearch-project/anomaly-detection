@@ -561,38 +561,38 @@ check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
 
 dependencies {
-    api "org.opensearch:opensearch:${opensearch_version}"
+    implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:2.0.0.0-alpha1-SNAPSHOT"
-    api "org.opensearch:common-utils:${common_utils_version}"
-    api "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    api group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
-    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
-    api group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
-    api group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
-    api group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
-    api group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
-    api group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
-    api group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    api group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
+    implementation "org.opensearch:common-utils:${common_utils_version}"
+    implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
+    implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
+    implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
+    implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
+    implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
+    implementation group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
+    implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
+    implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
+    implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
 
     // force Jackson version to avoid version conflict issue
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
     implementation "com.fasterxml.jackson.core:jackson-core:2.12.6"
     implementation "com.fasterxml.jackson.core:jackson-databind:2.12.6"
     implementation "com.fasterxml.jackson.core:jackson-annotations:2.12.6"
-    api files('lib/randomcutforest-parkservices-2.0.1.jar')
-    api files('lib/randomcutforest-core-2.0.1.jar')
+    implementation files('lib/randomcutforest-parkservices-2.0.1.jar')
+    implementation files('lib/randomcutforest-core-2.0.1.jar')
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-api', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-collectionschema', version: '1.8.0'
-    api group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
 
-    api "org.jacoco:org.jacoco.agent:0.8.5"
-    api ("org.jacoco:org.jacoco.ant:0.8.5") {
+    implementation "org.jacoco:org.jacoco.agent:0.8.5"
+    implementation ("org.jacoco:org.jacoco.ant:0.8.5") {
         exclude group: 'org.ow2.asm', module: 'asm-commons'
         exclude group: 'org.ow2.asm', module: 'asm'
         exclude group: 'org.ow2.asm', module: 'asm-tree'
