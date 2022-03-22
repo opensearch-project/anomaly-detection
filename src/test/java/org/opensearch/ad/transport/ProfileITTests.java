@@ -21,7 +21,6 @@ import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
-@OpenSearchIntegTestCase.ClusterScope()
 public class ProfileITTests extends OpenSearchIntegTestCase {
 
     @Override
@@ -29,6 +28,10 @@ public class ProfileITTests extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
+    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
+        return Collections.singletonList(AnomalyDetectorPlugin.class);
+    }
+    
     public void testNormalProfile() throws ExecutionException, InterruptedException {
         ProfileRequest profileRequest = new ProfileRequest("123", new HashSet<DetectorProfileName>(), false);
 

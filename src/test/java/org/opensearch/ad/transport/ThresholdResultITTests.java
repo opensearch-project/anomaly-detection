@@ -21,14 +21,17 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
-@OpenSearchIntegTestCase.ClusterScope()
 public class ThresholdResultITTests extends OpenSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
-
+    
+    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
+        return Collections.singletonList(AnomalyDetectorPlugin.class);
+    }
+    
     public void testEmptyID() throws ExecutionException, InterruptedException {
         ThresholdResultRequest request = new ThresholdResultRequest("", "123-threshold", 2.5d);
 

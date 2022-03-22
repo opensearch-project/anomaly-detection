@@ -83,6 +83,10 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
+    protected Collection<Class<? extends Plugin>> transportClientPlugins() {
+        return Collections.singletonList(AnomalyDetectorPlugin.class);
+    }
+
     @Override
     protected Collection<Class<? extends Plugin>> getMockPlugins() {
         final ArrayList<Class<? extends Plugin>> plugins = new ArrayList<>();
