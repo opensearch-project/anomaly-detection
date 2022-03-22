@@ -31,9 +31,21 @@ public class AnomalyResultBucketTests extends AbstractADTest {
         assertTrue(parsedAnomalyResultBucket.equals(anomalyResultBucket));
     }
 
+    public void testAnomalyResultBucketEquals() {
+        Map<String, Object> keyOne = new HashMap<>();
+        keyOne.put("test-field-1", "test-value-1");
+        Map<String, Object> keyTwo = new HashMap<>();
+        keyTwo.put("test-field-2", "test-value-2");
+        AnomalyResultBucket testBucketOne = new AnomalyResultBucket(keyOne, 3, 0.5);
+        AnomalyResultBucket testBucketTwo = new AnomalyResultBucket(keyOne, 5, 0.75);
+        AnomalyResultBucket testBucketThree = new AnomalyResultBucket(keyTwo, 7, 0.2);
+        assertFalse(testBucketOne.equals(testBucketTwo));
+        assertFalse(testBucketTwo.equals(testBucketThree));
+    }
+
     @SuppressWarnings("unchecked")
     public void testToXContent() throws IOException {
-        Map<String, Object> key = new HashMap<String, Object>() {
+        Map<String, Object> key = new HashMap<>() {
             {
                 put("test-field-1", "test-value-1");
             }

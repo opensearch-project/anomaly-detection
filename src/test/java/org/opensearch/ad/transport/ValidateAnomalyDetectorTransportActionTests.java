@@ -465,5 +465,4 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             response.getIssue().getMessage()
         );
     }
-
 }
