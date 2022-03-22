@@ -41,6 +41,7 @@ public class DetectorProfileTests extends OpenSearchTestCase {
             )
             .shingleSize(randomInt())
             .coordinatingNode(randomAlphaOfLength(10))
+            .totalSizeInBytes(-1)
             .totalEntities(randomLong())
             .activeEntities(randomLong())
             .adTaskProfile(
@@ -87,8 +88,27 @@ public class DetectorProfileTests extends OpenSearchTestCase {
     }
 
     public void testDetectorProfileName() throws IllegalArgumentException {
-        DetectorProfileName.getName(CommonName.AD_TASK);
+        assertEquals("ad_task", DetectorProfileName.getName(CommonName.AD_TASK).getName());
+        assertEquals("state", DetectorProfileName.getName(CommonName.STATE).getName());
+        assertEquals("error", DetectorProfileName.getName(CommonName.ERROR).getName());
+        assertEquals("coordinating_node", DetectorProfileName.getName(CommonName.COORDINATING_NODE).getName());
+        assertEquals("shingle_size", DetectorProfileName.getName(CommonName.SHINGLE_SIZE).getName());
+        assertEquals("total_size_in_bytes", DetectorProfileName.getName(CommonName.TOTAL_SIZE_IN_BYTES).getName());
+        assertEquals("models", DetectorProfileName.getName(CommonName.MODELS).getName());
+        assertEquals("init_progress", DetectorProfileName.getName(CommonName.INIT_PROGRESS).getName());
+        assertEquals("total_entities", DetectorProfileName.getName(CommonName.TOTAL_ENTITIES).getName());
+        assertEquals("active_entities", DetectorProfileName.getName(CommonName.ACTIVE_ENTITIES).getName());
         IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> DetectorProfileName.getName("abc"));
         assertEquals(exception.getMessage(), CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
+    }
+
+    public void testDetectorProfileSet() throws IllegalArgumentException {
+        DetectorProfile detectorProfileOne = createRandomDetectorProfile();
+        detectorProfileOne.setShingleSize(20);
+        assertEquals(20, detectorProfileOne.getShingleSize());
+        detectorProfileOne.setActiveEntities(10L);
+        assertEquals(10L, (long) detectorProfileOne.getActiveEntities());
+        detectorProfileOne.setModelCount(10L);
+        assertEquals(10L, (long) detectorProfileOne.getActiveEntities());
     }
 }

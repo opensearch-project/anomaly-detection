@@ -11,16 +11,24 @@
 
 package org.opensearch.ad.common.exception;
 
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class ADValidationExceptionTests extends OpenSearchTestCase {
-    public void testConstructor() {
+    public void testConstructorDetector() {
         String message = randomAlphaOfLength(5);
         ADValidationException exception = new ADValidationException(message, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
         assertEquals(DetectorValidationIssueType.NAME, exception.getType());
         assertEquals(ValidationAspect.DETECTOR, exception.getAspect());
+    }
+
+    public void testConstructorModel() {
+        String message = randomAlphaOfLength(5);
+        ADValidationException exception = new ADValidationException(message, DetectorValidationIssueType.CATEGORY, ValidationAspect.MODEL);
+        assertEquals(DetectorValidationIssueType.CATEGORY, exception.getType());
+        assertEquals(ValidationAspect.getName(CommonName.MODEL_ASPECT), exception.getAspect());
     }
 
     public void testToString() {
