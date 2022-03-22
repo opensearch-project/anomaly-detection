@@ -50,7 +50,6 @@ import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileResponse;
 import org.opensearch.client.Client;
-import org.opensearch.common.text.Text;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;

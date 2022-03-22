@@ -31,14 +31,7 @@ public class ExceptionUtilsTests extends OpenSearchTestCase {
             false
         );
         ReplicationResponse.ShardInfo shardInfo = new ReplicationResponse.ShardInfo(2, 1, failure);
-        IndexResponse indexResponse = new IndexResponse(
-            shardId,
-            "id",
-            randomLong(),
-            randomLong(),
-            randomLong(),
-            randomBoolean()
-        );
+        IndexResponse indexResponse = new IndexResponse(shardId, "id", randomLong(), randomLong(), randomLong(), randomBoolean());
         indexResponse.setShardInfo(shardInfo);
         String shardsFailure = ExceptionUtil.getShardsFailure(indexResponse);
         assertEquals("RuntimeException[test]", shardsFailure);
@@ -46,14 +39,7 @@ public class ExceptionUtilsTests extends OpenSearchTestCase {
 
     public void testGetShardsFailureWithoutError() {
         ShardId shardId = new ShardId(randomAlphaOfLength(5), randomAlphaOfLength(5), 1);
-        IndexResponse indexResponse = new IndexResponse(
-            shardId,
-            "id",
-            randomLong(),
-            randomLong(),
-            randomLong(),
-            randomBoolean()
-        );
+        IndexResponse indexResponse = new IndexResponse(shardId, "id", randomLong(), randomLong(), randomLong(), randomBoolean());
         assertNull(ExceptionUtil.getShardsFailure(indexResponse));
 
         ReplicationResponse.ShardInfo shardInfo = new ReplicationResponse.ShardInfo(2, 1, ReplicationResponse.EMPTY);

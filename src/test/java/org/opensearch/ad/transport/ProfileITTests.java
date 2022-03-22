@@ -31,7 +31,7 @@ public class ProfileITTests extends OpenSearchIntegTestCase {
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
-    
+
     public void testNormalProfile() throws ExecutionException, InterruptedException {
         ProfileRequest profileRequest = new ProfileRequest("123", new HashSet<DetectorProfileName>(), false);
 

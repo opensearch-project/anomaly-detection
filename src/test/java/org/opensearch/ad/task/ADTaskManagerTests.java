@@ -84,7 +84,6 @@ import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -122,7 +121,6 @@ import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.get.GetResult;
-import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.shard.ShardId;
@@ -725,17 +723,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         when(adTaskCacheManager.isRealtimeTaskChanged(anyString(), anyString(), anyFloat(), anyString())).thenReturn(true);
         doAnswer(invocation -> {
             ActionListener<UpdateResponse> listener = invocation.getArgument(3);
-            listener
-                .onResponse(
-                    new UpdateResponse(
-                        ShardId.fromString("[test][1]"),
-                        "1",
-                        0L,
-                        1L,
-                        1L,
-                        DocWriteResponse.Result.UPDATED
-                    )
-                );
+            listener.onResponse(new UpdateResponse(ShardId.fromString("[test][1]"), "1", 0L, 1L, 1L, DocWriteResponse.Result.UPDATED));
             return null;
         }).when(adTaskManager).updateLatestADTask(anyString(), any(), anyMap(), any());
         adTaskManager
@@ -1231,14 +1219,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         doAnswer(invocation -> {
             ActionListener<UpdateResponse> updateResponselistener = invocation.getArgument(1);
-            UpdateResponse response = new UpdateResponse(
-                ShardId.fromString("[test][1]"),
-                "1",
-                0L,
-                1L,
-                1L,
-                DocWriteResponse.Result.UPDATED
-            );
+            UpdateResponse response = new UpdateResponse(ShardId.fromString("[test][1]"), "1", 0L, 1L, 1L, DocWriteResponse.Result.UPDATED);
             updateResponselistener.onResponse(response);
             return null;
         }).when(client).update(any(), any());

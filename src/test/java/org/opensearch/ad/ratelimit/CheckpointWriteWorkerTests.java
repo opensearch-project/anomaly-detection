@@ -291,7 +291,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
             responses[0] = new BulkItemResponse(
                 0,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new Failure(shardId.getIndexName(),"id1", new VersionConflictEngineException(shardId, "id1", "blah"))
+                new Failure(shardId.getIndexName(), "id1", new VersionConflictEngineException(shardId, "id1", "blah"))
             );
             listener.onResponse(new BulkResponse(responses, 1));
 

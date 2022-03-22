@@ -27,11 +27,11 @@ public class ThresholdResultITTests extends OpenSearchIntegTestCase {
     protected Collection<Class<? extends Plugin>> nodePlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
-    
+
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
-    
+
     public void testEmptyID() throws ExecutionException, InterruptedException {
         ThresholdResultRequest request = new ThresholdResultRequest("", "123-threshold", 2.5d);
 

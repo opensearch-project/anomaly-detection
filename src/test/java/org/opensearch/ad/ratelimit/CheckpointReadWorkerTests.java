@@ -203,17 +203,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[1];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
-                        entity.getModelId(detectorId).get(),
-                        1,
-                        1,
-                        0,
-                        true,
-                        null,
-                        null,
-                        null
-                    )
+                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
@@ -327,17 +317,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[2];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
-                        entity.getModelId(detectorId).get(),
-                        1,
-                        1,
-                        0,
-                        true,
-                        null,
-                        null,
-                        null
-                    )
+                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
@@ -681,17 +661,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[1];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
-                        entity.getModelId(detectorId).get(),
-                        1,
-                        1,
-                        0,
-                        true,
-                        null,
-                        null,
-                        null
-                    )
+                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
@@ -753,33 +723,13 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[2];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
-                        entity.getModelId(detectorId).get(),
-                        1,
-                        1,
-                        0,
-                        true,
-                        null,
-                        null,
-                        null
-                    )
+                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
             items[1] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
-                        entity4.getModelId(detectorId2).get(),
-                        1,
-                        1,
-                        0,
-                        true,
-                        null,
-                        null,
-                        null
-                    )
+                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity4.getModelId(detectorId2).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );

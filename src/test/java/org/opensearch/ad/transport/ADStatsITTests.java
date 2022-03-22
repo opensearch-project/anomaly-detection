@@ -29,7 +29,7 @@ public class ADStatsITTests extends OpenSearchIntegTestCase {
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
-    
+
     public void testNormalADStats() throws ExecutionException, InterruptedException {
         ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
 

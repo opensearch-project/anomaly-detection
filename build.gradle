@@ -479,7 +479,6 @@ List<String> jacocoExclusions = [
         // code for configuration, settings, etc is excluded from coverage
         'org.opensearch.ad.AnomalyDetectorPlugin',
         'org.opensearch.ad.settings.AnomalyDetectorSettings',
-
         //TODO: Add more cases for model validation API, both UT and IT
         //TODO: add more test cases later for these package
         'org.opensearch.ad.model.*',
@@ -514,6 +513,7 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction*',
         'org.opensearch.ad.transport.SearchAnomalyResultTransportAction*',
         'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
+        'org.opensearch.ad.transport.AnomalyDetectorJobRequest',
 
 
         // TODO: unified flow caused coverage drop
