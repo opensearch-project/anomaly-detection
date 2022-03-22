@@ -39,6 +39,7 @@ plugins {
     id 'nebula.ospackage' version "8.3.0" apply false
     id "com.diffplug.gradle.spotless" version "3.26.1"
     id 'java-library'
+    id 'org.gradle.test-retry' version '1.0.0'
 }
 
 tasks.withType(JavaCompile) {
@@ -150,6 +151,11 @@ def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absolu
 opensearch_tmp_dir.mkdirs()
 
 test {
+    retry {
+        failOnPassedAfterRetry = false
+        maxFailures = 10
+        maxRetries = 10
+    }
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
 }
@@ -162,6 +168,11 @@ task integTest(type: RestIntegTestTask) {
 tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
+    retry {
+        failOnPassedAfterRetry = false
+        maxFailures = 10
+        maxRetries = 10
+    }
     dependsOn "bundlePlugin"
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
