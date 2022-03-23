@@ -57,6 +57,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
@@ -1479,6 +1480,17 @@ public class TestHelpers {
             randomAlphaOfLength(5),
             subIssues,
             null
+        );
+        return issue;
+    }
+
+    public static DetectorValidationIssue randomDetectorValidationIssueWithDetectorIntervalRec(long intervalRec) {
+        DetectorValidationIssue issue = new DetectorValidationIssue(
+            ValidationAspect.MODEL,
+            DetectorValidationIssueType.DETECTION_INTERVAL,
+            CommonErrorMessages.DETECTOR_INTERVAL_REC + intervalRec,
+            null,
+            new IntervalTimeConfiguration(intervalRec, ChronoUnit.MINUTES)
         );
         return issue;
     }
