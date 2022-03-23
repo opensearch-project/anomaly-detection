@@ -45,7 +45,7 @@ public class AnomalyResultBucketTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void testToXContent() throws IOException {
-        Map<String, Object> key = new HashMap<>() {
+        Map<String, Object> key = new HashMap<String, Object>() {
             {
                 put("test-field-1", "test-value-1");
             }
