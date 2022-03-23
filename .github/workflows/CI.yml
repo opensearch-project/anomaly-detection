@@ -46,30 +46,31 @@ jobs:
       - name: Multi Nodes Integration Testing
         run: |
           ./gradlew integTest -PnumNodes=3
-      - name: Pull and Run Docker
-        run: |
-          plugin=`ls build/distributions/*.zip`
-          version=2.0.0
-          plugin_version=2.0.0.0-SNAPSHOT
-          echo Using OpenSearch $version with AD $plugin_version
-          cd ..
-          if docker pull opensearchstaging/opensearch:$version
-          then
-            echo "FROM opensearchstaging/opensearch:$version" >> Dockerfile
-            echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-anomaly-detection ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-anomaly-detection; fi" >> Dockerfile
-            echo "ADD anomaly-detection/build/distributions/opensearch-anomaly-detection-$plugin_version.zip /tmp/" >> Dockerfile
-            echo "RUN /usr/share/opensearch/bin/opensearch-plugin install --batch file:/tmp/opensearch-anomaly-detection-$plugin_version.zip" >> Dockerfile
-            docker build -t opensearch-ad:test .
-            echo "imagePresent=true" >> $GITHUB_ENV
-          else
-            echo "imagePresent=false" >> $GITHUB_ENV
-          fi
-      - name: Run Docker Image
-        if: env.imagePresent == 'true'
-        run: |
-          cd ..
-          docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" opensearch-ad:test
-          sleep 90
+#        ToDo: Check infra team for 2.0 docker availability and re-enable  
+#       - name: Pull and Run Docker
+#         run: |
+#           plugin=`ls build/distributions/*.zip`
+#           version=2.0.0
+#           plugin_version=2.0.0.0-SNAPSHOT
+#           echo Using OpenSearch $version with AD $plugin_version
+#           cd ..
+#           if docker pull opensearchstaging/opensearch:$version
+#           then
+#             echo "FROM opensearchstaging/opensearch:$version" >> Dockerfile
+#             echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-anomaly-detection ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-anomaly-detection; fi" >> Dockerfile
+#             echo "ADD anomaly-detection/build/distributions/opensearch-anomaly-detection-$plugin_version.zip /tmp/" >> Dockerfile
+#             echo "RUN /usr/share/opensearch/bin/opensearch-plugin install --batch file:/tmp/opensearch-anomaly-detection-$plugin_version.zip" >> Dockerfile
+#             docker build -t opensearch-ad:test .
+#             echo "imagePresent=true" >> $GITHUB_ENV
+#           else
+#             echo "imagePresent=false" >> $GITHUB_ENV
+#           fi
+#       - name: Run Docker Image
+#         if: env.imagePresent == 'true'
+#         run: |
+#           cd ..
+#           docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" opensearch-ad:test
+#           sleep 90
       - name: Run AD Test
         if: env.imagePresent == 'true'
         run: |
