@@ -50,7 +50,6 @@ import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileResponse;
 import org.opensearch.client.Client;
-import org.opensearch.common.text.Text;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
@@ -226,8 +225,8 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             } else {
                 SearchHits collapsedHits = new SearchHits(
                     new SearchHit[] {
-                        new SearchHit(2, "ID", new Text("type"), Collections.emptyMap(), Collections.emptyMap()),
-                        new SearchHit(3, "ID", new Text("type"), Collections.emptyMap(), Collections.emptyMap()) },
+                        new SearchHit(2, "ID", Collections.emptyMap(), Collections.emptyMap()),
+                        new SearchHit(3, "ID", Collections.emptyMap(), Collections.emptyMap()) },
                     new TotalHits(1, TotalHits.Relation.EQUAL_TO),
                     1.0F
                 );

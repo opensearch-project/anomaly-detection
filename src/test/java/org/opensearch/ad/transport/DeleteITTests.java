@@ -20,9 +20,7 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
-import org.opensearch.test.OpenSearchIntegTestCase;
 
-@OpenSearchIntegTestCase.ClusterScope(transportClientRatio = 0.9)
 public class DeleteITTests extends ADIntegTestCase {
 
     @Override
@@ -30,7 +28,6 @@ public class DeleteITTests extends ADIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
-    @Override
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }

@@ -84,7 +84,6 @@ import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -122,7 +121,6 @@ import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.get.GetResult;
-import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.shard.ShardId;
@@ -293,7 +291,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                     new GetResponse(
                         new GetResult(
                             AnomalyDetector.ANOMALY_DETECTORS_INDEX,
-                            MapperService.SINGLE_MAPPING_NAME,
                             detector.getDetectorId(),
                             UNASSIGNED_SEQ_NO,
                             0,
@@ -640,7 +637,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
-                    MapperService.SINGLE_MAPPING_NAME,
                     taskId,
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -697,7 +693,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
-                    MapperService.SINGLE_MAPPING_NAME,
                     taskId,
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -728,18 +723,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         when(adTaskCacheManager.isRealtimeTaskChanged(anyString(), anyString(), anyFloat(), anyString())).thenReturn(true);
         doAnswer(invocation -> {
             ActionListener<UpdateResponse> listener = invocation.getArgument(3);
-            listener
-                .onResponse(
-                    new UpdateResponse(
-                        ShardId.fromString("[test][1]"),
-                        CommonName.MAPPING_TYPE,
-                        "1",
-                        0L,
-                        1L,
-                        1L,
-                        DocWriteResponse.Result.UPDATED
-                    )
-                );
+            listener.onResponse(new UpdateResponse(ShardId.fromString("[test][1]"), "1", 0L, 1L, 1L, DocWriteResponse.Result.UPDATED));
             return null;
         }).when(adTaskManager).updateLatestADTask(anyString(), any(), anyMap(), any());
         adTaskManager
@@ -828,7 +812,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             responses[0] = new BulkItemResponse(
                 0,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new IndexResponse(shardId, "_doc", "id", 1, 1, 1, true)
+                new IndexResponse(shardId, "id", 1, 1, 1, true)
             );
             listener.onResponse(new BulkResponse(responses, 1));
             return null;
@@ -1235,15 +1219,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         doAnswer(invocation -> {
             ActionListener<UpdateResponse> updateResponselistener = invocation.getArgument(1);
-            UpdateResponse response = new UpdateResponse(
-                ShardId.fromString("[test][1]"),
-                CommonName.MAPPING_TYPE,
-                "1",
-                0L,
-                1L,
-                1L,
-                DocWriteResponse.Result.UPDATED
-            );
+            UpdateResponse response = new UpdateResponse(ShardId.fromString("[test][1]"), "1", 0L, 1L, 1L, DocWriteResponse.Result.UPDATED);
             updateResponselistener.onResponse(response);
             return null;
         }).when(client).update(any(), any());
@@ -1253,7 +1229,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
-                    MapperService.SINGLE_MAPPING_NAME,
                     detectorId,
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -1392,7 +1367,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                 .of(
                     new BulkItemResponse.Failure(
                         DETECTION_STATE_INDEX,
-                        CommonName.MAPPING_TYPE,
                         randomAlphaOfLength(5),
                         new VersionConflictEngineException(new ShardId(DETECTION_STATE_INDEX, "", 1), "id", "test")
                     )
@@ -1578,7 +1552,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetector.ANOMALY_DETECTORS_INDEX,
-                    MapperService.SINGLE_MAPPING_NAME,
                     detectorId,
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -1636,7 +1609,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             responses[0] = new BulkItemResponse(
                 0,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new IndexResponse(shardId, "_doc", "id", 1, 1, 1, true)
+                new IndexResponse(shardId, "id", 1, 1, 1, true)
             );
             responseListener.onResponse(new BulkResponse(responses, 1));
             return null;

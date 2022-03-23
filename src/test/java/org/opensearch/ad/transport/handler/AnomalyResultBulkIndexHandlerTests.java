@@ -34,7 +34,6 @@ import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
@@ -121,7 +120,6 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             ShardId shardId = new ShardId(new Index(indexName, uuid), shardIntId);
             BulkItemResponse.Failure failure = new BulkItemResponse.Failure(
                 ANOMALY_RESULT_INDEX_ALIAS,
-                CommonName.MAPPING_TYPE,
                 randomAlphaOfLength(5),
                 new VersionConflictEngineException(new ShardId(ANOMALY_RESULT_INDEX_ALIAS, "", 1), "id", "test")
             );
@@ -129,7 +127,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             bulkItemResponses[1] = new BulkItemResponse(
                 1,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new IndexResponse(shardId, "type", idPrefix + 1, 1, 1, randomInt(), true)
+                new IndexResponse(shardId, idPrefix + 1, 1, 1, randomInt(), true)
             );
             BulkResponse bulkResponse = new BulkResponse(bulkItemResponses, 10);
             listener.onResponse(bulkResponse);

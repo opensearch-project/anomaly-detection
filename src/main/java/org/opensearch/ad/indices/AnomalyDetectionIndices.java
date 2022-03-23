@@ -919,10 +919,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     adminClient
                         .indices()
                         .putMapping(
-                            new PutMappingRequest()
-                                .indices(adIndex.getIndexName())
-                                .type(CommonName.MAPPING_TYPE)
-                                .source(adIndex.getMapping(), XContentType.JSON),
+                            new PutMappingRequest().indices(adIndex.getIndexName()).source(adIndex.getMapping(), XContentType.JSON),
                             ActionListener.wrap(putMappingResponse -> {
                                 if (putMappingResponse.isAcknowledged()) {
                                     logger.info(new ParameterizedMessage("Succeeded in updating [{}]'s mapping", adIndex.getIndexName()));
