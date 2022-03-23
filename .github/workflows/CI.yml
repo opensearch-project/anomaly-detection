@@ -71,22 +71,22 @@ jobs:
 #           cd ..
 #           docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" opensearch-ad:test
 #           sleep 90
-      - name: Run AD Test
-        if: env.imagePresent == 'true'
-        run: |
-          security=`curl -XGET https://localhost:9200/_cat/plugins?v -u admin:admin --insecure |grep opensearch-security|wc -l`
-          if [ $security -gt 0 ]
-          then
-            echo "Security plugin is available"
-            ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster" -Dhttps=true -Duser=admin -Dpassword=admin
-          else
-            echo "Security plugin is NOT available"
-            ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
-          fi
-      - name: Run AD Backwards Compatibility Tests
-        run: |
-          echo "Running backwards compatibility tests ..."
-          ./gradlew bwcTestSuite -Dtests.security.manager=false
+#       - name: Run AD Test
+#         if: env.imagePresent == 'true'
+#         run: |
+#           security=`curl -XGET https://localhost:9200/_cat/plugins?v -u admin:admin --insecure |grep opensearch-security|wc -l`
+#           if [ $security -gt 0 ]
+#           then
+#             echo "Security plugin is available"
+#             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster" -Dhttps=true -Duser=admin -Dpassword=admin
+#           else
+#             echo "Security plugin is NOT available"
+#             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
+#           fi
+#       - name: Run AD Backwards Compatibility Tests
+#         run: |
+#           echo "Running backwards compatibility tests ..."
+#           ./gradlew bwcTestSuite -Dtests.security.manager=false
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:
