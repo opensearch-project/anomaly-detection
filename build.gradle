@@ -149,12 +149,13 @@ def _numNodes = findProperty('numNodes') as Integer ?: 1
 
 def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
 opensearch_tmp_dir.mkdirs()
-
+boolean isCiServer = System.getenv().containsKey("CI")
 test {
     retry {
-        failOnPassedAfterRetry = false
-        maxFailures = 10
-        maxRetries = 10
+        if (isCiServer) {
+            failOnPassedAfterRetry = false
+            maxRetries = 8
+        }
     }
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
@@ -169,9 +170,10 @@ tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
     retry {
-        failOnPassedAfterRetry = false
-        maxFailures = 10
-        maxRetries = 10
+        if (isCiServer) {
+            failOnPassedAfterRetry = false
+            maxRetries = 8
+        }
     }
     dependsOn "bundlePlugin"
     systemProperty 'tests.security.manager', 'false'
