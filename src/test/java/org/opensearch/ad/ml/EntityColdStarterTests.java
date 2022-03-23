@@ -874,4 +874,97 @@ public class EntityColdStarterTests extends AbstractADTest {
     public void testAccuracyThirteenMinuteInterval() throws Exception {
         accuracyTemplate(13);
     }
+
+    private ModelState<EntityModel> createStateForCacheRelease() {
+        inProgressLatch = new CountDownLatch(1);
+        releaseSemaphore = () -> {
+            released.set(true);
+            inProgressLatch.countDown();
+        };
+        listener = ActionListener.wrap(releaseSemaphore);
+        Queue<double[]> samples = MLUtil.createQueueSamples(1);
+        EntityModel model = new EntityModel(entity, samples, null);
+        return new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
+    }
+
+    public void testCacheReleaseAfterMaintenance() throws IOException, InterruptedException {
+        ModelState<EntityModel> modelState = createStateForCacheRelease();
+        doAnswer(invocation -> {
+            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            listener.onResponse(Optional.of(1602269260000L));
+            return null;
+        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+
+        List<Optional<double[]>> coldStartSamples = new ArrayList<>();
+
+        double[] sample1 = new double[] { 57.0 };
+        double[] sample2 = new double[] { 1.0 };
+        double[] sample3 = new double[] { -19.0 };
+
+        coldStartSamples.add(Optional.of(sample1));
+        coldStartSamples.add(Optional.of(sample2));
+        coldStartSamples.add(Optional.of(sample3));
+        doAnswer(invocation -> {
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            listener.onResponse(coldStartSamples);
+            return null;
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
+        checkSemaphoreRelease();
+        assertTrue(modelState.getModel().getTrcf().isPresent());
+
+        modelState = createStateForCacheRelease();
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
+        checkSemaphoreRelease();
+        // model is not trained as the door keeper remembers it and won't retry training
+        assertTrue(!modelState.getModel().getTrcf().isPresent());
+
+        // make sure when the next maintenance coming, current door keeper gets reset
+        // note our detector interval is 1 minute and the door keeper will expire in 60 intervals, which are 60 minutes
+        when(clock.instant()).thenReturn(Instant.now().plus(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ + 1, ChronoUnit.MINUTES));
+        entityColdStarter.maintenance();
+
+        modelState = createStateForCacheRelease();
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
+        checkSemaphoreRelease();
+        // model is trained as the door keeper gets reset
+        assertTrue(modelState.getModel().getTrcf().isPresent());
+    }
+
+    public void testCacheReleaseAfterClear() throws IOException, InterruptedException {
+        ModelState<EntityModel> modelState = createStateForCacheRelease();
+        doAnswer(invocation -> {
+            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            listener.onResponse(Optional.of(1602269260000L));
+            return null;
+        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+
+        List<Optional<double[]>> coldStartSamples = new ArrayList<>();
+
+        double[] sample1 = new double[] { 57.0 };
+        double[] sample2 = new double[] { 1.0 };
+        double[] sample3 = new double[] { -19.0 };
+
+        coldStartSamples.add(Optional.of(sample1));
+        coldStartSamples.add(Optional.of(sample2));
+        coldStartSamples.add(Optional.of(sample3));
+        doAnswer(invocation -> {
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            listener.onResponse(coldStartSamples);
+            return null;
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
+        checkSemaphoreRelease();
+        assertTrue(modelState.getModel().getTrcf().isPresent());
+
+        entityColdStarter.clear(detectorId);
+
+        modelState = createStateForCacheRelease();
+        entityColdStarter.trainModel(entity, detectorId, modelState, listener);
+        checkSemaphoreRelease();
+        // model is trained as the door keeper is regenerated after clearance
+        assertTrue(modelState.getModel().getTrcf().isPresent());
+    }
 }
