@@ -23,6 +23,7 @@ import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.feature.FeatureManager;
+import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.cluster.service.ClusterService;
@@ -39,6 +40,7 @@ public class DeleteModelTransportAction extends
     private FeatureManager featureManager;
     private CacheProvider cache;
     private ADTaskCacheManager adTaskCacheManager;
+    private EntityColdStarter coldStarter;
 
     @Inject
     public DeleteModelTransportAction(
@@ -50,7 +52,8 @@ public class DeleteModelTransportAction extends
         ModelManager modelManager,
         FeatureManager featureManager,
         CacheProvider cache,
-        ADTaskCacheManager adTaskCacheManager
+        ADTaskCacheManager adTaskCacheManager,
+        EntityColdStarter coldStarter
     ) {
         super(
             DeleteModelAction.NAME,
@@ -68,6 +71,7 @@ public class DeleteModelTransportAction extends
         this.featureManager = featureManager;
         this.cache = cache;
         this.adTaskCacheManager = adTaskCacheManager;
+        this.coldStarter = coldStarter;
     }
 
     @Override
@@ -120,6 +124,8 @@ public class DeleteModelTransportAction extends
         nodeStateManager.clear(adID);
 
         cache.get().clear(adID);
+
+        coldStarter.clear(adID);
 
         // delete realtime task cache
         adTaskCacheManager.removeRealtimeTaskCache(adID);
