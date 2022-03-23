@@ -217,8 +217,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     /**
-     * Different from simulateSingleStreamStartDetector, getDetectionResult is an async process and we cannot use exception to decide if
-     * a detector finishes initialization or not.
+     * Simulate starting the given HCAD detector.
      * @param detectorId Detector Id
      * @param data Data in Json format
      * @param trainTestSplit Training data size
@@ -251,12 +250,24 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         long startTime = System.currentTimeMillis();
         long duration = 0;
         do {
+            /*
+             * single stream detectors will throw exception if not finding models in the
+             * callback, while HCAD detectors will return early, record the exception in
+             * node state, and throw exception in the next run. HCAD did it this way since
+             * it does not know when current run is gonna finish (e.g, we may have millions
+             * of entities to process in one run). So for single-stream detector test case,
+             * we can check the exception to see if models are initialized or not. So HCAD,
+             * we have to either wait for next runs or use profile API. Here I chose profile
+             * API since it is faster. Will add these explanation in the comments.
+             */
             Thread.sleep(5_000);
             String initProgress = profileDetectorInitProgress(detectorId, client);
             if (initProgress.equals("100%")) {
                 break;
             }
-            getDetectionResult(detectorId, begin, end, client);
+            try {
+                getDetectionResult(detectorId, begin, end, client);
+            } catch (Exception e) {}
             duration = System.currentTimeMillis() - startTime;
         } while (duration <= 60_000);
     }
@@ -407,8 +418,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
             Response response = client.performRequest(request);
             JsonObject json = new JsonParser().parse(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
-            JsonElement hit = json.getAsJsonObject("hits").getAsJsonArray("hits").get(0);
-            if (expectedSize - 1 == hit.getAsJsonObject().getAsJsonPrimitive("_id").getAsLong()) {
+            JsonArray hits = json.getAsJsonObject("hits").getAsJsonArray("hits");
+            if (hits != null
+                && hits.size() == 1
+                && expectedSize - 1 == hits.get(0).getAsJsonObject().getAsJsonPrimitive("_id").getAsLong()) {
                 break;
             } else {
                 request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
@@ -625,7 +638,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         // few items of training data maps to current time. We need this adjustment
         // because CompositeRetriever will compare expiry time with current time in hasNext
         // method. The expiry time is calculated using request (one parameter of the run API)
-        // end time plus some fraciton of interval. If the expiry time is less than
+        // end time plus some fraction of interval. If the expiry time is less than
         // current time, CompositeRetriever thinks this request expires and refuses to start
         // querying. So this adjustment is to make the following simulateHCADStartDetector work.
         String lastTrainShingleStartTime = data.get(trainTestSplit - shingleSize).getAsJsonPrimitive(tsField).getAsString();
