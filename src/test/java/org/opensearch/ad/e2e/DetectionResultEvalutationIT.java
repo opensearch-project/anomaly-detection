@@ -418,7 +418,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             // Expected response:
             // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
             Response response = client.performRequest(request);
-            JsonObject json = new JsonParser().parse(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
+            JsonObject json = JsonParser.parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset())).getAsJsonObject();
             JsonArray hits = json.getAsJsonObject("hits").getAsJsonArray("hits");
             if (hits != null
                 && hits.size() == 1
@@ -622,7 +622,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     private void verifyRestart(String datasetName, int intervalMinutes, int shingleSize) throws Exception {
         RestClient client = client();
 
-        String dataFileName = String.format("data/%s.data", datasetName);
+        String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
 
         List<JsonObject> data = getData(dataFileName);
 
@@ -635,7 +635,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
         // e.g., 2019-11-01T00:03:00Z
         String pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'";
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern, Locale.ROOT);
         simpleDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         // calculate the gap between current time and the beginning of last shingle
         // the gap is used to adjust input training data's time so that the last
@@ -652,8 +652,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         // by the time we trigger the run API, a few seconds have passed. +5 to make the adjusted time more than current time.
         long gap = time.convert(diff, TimeUnit.MILLISECONDS) + 5;
 
-        Calendar c = Calendar.getInstance();
-        c.setTimeZone(TimeZone.getTimeZone("UTC"));
+        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
 
         // only change training data as we only need to make sure detector is fully initialized
         for (int i = 0; i < trainTestSplit; i++) {
