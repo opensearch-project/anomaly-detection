@@ -19,9 +19,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.time.Clock;
-import java.nio.charset.Charset;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -418,7 +418,9 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             // Expected response:
             // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
             Response response = client.performRequest(request);
-            JsonObject json = JsonParser.parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset())).getAsJsonObject();
+            JsonObject json = JsonParser
+                .parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset()))
+                .getAsJsonObject();
             JsonArray hits = json.getAsJsonObject("hits").getAsJsonArray("hits");
             if (hits != null
                 && hits.size() == 1
