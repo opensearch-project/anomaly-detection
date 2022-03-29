@@ -533,7 +533,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-            .mapping(AnomalyDetector.TYPE, getAnomalyDetectorMappings(), XContentType.JSON)
+            .mapping(getAnomalyDetectorMappings())
             .settings(settings);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
     }
@@ -597,7 +597,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         ActionListener<CreateIndexResponse> actionListener
     ) throws IOException {
         String mapping = getAnomalyResultMappings();
-        CreateIndexRequest request = new CreateIndexRequest(resultIndex).mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON);
+        CreateIndexRequest request = new CreateIndexRequest(resultIndex).mapping(mapping);
         if (alias != null) {
             request.alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
         }
@@ -617,7 +617,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
             CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                .mapping(AnomalyDetector.TYPE, getAnomalyDetectorJobMappings(), XContentType.JSON);
+                .mapping(getAnomalyDetectorJobMappings());
             request
                 .settings(
                     Settings
@@ -649,7 +649,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
             CreateIndexRequest request = new CreateIndexRequest(CommonName.DETECTION_STATE_INDEX)
-                .mapping(AnomalyDetector.TYPE, getDetectionStateMappings(), XContentType.JSON)
+                .mapping(getDetectionStateMappings())
                 .settings(settings);
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
         } catch (IOException e) {
@@ -672,7 +672,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
         CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME)
-            .mapping(CommonName.MAPPING_TYPE, mapping, XContentType.JSON);
+            .mapping(mapping);
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
     }
@@ -729,7 +729,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         }
         CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
-        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(CommonName.MAPPING_TYPE, adResultMapping, XContentType.JSON);
+        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(adResultMapping);
 
         choosePrimaryShards(createRequest);
 
