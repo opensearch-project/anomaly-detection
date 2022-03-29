@@ -235,6 +235,7 @@ testClusters.integTest {
             return new RegularFile() {
                 @Override
                 File getAsFile() {
+                    project.mkdir "src/test/resources/job-scheduler"
                     ant.get(src: 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/'
                             + job_scheduler_version
                             + '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-'
@@ -341,6 +342,7 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
+                        project.mkdir "src/test/resources/job-scheduler"
                         ant.get(src: 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/'
                                 + job_scheduler_version
                                 + '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-'
