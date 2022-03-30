@@ -29,20 +29,20 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
-          ./gradlew assemble -Dopensearch.version=2.0.0-SNAPSHOT
-          echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-SNAPSHOT ..."
-          mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-SNAPSHOT
-          echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-SNAPSHOT ..."
+          ./gradlew assemble
+          echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT ..."
+          mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT
+          echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT ..."
           ls ./build/distributions/
-          cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-SNAPSHOT
-          echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-SNAPSHOT ..."
-          ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-SNAPSHOT
+          cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT
+          echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT ..."
+          ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dopensearch.version=2.0.0-SNAPSHOT
+          ./gradlew build
       - name: Publish to Maven Local
         run: |
-          ./gradlew publishToMavenLocal -Dopensearch.version=2.0.0-SNAPSHOT
+          ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
           ./gradlew integTest -PnumNodes=3
