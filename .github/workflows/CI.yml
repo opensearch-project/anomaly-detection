@@ -29,14 +29,16 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
+          plugin_version=`./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}'`
+          echo plugin_version $plugin_version
           ./gradlew assemble
-          echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT ..."
-          mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT
-          echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT ..."
+          echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
+          mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+          echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./build/distributions/
-          cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT
-          echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT ..."
-          ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/2.0.0.0-alpha1-SNAPSHOT
+          cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+          echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
+          ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
       - name: Build and Run Tests
         run: |
           ./gradlew build
