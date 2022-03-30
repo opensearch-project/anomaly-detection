@@ -599,8 +599,15 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     public void testRestartHCADDetector() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
-            disableResourceNotFoundFaultTolerence();
-            verifyRestart("synthetic", 1, 8);
+            try {
+                disableResourceNotFoundFaultTolerence();
+                verifyRestart("synthetic", 1, 8);
+            } catch (Throwable throwable) {
+                LOG.info("Retry restart test case", throwable);
+                cleanUpCluster();
+                wipeAllODFEIndices();
+                fail();
+            }
         }
     }
 
