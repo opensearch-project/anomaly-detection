@@ -110,7 +110,7 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
-        force "com.fasterxml.jackson.core:jackson-core:2.12.6"
+        force "com.fasterxml.jackson.core:jackson-core:2.13.2"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
@@ -588,9 +588,9 @@ dependencies {
 
     // force Jackson version to avoid version conflict issue
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
-    implementation "com.fasterxml.jackson.core:jackson-core:2.12.6"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.12.6"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.12.6"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.13.2"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.13.2.2"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.2"
     implementation files('lib/randomcutforest-parkservices-2.0.1.jar')
     implementation files('lib/randomcutforest-core-2.0.1.jar')
 
