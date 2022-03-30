@@ -78,3 +78,4 @@ We would like comments and feedback on the proposal of integrating AD and Visual
 - Would historical anomalies be useful, or are you only interested in real-time / future anomalies?
 - Would you prefer auto-suggested fields to be hidden by default, or easily available to edit when creating?
 - Besides integration with Visualizations, would you want a non-UI integration offering directly through APIs?
+- Do you have any other suggestions for how to handle invalid inputs? Would you prefer a more or less restrictive approach?
