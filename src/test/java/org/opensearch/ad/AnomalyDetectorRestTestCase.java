@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.http.HttpHeaders;
@@ -196,7 +197,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             .makeRequest(
                 client,
                 "POST",
-                String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
                 TestHelpers.toHttpEntity(input),
                 null

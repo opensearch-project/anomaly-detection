@@ -103,7 +103,10 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 3);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 3
+            );
 
             assertTrue(args[1] instanceof BulkRequest);
             assertTrue(args[2] instanceof ActionListener);
@@ -133,7 +136,10 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 3);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 3
+            );
 
             assertTrue(args[1] instanceof BulkRequest);
             assertTrue(args[2] instanceof ActionListener);
@@ -166,7 +172,10 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 3);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 3
+            );
 
             assertTrue(args[1] instanceof BulkRequest);
             assertTrue(args[2] instanceof ActionListener);

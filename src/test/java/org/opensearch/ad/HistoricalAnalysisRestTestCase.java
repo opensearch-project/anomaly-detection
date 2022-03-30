@@ -253,7 +253,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
             try {
                 adTaskProfile = getADTaskProfile(detectorId);
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("failed to get ADTaskProfile", e);
             } finally {
                 Thread.sleep(1000);
             }

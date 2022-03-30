@@ -18,6 +18,7 @@ import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Locale;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -112,7 +113,10 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected void setUpSavingAnomalyResultIndex(boolean anomalyResultIndexExists, IndexCreation creationResult) throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 1);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length >= 1
+            );
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             assertTrue(listener != null);
             switch (creationResult) {

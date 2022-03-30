@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.time.Clock;
 import java.time.Instant;
@@ -84,8 +85,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     ) throws Exception {
         RestClient client = client();
 
-        String dataFileName = String.format("data/%s.data", datasetName);
-        String labelFileName = String.format("data/%s.label", datasetName);
+        String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
+        String labelFileName = String.format(Locale.ROOT, "data/%s.label", datasetName);
 
         List<JsonObject> data = getData(dataFileName);
         List<Entry<Instant, Instant>> anomalies = getAnomalyWindows(labelFileName);
@@ -162,7 +163,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 }
             } catch (Exception e) {
                 errors++;
-                e.printStackTrace();
+                logger.error("failed to get detection results", e);
             }
         }
         return new double[] { positives, truePositives, positiveAnomalies.size(), errors };
@@ -318,8 +319,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     private List<Entry<Instant, Instant>> getAnomalyWindows(String labalFileName) throws Exception {
-        JsonArray windows = new JsonParser()
-            .parse(new FileReader(new File(getClass().getResource(labalFileName).toURI())))
+        JsonArray windows = JsonParser
+            .parseReader(new FileReader(new File(getClass().getResource(labalFileName).toURI()), Charset.defaultCharset()))
             .getAsJsonArray();
         List<Entry<Instant, Instant>> anomalies = new ArrayList<>(windows.size());
         for (int i = 0; i < windows.size(); i++) {
@@ -417,7 +418,9 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             // Expected response:
             // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
             Response response = client.performRequest(request);
-            JsonObject json = new JsonParser().parse(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
+            JsonObject json = JsonParser
+                .parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset()))
+                .getAsJsonObject();
             JsonArray hits = json.getAsJsonObject("hits").getAsJsonArray("hits");
             if (hits != null
                 && hits.size() == 1
@@ -437,8 +440,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     private List<JsonObject> getData(String datasetFileName) throws Exception {
-        JsonArray jsonArray = new JsonParser()
-            .parse(new FileReader(new File(getClass().getResource(datasetFileName).toURI())))
+        JsonArray jsonArray = JsonParser
+            .parseReader(new FileReader(new File(getClass().getResource(datasetFileName).toURI()), Charset.defaultCharset()))
             .getAsJsonArray();
         List<JsonObject> list = new ArrayList<>(jsonArray.size());
         jsonArray.iterator().forEachRemaining(i -> list.add(i.getAsJsonObject()));
@@ -447,7 +450,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
     private Map<String, Object> getDetectionResult(String detectorId, Instant begin, Instant end, RestClient client) {
         try {
-            Request request = new Request("POST", String.format("/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId));
+            Request request = new Request(
+                "POST",
+                String.format(Locale.ROOT, "/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId)
+            );
             request
                 .setJsonEntity(
                     String.format(Locale.ROOT, "{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli())
@@ -585,7 +591,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         Thread.sleep(1_000);
         data.stream().limit(trainTestSplit).forEach(r -> {
             try {
-                Request req = new Request("POST", String.format("/%s/_doc/", datasetName));
+                Request req = new Request("POST", String.format(Locale.ROOT, "/%s/_doc/", datasetName));
                 req.setJsonEntity(r.toString());
                 client.performRequest(req);
             } catch (Exception e) {
@@ -618,7 +624,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     private void verifyRestart(String datasetName, int intervalMinutes, int shingleSize) throws Exception {
         RestClient client = client();
 
-        String dataFileName = String.format("data/%s.data", datasetName);
+        String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
 
         List<JsonObject> data = getData(dataFileName);
 
@@ -631,7 +637,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
         // e.g., 2019-11-01T00:03:00Z
         String pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'";
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern, Locale.ROOT);
         simpleDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         // calculate the gap between current time and the beginning of last shingle
         // the gap is used to adjust input training data's time so that the last
@@ -648,8 +654,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         // by the time we trigger the run API, a few seconds have passed. +5 to make the adjusted time more than current time.
         long gap = time.convert(diff, TimeUnit.MILLISECONDS) + 5;
 
-        Calendar c = Calendar.getInstance();
-        c.setTimeZone(TimeZone.getTimeZone("UTC"));
+        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
 
         // only change training data as we only need to make sure detector is fully initialized
         for (int i = 0; i < trainTestSplit; i++) {

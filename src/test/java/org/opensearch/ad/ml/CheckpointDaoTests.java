@@ -33,6 +33,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -865,7 +866,10 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         URISyntaxException {
         String model = null;
         try (
-            FileReader v1CheckpointFile = new FileReader(new File(getClass().getResource(checkpointFileName).toURI()));
+            FileReader v1CheckpointFile = new FileReader(
+                new File(getClass().getResource(checkpointFileName).toURI()),
+                Charset.defaultCharset()
+            );
             BufferedReader rr = new BufferedReader(v1CheckpointFile)
         ) {
             model = rr.readLine();

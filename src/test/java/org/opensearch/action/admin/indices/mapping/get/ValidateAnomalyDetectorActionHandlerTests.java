@@ -137,37 +137,8 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-
         NodeClient client = IndexAnomalyDetectorActionHandlerTests
             .getCustomNodeClient(detectorResponse, userIndexResponse, singleEntityDetector, threadPool);
-
-        // NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
-        // @Override
-        // public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-        // ActionType<Response> action,
-        // Request request,
-        // ActionListener<Response> listener
-        // ) {
-        // try {
-        // if (action.equals(SearchAction.INSTANCE)) {
-        // assertTrue(request instanceof SearchRequest);
-        // SearchRequest searchRequest = (SearchRequest) request;
-        // if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
-        // listener.onResponse((Response) detectorResponse);
-        // } else {
-        // listener.onResponse((Response) userIndexResponse);
-        // }
-        // } else {
-        // GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-        // TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
-        // );
-        // listener.onResponse((Response) response);
-        // }
-        // } catch (IOException e) {
-        // e.printStackTrace();
-        // }
-        // }
-        // };
 
         NodeClient clientSpy = spy(client);
 

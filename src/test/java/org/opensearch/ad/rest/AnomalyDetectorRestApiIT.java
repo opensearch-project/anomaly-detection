@@ -501,7 +501,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 .makeRequest(
                     client(),
                     "POST",
-                    String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                    String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                     ImmutableMap.of(),
                     TestHelpers.toHttpEntity(input),
                     null
@@ -515,7 +515,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
                 TestHelpers.toHttpEntity(input),
                 null
@@ -538,7 +538,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                        String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                         ImmutableMap.of(),
                         TestHelpers.toHttpEntity(input),
                         null
@@ -560,7 +560,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                        String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                         ImmutableMap.of(),
                         TestHelpers.toHttpEntity(input),
                         null
@@ -580,7 +580,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(
                 client(),
                 "POST",
-                String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                 ImmutableMap.of(),
                 TestHelpers.toHttpEntity(input),
                 null,
@@ -605,7 +605,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     .makeRequest(
                         client(),
                         "POST",
-                        String.format(TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
+                        String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
                         ImmutableMap.of(),
                         TestHelpers.toHttpEntity(input),
                         null
@@ -1189,7 +1189,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         // Deleting detector should fail while its running
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getDetectorId(), client()); });
-        exception.printStackTrace();
         Assert.assertTrue(exception.getMessage().contains("Detector is running"));
     }
 
@@ -1492,7 +1491,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .extractValue("detector", responseMap);
         assertEquals(
             "non-existing category",
-            String.format(AbstractAnomalyDetectorActionHandler.CATEGORY_NOT_FOUND_ERR_MSG, "host.keyword"),
+            String.format(Locale.ROOT, AbstractAnomalyDetectorActionHandler.CATEGORY_NOT_FOUND_ERR_MSG, "host.keyword"),
             messageMap.get("category_field").get("message")
         );
 

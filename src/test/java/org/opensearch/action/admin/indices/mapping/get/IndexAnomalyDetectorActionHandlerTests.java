@@ -264,7 +264,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                         listener.onResponse((Response) response);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Create field mapping threw an exception", e);
                 }
             }
         };
@@ -345,7 +345,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                         listener.onResponse((Response) response);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Create field mapping threw an exception", e);
                 }
             }
         };
@@ -437,7 +437,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                         listener.onResponse((Response) response);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Create field mapping threw an exception", e);
                 }
             }
         };
@@ -527,7 +527,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                         listener.onResponse((Response) response);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Create field mapping threw an exception", e);
                 }
             }
         };
@@ -599,7 +599,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof SearchRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -613,7 +616,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof GetRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -675,7 +681,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof SearchRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -689,7 +698,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof GetRequest);
             assertTrue(args[1] instanceof ActionListener);
