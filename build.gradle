@@ -84,13 +84,7 @@ ext {
 allprojects {
     group = 'org.opensearch'
 
-    version = opensearch_version.tokenize('-')[0] + '.0'
-    if (buildVersionQualifier) {
-        version += "-${buildVersionQualifier}"
-    }
-    if (isSnapshot) {
-        version += "-SNAPSHOT"
-    }
+    version = "${opensearch_build}"
 
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = JavaVersion.VERSION_11
