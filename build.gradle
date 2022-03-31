@@ -16,9 +16,18 @@ import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 buildscript {
     ext {
         opensearch_group = "org.opensearch"
-        opensearch_version = System.getProperty("opensearch.version", "2.0.0-SNAPSHOT")
-        // 1.2.0 -> 1.2.0.0, and 1.2.0-SNAPSHOT -> 1.2.0.0-SNAPSHOT
-        opensearch_build = opensearch_version.replaceAll(/(\.\d)([^\d]*)$/, '$1.0$2')
+        isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+        opensearch_version = System.getProperty("opensearch.version", "2.0.0-alpha1-SNAPSHOT")
+        buildVersionQualifier = System.getProperty("build.version_qualifier")
+        // 2.0.0-alpha1-SNAPSHOT -> 2.0.0.0-alpha1-SNAPSHOT
+        version_tokens = opensearch_version.tokenize('-')
+        opensearch_build = version_tokens[0] + '.0'
+        if (buildVersionQualifier) {
+            opensearch_build += "-${buildVersionQualifier}"
+        }
+        if (isSnapshot) {
+            opensearch_build += "-SNAPSHOT"
+        }
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
     }
@@ -106,7 +115,7 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
-        force "com.fasterxml.jackson.core:jackson-core:2.12.6"
+        force "com.fasterxml.jackson.core:jackson-core:2.13.2"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
@@ -315,7 +324,7 @@ String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["7.10.2","1.3.0-SNAPSHOT"]
+            versions = ["7.10.2", "2.0.0-alpha1-SNAPSHOT"]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
@@ -584,9 +593,9 @@ dependencies {
 
     // force Jackson version to avoid version conflict issue
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
-    implementation "com.fasterxml.jackson.core:jackson-core:2.12.6"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.12.6"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.12.6"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.13.2"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.13.2.2"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.2"
     implementation files('lib/randomcutforest-parkservices-2.0.1.jar')
     implementation files('lib/randomcutforest-core-2.0.1.jar')
 

@@ -52,6 +52,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
@@ -1046,7 +1047,7 @@ public class TestHelpers {
     }
 
     public static CreateIndexResponse createIndex(AdminClient adminClient, String indexName, String indexMapping) {
-        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(AnomalyDetector.TYPE, indexMapping, XContentType.JSON);
+        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(indexMapping);
         return adminClient.indices().create(request).actionGet(5_000);
     }
 
@@ -1211,17 +1212,17 @@ public class TestHelpers {
         return new DetectorInternalState.Builder().lastUpdateTime(lastUpdateTime).error(error).build();
     }
 
-    public static Map<String, Map<String, Map<String, FieldMappingMetadata>>> createFieldMappings(
+    public static Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> createFieldMappings(
         String index,
         String fieldName,
         String fieldType
     ) throws IOException {
-        Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappings = new HashMap<>();
+        Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappings = new HashMap<>();
         FieldMappingMetadata fieldMappingMetadata = new FieldMappingMetadata(
             fieldName,
             new BytesArray("{\"" + fieldName + "\":{\"type\":\"" + fieldType + "\"}}")
         );
-        mappings.put(index, Collections.singletonMap(CommonName.MAPPING_TYPE, Collections.singletonMap(fieldName, fieldMappingMetadata)));
+        mappings.put(index, Collections.singletonMap(fieldName, fieldMappingMetadata));
         return mappings;
     }
 

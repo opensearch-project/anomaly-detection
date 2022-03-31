@@ -335,34 +335,31 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         // AbstractAnomalyDetectorActionHandler.validateCategoricalField(String, boolean)
         ActionListener<GetFieldMappingsResponse> mappingsListener = ActionListener.wrap(getMappingsResponse -> {
             boolean foundField = false;
-            Map<String, Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse
-                .mappings();
+            Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByIndex = getMappingsResponse.mappings();
 
-            for (Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByType : mappingsByIndex.values()) {
-                for (Map<String, GetFieldMappingsResponse.FieldMappingMetadata> mappingsByField : mappingsByType.values()) {
-                    for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
+            for (Map<String, GetFieldMappingsResponse.FieldMappingMetadata> mappingsByField : mappingsByIndex.values()) {
+                for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
 
-                        GetFieldMappingsResponse.FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
-                        if (fieldMetadata != null) {
-                            // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
-                            Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
-                            if (fieldMap != null) {
-                                for (Object type : fieldMap.values()) {
-                                    if (type instanceof Map) {
-                                        foundField = true;
-                                        Map<String, Object> metadataMap = (Map<String, Object>) type;
-                                        String typeName = (String) metadataMap.get(CommonName.TYPE);
-                                        if (!typeName.equals(CommonName.DATE_TYPE)) {
-                                            listener
-                                                .onFailure(
-                                                    new ADValidationException(
-                                                        String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIMESTAMP, givenTimeField),
-                                                        DetectorValidationIssueType.TIMEFIELD_FIELD,
-                                                        ValidationAspect.DETECTOR
-                                                    )
-                                                );
-                                            return;
-                                        }
+                    GetFieldMappingsResponse.FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
+                    if (fieldMetadata != null) {
+                        // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
+                        Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
+                        if (fieldMap != null) {
+                            for (Object type : fieldMap.values()) {
+                                if (type instanceof Map) {
+                                    foundField = true;
+                                    Map<String, Object> metadataMap = (Map<String, Object>) type;
+                                    String typeName = (String) metadataMap.get(CommonName.TYPE);
+                                    if (!typeName.equals(CommonName.DATE_TYPE)) {
+                                        listener
+                                            .onFailure(
+                                                new ADValidationException(
+                                                    String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIMESTAMP, givenTimeField),
+                                                    DetectorValidationIssueType.TIMEFIELD_FIELD,
+                                                    ValidationAspect.DETECTOR
+                                                )
+                                            );
+                                        return;
                                     }
                                 }
                             }
@@ -608,45 +605,42 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             boolean foundField = false;
 
             // Review why the change from FieldMappingMetadata to GetFieldMappingsResponse.FieldMappingMetadata
-            Map<String, Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>>> mappingsByIndex = getMappingsResponse
-                .mappings();
+            Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByIndex = getMappingsResponse.mappings();
 
-            for (Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByType : mappingsByIndex.values()) {
-                for (Map<String, GetFieldMappingsResponse.FieldMappingMetadata> mappingsByField : mappingsByType.values()) {
-                    for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
-                        // example output:
-                        // host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
-                        // source=org.opensearch.common.bytes.BytesArray@8fb4de08}
+            for (Map<String, GetFieldMappingsResponse.FieldMappingMetadata> mappingsByField : mappingsByIndex.values()) {
+                for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
+                    // example output:
+                    // host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
+                    // source=org.opensearch.common.bytes.BytesArray@8fb4de08}
 
-                        // Review why the change from FieldMappingMetadata to GetFieldMappingsResponse.FieldMappingMetadata
+                    // Review why the change from FieldMappingMetadata to GetFieldMappingsResponse.FieldMappingMetadata
 
-                        GetFieldMappingsResponse.FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
+                    GetFieldMappingsResponse.FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
 
-                        if (fieldMetadata != null) {
-                            // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
-                            Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
-                            if (fieldMap != null) {
-                                for (Object type : fieldMap.values()) {
-                                    if (type != null && type instanceof Map) {
-                                        foundField = true;
-                                        Map<String, Object> metadataMap = (Map<String, Object>) type;
-                                        String typeName = (String) metadataMap.get(CommonName.TYPE);
-                                        if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
-                                            listener
-                                                .onFailure(
-                                                    new ADValidationException(
-                                                        CATEGORICAL_FIELD_TYPE_ERR_MSG,
-                                                        DetectorValidationIssueType.CATEGORY,
-                                                        ValidationAspect.DETECTOR
-                                                    )
-                                                );
-                                            return;
-                                        }
+                    if (fieldMetadata != null) {
+                        // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
+                        Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
+                        if (fieldMap != null) {
+                            for (Object type : fieldMap.values()) {
+                                if (type != null && type instanceof Map) {
+                                    foundField = true;
+                                    Map<String, Object> metadataMap = (Map<String, Object>) type;
+                                    String typeName = (String) metadataMap.get(CommonName.TYPE);
+                                    if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
+                                        listener
+                                            .onFailure(
+                                                new ADValidationException(
+                                                    CATEGORICAL_FIELD_TYPE_ERR_MSG,
+                                                    DetectorValidationIssueType.CATEGORY,
+                                                    ValidationAspect.DETECTOR
+                                                )
+                                            );
+                                        return;
                                     }
                                 }
                             }
-
                         }
+
                     }
                 }
             }
