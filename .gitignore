@@ -14,3 +14,4 @@ out/
 .classpath
 .vscode
 bin/
+src/test/resources/job-scheduler/

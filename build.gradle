@@ -17,10 +17,12 @@ buildscript {
     ext {
         opensearch_group = "org.opensearch"
         opensearch_version = System.getProperty("opensearch.version", "1.3.1-SNAPSHOT")
+        job_scheduler_version = opensearch_version.substring(0, opensearch_version.indexOf("-"))
         // 1.2.0 -> 1.2.0.0, and 1.2.0-SNAPSHOT -> 1.2.0.0-SNAPSHOT
         opensearch_build = opensearch_version.replaceAll(/(\.\d)([^\d]*)$/, '$1.0$2')
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
-        job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
+        job_scheduler_version_snapshot = System.getProperty("job_scheduler.version", opensearch_build)
+        js_resource_folder = "src/test/resources/job-scheduler"
     }
 
     repositories {
@@ -234,7 +236,13 @@ testClusters.integTest {
             return new RegularFile() {
                 @Override
                 File getAsFile() {
-                    return fileTree("src/test/resources/job-scheduler").getSingleFile()
+                    project.mkdir js_resource_folder
+                    ant.get(src: 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/'
+                            + job_scheduler_version
+                            + '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-'
+                            + job_scheduler_version + '.0.zip',
+                            dest: js_resource_folder)
+                    return fileTree(js_resource_folder).getSingleFile()
                 }
             }
         }
@@ -335,7 +343,12 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        return fileTree(bwcFilePath + "job-scheduler/" + project.version).getSingleFile()
+                        ant.get(src: 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/'
+                                + job_scheduler_version
+                                + '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-'
+                                + job_scheduler_version + '.0.zip',
+                                dest: bwcFilePath + "job-scheduler/" + job_scheduler_version)
+                        return fileTree(bwcFilePath + "job-scheduler/" + job_scheduler_version).getSingleFile()
                     }
                 }
             }
@@ -563,7 +576,7 @@ jacocoTestCoverageVerification.dependsOn jacocoTestReport
 dependencies {
     compile "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
+    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version_snapshot}"
     compile "org.opensearch:common-utils:${common_utils_version}"
     compile "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     compile group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
