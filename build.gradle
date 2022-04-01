@@ -318,7 +318,7 @@ String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["7.10.2", "2.0.0-alpha1-SNAPSHOT"]
+            versions = ["7.10.2", "${opensearch_version}"]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
@@ -572,7 +572,7 @@ jacocoTestCoverageVerification.dependsOn jacocoTestReport
 dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-    compileOnly "org.opensearch:opensearch-job-scheduler-spi:2.0.0.0-alpha1-SNAPSHOT"
+    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
