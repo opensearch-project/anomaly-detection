@@ -11,7 +11,7 @@ jobs:
   Build-ad:
     strategy:
       matrix:
-        java: [11]
+        java: [11,17]
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin

@@ -56,6 +56,8 @@ tasks.withType(JavaCompile) {
 }
 tasks.withType(Test) {
     systemProperty "file.encoding", "UTF-8"
+    jvmArgs("--add-opens", "java.base/java.time=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/java.util.stream=ALL-UNNAMED")
 }
 tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
