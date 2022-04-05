@@ -22,14 +22,20 @@ buildscript {
         // 2.0.0-alpha1-SNAPSHOT -> 2.0.0.0-alpha1-SNAPSHOT
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
+        job_scheduler_no_snapshot = opensearch_build
         if (buildVersionQualifier) {
             opensearch_build += "-${buildVersionQualifier}"
+            job_scheduler_no_snapshot += "-${buildVersionQualifier}"
         }
         if (isSnapshot) {
             opensearch_build += "-SNAPSHOT"
         }
+        opensearch_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
+        js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
+        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
+                '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-' + job_scheduler_no_snapshot + '.zip'
     }
 
     repositories {
@@ -256,7 +262,11 @@ testClusters.integTest {
             return new RegularFile() {
                 @Override
                 File getAsFile() {
-                    return fileTree("src/test/resources/job-scheduler").getSingleFile()
+                    project.mkdir js_resource_folder
+                    ant.get(src: job_scheduler_build_download,
+                            dest: js_resource_folder,
+                            httpusecaches: false)
+                    return fileTree(js_resource_folder).getSingleFile()
                 }
             }
         }
@@ -328,7 +338,10 @@ String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
                     return new RegularFile() {
                         @Override
                         File getAsFile() {
-                            return fileTree(bwcFilePath + "job-scheduler/" + bwcVersion).getSingleFile()
+                            ant.get(src: job_scheduler_build_download,
+                                    dest: bwcFilePath + "job-scheduler/" + opensearch_version,
+                                    httpusecaches: false)
+                            return fileTree(bwcFilePath + "job-scheduler/" + opensearch_version).getSingleFile()
                         }
                     }
                 }
