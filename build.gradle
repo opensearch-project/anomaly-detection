@@ -394,7 +394,7 @@ List<Provider<RegularFile>> plugins = [
                         if (new File("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build").exists()) {
                             project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build"))
                         }
-                        project.mkdir bwcJobSchedulerPath
+                        project.mkdir bwcAnomalyDetectionPath
                         ant.get(src: anomaly_detection_build_download,
                                 dest: bwcAnomalyDetectionPath,
                                 httpusecaches: false)
