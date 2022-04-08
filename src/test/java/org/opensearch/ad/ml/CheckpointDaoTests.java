@@ -1003,14 +1003,14 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         }
         return point;
     }
-    //.parseReader(new FileReader(new File(getClass().getResource(labalFileName).toURI()), Charset.defaultCharset()))
+    // .parseReader(new FileReader(new File(getClass().getResource(labalFileName).toURI()), Charset.defaultCharset()))
 
     public void testDeserializeRCFModel() throws Exception {
         // Model in file 1_3_0_rcf_model.json not passed initialization yet
         String filePath = getClass().getResource("1_3_0_rcf_model.json").getPath();
         String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
         Map map = gson.fromJson(json, Map.class);
-        String model = (String)((Map)((Map)((ArrayList)((Map)map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
+        String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
         ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
     }
 }
