@@ -244,7 +244,9 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
                 getDetectionResult(detectorId, begin, end, client);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                LOG.info("Unexpected exception", e);
+            }
         }
         // It takes time to wait for model initialization
         long startTime = System.currentTimeMillis();
@@ -368,7 +370,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 toHttpEntity(bulkRequestBuilder.toString()),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
-        Thread.sleep(1_000);
+        Thread.sleep(5_000);
         waitAllSyncheticDataIngested(trainTestSplit, datasetName, client);
     }
 
@@ -392,7 +394,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     private void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
-        int maxWaitCycles = 3;
+        int maxWaitCycles = 12;
         do {
             Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
             request
@@ -427,7 +429,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
                 request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
                 client.performRequest(request);
             }
-            Thread.sleep(1_000);
+            Thread.sleep(5_000);
         } while (maxWaitCycles-- >= 0);
     }
 
@@ -599,15 +601,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     public void testRestartHCADDetector() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
-            try {
-                disableResourceNotFoundFaultTolerence();
-                verifyRestart("synthetic", 1, 8);
-            } catch (Throwable throwable) {
-                LOG.info("Retry restart test case", throwable);
-                cleanUpCluster();
-                wipeAllODFEIndices();
-                fail();
-            }
+            disableResourceNotFoundFaultTolerence();
+            verifyRestart("synthetic", 1, 8);
         }
     }
 
