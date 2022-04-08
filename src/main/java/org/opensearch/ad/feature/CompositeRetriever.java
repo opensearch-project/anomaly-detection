@@ -14,6 +14,7 @@ package org.opensearch.ad.feature;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -25,13 +26,17 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.aggregations.Aggregation;
@@ -66,6 +71,8 @@ public class CompositeRetriever extends AbstractRetriever {
     private final int pageSize;
     private long expirationEpochMs;
     private Clock clock;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
+    private ClusterService clusterService;
 
     public CompositeRetriever(
         long dataStartEpoch,
@@ -77,7 +84,9 @@ public class CompositeRetriever extends AbstractRetriever {
         Clock clock,
         Settings settings,
         int maxEntitiesPerInterval,
-        int pageSize
+        int pageSize,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        ClusterService clusterService
     ) {
         this.dataStartEpoch = dataStartEpoch;
         this.dataEndEpoch = dataEndEpoch;
@@ -89,6 +98,8 @@ public class CompositeRetriever extends AbstractRetriever {
         this.pageSize = pageSize;
         this.expirationEpochMs = expirationEpochMs;
         this.clock = clock;
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
+        this.clusterService = clusterService;
     }
 
     // a constructor that provide default value of clock
@@ -101,7 +112,9 @@ public class CompositeRetriever extends AbstractRetriever {
         long expirationEpochMs,
         Settings settings,
         int maxEntitiesPerInterval,
-        int pageSize
+        int pageSize,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        ClusterService clusterService
     ) {
         this(
             dataStartEpoch,
@@ -113,7 +126,9 @@ public class CompositeRetriever extends AbstractRetriever {
             Clock.systemUTC(),
             settings,
             maxEntitiesPerInterval,
-            pageSize
+            pageSize,
+            indexNameExpressionResolver,
+            clusterService
         );
     }
 
@@ -156,11 +171,14 @@ public class CompositeRetriever extends AbstractRetriever {
     public class PageIterator {
         private SearchSourceBuilder source;
         // a map from categorical field name to values (type: java.lang.Comparable)
-        Map<String, Object> afterKey;
+        private Map<String, Object> afterKey;
+        // number of iterations so far
+        private int iterations;
 
         public PageIterator(SearchSourceBuilder source) {
             this.source = source;
             this.afterKey = null;
+            this.iterations = 0;
         }
 
         /**
@@ -168,6 +186,7 @@ public class CompositeRetriever extends AbstractRetriever {
          * @param listener Listener to return results
          */
         public void next(ActionListener<Page> listener) {
+            iterations++;
             SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]), source);
             client.search(searchRequest, new ActionListener<SearchResponse>() {
                 @Override
@@ -183,13 +202,13 @@ public class CompositeRetriever extends AbstractRetriever {
         }
 
         private void processResponse(SearchResponse response, Runnable retry, ActionListener<Page> listener) {
-            if (shouldRetryDueToEmptyPage(response)) {
-                updateCompositeAfterKey(response, source);
-                retry.run();
-                return;
-            }
-
             try {
+                if (shouldRetryDueToEmptyPage(response)) {
+                    updateCompositeAfterKey(response, source);
+                    retry.run();
+                    return;
+                }
+
                 Page page = analyzePage(response);
                 // we can process at most maxEntities entities
                 if (totalResults <= maxEntities && afterKey != null) {
@@ -284,11 +303,28 @@ public class CompositeRetriever extends AbstractRetriever {
         }
 
         Optional<CompositeAggregation> getComposite(SearchResponse response) {
+            // When the source index is a regex like blah*, we will get empty response like
+            // the following even if no index starting with blah exists.
+            // {"took":0,"timed_out":false,"_shards":{"total":0,"successful":0,"skipped":0,"failed":0},"hits":{"max_score":0.0,"hits":[]}}
+            // Without regex, we will get IndexNotFoundException instead.
+            // {"error":{"root_cause":[{"type":"index_not_found_exception","reason":"no such
+            // index
+            // [blah]","index":"blah","resource.id":"blah","resource.type":"index_or_alias","index_uuid":"_na_"}],"type":"index_not_found_exception","reason":"no
+            // such index
+            // [blah]","index":"blah","resource.id":"blah","resource.type":"index_or_alias","index_uuid":"_na_"},"status":404}%
             if (response == null || response.getAggregations() == null) {
-                return Optional.empty();
+                List<String> sourceIndices = anomalyDetector.getIndices();
+                String[] concreteIndices = indexNameExpressionResolver
+                    .concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpandOpen(), sourceIndices.toArray(new String[0]));
+                if (concreteIndices.length == 0) {
+                    throw new IndexNotFoundException(String.join(",", sourceIndices));
+                } else {
+                    return Optional.empty();
+                }
             }
             Aggregation agg = response.getAggregations().get(AGG_NAME_COMP);
             if (agg == null) {
+                // when current interval has no data
                 return Optional.empty();
             }
 
@@ -301,12 +337,12 @@ public class CompositeRetriever extends AbstractRetriever {
 
         /**
          * Whether next page exists.  Conditions are:
-         * 1) we haven't fetched any page yet (totalResults == 0) or afterKey is not null
+         * 1) this is the first time we query (iterations == 0) or afterKey is not null
          * 2) next detection interval has not started
          * @return true if the iteration has more pages.
          */
         public boolean hasNext() {
-            return (totalResults == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
+            return (iterations == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
         }
 
         @Override

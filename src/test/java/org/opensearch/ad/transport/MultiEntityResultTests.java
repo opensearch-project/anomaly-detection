@@ -1098,7 +1098,9 @@ public class MultiEntityResultTests extends AbstractADTest {
             clock,
             settings,
             10000,
-            1000
+            1000,
+            indexNameResolver,
+            clusterService
         );
         Map<Entity, double[]> results = new HashMap<>();
         Entity entity1 = Entity.createEntityByReordering(attrs1);
@@ -1122,7 +1124,9 @@ public class MultiEntityResultTests extends AbstractADTest {
             clock,
             settings,
             10000,
-            1000
+            1000,
+            indexNameResolver,
+            clusterService
         );
 
         CompositeRetriever.Page page = retriever.new Page(null);
@@ -1282,5 +1286,46 @@ public class MultiEntityResultTests extends AbstractADTest {
         verify(stateManager).setException(anyString(), exceptionCaptor.capture());
         EndRunException endRunException = (EndRunException) (exceptionCaptor.getValue());
         assertTrue(!endRunException.isEndNow());
+    }
+
+    /**
+     * A missing index will cause the search result to contain null aggregation
+     * like {"took":0,"timed_out":false,"_shards":{"total":0,"successful":0,"skipped":0,"failed":0},"hits":{"max_score":0.0,"hits":[]}}
+     *
+     * The test verifies we can handle such situation and won't throw exceptions
+     * @throws InterruptedException while waiting for execution gets interruptted
+     */
+    public void testMissingIndex() throws InterruptedException {
+        // when(indexNameResolver.concreteIndexNames(any(), any(), any(String[].class))).thenReturn(new String[] {});
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener
+                .onResponse(
+                    new SearchResponse(
+                        new SearchResponseSections(SearchHits.empty(), null, null, false, null, null, 1),
+                        null,
+                        1,
+                        1,
+                        0,
+                        0,
+                        ShardSearchFailure.EMPTY_ARRAY,
+                        Clusters.EMPTY
+                    )
+                );
+            inProgressLatch.countDown();
+            return null;
+        }).when(client).search(any(), any());
+
+        PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
+
+        action.doExecute(null, request, listener);
+
+        AnomalyResultResponse response = listener.actionGet(10000L);
+        assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
+
+        assertTrue(inProgressLatch.await(10000L, TimeUnit.MILLISECONDS));
+        verify(stateManager, times(1)).setException(eq(detectorId), any(EndRunException.class));
     }
 }
