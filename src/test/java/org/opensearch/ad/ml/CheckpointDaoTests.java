@@ -34,6 +34,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -41,6 +43,7 @@ import java.time.Instant;
 import java.time.Month;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -109,7 +112,7 @@ import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
-import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -154,7 +157,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     private GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
     private RandomCutForestMapper mapper;
     private ThresholdedRandomCutForestMapper trcfMapper;
-    private V1JsonToV2StateConverter converter;
+    private V1JsonToV3StateConverter converter;
     double anomalyRate;
 
     @Before
@@ -180,7 +183,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
                     .getSchema(ThresholdedRandomCutForestState.class)
             );
 
-        converter = new V1JsonToV2StateConverter();
+        converter = new V1JsonToV3StateConverter();
 
         serializeRCFBufferPool = spy(AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
             @Override
@@ -999,5 +1002,15 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             point[i] = random.nextDouble();
         }
         return point;
+    }
+    //.parseReader(new FileReader(new File(getClass().getResource(labalFileName).toURI()), Charset.defaultCharset()))
+
+    public void testDeserializeRCFModel() throws Exception {
+        // Model in file 1_3_0_rcf_model.json not passed initialization yet
+        String filePath = getClass().getResource("1_3_0_rcf_model.json").getPath();
+        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
+        Map map = gson.fromJson(json, Map.class);
+        String model = (String)((Map)((Map)((ArrayList)((Map)map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
+        ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
     }
 }

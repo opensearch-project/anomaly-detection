@@ -72,7 +72,7 @@ import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
-import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.gson.Gson;
@@ -117,7 +117,7 @@ public class CheckpointDao {
 
     private Gson gson;
     private RandomCutForestMapper mapper;
-    private V1JsonToV2StateConverter converter;
+    private V1JsonToV3StateConverter converter;
     private ThresholdedRandomCutForestMapper trcfMapper;
     private Schema<ThresholdedRandomCutForestState> trcfSchema;
 
@@ -157,7 +157,7 @@ public class CheckpointDao {
         String indexName,
         Gson gson,
         RandomCutForestMapper mapper,
-        V1JsonToV2StateConverter converter,
+        V1JsonToV3StateConverter converter,
         ThresholdedRandomCutForestMapper trcfMapper,
         Schema<ThresholdedRandomCutForestState> trcfSchema,
         Class<? extends ThresholdingModel> thresholdingModelClass,
@@ -556,7 +556,7 @@ public class CheckpointDao {
         }
     }
 
-    private ThresholdedRandomCutForest toTrcf(String checkpoint) {
+    ThresholdedRandomCutForest toTrcf(String checkpoint) {
         ThresholdedRandomCutForest trcf = null;
         if (checkpoint != null && !checkpoint.isEmpty()) {
             try {
