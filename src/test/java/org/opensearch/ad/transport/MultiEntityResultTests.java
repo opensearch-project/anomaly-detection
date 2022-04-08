@@ -1296,7 +1296,6 @@ public class MultiEntityResultTests extends AbstractADTest {
      * @throws InterruptedException while waiting for execution gets interruptted
      */
     public void testMissingIndex() throws InterruptedException {
-        // when(indexNameResolver.concreteIndexNames(any(), any(), any(String[].class))).thenReturn(new String[] {});
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
         doAnswer(invocation -> {
