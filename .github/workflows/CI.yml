@@ -93,10 +93,10 @@ jobs:
 #             echo "Security plugin is NOT available"
 #             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
 #           fi
-       - name: Run AD Backwards Compatibility Tests
-         run: |
-           echo "Running backwards compatibility tests ..."
-           ./gradlew bwcTestSuite -Dtests.security.manager=false
+      - name: Run AD Backwards Compatibility Tests
+        run: |
+         echo "Running backwards compatibility tests ..."
+         ./gradlew bwcTestSuite -Dtests.security.manager=false
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:
