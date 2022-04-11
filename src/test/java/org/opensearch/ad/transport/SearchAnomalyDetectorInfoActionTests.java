@@ -11,21 +11,38 @@
 
 package org.opensearch.ad.transport;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.opensearch.ad.TestHelpers.createEmptySearchResponse;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCase {
@@ -33,6 +50,11 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     private ActionListener<SearchAnomalyDetectorInfoResponse> response;
     private SearchAnomalyDetectorInfoTransportAction action;
     private Task task;
+    private ClusterService clusterService;
+    private Client client;
+    private ThreadPool threadPool;
+    ThreadContext threadContext;
+    private PlainActionFuture<SearchAnomalyDetectorInfoResponse> future;
 
     @Override
     @Before
@@ -57,6 +79,22 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
                 Assert.assertTrue(true);
             }
         };
+
+        future = mock(PlainActionFuture.class);
+        client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
+        threadPool = mock(ThreadPool.class);
+        when(client.threadPool()).thenReturn(threadPool);
+        Settings settings = Settings.builder().build();
+        threadContext = new ThreadContext(settings);
+        when(threadPool.getThreadContext()).thenReturn(threadContext);
+
+        clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
     }
 
     @Test
@@ -101,5 +139,81 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
         Assert.assertEquals(response.getCount(), newResponse.getCount());
         Assert.assertEquals(response.isNameExists(), newResponse.isNameExists());
         Assert.assertNotNull(response.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+    }
+
+    public void testSearchInfoResponse_CountSuccessWithEmptyResponse() throws IOException {
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            SearchResponse searchResponse = createEmptySearchResponse();
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        action = new SearchAnomalyDetectorInfoTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            clusterService
+        );
+        SearchAnomalyDetectorInfoRequest request = new SearchAnomalyDetectorInfoRequest("testDetector", "count");
+        action.doExecute(task, request, future);
+        verify(future).onResponse(any(SearchAnomalyDetectorInfoResponse.class));
+    }
+
+    public void testSearchInfoResponse_MatchSuccessWithEmptyResponse() throws IOException {
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            SearchResponse searchResponse = createEmptySearchResponse();
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        action = new SearchAnomalyDetectorInfoTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            clusterService
+        );
+        SearchAnomalyDetectorInfoRequest request = new SearchAnomalyDetectorInfoRequest("testDetector", "match");
+        action.doExecute(task, request, future);
+        verify(future).onResponse(any(SearchAnomalyDetectorInfoResponse.class));
+    }
+
+    public void testSearchInfoResponse_CountRuntimeException() throws IOException {
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            listener.onFailure(new RuntimeException("searchResponse failed!"));
+            return null;
+        }).when(client).search(any(), any());
+        action = new SearchAnomalyDetectorInfoTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            clusterService
+        );
+        SearchAnomalyDetectorInfoRequest request = new SearchAnomalyDetectorInfoRequest("testDetector", "count");
+        action.doExecute(task, request, future);
+        verify(future).onFailure(any(RuntimeException.class));
+    }
+
+    public void testSearchInfoResponse_MatchRuntimeException() throws IOException {
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            listener.onFailure(new RuntimeException("searchResponse failed!"));
+            return null;
+        }).when(client).search(any(), any());
+        action = new SearchAnomalyDetectorInfoTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            clusterService
+        );
+        SearchAnomalyDetectorInfoRequest request = new SearchAnomalyDetectorInfoRequest("testDetector", "match");
+        action.doExecute(task, request, future);
+        verify(future).onFailure(any(RuntimeException.class));
     }
 }

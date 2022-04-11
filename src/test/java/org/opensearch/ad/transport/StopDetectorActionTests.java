@@ -11,9 +11,21 @@
 
 package org.opensearch.ad.transport;
 
+import java.io.IOException;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.ActionResponse;
+import org.opensearch.common.Strings;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 public class StopDetectorActionTests extends OpenSearchIntegTestCase {
@@ -28,5 +40,61 @@ public class StopDetectorActionTests extends OpenSearchIntegTestCase {
     public void testStopDetectorAction() {
         Assert.assertNotNull(StopDetectorAction.INSTANCE.name());
         Assert.assertEquals(StopDetectorAction.INSTANCE.name(), StopDetectorAction.NAME);
+    }
+
+    @Test
+    public void fromActionRequest_Success() {
+        StopDetectorRequest stopDetectorRequest = new StopDetectorRequest("adID");
+        ActionRequest actionRequest = new ActionRequest() {
+            @Override
+            public ActionRequestValidationException validate() {
+                return null;
+            }
+
+            @Override
+            public void writeTo(StreamOutput out) throws IOException {
+                stopDetectorRequest.writeTo(out);
+            }
+        };
+        StopDetectorRequest result = StopDetectorRequest.fromActionRequest(actionRequest);
+        assertNotSame(result, stopDetectorRequest);
+        assertEquals(result.getAdID(), stopDetectorRequest.getAdID());
+    }
+
+    @Test
+    public void writeTo_Success() throws IOException {
+        BytesStreamOutput bytesStreamOutput = new BytesStreamOutput();
+        StopDetectorResponse response = new StopDetectorResponse(true);
+        response.writeTo(bytesStreamOutput);
+        StopDetectorResponse parsedResponse = new StopDetectorResponse(bytesStreamOutput.bytes().streamInput());
+        assertNotEquals(response, parsedResponse);
+        assertEquals(response.success(), parsedResponse.success());
+    }
+
+    @Test
+    public void fromActionResponse_Success() throws IOException {
+        StopDetectorResponse stopDetectorResponse = new StopDetectorResponse(true);
+        ActionResponse actionResponse = new ActionResponse() {
+            @Override
+            public void writeTo(StreamOutput streamOutput) throws IOException {
+                stopDetectorResponse.writeTo(streamOutput);
+            }
+        };
+        StopDetectorResponse result = stopDetectorResponse.fromActionResponse(actionResponse);
+        assertNotSame(result, stopDetectorResponse);
+        assertEquals(result.success(), stopDetectorResponse.success());
+
+        StopDetectorResponse parsedStopDetectorResponse = stopDetectorResponse.fromActionResponse(stopDetectorResponse);
+        assertEquals(parsedStopDetectorResponse, stopDetectorResponse);
+    }
+
+    @Test
+    public void toXContentTest() throws IOException {
+        StopDetectorResponse stopDetectorResponse = new StopDetectorResponse(true);
+        XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
+        stopDetectorResponse.toXContent(builder, ToXContent.EMPTY_PARAMS);
+        assertNotNull(builder);
+        String jsonStr = Strings.toString(builder);
+        assertEquals("{\"success\":true}", jsonStr);
     }
 }
