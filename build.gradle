@@ -382,14 +382,7 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        if (new File("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build").exists()) {
-                            project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build"))
-                        }
-                        project.mkdir bwcAnomalyDetectionPath
-                        ant.get(src: anomaly_detection_build_download,
-                                dest: bwcAnomalyDetectionPath,
-                                httpusecaches: false)
-                        return fileTree(bwcAnomalyDetectionPath).getSingleFile()
+                        return fileTree(bwcFilePath + "anomaly-detection/" + bwcVersion).getSingleFile()
                     }
                 }
             }
