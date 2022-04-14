@@ -22,10 +22,10 @@ buildscript {
         // 2.0.0-alpha1-SNAPSHOT -> 2.0.0.0-alpha1-SNAPSHOT
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
-        job_scheduler_no_snapshot = opensearch_build
+        plugin_no_snapshot = opensearch_build
         if (buildVersionQualifier) {
             opensearch_build += "-${buildVersionQualifier}"
-            job_scheduler_no_snapshot += "-${buildVersionQualifier}"
+            plugin_no_snapshot += "-${buildVersionQualifier}"
         }
         if (isSnapshot) {
             opensearch_build += "-SNAPSHOT"
@@ -35,7 +35,9 @@ buildscript {
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
         job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
-                '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-' + job_scheduler_no_snapshot + '.zip'
+                '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
+        anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
+                '/latest/linux/x64/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
     }
 
     repositories {
@@ -262,6 +264,9 @@ testClusters.integTest {
             return new RegularFile() {
                 @Override
                 File getAsFile() {
+                    if (new File("$project.rootDir/$js_resource_folder").exists()) {
+                        project.delete(files("$project.rootDir/$js_resource_folder"))
+                    }
                     project.mkdir js_resource_folder
                     ant.get(src: job_scheduler_build_download,
                             dest: js_resource_folder,
@@ -325,6 +330,8 @@ task integTestRemote(type: RestIntegTestTask) {
 String bwcVersion = "1.13.0.0"
 String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
+String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/" + opensearch_build
+String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/" + opensearch_build
 
 2.times {i -> 
     testClusters {
@@ -338,10 +345,7 @@ String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
                     return new RegularFile() {
                         @Override
                         File getAsFile() {
-                            ant.get(src: job_scheduler_build_download,
-                                    dest: bwcFilePath + "job-scheduler/" + opensearch_version,
-                                    httpusecaches: false)
-                            return fileTree(bwcFilePath + "job-scheduler/" + opensearch_version).getSingleFile()
+                            return fileTree(bwcFilePath + "job-scheduler/" + bwcVersion).getSingleFile()
                         }
                     }
                 }
@@ -370,7 +374,14 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        return fileTree(bwcFilePath + "job-scheduler/" + project.version).getSingleFile()
+                        if (new File("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build").exists()) {
+                            project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build"))
+                        }
+                        project.mkdir bwcJobSchedulerPath
+                        ant.get(src: job_scheduler_build_download,
+                                dest: bwcJobSchedulerPath,
+                                httpusecaches: false)
+                        return fileTree(bwcJobSchedulerPath).getSingleFile()
                     }
                 }
             }
@@ -381,7 +392,14 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
+                        if (new File("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build").exists()) {
+                            project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build"))
+                        }
+                        project.mkdir bwcAnomalyDetectionPath
+                        ant.get(src: anomaly_detection_build_download,
+                                dest: bwcAnomalyDetectionPath,
+                                httpusecaches: false)
+                        return fileTree(bwcAnomalyDetectionPath).getSingleFile()
                     }
                 }
             }
@@ -599,14 +617,14 @@ dependencies {
     implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
     implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.0-rc1'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.0-rc1'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc1'
 
     // force Jackson version to avoid version conflict issue
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:2.0.1'
     implementation "com.fasterxml.jackson.core:jackson-core:2.13.2"
     implementation "com.fasterxml.jackson.core:jackson-databind:2.13.2.2"
     implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.2"
-    implementation files('lib/randomcutforest-parkservices-2.0.1.jar')
-    implementation files('lib/randomcutforest-core-2.0.1.jar')
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
