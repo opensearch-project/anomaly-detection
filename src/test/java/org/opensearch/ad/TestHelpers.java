@@ -12,6 +12,7 @@
 package org.opensearch.ad;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
+import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
@@ -108,6 +109,7 @@ import org.opensearch.common.Priority;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -1494,5 +1496,27 @@ public class TestHelpers {
             new IntervalTimeConfiguration(intervalRec, ChronoUnit.MINUTES)
         );
         return issue;
+    }
+
+    public static ClusterState createClusterState() {
+        ImmutableOpenMap<String, IndexMetadata> immutableOpenMap = ImmutableOpenMap
+            .<String, IndexMetadata>builder()
+            .fPut(
+                ANOMALY_DETECTOR_JOB_INDEX,
+                IndexMetadata
+                    .builder("test")
+                    .settings(
+                        Settings
+                            .builder()
+                            .put("index.number_of_shards", 1)
+                            .put("index.number_of_replicas", 1)
+                            .put("index.version.created", Version.CURRENT.id)
+                    )
+                    .build()
+            )
+            .build();
+        Metadata metaData = Metadata.builder().indices(immutableOpenMap).build();
+        ClusterState clusterState = new ClusterState(new ClusterName("test_name"), 1l, "uuid", metaData, null, null, null, null, 1, true);
+        return clusterState;
     }
 }

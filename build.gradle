@@ -546,17 +546,11 @@ List<String> jacocoExclusions = [
         //'org.opensearch.ad.common.exception.AnomalyDetectionException',
         'org.opensearch.ad.util.ClientUtil',
 
-        'org.opensearch.ad.transport.StopDetectorRequest',
-        'org.opensearch.ad.transport.StopDetectorResponse',
         'org.opensearch.ad.transport.CronRequest',
         'org.opensearch.ad.AnomalyDetectorRunner',
 
         // related to transport actions added for security
-        'org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction*',
-        'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction*',
-        'org.opensearch.ad.transport.SearchAnomalyResultTransportAction*',
-        'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction*',
-        'org.opensearch.ad.transport.AnomalyDetectorJobRequest',
+        'org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction.1',
 
         // TODO: unified flow caused coverage drop
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
