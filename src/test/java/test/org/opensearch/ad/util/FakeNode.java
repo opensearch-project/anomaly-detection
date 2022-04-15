@@ -141,13 +141,13 @@ public class FakeNode implements Releasable {
 
     public static void connectNodes(FakeNode... nodes) {
         List<DiscoveryNode> discoveryNodes = new ArrayList<DiscoveryNode>(nodes.length);
-        DiscoveryNode master = nodes[0].discoveryNode();
+        DiscoveryNode lead = nodes[0].discoveryNode();
         for (int i = 0; i < nodes.length; i++) {
             discoveryNodes.add(nodes[i].discoveryNode());
         }
 
         for (FakeNode node : nodes) {
-            setState(node.clusterService, ClusterCreation.state(new ClusterName("test"), node.discoveryNode(), master, discoveryNodes));
+            setState(node.clusterService, ClusterCreation.state(new ClusterName("test"), node.discoveryNode(), lead, discoveryNodes));
         }
         for (FakeNode nodeA : nodes) {
             for (FakeNode nodeB : nodes) {

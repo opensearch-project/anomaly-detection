@@ -130,7 +130,7 @@ public class HashRing {
     }
 
     /**
-     * Build AD version based circles with discovery node delta change. Listen to master event in
+     * Build AD version based circles with discovery node delta change. Listen to lead event in
      * {@link ADClusterEventListener#clusterChanged(ClusterChangedEvent)}.
      * Will remove the removed nodes from cache and send request to newly added nodes to get their
      * plugin information; then add new nodes to AD version hash ring.
