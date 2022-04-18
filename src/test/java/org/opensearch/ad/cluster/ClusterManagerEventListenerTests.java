@@ -37,14 +37,14 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
 
-public class LeadEventListenerTests extends AbstractADTest {
+public class ClusterManagerEventListenerTests extends AbstractADTest {
     private ClusterService clusterService;
     private ThreadPool threadPool;
     private Client client;
     private Clock clock;
     private Cancellable hourlyCancellable;
     private Cancellable checkpointIndexRetentionCancellable;
-    private LeadEventListener leadService;
+    private ClusterManagerEventListener clusterManagerService;
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
 
@@ -67,18 +67,18 @@ public class LeadEventListenerTests extends AbstractADTest {
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
-        leadService = new LeadEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter);
+        clusterManagerService = new ClusterManagerEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter);
     }
 
     public void testOnOffMaster() {
-        leadService.onMaster();
+        clusterManagerService.onMaster();
         assertThat(hourlyCancellable, is(notNullValue()));
         assertThat(checkpointIndexRetentionCancellable, is(notNullValue()));
-        assertTrue(!leadService.getHourlyCron().isCancelled());
-        assertTrue(!leadService.getCheckpointIndexRetentionCron().isCancelled());
-        leadService.offMaster();
-        assertThat(leadService.getCheckpointIndexRetentionCron(), is(nullValue()));
-        assertThat(leadService.getHourlyCron(), is(nullValue()));
+        assertTrue(!clusterManagerService.getHourlyCron().isCancelled());
+        assertTrue(!clusterManagerService.getCheckpointIndexRetentionCron().isCancelled());
+        clusterManagerService.offMaster();
+        assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
+        assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
     }
 
     public void testBeforeStop() {
@@ -100,11 +100,11 @@ public class LeadEventListenerTests extends AbstractADTest {
             return null;
         }).when(clusterService).addLifecycleListener(any());
 
-        leadService.onMaster();
-        assertThat(leadService.getCheckpointIndexRetentionCron(), is(nullValue()));
-        assertThat(leadService.getHourlyCron(), is(nullValue()));
-        leadService.offMaster();
-        assertThat(leadService.getCheckpointIndexRetentionCron(), is(nullValue()));
-        assertThat(leadService.getHourlyCron(), is(nullValue()));
+        clusterManagerService.onMaster();
+        assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
+        assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
+        clusterManagerService.offMaster();
+        assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
+        assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
     }
 }

@@ -31,20 +31,25 @@ import org.opensearch.common.transport.TransportAddress;
 
 public class ClusterCreation {
     /**
-     * Creates a cluster state where local node and lead node can be specified
+     * Creates a cluster state where local node and clusterManager node can be specified
      *
      * @param localNode  node in allNodes that is the local node
-     * @param leadNode node in allNodes that is the lead node. Can be null if no lead exists
+     * @param clusterManagerNode node in allNodes that is the clusterManager node. Can be null if no clusterManager exists
      * @param allNodes   all nodes in the cluster
      * @return cluster state
      */
-    public static ClusterState state(ClusterName name, DiscoveryNode localNode, DiscoveryNode leadNode, List<DiscoveryNode> allNodes) {
+    public static ClusterState state(
+        ClusterName name,
+        DiscoveryNode localNode,
+        DiscoveryNode clusterManagerNode,
+        List<DiscoveryNode> allNodes
+    ) {
         DiscoveryNodes.Builder discoBuilder = DiscoveryNodes.builder();
         for (DiscoveryNode node : allNodes) {
             discoBuilder.add(node);
         }
-        if (leadNode != null) {
-            discoBuilder.masterNodeId(leadNode.getId());
+        if (clusterManagerNode != null) {
+            discoBuilder.masterNodeId(clusterManagerNode.getId());
         }
         discoBuilder.localNodeId(localNode.getId());
 
@@ -70,12 +75,12 @@ public class ClusterCreation {
     }
 
     /**
-     * Create a cluster state with 1 lead node and a few data nodes
+     * Create a cluster state with 1 clusterManager node and a few data nodes
      * @param numDataNodes the number of data nodes
      * @return the cluster state
      */
     public static ClusterState state(int numDataNodes) {
-        DiscoveryNode leadNode = new DiscoveryNode(
+        DiscoveryNode clusterManagerNode = new DiscoveryNode(
             "foo0",
             "foo0",
             new TransportAddress(InetAddress.getLoopbackAddress(), 9300),
@@ -84,7 +89,7 @@ public class ClusterCreation {
             Version.CURRENT
         );
         List<DiscoveryNode> allNodes = new ArrayList<>();
-        allNodes.add(leadNode);
+        allNodes.add(clusterManagerNode);
         for (int i = 1; i <= numDataNodes - 1; i++) {
             allNodes
                 .add(
@@ -98,6 +103,6 @@ public class ClusterCreation {
                     )
                 );
         }
-        return state(new ClusterName("test"), leadNode, leadNode, allNodes);
+        return state(new ClusterName("test"), clusterManagerNode, clusterManagerNode, allNodes);
     }
 }

@@ -687,7 +687,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 .scheduleWithFixedDelay(() -> rolloverAndDeleteHistoryIndex(), historyRolloverPeriod, executorName());
         } catch (Exception e) {
             // This should be run on cluster startup
-            logger.error("Error rollover AD result indices. " + "Can't rollover AD result until lead node is restarted.", e);
+            logger.error("Error rollover AD result indices. " + "Can't rollover AD result until clusterManager node is restarted.", e);
         }
     }
 

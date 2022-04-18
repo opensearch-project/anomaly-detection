@@ -87,8 +87,8 @@ public final class AnomalyDetectorSettings {
         );
 
     // Opensearch-only setting. Doesn't plan to use the value of the legacy setting
-    // AD_RESULT_HISTORY_MAX_DOCS as that's too low. If the lead node uses opendistro code,
-    // it uses the legacy setting. If the lead node uses opensearch code, it uses the new setting.
+    // AD_RESULT_HISTORY_MAX_DOCS as that's too low. If the clusterManager node uses opendistro code,
+    // it uses the legacy setting. If the clusterManager node uses opensearch code, it uses the new setting.
     public static final Setting<Long> AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD = Setting
         .longSetting(
             "plugins.anomaly_detection.ad_result_history_max_docs_per_shard",

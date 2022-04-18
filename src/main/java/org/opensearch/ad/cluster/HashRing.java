@@ -76,7 +76,7 @@ public class HashRing {
     // This field records AD version hash ring in realtime way. Historical detection will use this hash ring.
     // Key: AD version; Value: hash ring which only contains eligible data nodes
     private TreeMap<Version, TreeMap<Integer, DiscoveryNode>> circles;
-    // Track if hash ring inited or not. If not inited, the first master event will try to init it.
+    // Track if hash ring inited or not. If not inited, the first clusterManager event will try to init it.
     private AtomicBoolean hashRingInited;
 
     // the UTC epoch milliseconds of the most recent successful update of AD circles for realtime AD.
@@ -130,7 +130,7 @@ public class HashRing {
     }
 
     /**
-     * Build AD version based circles with discovery node delta change. Listen to lead event in
+     * Build AD version based circles with discovery node delta change. Listen to clusterManager event in
      * {@link ADClusterEventListener#clusterChanged(ClusterChangedEvent)}.
      * Will remove the removed nodes from cache and send request to newly added nodes to get their
      * plugin information; then add new nodes to AD version hash ring.
