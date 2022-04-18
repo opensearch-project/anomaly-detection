@@ -38,6 +38,10 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
+        bwcOpenDistroADDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
+                'opendistro-anomaly-detection/opendistro-anomaly-detection-1.13.0.0.zip'
+        bwcOpenDistroJSDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
+                'opendistro-job-scheduler/opendistro-job-scheduler-1.13.0.0.zip'
     }
 
     repositories {
@@ -330,8 +334,8 @@ task integTestRemote(type: RestIntegTestTask) {
 String bwcVersion = "1.13.0.0"
 String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
-String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/" + opensearch_build
-String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/" + opensearch_build
+String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
+String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
 
 2.times {i -> 
     testClusters {
@@ -345,7 +349,14 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/" + opensearch
                     return new RegularFile() {
                         @Override
                         File getAsFile() {
-                            return fileTree(bwcFilePath + "job-scheduler/" + bwcVersion).getSingleFile()
+                            if (new File("$project.rootDir/$bwcFilePath/job-scheduler/$bwcVersion").exists()) {
+                                project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$bwcVersion"))
+                            }
+                            project.mkdir bwcJobSchedulerPath + bwcVersion
+                            ant.get(src: bwcOpenDistroJSDownload,
+                                    dest: bwcJobSchedulerPath + bwcVersion,
+                                    httpusecaches: false)
+                            return fileTree(bwcJobSchedulerPath + bwcVersion).getSingleFile()
                         }
                     }
                 }
@@ -356,7 +367,14 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/" + opensearch
                     return new RegularFile() {
                         @Override
                         File getAsFile() {
-                            return fileTree(bwcFilePath + "anomaly-detection/" + bwcVersion).getSingleFile()
+                            if (new File("$project.rootDir/$bwcFilePath/anomaly-detection/$bwcVersion").exists()) {
+                                project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$bwcVersion"))
+                            }
+                            project.mkdir bwcAnomalyDetectionPath + bwcVersion
+                            ant.get(src: bwcOpenDistroADDownload,
+                                    dest: bwcAnomalyDetectionPath + bwcVersion,
+                                    httpusecaches: false)
+                            return fileTree(bwcAnomalyDetectionPath + bwcVersion).getSingleFile()
                         }
                     }
                 }
@@ -377,11 +395,11 @@ List<Provider<RegularFile>> plugins = [
                         if (new File("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build").exists()) {
                             project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build"))
                         }
-                        project.mkdir bwcJobSchedulerPath
+                        project.mkdir bwcJobSchedulerPath + opensearch_build
                         ant.get(src: job_scheduler_build_download,
-                                dest: bwcJobSchedulerPath,
+                                dest: bwcJobSchedulerPath + opensearch_build,
                                 httpusecaches: false)
-                        return fileTree(bwcJobSchedulerPath).getSingleFile()
+                        return fileTree(bwcJobSchedulerPath + opensearch_build).getSingleFile()
                     }
                 }
             }
@@ -395,11 +413,11 @@ List<Provider<RegularFile>> plugins = [
                         if (new File("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build").exists()) {
                             project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build"))
                         }
-                        project.mkdir bwcAnomalyDetectionPath
+                        project.mkdir bwcAnomalyDetectionPath + opensearch_build
                         ant.get(src: anomaly_detection_build_download,
-                                dest: bwcAnomalyDetectionPath,
+                                dest: bwcAnomalyDetectionPath + opensearch_build,
                                 httpusecaches: false)
-                        return fileTree(bwcAnomalyDetectionPath).getSingleFile()
+                        return fileTree(bwcAnomalyDetectionPath + opensearch_build).getSingleFile()
                     }
                 }
             }
