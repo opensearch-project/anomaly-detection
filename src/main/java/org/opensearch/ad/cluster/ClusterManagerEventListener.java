@@ -28,7 +28,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.annotations.VisibleForTesting;
 
-public class MasterEventListener implements LocalNodeMasterListener {
+public class ClusterManagerEventListener implements LocalNodeMasterListener {
 
     private Cancellable checkpointIndexRetentionCron;
     private Cancellable hourlyCron;
@@ -39,7 +39,7 @@ public class MasterEventListener implements LocalNodeMasterListener {
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
 
-    public MasterEventListener(
+    public ClusterManagerEventListener(
         ClusterService clusterService,
         ThreadPool threadPool,
         Client client,

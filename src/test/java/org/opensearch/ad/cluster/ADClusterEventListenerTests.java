@@ -40,7 +40,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.gateway.GatewayService;
 
 public class ADClusterEventListenerTests extends AbstractADTest {
-    private final String masterNodeId = "masterNode";
+    private final String clusterManagerNodeId = "clusterManagerNode";
     private final String dataNode1Id = "dataNode1";
     private final String clusterName = "multi-node-cluster";
 
@@ -49,7 +49,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
     private HashRing hashRing;
     private ClusterState oldClusterState;
     private ClusterState newClusterState;
-    private DiscoveryNode masterNode;
+    private DiscoveryNode clusterManagerNode;
     private DiscoveryNode dataNode1;
 
     @BeforeClass
@@ -70,15 +70,29 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         clusterService = createClusterService(threadPool);
         hashRing = mock(HashRing.class);
 
-        masterNode = new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
+        clusterManagerNode = new DiscoveryNode(
+            clusterManagerNodeId,
+            buildNewFakeTransportAddress(),
+            emptyMap(),
+            emptySet(),
+            Version.CURRENT
+        );
         dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT);
         oldClusterState = ClusterState
             .builder(new ClusterName(clusterName))
-            .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(masterNodeId).add(masterNode))
+            .nodes(
+                new DiscoveryNodes.Builder().masterNodeId(clusterManagerNodeId).localNodeId(clusterManagerNodeId).add(clusterManagerNode)
+            )
             .build();
         newClusterState = ClusterState
             .builder(new ClusterName(clusterName))
-            .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
+            .nodes(
+                new DiscoveryNodes.Builder()
+                    .masterNodeId(clusterManagerNodeId)
+                    .localNodeId(dataNode1Id)
+                    .add(clusterManagerNode)
+                    .add(dataNode1)
+            )
             .build();
 
         listener = new ADClusterEventListener(clusterService, hashRing);
@@ -107,7 +121,13 @@ public class ADClusterEventListenerTests extends AbstractADTest {
 
         ClusterState warmNodeClusterState = ClusterState
             .builder(new ClusterName(clusterName))
-            .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
+            .nodes(
+                new DiscoveryNodes.Builder()
+                    .masterNodeId(clusterManagerNodeId)
+                    .localNodeId(dataNode1Id)
+                    .add(clusterManagerNode)
+                    .add(dataNode1)
+            )
             .blocks(ClusterBlocks.builder().addGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK))
             .build();
         listener.clusterChanged(new ClusterChangedEvent("foo", warmNodeClusterState, oldClusterState));
@@ -117,7 +137,13 @@ public class ADClusterEventListenerTests extends AbstractADTest {
     public void testNotRecovered() {
         ClusterState blockedClusterState = ClusterState
             .builder(new ClusterName(clusterName))
-            .nodes(new DiscoveryNodes.Builder().masterNodeId(masterNodeId).localNodeId(dataNode1Id).add(masterNode).add(dataNode1))
+            .nodes(
+                new DiscoveryNodes.Builder()
+                    .masterNodeId(clusterManagerNodeId)
+                    .localNodeId(dataNode1Id)
+                    .add(clusterManagerNode)
+                    .add(dataNode1)
+            )
             .blocks(ClusterBlocks.builder().addGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK))
             .build();
         listener.clusterChanged(new ClusterChangedEvent("foo", blockedClusterState, oldClusterState));
@@ -151,7 +177,9 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             return null;
         }).when(hashRing).buildCircles(any(), any());
 
-        doAnswer(invocation -> Optional.of(masterNode)).when(hashRing).getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class));
+        doAnswer(invocation -> Optional.of(clusterManagerNode))
+            .when(hashRing)
+            .getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class));
 
         listener.clusterChanged(new ClusterChangedEvent("foo", newClusterState, oldClusterState));
         assertTrue(testAppender.containsMessage(ADClusterEventListener.NODE_CHANGED_MSG));
@@ -163,9 +191,9 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .builder(new ClusterName(clusterName))
             .nodes(
                 new DiscoveryNodes.Builder()
-                    .masterNodeId(masterNodeId)
+                    .masterNodeId(clusterManagerNodeId)
                     .localNodeId(dataNode1Id)
-                    .add(new DiscoveryNode(masterNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT))
+                    .add(new DiscoveryNode(clusterManagerNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT))
                     .add(dataNode1)
                     .add(new DiscoveryNode("dataNode2", buildNewFakeTransportAddress(), emptyMap(), BUILT_IN_ROLES, Version.CURRENT))
             )

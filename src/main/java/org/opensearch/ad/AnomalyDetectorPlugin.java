@@ -40,8 +40,8 @@ import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.caching.PriorityCache;
 import org.opensearch.ad.cluster.ADClusterEventListener;
 import org.opensearch.ad.cluster.ADDataMigrator;
+import org.opensearch.ad.cluster.ClusterManagerEventListener;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.cluster.MasterEventListener;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.Interpolator;
@@ -731,7 +731,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ADClusterEventListener(clusterService, hashRing),
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
+                new ClusterManagerEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
                 nodeFilter,
                 multiEntityResultHandler,
                 checkpoint,
