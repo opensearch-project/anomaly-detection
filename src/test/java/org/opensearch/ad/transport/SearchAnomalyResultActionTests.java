@@ -151,6 +151,88 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
     }
 
     @Test
+    public void testSearchAnomalyResult_EmptyBucketsInSearchResponse() {
+        searchResponse = mock(SearchResponse.class);
+        resultIndicesAgg = new StringTerms(
+            "result_index",
+            InternalOrder.key(false),
+            BucketOrder.count(false),
+            1,
+            0,
+            Collections.emptyMap(),
+            DocValueFormat.RAW,
+            1,
+            false,
+            0,
+            ImmutableList.of(),
+            0
+        );
+        List<Aggregation> list = new ArrayList<>();
+        list.add(resultIndicesAgg);
+        Aggregations aggregations = new Aggregations(list);
+
+        when(searchResponse.getAggregations()).thenReturn(aggregations);
+
+        action
+            .processSingleSearchResponse(
+                searchResponse,
+                mock(SearchRequest.class),
+                mock(PlainActionFuture.class),
+                new HashSet<>(),
+                new ArrayList<>()
+            );
+        verify(searchHandler).search(any(), any());
+    }
+
+    @Test
+    public void testSearchAnomalyResult_NullBucketsInSearchResponse() {
+        searchResponse = mock(SearchResponse.class);
+        resultIndicesAgg = new StringTerms(
+            "result_index",
+            InternalOrder.key(false),
+            BucketOrder.count(false),
+            1,
+            0,
+            Collections.emptyMap(),
+            DocValueFormat.RAW,
+            1,
+            false,
+            0,
+            null,
+            0
+        );
+        List<Aggregation> list = new ArrayList<>();
+        list.add(resultIndicesAgg);
+        Aggregations aggregations = new Aggregations(list);
+
+        when(searchResponse.getAggregations()).thenReturn(aggregations);
+
+        action
+            .processSingleSearchResponse(
+                searchResponse,
+                mock(SearchRequest.class),
+                mock(PlainActionFuture.class),
+                new HashSet<>(),
+                new ArrayList<>()
+            );
+        verify(searchHandler).search(any(), any());
+    }
+
+    @Test
+    public void testMultiSearch_NoOnlyQueryCustomResultIndex() {
+        action
+            .multiSearch(
+                Arrays.asList("test"),
+                mock(SearchRequest.class),
+                mock(PlainActionFuture.class),
+                false,
+                threadContext.stashContext()
+            );
+
+        verify(client).multiSearch(any(), any());
+    }
+
+    @Test
     public void testSearchAnomalyResult_MultiSearch() {
         future = mock(PlainActionFuture.class);
         SearchRequest request = new SearchRequest().indices(new String[] { "opensearch-ad-plugin-result-test" });
@@ -200,7 +282,6 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         verify(client).search(any(), any());
         verify(client).multiSearch(any(), any());
         verify(searchHandler).search(any(), any());
-        ;
     }
 
     @Test
