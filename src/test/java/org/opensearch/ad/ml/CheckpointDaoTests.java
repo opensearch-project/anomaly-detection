@@ -60,7 +60,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
-import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.pool2.BasePooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -111,6 +110,7 @@ import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
@@ -1005,7 +1005,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         }
         return point;
     }
-
 
     public void testDeserializeRCFModelPreINIT() throws Exception {
         // Model in file 1_3_0_rcf_model_pre_init.json not passed initialization yet
