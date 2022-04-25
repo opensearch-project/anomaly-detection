@@ -478,7 +478,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 nextDetectionStartTime,
                 settings,
                 maxEntitiesPerInterval,
-                pageSize
+                pageSize,
+                indexNameExpressionResolver,
+                clusterService
             );
 
             PageIterator pageIterator = null;
