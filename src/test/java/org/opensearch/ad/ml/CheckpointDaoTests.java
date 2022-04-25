@@ -1006,6 +1006,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         return point;
     }
 
+    // The checkpoint used for this test is from a single-stream detector
     public void testDeserializeRCFModelPreINIT() throws Exception {
         // Model in file 1_3_0_rcf_model_pre_init.json not passed initialization yet
         String filePath = getClass().getResource("1_3_0_rcf_model_pre_init.json").getPath();
@@ -1018,6 +1019,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertEquals(30, forest.getForest().getNumberOfTrees());
     }
 
+    // The checkpoint used for this test is from a single-stream detector
     public void testDeserializeRCFModelPostINIT() throws Exception {
         // Model in file rc1_model_single_running is from RCF-3.0-rc1
         String filePath = getClass().getResource("rc1_model_single_running.json").getPath();
@@ -1030,6 +1032,11 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertEquals(30, forest.getForest().getNumberOfTrees());
     }
 
+    // This test is intended to check if given a checkpoint created by RCF-3.0-rc1 ("rc1_trcf_model_direct.json")
+    // and given the same sample data will rc1 and current RCF version (this test originally created when 3.0-rc2.1 is in use)
+    // will produce the same anomaly scores and grades.
+    // The scores and grades in this method were produced from AD running with RCF3.0-rc1 dependency
+    // and this test runs with the most recent RCF dependency that is being pulled by this project.
     public void testDeserializeTRCFModel() throws Exception {
         // Model in file rc1_model_single_running is from RCF-3.0-rc1
         String filePath = getClass().getResource("rc1_trcf_model_direct.json").getPath();
