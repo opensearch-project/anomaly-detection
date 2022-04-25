@@ -24,9 +24,9 @@ buildscript {
         job_scheduler_version_snapshot = System.getProperty("job_scheduler.version", opensearch_build)
         js_resource_folder = "src/test/resources/job-scheduler"
         job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + plugin_version +
-                '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_version + '.0.zip'
+                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_version + '.0.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + plugin_version +
-                '/latest/linux/x64/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_version + '.0.zip'
+                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_version + '.0.zip'
     }
 
     repositories {
