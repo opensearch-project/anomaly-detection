@@ -382,7 +382,7 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        return fileTree(bwcFilePath + "anomaly-detection/" + bwcVersion).getSingleFile()
+                        return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
                     }
                 }
             }
