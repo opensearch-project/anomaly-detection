@@ -46,7 +46,10 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
+import com.google.common.annotations.VisibleForTesting;
+
 public class SearchAnomalyResultTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
+    public static final String RESULT_INDEX_AGG_NAME = "result_index";
 
     private final Logger logger = LogManager.getLogger(SearchAnomalyResultTransportAction.class);
     private ADSearchHandler searchHandler;
@@ -70,12 +73,10 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         this.client = client;
     }
 
-    @Override
-    protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
-        String[] indices = request.indices();
+    @VisibleForTesting
+    boolean validateIndexAndReturnOnlyQueryCustomResult(String[] indices) {
         if (indices == null || indices.length == 0) {
-            listener.onFailure(new IllegalArgumentException("No indices set in search request"));
-            return;
+            throw new IllegalArgumentException("No indices set in search request");
         }
         // Set query indices as default result indices, will check custom result indices permission and add
         // custom indices which user has search permission later.
@@ -87,7 +88,11 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
                 onlyQueryCustomResultIndex = false;
             }
         }
+        return onlyQueryCustomResultIndex;
+    }
 
+    @VisibleForTesting
+    void calculateCustomResultIndices(Set<String> customResultIndices, String[] indices) {
         String[] concreteIndices = indexNameExpressionResolver
             .concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpandOpen(), indices);
         // If concreteIndices is null or empty, don't throw exception. Detector list page will search both
@@ -100,8 +105,6 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         // detector list page show all detectors correctly. The other solution is to catch errors from
         // frontend when search anomaly results to make sure frontend won't crash. Check this Github issue:
         // https://github.com/opensearch-project/anomaly-detection-dashboards-plugin/issues/154
-
-        Set<String> customResultIndices = new HashSet<>();
         if (concreteIndices != null) {
             for (String index : concreteIndices) {
                 if (index.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
@@ -109,96 +112,173 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
                 }
             }
         }
+    }
 
-        // If user need to query custom result index only, and that custom result index deleted. Then
-        // we should not search anymore. Just throw exception here.
-        if (onlyQueryCustomResultIndex && customResultIndices.size() == 0) {
-            listener.onFailure(new IllegalArgumentException("No custom result indices found"));
+    @VisibleForTesting
+    SearchRequest createSingleSearchRequest() {
+        // Search both custom AD result index and default result index
+        SearchSourceBuilder searchResultIndexBuilder = new SearchSourceBuilder();
+        AggregationBuilder aggregation = new TermsAggregationBuilder(RESULT_INDEX_AGG_NAME)
+            .field(AnomalyDetector.RESULT_INDEX_FIELD)
+            .size(MAX_DETECTOR_UPPER_LIMIT);
+        searchResultIndexBuilder.aggregation(aggregation).size(0);
+        return new SearchRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).source(searchResultIndexBuilder);
+    }
+
+    @VisibleForTesting
+    void processSingleSearchResponse(
+        SearchResponse allResultIndicesResponse,
+        SearchRequest request,
+        ActionListener<SearchResponse> listener,
+        Set<String> customResultIndices,
+        List<String> targetIndices
+    ) {
+        Aggregations aggregations = allResultIndicesResponse.getAggregations();
+        StringTerms resultIndicesAgg = aggregations.get(RESULT_INDEX_AGG_NAME);
+        List<StringTerms.Bucket> buckets = resultIndicesAgg.getBuckets();
+        Set<String> resultIndicesOfDetector = new HashSet<>();
+        if (buckets == null) {
+            searchHandler.search(request, listener);
+            return;
+        }
+        buckets.stream().forEach(b -> resultIndicesOfDetector.add(b.getKeyAsString()));
+        for (String index : customResultIndices) {
+            if (resultIndicesOfDetector.contains(index)) {
+                targetIndices.add(index);
+            }
+        }
+        if (targetIndices.size() == 0) {
+            // No custom result indices used by detectors, just search default result index
+            searchHandler.search(request, listener);
+            return;
+        }
+    }
+
+    @VisibleForTesting
+    MultiSearchRequest createMultiSearchRequest(List<String> targetIndices) {
+        MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
+        for (String index : targetIndices) {
+            multiSearchRequest.add(new SearchRequest(index).source(new SearchSourceBuilder().query(new MatchAllQueryBuilder()).size(0)));
+        }
+        return multiSearchRequest;
+    }
+
+    @VisibleForTesting
+    void multiSearch(
+        List<String> targetIndices,
+        SearchRequest request,
+        ActionListener<SearchResponse> listener,
+        boolean finalOnlyQueryCustomResultIndex,
+        ThreadContext.StoredContext context
+    ) {
+        if (targetIndices.size() == 0) {
+            // no need to make multi search
+            return;
+        }
+        MultiSearchRequest multiSearchRequest = createMultiSearchRequest(targetIndices);
+        List<String> readableIndices = new ArrayList<>();
+        if (!finalOnlyQueryCustomResultIndex) {
+            readableIndices.add(ALL_AD_RESULTS_INDEX_PATTERN);
+        }
+
+        context.restore();
+        // Send multiple search to check which index a user has permission to read. If search all indices directly,
+        // search request will throw exception if user has no permission to search any index.
+        client
+            .multiSearch(
+                multiSearchRequest,
+                ActionListener
+                    .wrap(
+                        multiSearchResponse -> {
+                            processMultiSearchResponse(multiSearchResponse, targetIndices, readableIndices, request, listener);
+                        },
+                        multiSearchException -> {
+                            logger.error("Failed to search custom AD result indices", multiSearchException);
+                            listener.onFailure(multiSearchException);
+                        }
+                    )
+            );
+    }
+
+    @VisibleForTesting
+    void processMultiSearchResponse(
+        MultiSearchResponse multiSearchResponse,
+        List<String> targetIndices,
+        List<String> readableIndices,
+        SearchRequest request,
+        ActionListener<SearchResponse> listener
+    ) {
+        MultiSearchResponse.Item[] responses = multiSearchResponse.getResponses();
+        for (int i = 0; i < responses.length; i++) {
+            MultiSearchResponse.Item item = responses[i];
+            String indexName = targetIndices.get(i);
+            if (item.getFailure() == null) {
+                readableIndices.add(indexName);
+            }
+        }
+        if (readableIndices.size() == 0) {
+            listener.onFailure(new IllegalArgumentException("No readable custom result indices found"));
+            return;
+        }
+        request.indices(readableIndices.toArray(new String[0]));
+        searchHandler.search(request, listener);
+    }
+
+    @VisibleForTesting
+    void searchADResultIndex(
+        SearchRequest request,
+        ActionListener<SearchResponse> listener,
+        boolean onlyQueryCustomResultIndex,
+        Set<String> customResultIndices
+    ) {
+        SearchRequest searchResultIndex = createSingleSearchRequest();
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            // Search result indices of all detectors. User may create index with same prefix of custom result index
+            // which not used for AD, so we should avoid searching extra indices which not used by anomaly detectors.
+            // Variable used in lambda expression should be final or effectively final, so copy to a final boolean and
+            // use the final boolean in lambda below.
+            boolean finalOnlyQueryCustomResultIndex = onlyQueryCustomResultIndex;
+            client.search(searchResultIndex, ActionListener.wrap(allResultIndicesResponse -> {
+                List<String> targetIndices = new ArrayList<>();
+                processSingleSearchResponse(allResultIndicesResponse, request, listener, customResultIndices, targetIndices);
+                multiSearch(targetIndices, request, listener, finalOnlyQueryCustomResultIndex, context);
+            }, e -> {
+                logger.error("Failed to search result indices for all detectors", e);
+                listener.onFailure(e);
+            }));
+        } catch (Exception e) {
+            logger.error(e);
+            listener.onFailure(e);
+        }
+    }
+
+    @Override
+    protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
+        boolean onlyQueryCustomResultIndex;
+        Set<String> customResultIndices = new HashSet<>();
+
+        try {
+            onlyQueryCustomResultIndex = validateIndexAndReturnOnlyQueryCustomResult(request.indices());
+            calculateCustomResultIndices(customResultIndices, request.indices());
+            // If user need to query custom result index only, and that custom result index deleted. Then
+            // we should not search anymore. Just throw exception here.
+            if (onlyQueryCustomResultIndex && customResultIndices.size() == 0) {
+                throw new IllegalArgumentException("No custom result indices found");
+            }
+        } catch (IllegalArgumentException exception) {
+            listener.onFailure(exception);
             return;
         }
 
-        if (customResultIndices.size() > 0) {
-            // Search both custom AD result index and default result index
-            String resultIndexAggName = "result_index";
-            SearchSourceBuilder searchResultIndexBuilder = new SearchSourceBuilder();
-            AggregationBuilder aggregation = new TermsAggregationBuilder(resultIndexAggName)
-                .field(AnomalyDetector.RESULT_INDEX_FIELD)
-                .size(MAX_DETECTOR_UPPER_LIMIT);
-            searchResultIndexBuilder.aggregation(aggregation).size(0);
-            SearchRequest searchResultIndex = new SearchRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).source(searchResultIndexBuilder);
-            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-                // Search result indices of all detectors. User may create index with same prefix of custom result index
-                // which not used for AD, so we should avoid searching extra indices which not used by anomaly detectors.
-                // Variable used in lambda expression should be final or effectively final, so copy to a final boolean and
-                // use the final boolean in lambda below.
-                boolean finalOnlyQueryCustomResultIndex = onlyQueryCustomResultIndex;
-                client.search(searchResultIndex, ActionListener.wrap(allResultIndicesResponse -> {
-                    Aggregations aggregations = allResultIndicesResponse.getAggregations();
-                    StringTerms resultIndicesAgg = aggregations.get(resultIndexAggName);
-                    List<StringTerms.Bucket> buckets = resultIndicesAgg.getBuckets();
-                    Set<String> resultIndicesOfDetector = new HashSet<>();
-                    if (buckets == null) {
-                        searchHandler.search(request, listener);
-                        return;
-                    }
-                    buckets.stream().forEach(b -> resultIndicesOfDetector.add(b.getKeyAsString()));
-                    List<String> targetIndices = new ArrayList<>();
-                    for (String index : customResultIndices) {
-                        if (resultIndicesOfDetector.contains(index)) {
-                            targetIndices.add(index);
-                        }
-                    }
-                    if (targetIndices.size() == 0) {
-                        // No custom result indices used by detectors, just search default result index
-                        searchHandler.search(request, listener);
-                        return;
-                    }
-                    MultiSearchRequest multiSearchRequest = new MultiSearchRequest();
-                    for (String index : targetIndices) {
-                        multiSearchRequest
-                            .add(new SearchRequest(index).source(new SearchSourceBuilder().query(new MatchAllQueryBuilder()).size(0)));
-                    }
-                    List<String> readableIndices = new ArrayList<>();
-                    if (!finalOnlyQueryCustomResultIndex) {
-                        readableIndices.add(ALL_AD_RESULTS_INDEX_PATTERN);
-                    }
-
-                    context.restore();
-                    // Send multiple search to check which index a user has permission to read. If search all indices directly,
-                    // search request will throw exception if user has no permission to search any index.
-                    client.multiSearch(multiSearchRequest, ActionListener.wrap(multiSearchResponse -> {
-                        MultiSearchResponse.Item[] responses = multiSearchResponse.getResponses();
-                        for (int i = 0; i < responses.length; i++) {
-                            MultiSearchResponse.Item item = responses[i];
-                            String indexName = targetIndices.get(i);
-                            if (item.getFailure() == null) {
-                                readableIndices.add(indexName);
-                            }
-                        }
-                        if (readableIndices.size() == 0) {
-                            listener.onFailure(new IllegalArgumentException("No readable custom result indices found"));
-                            return;
-                        }
-                        request.indices(readableIndices.toArray(new String[0]));
-                        searchHandler.search(request, listener);
-                    }, multiSearchException -> {
-                        logger.error("Failed to search custom AD result indices", multiSearchException);
-                        listener.onFailure(multiSearchException);
-                    }));
-                }, e -> {
-                    logger.error("Failed to search result indices for all detectors", e);
-                    listener.onFailure(e);
-                }));
-            } catch (Exception e) {
-                logger.error(e);
-                listener.onFailure(e);
-            }
-        } else {
+        if (customResultIndices.size() == 0) {
             // onlyQueryCustomResultIndex is false in this branch
             // Search only default result index
             request.indices(ALL_AD_RESULTS_INDEX_PATTERN);
             searchHandler.search(request, listener);
+            return;
         }
+
+        searchADResultIndex(request, listener, onlyQueryCustomResultIndex, customResultIndices);
     }
 
 }
