@@ -251,10 +251,13 @@ testClusters.integTest {
             return new RegularFile() {
                 @Override
                 File getAsFile() {
+                    if (new File("$project.rootDir/$js_resource_folder").exists()) {
+                        project.delete(files("$project.rootDir/$js_resource_folder"))
+                    }
                     project.mkdir js_resource_folder
                     ant.get(src: 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/'
                             + job_scheduler_version
-                            + '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-'
+                            + '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-'
                             + job_scheduler_version + '.0.zip',
                             dest: js_resource_folder)
                     return fileTree(js_resource_folder).getSingleFile()
@@ -358,9 +361,12 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
+                        if (new File("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build").exists()) {
+                            project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build"))
+                        }
                         ant.get(src: 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/'
                                 + job_scheduler_version
-                                + '/latest/linux/x64/builds/opensearch/plugins/opensearch-job-scheduler-'
+                                + '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-'
                                 + job_scheduler_version + '.0.zip',
                                 dest: bwcFilePath + "job-scheduler/" + job_scheduler_version)
                         return fileTree(bwcFilePath + "job-scheduler/" + job_scheduler_version).getSingleFile()
