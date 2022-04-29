@@ -41,6 +41,7 @@ import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.junit.Before;
 import org.opensearch.ad.ODFERestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -335,43 +336,48 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
     private void bulkIndexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client, String categoryField)
         throws Exception {
-        Request request = new Request("PUT", datasetName);
-        String requestBody = null;
-        if (Strings.isEmpty(categoryField)) {
-            requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
-                + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
-        } else {
-            requestBody = String
-                .format(
-                    Locale.ROOT,
-                    "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
-                        + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" },"
-                        + "\"%s\": { \"type\": \"keyword\"} } } }",
-                    categoryField
+        int maxWaitCycles = 3;
+        // whether ingestion succeeds
+        boolean success = false;
+        while (maxWaitCycles-- >= 0 && !success) {
+            Request request = new Request("PUT", datasetName);
+            String requestBody = null;
+            if (Strings.isEmpty(categoryField)) {
+                requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+                    + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
+            } else {
+                requestBody = String
+                    .format(
+                        Locale.ROOT,
+                        "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+                            + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" },"
+                            + "\"%s\": { \"type\": \"keyword\"} } } }",
+                        categoryField
+                    );
+            }
+
+            request.setJsonEntity(requestBody);
+            setWarningHandler(request, false);
+            client.performRequest(request);
+            Thread.sleep(1_000);
+
+            StringBuilder bulkRequestBuilder = new StringBuilder();
+            for (int i = 0; i < trainTestSplit; i++) {
+                bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
+                bulkRequestBuilder.append(data.get(i).toString()).append("\n");
+            }
+            TestHelpers
+                .makeRequest(
+                    client,
+                    "POST",
+                    "_bulk?refresh=true",
+                    null,
+                    toHttpEntity(bulkRequestBuilder.toString()),
+                    ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
                 );
+            Thread.sleep(5_000);
+            success = waitAllSyncheticDataIngested(trainTestSplit, datasetName, client);
         }
-
-        request.setJsonEntity(requestBody);
-        setWarningHandler(request, false);
-        client.performRequest(request);
-        Thread.sleep(1_000);
-
-        StringBuilder bulkRequestBuilder = new StringBuilder();
-        for (int i = 0; i < trainTestSplit; i++) {
-            bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
-            bulkRequestBuilder.append(data.get(i).toString()).append("\n");
-        }
-        TestHelpers
-            .makeRequest(
-                client,
-                "POST",
-                "_bulk?refresh=true",
-                null,
-                toHttpEntity(bulkRequestBuilder.toString()),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-        Thread.sleep(5_000);
-        waitAllSyncheticDataIngested(trainTestSplit, datasetName, client);
     }
 
     private void bulkIndexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
@@ -380,21 +386,26 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
             bulkRequestBuilder.append(data.get(i).toString()).append("\n");
         }
-        TestHelpers
-            .makeRequest(
-                client,
-                "POST",
-                "_bulk?refresh=true",
-                null,
-                toHttpEntity(bulkRequestBuilder.toString()),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-        Thread.sleep(1_000);
-        waitAllSyncheticDataIngested(data.size(), datasetName, client);
+        int maxWaitCycles = 3;
+        // whether ingestion succeeds
+        boolean success = false;
+        while (maxWaitCycles-- >= 0 && !success) {
+            TestHelpers
+                .makeRequest(
+                    client,
+                    "POST",
+                    "_bulk?refresh=true",
+                    null,
+                    toHttpEntity(bulkRequestBuilder.toString()),
+                    ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+                );
+            Thread.sleep(1_000);
+            success = waitAllSyncheticDataIngested(data.size(), datasetName, client);
+        }
     }
 
-    private void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
-        int maxWaitCycles = 12;
+    private boolean waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
+        int maxWaitCycles = 3;
         do {
             Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
             request
@@ -424,13 +435,14 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             if (hits != null
                 && hits.size() == 1
                 && expectedSize - 1 == hits.get(0).getAsJsonObject().getAsJsonPrimitive("_id").getAsLong()) {
-                break;
+                return true;
             } else {
                 request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
                 client.performRequest(request);
             }
             Thread.sleep(5_000);
         } while (maxWaitCycles-- >= 0);
+        return false;
     }
 
     private void setWarningHandler(Request request, boolean strictDeprecationMode) {
@@ -705,5 +717,10 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
          *   }
          */
         return (String) ((Map<String, Object>) response.get("init_progress")).get("percentage");
+    }
+
+    @Before
+    public final void cleanODFEIndices() throws IOException {
+        wipeAllODFEIndices();
     }
 }
