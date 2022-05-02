@@ -119,7 +119,7 @@ public class CheckpointDao {
     private RandomCutForestMapper mapper;
 
     // For further reference v1, v2 and v3 refer to the different variations of RCF models
-    // used by AD. v1 was originally used with the lunch of OS 1.0. We later converted to v2
+    // used by AD. v1 was originally used with the launch of OS 1.0. We later converted to v2
     // which included changes requiring a specific converter from v1 to v2 for BWC.
     // v2 models are created by RCF-3.0-rc1 which can be found on maven central.
     // v3 is the latest model version form RCF introduced by RCF-3.0-rc2.
