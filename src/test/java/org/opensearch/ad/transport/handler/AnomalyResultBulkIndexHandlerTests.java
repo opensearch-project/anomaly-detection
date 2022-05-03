@@ -19,6 +19,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 
 import java.io.IOException;
@@ -92,6 +93,39 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         bulkIndexHandler.bulkIndexAnomalyResult(null, null, listener);
         verify(listener, times(1)).onResponse(null);
         verify(anomalyDetectionIndices, never()).doesAnomalyDetectorIndexExist();
+    }
+
+    public void testAnomalyResultBulkIndexHandler_IndexNotExist() {
+        when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(false);
+        AnomalyResult anomalyResult = mock(AnomalyResult.class);
+        when(anomalyResult.getDetectorId()).thenReturn("testId");
+
+        bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
+        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
+        assertEquals("Can't find result index testIndex", exceptionCaptor.getValue().getMessage());
+    }
+
+    public void testAnomalyResultBulkIndexHandler_InValidResultIndexMapping() {
+        when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
+        when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(false);
+        AnomalyResult anomalyResult = mock(AnomalyResult.class);
+        when(anomalyResult.getDetectorId()).thenReturn("testId");
+
+        bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
+        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
+        assertEquals("wrong index mapping of custom AD result index", exceptionCaptor.getValue().getMessage());
+    }
+
+    public void testAnomalyResultBulkIndexHandler_FailBulkIndexAnomaly() throws IOException {
+        when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
+        when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(true);
+        AnomalyResult anomalyResult = mock(AnomalyResult.class);
+        when(anomalyResult.getDetectorId()).thenReturn("testId");
+        when(anomalyResult.toXContent(any(), any())).thenThrow(new RuntimeException());
+
+        bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
+        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
+        assertEquals("Failed to prepare request to bulk index anomaly results", exceptionCaptor.getValue().getMessage());
     }
 
     public void testCreateADResultIndexNotAcknowledged() throws IOException {
