@@ -34,6 +34,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
@@ -41,9 +43,11 @@ import java.time.Instant;
 import java.time.Month;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
@@ -106,10 +110,11 @@ import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
-import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -154,7 +159,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     private GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
     private RandomCutForestMapper mapper;
     private ThresholdedRandomCutForestMapper trcfMapper;
-    private V1JsonToV2StateConverter converter;
+    private V1JsonToV3StateConverter converter;
     double anomalyRate;
 
     @Before
@@ -180,7 +185,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
                     .getSchema(ThresholdedRandomCutForestState.class)
             );
 
-        converter = new V1JsonToV2StateConverter();
+        converter = new V1JsonToV3StateConverter();
 
         serializeRCFBufferPool = spy(AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
             @Override
@@ -999,5 +1004,85 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             point[i] = random.nextDouble();
         }
         return point;
+    }
+
+    // The checkpoint used for this test is from a single-stream detector
+    public void testDeserializeRCFModelPreINIT() throws Exception {
+        // Model in file 1_3_0_rcf_model_pre_init.json not passed initialization yet
+        String filePath = getClass().getResource("1_3_0_rcf_model_pre_init.json").getPath();
+        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
+        Map map = gson.fromJson(json, Map.class);
+        String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
+        ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
+        assertEquals(256, forest.getForest().getSampleSize());
+        assertEquals(8, forest.getForest().getShingleSize());
+        assertEquals(30, forest.getForest().getNumberOfTrees());
+    }
+
+    // The checkpoint used for this test is from a single-stream detector
+    public void testDeserializeRCFModelPostINIT() throws Exception {
+        // Model in file rc1_model_single_running is from RCF-3.0-rc1
+        String filePath = getClass().getResource("rc1_model_single_running.json").getPath();
+        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
+        Map map = gson.fromJson(json, Map.class);
+        String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
+        ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
+        assertEquals(256, forest.getForest().getSampleSize());
+        assertEquals(8, forest.getForest().getShingleSize());
+        assertEquals(30, forest.getForest().getNumberOfTrees());
+    }
+
+    // This test is intended to check if given a checkpoint created by RCF-3.0-rc1 ("rc1_trcf_model_direct.json")
+    // and given the same sample data will rc1 and current RCF version (this test originally created when 3.0-rc2.1 is in use)
+    // will produce the same anomaly scores and grades.
+    // The scores and grades in this method were produced from AD running with RCF3.0-rc1 dependency
+    // and this test runs with the most recent RCF dependency that is being pulled by this project.
+    public void testDeserializeTRCFModel() throws Exception {
+        // Model in file rc1_model_single_running is from RCF-3.0-rc1
+        String filePath = getClass().getResource("rc1_trcf_model_direct.json").getPath();
+        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
+        // For the parsing of .toTrcf to work I had to manually change "\u003d" in code back to =.
+        // In the byte array it doesn't seem like this is an issue but whenever reading the byte array response into a file it
+        // converts "=" to "\u003d" https://groups.google.com/g/google-gson/c/JDHUo9DWyyM?pli=1
+        // I also needed to bypass the trcf as it wasn't being read as a key value but instead part of the string
+        Map map = gson.fromJson(json, Map.class);
+        String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
+        model = model.split(":")[1].substring(1);
+        ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
+
+        List<double[]> coldStartData = new ArrayList<>();
+        double[] sample1 = new double[] { 57.0 };
+        double[] sample2 = new double[] { 1.0 };
+        double[] sample3 = new double[] { -19.0 };
+        double[] sample4 = new double[] { 13.0 };
+        double[] sample5 = new double[] { 41.0 };
+
+        coldStartData.add(sample1);
+        coldStartData.add(sample2);
+        coldStartData.add(sample3);
+        coldStartData.add(sample4);
+        coldStartData.add(sample5);
+
+        // This scores were generated with the sample data but on RCF3.0-rc1 and we are comparing them
+        // to the scores generated by the imported RCF3.0-rc2.1
+        List<Double> scores = new ArrayList<>();
+        scores.add(4.814651669367903);
+        scores.add(5.566968073093689);
+        scores.add(5.919907610660049);
+        scores.add(5.770278090352401);
+        scores.add(5.319779117320102);
+
+        List<Double> grade = new ArrayList<>();
+        grade.add(1.0);
+        grade.add(0.0);
+        grade.add(0.0);
+        grade.add(0.0);
+        grade.add(0.0);
+        for (int i = 0; i < coldStartData.size(); i++) {
+            forest.process(coldStartData.get(i), 0);
+            AnomalyDescriptor descriptor = forest.process(coldStartData.get(i), 0);
+            assertEquals(descriptor.getRCFScore(), scores.get(i), 1e-9);
+            assertEquals(descriptor.getAnomalyGrade(), grade.get(i), 1e-9);
+        }
     }
 }
