@@ -1445,7 +1445,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryRuntimeException() throws Exception {
-        Feature nonNumericFeature = TestHelpers.randomFeature("non-numeric-feature", "_type", "avg", true);
+        Feature nonNumericFeature = TestHelpers.randomFeature("non-numeric-feature", "_index", "avg", true);
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME, ImmutableList.of(nonNumericFeature));
         Response resp = TestHelpers
             .makeRequest(
