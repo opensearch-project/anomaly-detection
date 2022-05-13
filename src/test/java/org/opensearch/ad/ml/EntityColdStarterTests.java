@@ -59,7 +59,6 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
@@ -110,7 +109,6 @@ public class EntityColdStarterTests extends AbstractADTest {
     CheckpointWriteWorker checkpointWriteQueue;
     Entity entity;
     AnomalyDetector detector;
-    AnomalyDetectorJob job;
     long rcfSeed;
     ModelManager modelManager;
     ClientUtil clientUtil;
@@ -137,15 +135,13 @@ public class EntityColdStarterTests extends AbstractADTest {
             .setDetectionInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES))
             .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
             .build();
-        job = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
+        when(clock.millis()).thenReturn(1602401500000L);
         doAnswer(invocation -> {
             GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(2);
-            if (request.index().equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(job, detectorId, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX));
-            } else {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-            }
+
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -306,7 +302,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         ThresholdedRandomCutForest ercf = model.getTrcf().get();
         // 1 round: stride * (samples - 1) + 1 = 60 * 2 + 1 = 121
         // plus 1 existing sample
-        assertEquals(122, ercf.getForest().getTotalUpdates());
+        assertEquals(121, ercf.getForest().getTotalUpdates());
         assertTrue("size: " + model.getSamples().size(), model.getSamples().isEmpty());
 
         checkSemaphoreRelease();
@@ -331,8 +327,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         expectedColdStartData.addAll(convertToFeatures(interval1, 60));
         double[][] interval2 = interpolator.interpolate(new double[][] { new double[] { sample2[0], sample3[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval2, 61));
-        expectedColdStartData.add(savedSample);
-        assertEquals(122, expectedColdStartData.size());
+        assertEquals(121, expectedColdStartData.size());
 
         diffTesting(modelState, expectedColdStartData);
     }
@@ -456,8 +451,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         // 1 round: stride * (samples - 1) + 1 = 60 * 4 + 1 = 241
         // if 241 < shingle size + numMinSamples, then another round is performed
-        // plus 1 existing sample
-        assertEquals(242, modelState.getModel().getTrcf().get().getForest().getTotalUpdates());
+        assertEquals(241, modelState.getModel().getTrcf().get().getForest().getTotalUpdates());
         checkSemaphoreRelease();
 
         List<double[]> expectedColdStartData = new ArrayList<>();
@@ -471,9 +465,8 @@ public class EntityColdStarterTests extends AbstractADTest {
         expectedColdStartData.addAll(convertToFeatures(interval2, 60));
         double[][] interval3 = interpolator.interpolate(new double[][] { new double[] { sample3[0], sample5[0] } }, 121);
         expectedColdStartData.addAll(convertToFeatures(interval3, 121));
-        expectedColdStartData.add(savedSample);
         assertTrue("size: " + model.getSamples().size(), model.getSamples().isEmpty());
-        assertEquals(242, expectedColdStartData.size());
+        assertEquals(241, expectedColdStartData.size());
         diffTesting(modelState, expectedColdStartData);
     }
 
@@ -514,8 +507,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         assertTrue(model.getTrcf().isPresent());
         ThresholdedRandomCutForest ercf = model.getTrcf().get();
         // 1 rounds: stride * (samples - 1) + 1 = 60 * 5 + 1 = 301
-        // plus 1 existing sample
-        assertEquals(302, ercf.getForest().getTotalUpdates());
+        assertEquals(301, ercf.getForest().getTotalUpdates());
         checkSemaphoreRelease();
 
         List<double[]> expectedColdStartData = new ArrayList<>();
@@ -531,8 +523,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         expectedColdStartData.addAll(convertToFeatures(interval3, 120));
         double[][] interval4 = interpolator.interpolate(new double[][] { new double[] { sample5[0], sample6[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval4, 61));
-        expectedColdStartData.add(savedSample);
-        assertEquals(302, expectedColdStartData.size());
+        assertEquals(301, expectedColdStartData.size());
         assertTrue("size: " + model.getSamples().size(), model.getSamples().isEmpty());
         diffTesting(modelState, expectedColdStartData);
     }
@@ -588,11 +579,8 @@ public class EntityColdStarterTests extends AbstractADTest {
         doAnswer(invocation -> {
             GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(2);
-            if (request.index().equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(job, detectorId, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX));
-            } else {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-            }
+
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -618,16 +606,17 @@ public class EntityColdStarterTests extends AbstractADTest {
         // 1st round we add 57 and 1.
         // 2nd round we add 57 and 1.
         Queue<double[]> currentSamples = model.getSamples();
-        assertEquals("real sample size is " + currentSamples.size(), 5, currentSamples.size());
+        assertEquals("real sample size is " + currentSamples.size(), 4, currentSamples.size());
         int j = 0;
-        while (currentSamples.isEmpty()) {
+        while (!currentSamples.isEmpty()) {
             double[] element = currentSamples.poll();
             assertEquals(1, element.length);
-            if (j == 0 || j == 1) {
+            if (j == 0 || j == 2) {
                 assertEquals(57, element[0], 1e-10);
             } else {
                 assertEquals(1, element[0], 1e-10);
             }
+            j++;
         }
     }
 
@@ -638,20 +627,13 @@ public class EntityColdStarterTests extends AbstractADTest {
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         // the min-max range 894056973000L~894057860000L is too small and thus no data range can be found
-        job = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(894057860000L), null);
+        when(clock.millis()).thenReturn(894057860000L);
 
         doAnswer(invocation -> {
             GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(2);
-            if (request.index().equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-                listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                    );
-            } else {
-                listener
-                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-            }
+
+            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -745,23 +727,15 @@ public class EntityColdStarterTests extends AbstractADTest {
                 .getMultiDimData(dataSize + detector.getShingleSize() - 1, 50, 100, 5, seed, baseDimension, false, trainTestSplit, delta);
             long[] timestamps = dataWithKeys.timestampsMs;
             double[][] data = dataWithKeys.data;
-            job = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(timestamps[trainTestSplit - 1]), null);
+            when(clock.millis()).thenReturn(timestamps[trainTestSplit - 1]);
 
             // training data ranges from timestamps[0] ~ timestamps[trainTestSplit-1]
             doAnswer(invocation -> {
                 GetRequest request = invocation.getArgument(0);
                 ActionListener<GetResponse> listener = invocation.getArgument(2);
-                if (request.index().equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-                    listener
-                        .onResponse(
-                            TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                        );
-                } else {
-                    listener
-                        .onResponse(
-                            TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-                        );
-                }
+
+                listener
+                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
                 return null;
             }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
