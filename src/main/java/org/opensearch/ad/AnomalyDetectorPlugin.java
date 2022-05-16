@@ -767,7 +767,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                     AD_THREAD_POOL_NAME,
                     1,
                     // HCAD can be heavy after supporting 1 million entities.
-                    // Limit to use at most half of the processors.
+                    // Limit to use at most half of the processors unless user explicitly changes
+                    // the number of cores allocated to greater than half of available cores.
                     Math
                         .min(
                             OpenSearchExecutors.allocatedProcessors(settings),
