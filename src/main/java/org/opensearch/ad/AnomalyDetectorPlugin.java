@@ -547,7 +547,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             entityColdStarter,
             featureManager,
-            memoryTracker
+            memoryTracker,
+            settings
         );
 
         MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
@@ -767,7 +768,15 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                     1,
                     // HCAD can be heavy after supporting 1 million entities.
                     // Limit to use at most half of the processors.
-                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 2),
+                    Math
+                        .min(
+                            OpenSearchExecutors.allocatedProcessors(settings),
+                            Math
+                                .max(
+                                    AnomalyDetectorSettings.NUM_ALLOCATED_PROCESSORS.get(settings),
+                                    OpenSearchExecutors.allocatedProcessors(settings) / 2
+                                )
+                        ),
                     TimeValue.timeValueMinutes(10),
                     AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
                 ),
@@ -869,7 +878,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 // clean resource
                 AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
                 // stats/profile API
-                AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE
+                AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE,
+                // Parallel Execution
+                AnomalyDetectorSettings.ENABLE_PARALLEL_EXECUTION,
+                AnomalyDetectorSettings.NUM_ALLOCATED_PROCESSORS
             );
         return unmodifiableList(
             Stream

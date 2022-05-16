@@ -152,7 +152,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         now = Instant.now();
         when(clock.instant()).thenReturn(now);
 
-        manager = new ModelManager(null, clock, 0, 0, 0, 0, 0, 0, null, null, mock(EntityColdStarter.class), null, null);
+        manager = new ModelManager(null, clock, 0, 0, 0, 0, 0, 0, null, null, mock(EntityColdStarter.class), null, null, settings);
 
         provider = mock(CacheProvider.class);
         entityCache = mock(EntityCache.class);

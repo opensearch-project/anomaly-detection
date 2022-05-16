@@ -40,6 +40,7 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Settings;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -93,6 +94,7 @@ public class ModelManager implements DetectorModelSize {
 
     private EntityColdStarter entityColdStarter;
     private MemoryTracker memoryTracker;
+    private Settings settings;
 
     private final double initialAcceptFraction;
 
@@ -126,7 +128,8 @@ public class ModelManager implements DetectorModelSize {
         Duration checkpointInterval,
         EntityColdStarter entityColdStarter,
         FeatureManager featureManager,
-        MemoryTracker memoryTracker
+        MemoryTracker memoryTracker,
+        Settings settings
     ) {
         this.checkpointDao = checkpointDao;
         this.clock = clock;
@@ -146,6 +149,7 @@ public class ModelManager implements DetectorModelSize {
         this.featureManager = featureManager;
         this.memoryTracker = memoryTracker;
         this.initialAcceptFraction = rcfNumMinSamples * 1.0d / rcfNumSamplesInTree;
+        this.settings = settings;
     }
 
     /**
@@ -509,7 +513,7 @@ public class ModelManager implements DetectorModelSize {
             .timeDecay(rcfTimeDecay)
             .outputAfter(rcfNumMinSamples)
             .initialAcceptFraction(initialAcceptFraction)
-            .parallelExecutionEnabled(false)
+            .parallelExecutionEnabled(AnomalyDetectorSettings.ENABLE_PARALLEL_EXECUTION.get(settings))
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)

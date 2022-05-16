@@ -250,7 +250,8 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             entityColdStarter,
             mock(FeatureManager.class),
-            mock(MemoryTracker.class)
+            mock(MemoryTracker.class),
+            settings
         );
     }
 

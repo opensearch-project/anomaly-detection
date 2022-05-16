@@ -771,6 +771,14 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    // ======================================
+    // Multi core execution settings
+    // ======================================
+    public static final Setting<Boolean> ENABLE_PARALLEL_EXECUTION = Setting
+        .boolSetting("plugins.anomaly_detection.enable_parallel_execution", false, Setting.Property.NodeScope, Setting.Property.Final);
+    public static final Setting<Integer> NUM_ALLOCATED_PROCESSORS = Setting
+        .intSetting("plugins.anomaly_detection.num_allocated_processors", 1, 1, Setting.Property.NodeScope, Setting.Property.Final);
+
     // profile API needs to report total entities. We can use cardinality aggregation for a single-category field.
     // But we cannot do that for multi-category fields as it requires scripting to generate run time fields,
     // which is expensive. We work around the problem by using a composite query to find the first 10_000 buckets.

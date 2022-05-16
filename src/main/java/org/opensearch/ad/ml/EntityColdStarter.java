@@ -93,6 +93,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     private final long rcfSeed;
     private final int maxRoundofColdStart;
     private final double initialAcceptFraction;
+    private Settings settings;
 
     /**
      * Constructor
@@ -160,6 +161,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         this.rcfSeed = rcfSeed;
         this.maxRoundofColdStart = maxRoundofColdStart;
         this.initialAcceptFraction = numMinSamples * 1.0d / rcfSampleSize;
+        this.settings = settings;
     }
 
     public EntityColdStarter(
@@ -346,7 +348,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             .timeDecay(rcfTimeDecay)
             .outputAfter(numMinSamples)
             .initialAcceptFraction(initialAcceptFraction)
-            .parallelExecutionEnabled(false)
+            .parallelExecutionEnabled(AnomalyDetectorSettings.ENABLE_PARALLEL_EXECUTION.get(settings))
             .compact(true)
             .precision(Precision.FLOAT_32)
             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)

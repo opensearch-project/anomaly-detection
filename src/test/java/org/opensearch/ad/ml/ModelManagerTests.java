@@ -200,6 +200,7 @@ public class ModelManagerTests {
 
         rcf = spy(ThresholdedRandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build());
         double score = 11.;
+        settings = Settings.EMPTY;
 
         double confidence = 0.091353632;
         double grade = 0.1;
@@ -240,7 +241,8 @@ public class ModelManagerTests {
                 checkpointInterval,
                 entityColdStarter,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                settings
             )
         );
 
@@ -250,7 +252,11 @@ public class ModelManagerTests {
 
         when(this.modelState.getModel()).thenReturn(this.entityModel);
         when(this.entityModel.getTrcf()).thenReturn(Optional.of(this.trcf));
-        settings = Settings.builder().put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
+        settings = Settings
+            .builder()
+            .put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage)
+            .put("plugins.anomaly_detection.enable_parallel_execution", false)
+            .build();
 
         when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
     }
@@ -441,7 +447,8 @@ public class ModelManagerTests {
                 checkpointInterval,
                 entityColdStarter,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                settings
             )
         );
 
@@ -971,7 +978,8 @@ public class ModelManagerTests {
                 checkpointInterval,
                 entityColdStarter,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                settings
             )
         );
 
