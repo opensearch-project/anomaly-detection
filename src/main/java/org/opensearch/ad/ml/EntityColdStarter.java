@@ -21,6 +21,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -47,7 +48,6 @@ import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
@@ -221,6 +221,22 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     ) {
         logger.debug("Trigger cold start for {}", modelId);
 
+        if (modelState == null || entity == null) {
+            listener
+                .onFailure(
+                    new IllegalArgumentException(
+                        String
+                            .format(
+                                Locale.ROOT,
+                                "Cannot have empty model state or entity: model state [%b], entity [%b]",
+                                modelState == null,
+                                entity == null
+                            )
+                    )
+                );
+            return;
+        }
+
         if (lastThrottledColdStartTime.plus(Duration.ofMinutes(coolDownMinutes)).isAfter(clock.instant())) {
             listener.onResponse(null);
             return;
@@ -253,7 +269,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                 try {
                     if (trainingData.isPresent()) {
                         List<double[][]> dataPoints = trainingData.get();
-                        combineTrainSamples(dataPoints, modelId, modelState);
+                        extractTrainSamples(dataPoints, modelId, modelState);
                         Queue<double[]> samples = modelState.getModel().getSamples();
                         // only train models if we have enough samples
                         if (samples.size() >= numMinSamples) {
@@ -273,7 +289,6 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                 } catch (Exception e) {
                     listener.onFailure(e);
                 }
-
             }, exception -> {
                 try {
                     logger.error(new ParameterizedMessage("Error while cold start {}", modelId), exception);
@@ -405,42 +420,23 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             ActionListener<Optional<Long>> minTimeListener = ActionListener.wrap(earliest -> {
                 if (earliest.isPresent()) {
                     long startTimeMs = earliest.get().longValue();
-                    nodeStateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(jobOp -> {
-                        if (!jobOp.isPresent()) {
-                            listener.onFailure(new EndRunException(detectorId, "AnomalyDetector job is not available.", false));
-                            return;
-                        }
 
-                        AnomalyDetectorJob job = jobOp.get();
-                        // End time uses milliseconds as start time is assumed to be in milliseconds.
-                        // Opensearch uses a set of preconfigured formats to recognize and parse these strings into a long value
-                        // representing milliseconds-since-the-epoch in UTC.
-                        // More on https://tinyurl.com/wub4fk92
+                    // End time uses milliseconds as start time is assumed to be in milliseconds.
+                    // Opensearch uses a set of preconfigured formats to recognize and parse these
+                    // strings into a long value
+                    // representing milliseconds-since-the-epoch in UTC.
+                    // More on https://tinyurl.com/wub4fk92
 
-                        // Existing samples either predates or coincide with cold start data. In either case,
-                        // combining them without reordering based on time stamps is not ok. We might introduce
-                        // anomalies in the process.
-                        // An ideal solution would be to record time stamps of data points and combine existing
-                        // samples and cold start samples and do interpolation afterwards. Recording time stamps
-                        // requires changes across the board like bwc in checkpoints. A pragmatic solution is to use
-                        // job enabled time as the end time of cold start period as it is easier to combine
-                        // existing samples with cold start data. We just need to appends existing samples after
-                        // cold start data as existing samples all happen after job enabled time. There might
-                        // be some gaps in between the last cold start sample and the first accumulated sample.
-                        // We will need to accept that precision loss in current solution.
-                        long endTimeMs = job.getEnabledTime().toEpochMilli();
-                        Pair<Integer, Integer> params = selectRangeParam(detector);
-                        int stride = params.getLeft();
-                        int numberOfSamples = params.getRight();
+                    long endTimeMs = clock.millis();
+                    Pair<Integer, Integer> params = selectRangeParam(detector);
+                    int stride = params.getLeft();
+                    int numberOfSamples = params.getRight();
 
-                        // we start with round 0
-                        getFeatures(listener, 0, coldStartData, detector, entity, stride, numberOfSamples, startTimeMs, endTimeMs);
-
-                    }, listener::onFailure));
+                    // we start with round 0
+                    getFeatures(listener, 0, coldStartData, detector, entity, stride, numberOfSamples, startTimeMs, endTimeMs);
                 } else {
                     listener.onResponse(Optional.empty());
                 }
-
             }, listener::onFailure);
 
             searchFeatureDao
@@ -695,40 +691,30 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     }
 
     /**
-     * Precondition: we don't have enough training data.
-     * Combine training data with existing sample data.
-     * Existing samples either predates or coincide with cold start data.  In either case,
-     * combining them without reordering based on time stamps is not ok. We might introduce
-     * anomalies in the process.
-     * An ideal solution would be to record time stamps of data points and combine existing
-     * samples and cold start samples and do interpolation afterwards. Recording time stamps
-     * requires changes across the board like bwc in checkpoints. A pragmatic solution is to use
-     * job enabled time as the end time of cold start period as it is easier to combine
-     * existing samples with cold start data. We just need to appends existing samples after
-     * cold start data as existing samples all happen after job enabled time. There might
-     * be some gaps in between the last cold start sample and the first accumulated sample.
-     * We will need to accept that precision loss in current solution.
+     * Extract training data and put them into ModelState
      *
      * @param coldstartDatapoints training data generated from cold start
      * @param modelId model Id
-     * @param entityState entity State
+     * @param modelState entity State
      */
-    private void combineTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> entityState) {
-        if (coldstartDatapoints == null || coldstartDatapoints.size() == 0) {
+    private void extractTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> modelState) {
+        if (coldstartDatapoints == null || coldstartDatapoints.size() == 0 || modelState == null) {
             return;
         }
 
-        EntityModel model = entityState.getModel();
+        EntityModel model = modelState.getModel();
         if (model == null) {
             model = new EntityModel(null, new ArrayDeque<>(), null);
+            modelState.setModel(model);
         }
+
         Queue<double[]> newSamples = new ArrayDeque<>();
         for (double[][] consecutivePoints : coldstartDatapoints) {
             for (int i = 0; i < consecutivePoints.length; i++) {
                 newSamples.add(consecutivePoints[i]);
             }
         }
-        newSamples.addAll(model.getSamples());
+
         model.setSamples(newSamples);
     }
 

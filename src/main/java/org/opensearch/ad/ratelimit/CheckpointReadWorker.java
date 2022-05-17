@@ -354,14 +354,8 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             ModelState<EntityModel> modelState = modelManager
                 .processEntityCheckpoint(checkpoint, entity, modelId, detectorId, detector.getShingleSize());
 
-            EntityModel entityModel = modelState.getModel();
-
-            ThresholdingResult result = null;
-            if (entityModel.getTrcf().isPresent()) {
-                result = modelManager.score(origRequest.getCurrentFeature(), modelId, modelState);
-            } else {
-                entityModel.addSample(origRequest.getCurrentFeature());
-            }
+            ThresholdingResult result = modelManager
+                .getAnomalyResultForEntity(origRequest.getCurrentFeature(), modelState, modelId, entity, detector.getShingleSize());
 
             if (result != null && result.getRcfScore() > 0) {
                 AnomalyResult resultToSave = result
