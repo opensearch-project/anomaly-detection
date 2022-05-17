@@ -694,17 +694,17 @@ public class EntityColdStarter implements MaintenanceState {
      *
      * @param coldstartDatapoints training data generated from cold start
      * @param modelId model Id
-     * @param entityState entity State
+     * @param modelState entity State
      */
-    private void extractTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> entityState) {
-        if (coldstartDatapoints == null || coldstartDatapoints.size() == 0 || entityState == null) {
+    private void extractTrainSamples(List<double[][]> coldstartDatapoints, String modelId, ModelState<EntityModel> modelState) {
+        if (coldstartDatapoints == null || coldstartDatapoints.size() == 0 || modelState == null) {
             return;
         }
 
-        EntityModel model = entityState.getModel();
+        EntityModel model = modelState.getModel();
         if (model == null) {
             model = new EntityModel(null, new ArrayDeque<>(), null);
-            entityState.setModel(model);
+            modelState.setModel(model);
         }
 
         Queue<double[]> newSamples = new ArrayDeque<>();
