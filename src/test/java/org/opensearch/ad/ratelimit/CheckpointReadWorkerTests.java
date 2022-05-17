@@ -227,6 +227,13 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
 
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(config.fullModel).build());
         when(modelManager.processEntityCheckpoint(any(), any(), anyString(), anyString(), anyInt())).thenReturn(state);
+        if (config.fullModel) {
+            when(modelManager.getAnomalyResultForEntity(any(), any(), anyString(), any(), anyInt()))
+                .thenReturn(new ThresholdingResult(0, 1, 1));
+        } else {
+            when(modelManager.getAnomalyResultForEntity(any(), any(), anyString(), any(), anyInt()))
+                .thenReturn(new ThresholdingResult(0, 0, 0));
+        }
 
         List<EntityFeatureRequest> requests = new ArrayList<>();
         requests.add(request);
