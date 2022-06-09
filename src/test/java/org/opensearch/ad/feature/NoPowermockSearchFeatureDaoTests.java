@@ -599,8 +599,10 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
             new MockBigArrays(new MockPageCacheRecycler(Settings.EMPTY), new NoneCircuitBreakerService()),
             1
         );
-        hllpp.collect(0, BitMixer.mix64(randomIntBetween(1, 100)));
-        hllpp.collect(0, BitMixer.mix64(randomIntBetween(1, 100)));
+        long hash1 = BitMixer.mix64(randomIntBetween(1, 100));
+        long hash2 = BitMixer.mix64(randomIntBetween(1, 100));
+        hllpp.collect(0, hash1);
+        hllpp.collect(0, hash2);
 
         Constructor ctor = null;
         ctor = InternalCardinality.class.getDeclaredConstructor(String.class, AbstractHyperLogLogPlusPlus.class, Map.class);
@@ -626,7 +628,8 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         assertTrue(parsedResult.isPresent());
         double[] parsedCardinality = parsedResult.get();
         assertEquals(1, parsedCardinality.length);
-        assertEquals(2, parsedCardinality[0], 0.001);
+        double buckets = hash1 == hash2 ? 1 : 2;
+        assertEquals(buckets, parsedCardinality[0], 0.001);
 
         // release MockBigArrays; otherwise, test will fail
         Releasables.close(hllpp);
