@@ -629,9 +629,9 @@ dependencies {
     implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
     implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.0-rc2.1'
-    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.0-rc2.1'
-    implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc2.1'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.0-rc3'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.0-rc3'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
 
     // force Jackson version to avoid version conflict issue
     implementation "com.fasterxml.jackson.core:jackson-core:2.13.2"
