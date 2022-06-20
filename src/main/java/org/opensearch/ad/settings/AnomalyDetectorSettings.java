@@ -258,6 +258,8 @@ public final class AnomalyDetectorSettings {
 
     public static final int MAX_IMPUTATION_NEIGHBOR_DISTANCE = 2;
 
+    public static final boolean ALLOW_INTERPLATION_IN_COLDSTART = false;
+
     // shingling
     public static final double MAX_SHINGLE_PROPORTION_MISSING = 0.25;
 

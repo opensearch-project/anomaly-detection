@@ -215,7 +215,8 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             rcfSeed,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS,
+            true
         );
 
         detectorId = "123";
@@ -700,7 +701,7 @@ public class EntityColdStarterTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void accuracyTemplate(int detectorIntervalMins) throws Exception {
+    private void accuracyTemplate(int detectorIntervalMins, float precisionThreshold, float recallThreshold) throws Exception {
         int baseDimension = 2;
         int dataSize = 20 * AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
         int trainTestSplit = 300;
@@ -818,13 +819,13 @@ public class EntityColdStarterTests extends AbstractADTest {
             }
 
             // there are randomness involved; keep trying for a limited times
-            if (prec >= 0.5 && recall >= 0.5) {
+            if (prec >= precisionThreshold && recall >= recallThreshold) {
                 break;
             }
         }
 
-        assertTrue("precision is " + prec, prec >= 0.5);
-        assertTrue("recall is " + recall, recall >= 0.5);
+        assertTrue("precision is " + prec, prec >= precisionThreshold);
+        assertTrue("recall is " + recall, recall >= recallThreshold);
     }
 
     public int searchInsert(long[] timestamps, long target) {
@@ -842,11 +843,56 @@ public class EntityColdStarterTests extends AbstractADTest {
     }
 
     public void testAccuracyTenMinuteInterval() throws Exception {
-        accuracyTemplate(10);
+        accuracyTemplate(10, 0.5f, 0.5f);
     }
 
     public void testAccuracyThirteenMinuteInterval() throws Exception {
-        accuracyTemplate(13);
+        accuracyTemplate(13, 0.5f, 0.5f);
+    }
+
+    public void testAccuracyOneMinuteIntervalNoInterpolation() throws Exception {
+        // make sure AnomalyDetectorSettings.ALLOW_INTERPLATION_IN_COLDSTART is set to false now
+        assertEquals(false, AnomalyDetectorSettings.ALLOW_INTERPLATION_IN_COLDSTART);
+        // for one minute interval, we need to disable interpolation to achieve good results
+        entityColdStarter = new EntityColdStarter(
+            clock,
+            threadPool,
+            stateManager,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            AnomalyDetectorSettings.NUM_TREES,
+            AnomalyDetectorSettings.TIME_DECAY,
+            numMinSamples,
+            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
+            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
+            interpolator,
+            searchFeatureDao,
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            featureManager,
+            settings,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue,
+            rcfSeed,
+            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS,
+            AnomalyDetectorSettings.ALLOW_INTERPLATION_IN_COLDSTART
+        );
+
+        modelManager = new ModelManager(
+            mock(CheckpointDao.class),
+            mock(Clock.class),
+            AnomalyDetectorSettings.NUM_TREES,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            AnomalyDetectorSettings.TIME_DECAY,
+            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            entityColdStarter,
+            mock(FeatureManager.class),
+            mock(MemoryTracker.class)
+        );
+
+        accuracyTemplate(1, 0.6f, 0.6f);
     }
 
     private ModelState<EntityModel> createStateForCacheRelease() {

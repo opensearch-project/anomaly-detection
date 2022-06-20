@@ -511,7 +511,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS,
+            AnomalyDetectorSettings.ALLOW_INTERPLATION_IN_COLDSTART
         );
 
         EntityColdStartWorker coldstartQueue = new EntityColdStartWorker(

@@ -93,6 +93,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     private final long rcfSeed;
     private final int maxRoundofColdStart;
     private final double initialAcceptFraction;
+    private final boolean allowInterpolation;
 
     /**
      * Constructor
@@ -118,6 +119,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      * @param checkpointWriteQueue queue to insert model checkpoints
      * @param rcfSeed rcf random seed
      * @param maxRoundofColdStart max number of rounds of cold start
+     * @param allowInterpolation use interpolation or not
      */
     public EntityColdStarter(
         Clock clock,
@@ -137,7 +139,8 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         Duration modelTtl,
         CheckpointWriteWorker checkpointWriteQueue,
         long rcfSeed,
-        int maxRoundofColdStart
+        int maxRoundofColdStart,
+        boolean allowInterpolation
     ) {
         this.clock = clock;
         this.lastThrottledColdStartTime = Instant.MIN;
@@ -160,6 +163,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         this.rcfSeed = rcfSeed;
         this.maxRoundofColdStart = maxRoundofColdStart;
         this.initialAcceptFraction = numMinSamples * 1.0d / rcfSampleSize;
+        this.allowInterpolation = allowInterpolation;
     }
 
     public EntityColdStarter(
@@ -179,7 +183,8 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         Settings settings,
         Duration modelTtl,
         CheckpointWriteWorker checkpointWriteQueue,
-        int maxRoundofColdStart
+        int maxRoundofColdStart,
+        boolean allowInterpolation
     ) {
         this(
             clock,
@@ -199,7 +204,8 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             modelTtl,
             checkpointWriteQueue,
             -1,
-            maxRoundofColdStart
+            maxRoundofColdStart,
+            allowInterpolation
         );
     }
 
@@ -575,7 +581,8 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
 
     /**
      * Select strideLength and numberOfSamples, where stride is the number of intervals
-     * between two samples and trainSamples is training samples to fetch.
+     * between two samples and trainSamples is training samples to fetch. If we disable
+     * interpolation, strideLength is 1 and numberOfSamples is shingleSize + numMinSamples;
      *
      * Algorithm:
      *
@@ -590,18 +597,24 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      * @return the chosen strideLength and numberOfSamples
      */
     private Pair<Integer, Integer> selectRangeParam(AnomalyDetector detector) {
-        long delta = detector.getDetectorIntervalInMinutes();
         int shingleSize = detector.getShingleSize();
-        int strideLength = defaulStrideLength;
-        int numberOfSamples = defaultNumberOfSamples;
-        if (delta <= 30 && 60 % delta == 0) {
-            strideLength = (int) (60 / delta);
-            numberOfSamples = (int) Math.ceil((shingleSize + numMinSamples) / 24.0d) * 24;
+        if (allowInterpolation) {
+            long delta = detector.getDetectorIntervalInMinutes();
+
+            int strideLength = defaulStrideLength;
+            int numberOfSamples = defaultNumberOfSamples;
+            if (delta <= 30 && 60 % delta == 0) {
+                strideLength = (int) (60 / delta);
+                numberOfSamples = (int) Math.ceil((shingleSize + numMinSamples) / 24.0d) * 24;
+            } else {
+                strideLength = 1;
+                numberOfSamples = shingleSize + numMinSamples;
+            }
+            return Pair.of(strideLength, numberOfSamples);
         } else {
-            strideLength = 1;
-            numberOfSamples = shingleSize + numMinSamples;
+            return Pair.of(1, shingleSize + numMinSamples);
         }
-        return Pair.of(strideLength, numberOfSamples);
+
     }
 
     /**
