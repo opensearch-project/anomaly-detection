@@ -591,9 +591,12 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      * 1. Suppose delta ≤ 30 and divides 60. Then set numberOfSamples = ceil ( (shingleSize + 32)/ 24 )*24
      * and strideLength = 60/delta. Note that if there is enough data — we may have lot more than shingleSize+32
      * points — which is only good. This step tries to match data with hourly pattern.
-     * 2. Set numberOfSamples = (shingleSize + 32) and strideLength = 1. This should be an uncommon case,
-     * but if someone wants 23 minutes interval — and the system permits lets give it to them. Note the
-     * smallest delta that does not divide 60 is 7 which is quite large to wait for one data point.
+     * 2. otherwise, set numberOfSamples = (shingleSize + 32) and strideLength = 1.
+     * This should be an uncommon case as we are assuming most users think in terms of multiple of 5 minutes
+     *(say 10 or 30 minutes). But if someone wants a 23 minutes interval —- and the system permits --
+     * we give it to them. In this case, we disable interpolation as we want to interpolate based on the hourly pattern.
+     * That's why we use 60 as a dividend in case 1. The 23 minute case does not fit that pattern.
+     * Note the smallest delta that does not divide 60 is 7 which is quite large to wait for one data point.
      * @return the chosen strideLength and numberOfSamples
      */
     private Pair<Integer, Integer> selectRangeParam(AnomalyDetector detector) {
