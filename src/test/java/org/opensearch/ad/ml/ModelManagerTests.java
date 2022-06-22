@@ -954,8 +954,7 @@ public class ModelManagerTests {
             settings,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS,
-            false
+            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
         );
 
         modelManager = spy(

@@ -40,7 +40,10 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
@@ -63,6 +66,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -112,6 +116,23 @@ public class EntityColdStarterTests extends AbstractADTest {
     long rcfSeed;
     ModelManager modelManager;
     ClientUtil clientUtil;
+
+    @BeforeClass
+    public static void initOnce() {
+        ClusterService clusterService = mock(ClusterService.class);
+
+        Set<Setting<?>> settingSet = EnabledSetting.settings.values().stream().collect(Collectors.toSet());
+
+        when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, settingSet));
+
+        EnabledSetting.getInstance().init(clusterService);
+    }
+
+    @AfterClass
+    public static void clearOnce() {
+        // restore to default value
+        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
+    }
 
     @SuppressWarnings("unchecked")
     @Override
@@ -215,9 +236,9 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             rcfSeed,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS,
-            true
+            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
         );
+        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
 
         detectorId = "123";
         modelId = "123_entity_abc";
@@ -249,6 +270,12 @@ public class EntityColdStarterTests extends AbstractADTest {
             mock(FeatureManager.class),
             mock(MemoryTracker.class)
         );
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.FALSE);
+        super.tearDown();
     }
 
     private void checkSemaphoreRelease() throws InterruptedException {
@@ -851,8 +878,7 @@ public class EntityColdStarterTests extends AbstractADTest {
     }
 
     public void testAccuracyOneMinuteIntervalNoInterpolation() throws Exception {
-        // make sure AnomalyDetectorSettings.ALLOW_INTERPLATION_IN_COLDSTART is set to false now
-        assertEquals(false, AnomalyDetectorSettings.ALLOW_INTERPLATION_IN_COLDSTART);
+        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
         // for one minute interval, we need to disable interpolation to achieve good results
         entityColdStarter = new EntityColdStarter(
             clock,
@@ -872,8 +898,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             rcfSeed,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS,
-            AnomalyDetectorSettings.ALLOW_INTERPLATION_IN_COLDSTART
+            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
         );
 
         modelManager = new ModelManager(

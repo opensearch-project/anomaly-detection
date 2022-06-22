@@ -53,6 +53,7 @@ import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
@@ -93,7 +94,6 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     private final long rcfSeed;
     private final int maxRoundofColdStart;
     private final double initialAcceptFraction;
-    private final boolean allowInterpolation;
 
     /**
      * Constructor
@@ -119,7 +119,6 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      * @param checkpointWriteQueue queue to insert model checkpoints
      * @param rcfSeed rcf random seed
      * @param maxRoundofColdStart max number of rounds of cold start
-     * @param allowInterpolation use interpolation or not
      */
     public EntityColdStarter(
         Clock clock,
@@ -139,8 +138,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         Duration modelTtl,
         CheckpointWriteWorker checkpointWriteQueue,
         long rcfSeed,
-        int maxRoundofColdStart,
-        boolean allowInterpolation
+        int maxRoundofColdStart
     ) {
         this.clock = clock;
         this.lastThrottledColdStartTime = Instant.MIN;
@@ -163,7 +161,6 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         this.rcfSeed = rcfSeed;
         this.maxRoundofColdStart = maxRoundofColdStart;
         this.initialAcceptFraction = numMinSamples * 1.0d / rcfSampleSize;
-        this.allowInterpolation = allowInterpolation;
     }
 
     public EntityColdStarter(
@@ -183,8 +180,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         Settings settings,
         Duration modelTtl,
         CheckpointWriteWorker checkpointWriteQueue,
-        int maxRoundofColdStart,
-        boolean allowInterpolation
+        int maxRoundofColdStart
     ) {
         this(
             clock,
@@ -204,8 +200,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             modelTtl,
             checkpointWriteQueue,
             -1,
-            maxRoundofColdStart,
-            allowInterpolation
+            maxRoundofColdStart
         );
     }
 
@@ -601,7 +596,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      */
     private Pair<Integer, Integer> selectRangeParam(AnomalyDetector detector) {
         int shingleSize = detector.getShingleSize();
-        if (allowInterpolation) {
+        if (EnabledSetting.isInterpolationInColdStartEnabled()) {
             long delta = detector.getDetectorIntervalInMinutes();
 
             int strideLength = defaulStrideLength;
