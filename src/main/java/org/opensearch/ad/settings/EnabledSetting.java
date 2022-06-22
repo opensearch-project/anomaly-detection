@@ -39,7 +39,10 @@ public class EnabledSetting extends AbstractSetting {
 
     public static final String LEGACY_OPENDISTRO_AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
 
-    private static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
+    public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED =
+        "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";;
+
+    public static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
             Setting LegacyADPluginEnabledSetting = Setting
                 .boolSetting(LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED, true, NodeScope, Dynamic, Deprecated);
@@ -64,6 +67,14 @@ public class EnabledSetting extends AbstractSetting {
              * AD breaker enable/disable setting
              */
             put(AD_BREAKER_ENABLED, Setting.boolSetting(AD_BREAKER_ENABLED, LegacyADBreakerEnabledSetting, NodeScope, Dynamic));
+
+            /**
+             * Whether interpolation in HCAD cold start is enabled or not
+             */
+            put(
+                INTERPOLATION_IN_HCAD_COLD_START_ENABLED,
+                Setting.boolSetting(INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false, NodeScope, Dynamic)
+            );
         }
     });
 
@@ -92,5 +103,13 @@ public class EnabledSetting extends AbstractSetting {
      */
     public static boolean isADBreakerEnabled() {
         return EnabledSetting.getInstance().getSettingValue(EnabledSetting.AD_BREAKER_ENABLED);
+    }
+
+    /**
+     * If enabled, we use samples plus interpolation to train models.
+     * @return wWhether interpolation in HCAD cold start is enabled or not.
+     */
+    public static boolean isInterpolationInColdStartEnabled() {
+        return EnabledSetting.getInstance().getSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED);
     }
 }

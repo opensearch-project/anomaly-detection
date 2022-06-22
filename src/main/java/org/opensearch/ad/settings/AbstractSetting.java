@@ -69,6 +69,15 @@ public abstract class AbstractSetting {
         return (T) latestSettings.getOrDefault(key, getSetting(key).getDefault(Settings.EMPTY));
     }
 
+    /**
+     * Override existing value.
+     * @param key Key
+     * @param newVal New value
+     */
+    public void setSettingValue(String key, Object newVal) {
+        latestSettings.put(key, newVal);
+    }
+
     private Setting<?> getSetting(String key) {
         if (settings.containsKey(key)) {
             return settings.get(key);
