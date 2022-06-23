@@ -57,7 +57,7 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
     }
 
     @Override
-    public void onMaster() {
+    public void onClusterManager() {
         if (hourlyCron == null) {
             hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(client, nodeFilter), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
@@ -88,7 +88,7 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
     }
 
     @Override
-    public void offMaster() {
+    public void offClusterManager() {
         cancel(hourlyCron);
         cancel(checkpointIndexRetentionCron);
         hourlyCron = null;
