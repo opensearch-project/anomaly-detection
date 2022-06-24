@@ -1,6 +1,6 @@
 '''
 
-Python script for ingesting sample data into opensearch index
+Python script for ingesting sample data into OpenSearch index
 
 '''
 
@@ -23,7 +23,6 @@ from opensearchpy import helpers
 
 # https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings
 urllib3.disable_warnings()
-
 
 parser = argparse.ArgumentParser()
 
@@ -120,7 +119,7 @@ def create_index(es, INDEX_NAME, shard_number):
 '''
     Posts a document(s) to the index
 '''
-@retry(delay=2)
+@retry(delay=1, backoff=2)
 def post_log(bulk_payload, thread_index):
     global client
     helpers.bulk(client[thread_index], bulk_payload)
@@ -208,6 +207,7 @@ def post_log_stream(index_value, time_intervals, sample_per_interval, max_number
 
         if len(bulk_payload) > 0:
             post_log(bulk_payload, thread_index)
+            bulk_payload = list()
     except Error as err:
         print("error: {0}".format(err))
 
@@ -232,7 +232,6 @@ def create_cosine(total_entities, base_dimension, period, amplitude):
 '''
 def main():
     global client
-    print("security", SECURITY)
     if SECURITY and URL.strip() == 'localhost':
         for i in range(0, THREADS):
           client.append(OpenSearch(
@@ -269,7 +268,6 @@ def main():
             verify_certs=False,
             connection_class=RequestsHttpConnection
         )
-    print(client)
     create_index(client[0], INDEX_NAME, SHARD_NUMBER)
 
     total_entities = HOST_NUMBER * PROCESS_NUMBER
