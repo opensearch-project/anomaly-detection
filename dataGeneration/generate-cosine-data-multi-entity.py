@@ -32,7 +32,6 @@ parser.add_argument("-i", "--index-name", help=" ",required=True)
 parser.add_argument("-shards", "--shards", type=int, help="The number of shards for the given index", required=True)
 parser.add_argument("-t", "--threads", type=int, help="The number of threads to be used for data ingestion, make sure given machine has enough", required=True)
 parser.add_argument("-bulk", "--bulk-size", type=int, default=3000, help="Number of documents per bulk request, default to 3000", )
-# parser.add_argument("-s", "--security", default=False, dest="security", action="store_true")
 parser.add_argument("-ingest", "--ingestion-frequency", type=int, default=600, help="how often each respective document is indexed, for example the default is 600 seconds which equates to every 10 minutes")
 parser.add_argument("-p", "--points", type=int, default=1008, help="total number of points ingested, for example with 1008 points and a frequency of 600s, there will be 7 days of data")
 
@@ -40,18 +39,14 @@ parser.add_argument('--security', action='store_true')
 parser.add_argument('--no-security', dest='security', action='store_false')
 parser.set_defaults(security=False)
 
-
 parser.add_argument("-nh", "--number-of-host", type=int, default=1000, help="number of 'host' entities, deafult is set to 1000, there will be two keyword categories in this index")
 parser.add_argument("-np", "--number-of-process", type=int, default=1000, help="number of 'process' entities, deafult is set to 1000, there will be two keyword categories in this index" )
 parser.add_argument("-hd", "--number-of-historical-days", type=int, default=2, help="number of day of historical data to ingest, defaults to 2")
 parser.add_argument("-u", "--username", type=str, default="admin", help="username for authentication if security is true")
 parser.add_argument("-pass", "--password", type=str, default="admin", help="password for authentication if security is true")
 
-
 args = parser.parse_args()
 
-
-print(args)
 URL = args.endpoint
 SECURITY = args.security
 INDEX_NAME = args.index_name
