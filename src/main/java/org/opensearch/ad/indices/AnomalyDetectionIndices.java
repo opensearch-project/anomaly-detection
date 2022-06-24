@@ -677,7 +677,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     @Override
-    public void onClusterManager() {
+    public void onMaster() {
         try {
             // try to rollover immediately as we might be restarting the cluster
             rolloverAndDeleteHistoryIndex();
@@ -692,7 +692,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     @Override
-    public void offClusterManager() {
+    public void offMaster() {
         if (scheduledRollover != null) {
             scheduledRollover.cancel();
         }
