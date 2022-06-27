@@ -234,7 +234,7 @@ def create_client(security, URL):
             hosts=[URL],
             use_ssl=True,
             verify_certs=False,
-            http_auth=('admin', 'admin'),
+            http_auth=(USERNAME, PASSWORD),
             scheme="https",
             connection_class=RequestsHttpConnection
          )
@@ -243,7 +243,7 @@ def create_client(security, URL):
                 hosts=[{'host': URL, 'port': 443}],
                 use_ssl=True,
                 verify_certs=False,
-                http_auth=('admin', 'admin'),
+                http_auth=(USERNAME, PASSWORD),
                 scheme="https",
                 port=443,
                 connection_class=RequestsHttpConnection
