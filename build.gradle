@@ -90,6 +90,7 @@ apply plugin: 'opensearch.testclusters'
 apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
+apply plugin: 'opensearch.pluginzip'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -141,6 +142,29 @@ configurations.all {
 configurations {
     testImplementation {
         exclude group: 'org.hamcrest', module: 'hamcrest-core'
+    }
+}
+
+publishing {
+    publications {
+        pluginZip(MavenPublication) { publication ->
+            pom {
+                name = opensearchplugin.name
+                description = opensearchplugin.description
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        name = "OpenSearch"
+                        url = "https://github.com/opensearch-project/anomaly-detection"
+                    }
+                }
+            }
+        }
     }
 }
 
