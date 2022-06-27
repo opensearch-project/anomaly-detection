@@ -8,7 +8,7 @@ The following code in this directory can be used to easily ingest data into an O
 
 ### Python
 
-Python 3.7 or above is required
+Python 3.8 or above is required
 
 ### pip
 
@@ -22,7 +22,11 @@ pip install -r requirements.txt
 
 ### Quick Start
 
-In order to execute the script you must have a running OpenSearch cluster so you can supply an endpoint for the data to be ingested too. The current iteration of this data script creates data in a cosine pattern with anomalies injected with a random seed throughout. The dataset created will have two categorical fields to test a multi-entity AD (of type `keyword`) and two fields that can act as the two features fields (cpuTime and jvmGcTime). These two fields are of type `double`.
+In order to execute the script you must have a running OpenSearch cluster, so you can supply an endpoint for the data to be ingested too.
+
+The current iteration of this data script creates data in a cosine pattern with anomalies injected with a random seed.
+
+The dataset created will have two categorical fields to test a multi-entity AD (`host` and `process` of type `keyword`) and two fields that can act as the two features fields (`cpuTime` and `jvmGcTime` of type `double`).
 
 ### Example Request:
 
@@ -43,8 +47,8 @@ In order to execute the script you must have a running OpenSearch cluster so you
 | --bulk-size | Number of documents per bulk request | 3000 | No
 | --ingestion-frequency | How often each respective document is indexed (in seconds) | 600 | No
 | --points | Total number of points in time ingested | 1008 | No
-| --number-of-host | number of 'host' entities | 1000 | No
-| --number-of-process | number of 'process' entities | 1000 | No
+| --number-of-host | number of 'host' entities (host is one of the categorical field that an entity is defined by) | 1000 | No
+| --number-of-process | number of 'process' entities (process is one of the categorical field that an entity is defined by)| 1000 | No
 | --number-of-historical-days | number of day of historical data to ingest | 2 | No
 | --username | username for authentication if security is true | admin | No
 | --password | password for authentication if security is true | admin | No
