@@ -78,10 +78,10 @@ client = []
 '''
     Generate index INDEX_NAME
 '''
-def create_index(es, INDEX_NAME, shard_number):
+def create_index(os, INDEX_NAME, shard_number):
     # First, delete the index if it exists
     print("Deleting index if it exists...")
-    es.indices.delete(index=INDEX_NAME, ignore=[400, 404])
+    os.indices.delete(index=INDEX_NAME, ignore=[400, 404])
 
     # Next, create the index
     print("Creating index \"{}\"...".format(INDEX_NAME))
@@ -112,9 +112,7 @@ def create_index(es, INDEX_NAME, shard_number):
           }
        }
     }
-
-    es.indices.create(index=INDEX_NAME, body=request_body)
-
+    os.indices.create(index=INDEX_NAME, body=request_body)
 
 '''
     Posts a document(s) to the index
@@ -228,46 +226,51 @@ def create_cosine(total_entities, base_dimension, period, amplitude):
     return cosine_param
 
 '''
-    Main entry method for script
+Create OpenSearch client
 '''
-def main():
-    global client
-    if SECURITY and URL.strip() == 'localhost':
-        for i in range(0, THREADS):
-          client.append(OpenSearch(
+def create_client(security, URL):
+    if security and URL.strip() == 'localhost':
+        return OpenSearch(
             hosts=[URL],
             use_ssl=True,
             verify_certs=False,
-            http_auth=(USERNAME, PASSWORD),
+            http_auth=('admin', 'admin'),
             scheme="https",
             connection_class=RequestsHttpConnection
-         ))
-    elif SECURITY:
-        for i in range(0, THREADS):
-            client.append(OpenSearch(
+         )
+    elif security:
+        return OpenSearch(
                 hosts=[{'host': URL, 'port': 443}],
                 use_ssl=True,
                 verify_certs=False,
-                http_auth=(USERNAME, PASSWORD),
+                http_auth=('admin', 'admin'),
                 scheme="https",
                 port=443,
                 connection_class=RequestsHttpConnection
-            ))
+        )
     elif URL.strip() == 'localhost':
-        for i in range(0, THREADS):
-         client.append(OpenSearch(
+        return OpenSearch(
             hosts=[{'host': URL, 'port': 9200}],
             use_ssl=False,
             verify_certs=False,
             connection_class=RequestsHttpConnection
-        ))
+        )
     else:
-        es = OpenSearch(
+        return OpenSearch(
             hosts=[{'host': URL, 'port': 80}],
             use_ssl=False,
             verify_certs=False,
             connection_class=RequestsHttpConnection
         )
+
+'''
+    Main entry method for script
+'''
+def main():
+    global client
+    for i in range(0, THREADS):
+        client.append(create_client(SECURITY, URL))
+
     create_index(client[0], INDEX_NAME, SHARD_NUMBER)
 
     total_entities = HOST_NUMBER * PROCESS_NUMBER
@@ -291,4 +294,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
