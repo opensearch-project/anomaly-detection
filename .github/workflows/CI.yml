@@ -41,7 +41,7 @@ jobs:
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
       - name: Build and Run Tests
         run: |
-          ./gradlew build
+          ./gradlew build -Dtest.logs=true
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal

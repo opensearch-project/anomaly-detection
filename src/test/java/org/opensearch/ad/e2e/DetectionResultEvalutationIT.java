@@ -122,6 +122,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         assertTrue(recall >= minRecall);
 
         assertTrue(errors <= maxError);
+        LOG.info("Precision: {}, Window recall: {}", precision, recall);
     }
 
     private int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
