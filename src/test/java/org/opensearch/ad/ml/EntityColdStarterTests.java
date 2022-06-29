@@ -853,6 +853,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         assertTrue("precision is " + prec, prec >= precisionThreshold);
         assertTrue("recall is " + recall, recall >= recallThreshold);
+        LOG.info("Interval {}, Precision: {}, recall: {}", detectorIntervalMins, prec, recall);
     }
 
     public int searchInsert(long[] timestamps, long target) {
