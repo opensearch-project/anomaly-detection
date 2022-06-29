@@ -7,6 +7,7 @@ Compatible with OpenSearch 2.1.0
 
 * bump rcf to 3.0-rc3 ([#568](https://github.com/opensearch-project/anomaly-detection/pull/568))
 * Disable interpolation in HCAD cold start ([#575](https://github.com/opensearch-project/anomaly-detection/pull/575))
+* Expose model accuracy metrics in tests ([#600](https://github.com/opensearch-project/anomaly-detection/pull/600))
 
 ### Bug Fixes
 
