@@ -136,7 +136,6 @@ configurations {
         exclude group: 'org.hamcrest', module: 'hamcrest-core'
     }
 }
-
 task versionIncrement {
     final String workingDir = project.buildDir.toString() + "/../"
     if(project.hasProperty('newVersion')) {
