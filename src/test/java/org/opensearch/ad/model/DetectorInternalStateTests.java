@@ -24,4 +24,18 @@ public class DetectorInternalStateTests extends OpenSearchSingleNodeTestCase {
         DetectorInternalState parsedInternalState = DetectorInternalState.parse(TestHelpers.parser(internalStateString));
         assertEquals(internalState, parsedInternalState);
     }
+
+    public void testClonedDetectorInternalState() throws IOException {
+        DetectorInternalState originalState = new DetectorInternalState.Builder()
+            .lastUpdateTime(Instant.ofEpochMilli(100L))
+            .error("error-test")
+            .build();
+        DetectorInternalState clonedState = (DetectorInternalState) originalState.clone();
+        // parse original InternalState
+        String internalStateString = TestHelpers
+            .xContentBuilderToString(originalState.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        DetectorInternalState parsedInternalState = DetectorInternalState.parse(TestHelpers.parser(internalStateString));
+        // compare parsed to cloned
+        assertEquals(clonedState, parsedInternalState);
+    }
 }

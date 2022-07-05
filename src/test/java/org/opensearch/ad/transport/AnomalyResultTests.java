@@ -48,6 +48,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -262,7 +263,10 @@ public class AnomalyResultTests extends AbstractADTest {
         when(client.threadPool().getThreadContext()).thenReturn(threadContext);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length >= 2
+            );
 
             IndexRequest request = null;
             ActionListener<IndexResponse> listener = null;
@@ -275,7 +279,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
             assertTrue(request != null && listener != null);
             ShardId shardId = new ShardId(new Index(CommonName.ANOMALY_RESULT_INDEX_ALIAS, randomAlphaOfLength(10)), 0);
-            listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
+            listener.onResponse(new IndexResponse(shardId, request.id(), 1, 1, 1, true));
 
             return null;
         }).when(client).index(any(), any());

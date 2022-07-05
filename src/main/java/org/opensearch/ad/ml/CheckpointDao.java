@@ -72,7 +72,7 @@ import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
-import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.amazon.randomcutforest.state.RandomCutForestState;
 import com.google.gson.Gson;
@@ -117,7 +117,15 @@ public class CheckpointDao {
 
     private Gson gson;
     private RandomCutForestMapper mapper;
-    private V1JsonToV2StateConverter converter;
+
+    // For further reference v1, v2 and v3 refer to the different variations of RCF models
+    // used by AD. v1 was originally used with the launch of OS 1.0. We later converted to v2
+    // which included changes requiring a specific converter from v1 to v2 for BWC.
+    // v2 models are created by RCF-3.0-rc1 which can be found on maven central.
+    // v3 is the latest model version form RCF introduced by RCF-3.0-rc2.
+    // Although this version has a converter method for v2 to v3, after BWC testing it was decided that
+    // an explicit use of the converter won't be needed as the changes between the models are indeed BWC.
+    private V1JsonToV3StateConverter converter;
     private ThresholdedRandomCutForestMapper trcfMapper;
     private Schema<ThresholdedRandomCutForestState> trcfSchema;
 
@@ -157,7 +165,7 @@ public class CheckpointDao {
         String indexName,
         Gson gson,
         RandomCutForestMapper mapper,
-        V1JsonToV2StateConverter converter,
+        V1JsonToV3StateConverter converter,
         ThresholdedRandomCutForestMapper trcfMapper,
         Schema<ThresholdedRandomCutForestState> trcfSchema,
         Class<? extends ThresholdingModel> thresholdingModelClass,
@@ -556,7 +564,7 @@ public class CheckpointDao {
         }
     }
 
-    private ThresholdedRandomCutForest toTrcf(String checkpoint) {
+    ThresholdedRandomCutForest toTrcf(String checkpoint) {
         ThresholdedRandomCutForest trcf = null;
         if (checkpoint != null && !checkpoint.isEmpty()) {
             try {

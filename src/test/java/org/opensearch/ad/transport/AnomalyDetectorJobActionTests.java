@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -25,6 +26,7 @@ import org.junit.Test;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -112,6 +114,18 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testAdJobRequest() throws IOException {
+        DetectionDateRange detectionDateRange = new DetectionDateRange(Instant.MIN, Instant.now());
+        request = new AnomalyDetectorJobRequest("1234", detectionDateRange, false, 4567, 7890, "_start");
+
+        BytesStreamOutput out = new BytesStreamOutput();
+        request.writeTo(out);
+        StreamInput input = out.bytes().streamInput();
+        AnomalyDetectorJobRequest newRequest = new AnomalyDetectorJobRequest(input);
+        Assert.assertEquals(request.getDetectorID(), newRequest.getDetectorID());
+    }
+
+    @Test
+    public void testAdJobRequest_NullDetectionDateRange() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();

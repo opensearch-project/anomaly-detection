@@ -985,7 +985,7 @@ public class ADBatchTaskRunner {
             dataEndTime = dataEndTime - dataEndTime % interval;
             logger.debug("adjusted date range: start: {}, end: {}, taskId: {}", dataStartTime, dataEndTime, taskId);
             if ((dataEndTime - dataStartTime) < NUM_MIN_SAMPLES * interval) {
-                internalListener.onFailure(new AnomalyDetectionException("There is no enough data to train model").countedInStats(false));
+                internalListener.onFailure(new AnomalyDetectionException("There is not enough data to train model").countedInStats(false));
                 return;
             }
             consumer.accept(dataStartTime, dataEndTime);

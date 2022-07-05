@@ -129,7 +129,7 @@ public class RolloverTests extends AbstractADTest {
 
         CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
         assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
-        assertTrue(createIndexRequest.mappings().get(CommonName.MAPPING_TYPE).contains("data_start_time"));
+        assertTrue(createIndexRequest.mappings().contains("data_start_time"));
     }
 
     public void testNotRolledOver() {
@@ -169,7 +169,7 @@ public class RolloverTests extends AbstractADTest {
 
             CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
             assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
-            assertTrue(createIndexRequest.mappings().get(CommonName.MAPPING_TYPE).contains("data_start_time"));
+            assertTrue(createIndexRequest.mappings().contains("data_start_time"));
             listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
             return null;
         }).when(indicesClient).rolloverIndex(any(), any());

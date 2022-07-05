@@ -29,6 +29,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 
@@ -66,7 +67,6 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.index.Index;
 import org.opensearch.index.get.GetResult;
-import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
@@ -175,7 +175,10 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length >= 2
+            );
 
             IndexRequest request = null;
             ActionListener<IndexResponse> listener = null;
@@ -188,7 +191,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
             assertTrue(request != null && listener != null);
             ShardId shardId = new ShardId(new Index(ANOMALY_DETECTOR_JOB_INDEX, randomAlphaOfLength(10)), 0);
-            listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
+            listener.onResponse(new IndexResponse(shardId, request.id(), 1, 1, 1, true));
 
             return null;
         }).when(client).index(any(), any());
@@ -322,7 +325,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             GetResponse response = new GetResponse(
                 new GetResult(
                     AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
-                    MapperService.SINGLE_MAPPING_NAME,
                     jobParameter.getName(),
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -357,7 +359,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             ActionListener<IndexResponse> listener = invocation.getArgument(1);
             ShardId shardId = new ShardId(new Index(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, randomAlphaOfLength(10)), 0);
             if (disableSuccessfully) {
-                listener.onResponse(new IndexResponse(shardId, randomAlphaOfLength(10), request.id(), 1, 1, 1, true));
+                listener.onResponse(new IndexResponse(shardId, request.id(), 1, 1, 1, true));
             } else {
                 listener.onResponse(null);
             }

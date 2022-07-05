@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.junit.After;
@@ -38,7 +39,7 @@ import org.opensearch.index.reindex.ScrollableHitSource;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
-import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.gson.Gson;
 
@@ -91,7 +92,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
         maxCheckpointBytes = 1_000_000;
 
         RandomCutForestMapper mapper = mock(RandomCutForestMapper.class);
-        V1JsonToV2StateConverter converter = mock(V1JsonToV2StateConverter.class);
+        V1JsonToV3StateConverter converter = mock(V1JsonToV3StateConverter.class);
 
         objectPool = mock(GenericObjectPool.class);
         int deserializeRCFBufferSize = 512;
@@ -129,7 +130,10 @@ public class CheckpointDeleteTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 3);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length >= 3
+            );
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<BulkByScrollResponse> listener = (ActionListener<BulkByScrollResponse>) args[2];

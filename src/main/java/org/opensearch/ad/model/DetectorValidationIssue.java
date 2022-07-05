@@ -41,7 +41,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
     private final DetectorValidationIssueType type;
     private final String message;
     private Map<String, String> subIssues;
-    private String suggestion;
+    private IntervalTimeConfiguration intervalSuggestion;
 
     public ValidationAspect getAspect() {
         return aspect;
@@ -59,8 +59,8 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         return subIssues;
     }
 
-    public String getSuggestion() {
-        return suggestion;
+    public IntervalTimeConfiguration getIntervalSuggestion() {
+        return intervalSuggestion;
     }
 
     public DetectorValidationIssue(
@@ -68,13 +68,13 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         DetectorValidationIssueType type,
         String message,
         Map<String, String> subIssues,
-        String suggestion
+        IntervalTimeConfiguration intervalSuggestion
     ) {
         this.aspect = aspect;
         this.type = type;
         this.message = message;
         this.subIssues = subIssues;
-        this.suggestion = suggestion;
+        this.intervalSuggestion = intervalSuggestion;
     }
 
     public DetectorValidationIssue(ValidationAspect aspect, DetectorValidationIssueType type, String message) {
@@ -89,7 +89,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
             subIssues = input.readMap(StreamInput::readString, StreamInput::readString);
         }
         if (input.readBoolean()) {
-            suggestion = input.readString();
+            intervalSuggestion = IntervalTimeConfiguration.readFrom(input);
         }
     }
 
@@ -104,9 +104,9 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         } else {
             out.writeBoolean(false);
         }
-        if (suggestion != null) {
+        if (intervalSuggestion != null) {
             out.writeBoolean(true);
-            out.writeGenericValue(suggestion);
+            intervalSuggestion.writeTo(out);
         } else {
             out.writeBoolean(false);
         }
@@ -123,8 +123,8 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
             }
             subIssuesBuilder.endObject();
         }
-        if (suggestion != null) {
-            xContentBuilder.field(SUGGESTED_FIELD_NAME, suggestion);
+        if (intervalSuggestion != null) {
+            xContentBuilder.field(SUGGESTED_FIELD_NAME, intervalSuggestion);
         }
 
         return xContentBuilder.endObject().endObject();
@@ -140,7 +140,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         return Objects.equal(getAspect(), anotherIssue.getAspect())
             && Objects.equal(getMessage(), anotherIssue.getMessage())
             && Objects.equal(getSubIssues(), anotherIssue.getSubIssues())
-            && Objects.equal(getSuggestion(), anotherIssue.getSuggestion())
+            && Objects.equal(getIntervalSuggestion(), anotherIssue.getIntervalSuggestion())
             && Objects.equal(getType(), anotherIssue.getType());
     }
 

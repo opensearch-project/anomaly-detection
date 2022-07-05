@@ -19,6 +19,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 
 import java.io.IOException;
@@ -34,7 +35,6 @@ import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
@@ -95,6 +95,39 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         verify(anomalyDetectionIndices, never()).doesAnomalyDetectorIndexExist();
     }
 
+    public void testAnomalyResultBulkIndexHandler_IndexNotExist() {
+        when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(false);
+        AnomalyResult anomalyResult = mock(AnomalyResult.class);
+        when(anomalyResult.getDetectorId()).thenReturn("testId");
+
+        bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
+        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
+        assertEquals("Can't find result index testIndex", exceptionCaptor.getValue().getMessage());
+    }
+
+    public void testAnomalyResultBulkIndexHandler_InValidResultIndexMapping() {
+        when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
+        when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(false);
+        AnomalyResult anomalyResult = mock(AnomalyResult.class);
+        when(anomalyResult.getDetectorId()).thenReturn("testId");
+
+        bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
+        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
+        assertEquals("wrong index mapping of custom AD result index", exceptionCaptor.getValue().getMessage());
+    }
+
+    public void testAnomalyResultBulkIndexHandler_FailBulkIndexAnomaly() throws IOException {
+        when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
+        when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(true);
+        AnomalyResult anomalyResult = mock(AnomalyResult.class);
+        when(anomalyResult.getDetectorId()).thenReturn("testId");
+        when(anomalyResult.toXContent(any(), any())).thenThrow(new RuntimeException());
+
+        bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
+        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
+        assertEquals("Failed to prepare request to bulk index anomaly results", exceptionCaptor.getValue().getMessage());
+    }
+
     public void testCreateADResultIndexNotAcknowledged() throws IOException {
         doAnswer(invocation -> {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
@@ -121,7 +154,6 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             ShardId shardId = new ShardId(new Index(indexName, uuid), shardIntId);
             BulkItemResponse.Failure failure = new BulkItemResponse.Failure(
                 ANOMALY_RESULT_INDEX_ALIAS,
-                CommonName.MAPPING_TYPE,
                 randomAlphaOfLength(5),
                 new VersionConflictEngineException(new ShardId(ANOMALY_RESULT_INDEX_ALIAS, "", 1), "id", "test")
             );
@@ -129,7 +161,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             bulkItemResponses[1] = new BulkItemResponse(
                 1,
                 randomFrom(DocWriteRequest.OpType.values()),
-                new IndexResponse(shardId, "type", idPrefix + 1, 1, 1, randomInt(), true)
+                new IndexResponse(shardId, idPrefix + 1, 1, 1, randomInt(), true)
             );
             BulkResponse bulkResponse = new BulkResponse(bulkItemResponses, 10);
             listener.onResponse(bulkResponse);

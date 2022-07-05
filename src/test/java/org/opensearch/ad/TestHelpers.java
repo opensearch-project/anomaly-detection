@@ -12,6 +12,7 @@
 package org.opensearch.ad;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
+import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
@@ -30,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -51,11 +53,13 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
@@ -105,6 +109,7 @@ import org.opensearch.common.Priority;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -119,7 +124,6 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.index.get.GetResult;
-import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -235,7 +239,7 @@ public class TestHelpers {
     }
 
     public static NamedXContentRegistry xContentRegistry() {
-        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+        SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
         return new NamedXContentRegistry(searchModule.getNamedXContents());
     }
 
@@ -270,7 +274,7 @@ public class TestHelpers {
         List<String> categoryFields
     ) throws IOException {
         return randomAnomalyDetector(
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             features,
             uiMetadata,
             lastUpdateTime,
@@ -369,7 +373,7 @@ public class TestHelpers {
         return randomAnomalyDetectorUsingCategoryFields(
             detectorId,
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             categoryFields
         );
     }
@@ -412,13 +416,21 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetector(List<Feature> features) throws IOException {
+        return randomAnomalyDetector(randomAlphaOfLength(5), randomAlphaOfLength(10).toLowerCase(Locale.ROOT), features);
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(String timefield, String indexName) throws IOException {
+        return randomAnomalyDetector(timefield, indexName, ImmutableList.of(randomFeature(true)));
+    }
+
+    public static AnomalyDetector randomAnomalyDetector(String timefield, String indexName, List<Feature> features) throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
-            randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            timefield,
+            ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
             features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -440,7 +452,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(),
             randomQuery(),
             randomIntervalTimeConfiguration(),
@@ -467,7 +479,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(randomFeature()),
             randomQuery(),
             interval,
@@ -494,7 +506,7 @@ public class TestHelpers {
         private String name = randomAlphaOfLength(20);
         private String description = randomAlphaOfLength(30);
         private String timeField = randomAlphaOfLength(5);
-        private List<String> indices = ImmutableList.of(randomAlphaOfLength(10).toLowerCase());
+        private List<String> indices = ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT));
         private List<Feature> featureAttributes = ImmutableList.of(randomFeature(true));
         private QueryBuilder filterQuery;
         private TimeConfiguration detectionInterval = randomIntervalTimeConfiguration();
@@ -632,7 +644,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
-            ImmutableList.of(randomAlphaOfLength(10).toLowerCase()),
+            ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(randomFeature(featureEnabled)),
             randomQuery(),
             interval,
@@ -652,7 +664,7 @@ public class TestHelpers {
             + "\"max_expansions\":50,\"fuzzy_transpositions\":true,\"lenient\":false,\"zero_terms_query\":\"NONE\","
             + "\"auto_generate_synonyms_phrase_query\":true,\"boost\":1}}}}";
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+        SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
         XContentParser parser = XContentType.JSON
             .xContent()
             .createParser(new NamedXContentRegistry(searchModule.getNamedXContents()), LoggingDeprecationHandler.INSTANCE, query);
@@ -1037,7 +1049,7 @@ public class TestHelpers {
     }
 
     public static CreateIndexResponse createIndex(AdminClient adminClient, String indexName, String indexMapping) {
-        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(AnomalyDetector.TYPE, indexMapping, XContentType.JSON);
+        CreateIndexRequest request = new CreateIndexRequest(indexName).mapping(indexMapping);
         return adminClient.indices().create(request).actionGet(5_000);
     }
 
@@ -1051,6 +1063,24 @@ public class TestHelpers {
                 data,
                 null
             );
+    }
+
+    public static void createIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        indexMappings.append("}}");
+        createIndex(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+        createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
+    }
+
+    public static void createEmptyIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        indexMappings.append("}}");
+        createEmptyIndex(client, indexName.toLowerCase(Locale.ROOT));
+        createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
     public static void createIndexWithHCADFields(RestClient client, String indexName, Map<String, String> categoryFieldsAndTypes)
@@ -1096,7 +1126,6 @@ public class TestHelpers {
         return new GetResponse(
             new GetResult(
                 indexName,
-                MapperService.SINGLE_MAPPING_NAME,
                 id,
                 UNASSIGNED_SEQ_NO,
                 0,
@@ -1114,7 +1143,6 @@ public class TestHelpers {
         return new GetResponse(
             new GetResult(
                 indexName,
-                MapperService.SINGLE_MAPPING_NAME,
                 id,
                 UNASSIGNED_SEQ_NO,
                 0,
@@ -1186,17 +1214,17 @@ public class TestHelpers {
         return new DetectorInternalState.Builder().lastUpdateTime(lastUpdateTime).error(error).build();
     }
 
-    public static Map<String, Map<String, Map<String, FieldMappingMetadata>>> createFieldMappings(
+    public static Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> createFieldMappings(
         String index,
         String fieldName,
         String fieldType
     ) throws IOException {
-        Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappings = new HashMap<>();
+        Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappings = new HashMap<>();
         FieldMappingMetadata fieldMappingMetadata = new FieldMappingMetadata(
             fieldName,
             new BytesArray("{\"" + fieldName + "\":{\"type\":\"" + fieldType + "\"}}")
         );
-        mappings.put(index, Collections.singletonMap(CommonName.MAPPING_TYPE, Collections.singletonMap(fieldName, fieldMappingMetadata)));
+        mappings.put(index, Collections.singletonMap(fieldName, fieldMappingMetadata));
         return mappings;
     }
 
@@ -1457,5 +1485,38 @@ public class TestHelpers {
             null
         );
         return issue;
+    }
+
+    public static DetectorValidationIssue randomDetectorValidationIssueWithDetectorIntervalRec(long intervalRec) {
+        DetectorValidationIssue issue = new DetectorValidationIssue(
+            ValidationAspect.MODEL,
+            DetectorValidationIssueType.DETECTION_INTERVAL,
+            CommonErrorMessages.DETECTOR_INTERVAL_REC + intervalRec,
+            null,
+            new IntervalTimeConfiguration(intervalRec, ChronoUnit.MINUTES)
+        );
+        return issue;
+    }
+
+    public static ClusterState createClusterState() {
+        ImmutableOpenMap<String, IndexMetadata> immutableOpenMap = ImmutableOpenMap
+            .<String, IndexMetadata>builder()
+            .fPut(
+                ANOMALY_DETECTOR_JOB_INDEX,
+                IndexMetadata
+                    .builder("test")
+                    .settings(
+                        Settings
+                            .builder()
+                            .put("index.number_of_shards", 1)
+                            .put("index.number_of_replicas", 1)
+                            .put("index.version.created", Version.CURRENT.id)
+                    )
+                    .build()
+            )
+            .build();
+        Metadata metaData = Metadata.builder().indices(immutableOpenMap).build();
+        ClusterState clusterState = new ClusterState(new ClusterName("test_name"), 1l, "uuid", metaData, null, null, null, null, 1, true);
+        return clusterState;
     }
 }

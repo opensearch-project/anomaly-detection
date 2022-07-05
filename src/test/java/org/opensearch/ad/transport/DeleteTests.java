@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 import org.hamcrest.Matchers;
@@ -216,7 +217,10 @@ public class DeleteTests extends AbstractADTest {
     public void StopDetectorResponseTemplate(DetectorExecutionMode mode) throws Exception {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length >= 3);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length >= 3
+            );
             assertTrue(args[2] instanceof ActionListener);
 
             ActionListener<DeleteModelResponse> listener = (ActionListener<DeleteModelResponse>) args[2];

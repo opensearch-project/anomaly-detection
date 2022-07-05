@@ -171,8 +171,30 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
         } else {
             assertEquals(profile.getTaskId(), parsedProfile.getAdTaskProfile().getTaskId());
         }
-        // assertEquals(profile, adTaskProfileNodeResponses.get(0).getAdTaskProfile());
+    }
 
-        // assertEquals(profile, response2.getNodes().get(0).getAdTaskProfile());
+    public void testADTaskProfileParseFullConstructor() throws IOException {
+        ADTaskProfile adTaskProfile = new ADTaskProfile(
+            TestHelpers.randomAdTask(),
+            randomInt(),
+            randomLong(),
+            randomBoolean(),
+            randomInt(),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomInt(),
+            randomBoolean(),
+            randomInt(),
+            randomInt(),
+            randomInt(),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            Instant.now().toEpochMilli()
+        );
+        String adTaskProfileString = TestHelpers
+            .xContentBuilderToString(adTaskProfile.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        ADTaskProfile parsedADTaskProfile = ADTaskProfile.parse(TestHelpers.parser(adTaskProfileString));
+        assertEquals(adTaskProfile, parsedADTaskProfile);
     }
 }

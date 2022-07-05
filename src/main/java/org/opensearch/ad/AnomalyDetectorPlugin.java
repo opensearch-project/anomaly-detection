@@ -40,8 +40,8 @@ import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.caching.PriorityCache;
 import org.opensearch.ad.cluster.ADClusterEventListener;
 import org.opensearch.ad.cluster.ADDataMigrator;
+import org.opensearch.ad.cluster.ClusterManagerEventListener;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.cluster.MasterEventListener;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.Interpolator;
@@ -196,7 +196,7 @@ import org.opensearch.watcher.ResourceWatcherService;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
-import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV2StateConverter;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -367,7 +367,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         mapper.setSaveExecutorContextEnabled(true);
         mapper.setSaveTreeStateEnabled(true);
         mapper.setPartialTreeStateEnabled(true);
-        V1JsonToV2StateConverter converter = new V1JsonToV2StateConverter();
+        V1JsonToV3StateConverter converter = new V1JsonToV3StateConverter();
 
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
 
@@ -731,7 +731,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ADClusterEventListener(clusterService, hashRing),
                 adCircuitBreakerService,
                 adStats,
-                new MasterEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
+                new ClusterManagerEventListener(clusterService, threadPool, client, getClock(), clientUtil, nodeFilter),
                 nodeFilter,
                 multiEntityResultHandler,
                 checkpoint,

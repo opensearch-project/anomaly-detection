@@ -15,6 +15,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKE
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 
+import java.time.Clock;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +34,7 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.DetectorValidationIssueType;
+import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
@@ -61,6 +63,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final SearchFeatureDao searchFeatureDao;
     private volatile Boolean filterByEnabled;
+    private Clock clock;
 
     @Inject
     public ValidateAnomalyDetectorTransportAction(
@@ -81,6 +84,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         this.filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.searchFeatureDao = searchFeatureDao;
+        this.clock = Clock.systemUTC();
     }
 
     @Override
@@ -150,7 +154,8 @@ public class ValidateAnomalyDetectorTransportAction extends
                 xContentRegistry,
                 user,
                 searchFeatureDao,
-                request.getValidationType()
+                request.getValidationType(),
+                clock
             );
             try {
                 handler.start();
@@ -167,8 +172,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         String originalErrorMessage = exception.getMessage();
         String errorMessage = "";
         Map<String, String> subIssues = null;
-        String suggestion = null;
-
+        IntervalTimeConfiguration intervalSuggestion = exception.getIntervalSuggestion();
         switch (exception.getType()) {
             case FEATURE_ATTRIBUTES:
                 int firstLeftBracketIndex = originalErrorMessage.indexOf("[");
@@ -192,11 +196,13 @@ public class ValidateAnomalyDetectorTransportAction extends
             case WINDOW_DELAY:
             case RESULT_INDEX:
             case GENERAL_SETTINGS:
+            case AGGREGATION:
+            case TIMEOUT:
             case INDICES:
                 errorMessage = originalErrorMessage;
                 break;
         }
-        return new DetectorValidationIssue(exception.getAspect(), exception.getType(), errorMessage, subIssues, suggestion);
+        return new DetectorValidationIssue(exception.getAspect(), exception.getType(), errorMessage, subIssues, intervalSuggestion);
     }
 
     // Example of method output:

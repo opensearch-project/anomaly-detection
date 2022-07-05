@@ -19,6 +19,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.ZoneOffset;
@@ -63,11 +65,15 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
+import org.opensearch.common.util.MockBigArrays;
+import org.opensearch.common.util.MockPageCacheRecycler;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -78,13 +84,21 @@ import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.InternalOrder;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
+import org.opensearch.search.aggregations.bucket.filter.InternalFilter;
+import org.opensearch.search.aggregations.bucket.filter.InternalFilters;
+import org.opensearch.search.aggregations.bucket.filter.InternalFilters.InternalBucket;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.AbstractHyperLogLog;
+import org.opensearch.search.aggregations.metrics.AbstractHyperLogLogPlusPlus;
+import org.opensearch.search.aggregations.metrics.HyperLogLogPlusPlus;
+import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
 
+import com.carrotsearch.hppc.BitMixer;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -570,5 +584,54 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
 
     public void testGetColdStartSamplesForPeriodsRawFormat() throws IOException, InterruptedException {
         getColdStartSamplesForPeriodsTemplate(DocValueFormat.RAW);
+    }
+
+    @SuppressWarnings("rawtypes")
+    public void testParseBuckets() throws InstantiationException,
+        IllegalAccessException,
+        IllegalArgumentException,
+        InvocationTargetException,
+        NoSuchMethodException,
+        SecurityException {
+        // cannot mock final class HyperLogLogPlusPlus
+        HyperLogLogPlusPlus hllpp = new HyperLogLogPlusPlus(
+            randomIntBetween(AbstractHyperLogLog.MIN_PRECISION, AbstractHyperLogLog.MAX_PRECISION),
+            new MockBigArrays(new MockPageCacheRecycler(Settings.EMPTY), new NoneCircuitBreakerService()),
+            1
+        );
+        long hash1 = BitMixer.mix64(randomIntBetween(1, 100));
+        long hash2 = BitMixer.mix64(randomIntBetween(1, 100));
+        hllpp.collect(0, hash1);
+        hllpp.collect(0, hash2);
+
+        Constructor ctor = null;
+        ctor = InternalCardinality.class.getDeclaredConstructor(String.class, AbstractHyperLogLogPlusPlus.class, Map.class);
+        ctor.setAccessible(true);
+        InternalCardinality cardinality = (InternalCardinality) ctor.newInstance("impactUniqueAccounts", hllpp, new HashMap<>());
+
+        // have to use reflection as all of InternalFilter's constructor are not public
+        ctor = InternalFilter.class.getDeclaredConstructor(String.class, long.class, InternalAggregations.class, Map.class);
+
+        ctor.setAccessible(true);
+        String featureId = "deny_max";
+        InternalFilter internalFilter = (InternalFilter) ctor
+            .newInstance(featureId, 100, InternalAggregations.from(Arrays.asList(cardinality)), new HashMap<>());
+        InternalBucket bucket = new InternalFilters.InternalBucket(
+            "test",
+            randomIntBetween(0, 1000),
+            InternalAggregations.from(Arrays.asList(internalFilter)),
+            true
+        );
+
+        Optional<double[]> parsedResult = searchFeatureDao.parseBucket(bucket, Arrays.asList(featureId));
+
+        assertTrue(parsedResult.isPresent());
+        double[] parsedCardinality = parsedResult.get();
+        assertEquals(1, parsedCardinality.length);
+        double buckets = hash1 == hash2 ? 1 : 2;
+        assertEquals(buckets, parsedCardinality[0], 0.001);
+
+        // release MockBigArrays; otherwise, test will fail
+        Releasables.close(hllpp);
     }
 }

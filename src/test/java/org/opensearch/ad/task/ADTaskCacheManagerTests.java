@@ -174,7 +174,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
             LimitExceededException.class,
             () -> adTaskCacheManager.add(TestHelpers.randomAdTask())
         );
-        assertEquals("No enough memory to run detector", exception.getMessage());
+        assertEquals("Not enough memory to run detector", exception.getMessage());
     }
 
     public void testThresholdModelTrained() throws IOException {

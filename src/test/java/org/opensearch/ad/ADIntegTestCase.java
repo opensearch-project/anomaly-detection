@@ -83,7 +83,6 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
 
-    @Override
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(AnomalyDetectorPlugin.class);
     }
@@ -322,4 +321,11 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
             .parseAggregation("{\"" + aggregationName + "\":{\"max\":{\"field\":\"" + fieldName + "\"}}}");
         return new Feature(randomAlphaOfLength(5), featureName, true, aggregationBuilder);
     }
+
+    public Feature sumValueFeature(String aggregationName, String fieldName, String featureName) throws IOException {
+        AggregationBuilder aggregationBuilder = TestHelpers
+            .parseAggregation("{\"" + aggregationName + "\":{\"value_count\":{\"field\":\"" + fieldName + "\"}}}");
+        return new Feature(randomAlphaOfLength(5), featureName, true, aggregationBuilder);
+    }
+
 }

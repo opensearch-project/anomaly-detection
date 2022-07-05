@@ -35,6 +35,5 @@ public class ADVersionUtilTests extends ADUnitTestCase {
     public void testCompatibleWithVersionOnOrAfter1_1() {
         assertTrue(ADVersionUtil.compatibleWithVersionOnOrAfter1_1(Version.V_1_1_0));
         assertFalse(ADVersionUtil.compatibleWithVersionOnOrAfter1_1(Version.V_1_0_0));
-        assertFalse(ADVersionUtil.compatibleWithVersionOnOrAfter1_1(Version.V_1_0_1));
     }
 }

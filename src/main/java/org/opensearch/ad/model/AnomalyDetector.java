@@ -77,7 +77,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String TYPE = "_doc";
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
-    public static final String PARSING_ISSUE = "query_parsing";
     public static final String GENERAL_SETTINGS = "general_settings";
 
     public static final String NAME_FIELD = "name";
@@ -95,6 +94,8 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String USER_FIELD = "user";
     public static final String DETECTOR_TYPE_FIELD = "detector_type";
     public static final String RESULT_INDEX_FIELD = "result_index";
+    public static final String AGGREGATION = "aggregation_issue";
+    public static final String TIMEOUT = "timeout";
     @Deprecated
     public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
 
@@ -419,7 +420,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         TimeValue defaultDetectionWindowDelay
     ) throws IOException {
         String name = null;
-        String description = null;
+        String description = "";
         String timeField = null;
         List<String> indices = new ArrayList<String>();
         QueryBuilder filterQuery = QueryBuilders.matchAllQuery();

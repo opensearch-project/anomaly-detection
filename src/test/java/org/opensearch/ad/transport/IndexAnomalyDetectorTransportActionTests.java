@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Locale;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -120,7 +121,10 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof GetRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -144,7 +148,10 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         );
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof SearchRequest);
             assertTrue(args[1] instanceof ActionListener);

@@ -87,8 +87,8 @@ public final class AnomalyDetectorSettings {
         );
 
     // Opensearch-only setting. Doesn't plan to use the value of the legacy setting
-    // AD_RESULT_HISTORY_MAX_DOCS as that's too low. If the master node uses opendistro code,
-    // it uses the legacy setting. If the master node uses opensearch code, it uses the new setting.
+    // AD_RESULT_HISTORY_MAX_DOCS as that's too low. If the clusterManager node uses opendistro code,
+    // it uses the legacy setting. If the clusterManager node uses opensearch code, it uses the new setting.
     public static final Setting<Long> AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD = Setting
         .longSetting(
             "plugins.anomaly_detection.ad_result_history_max_docs_per_shard",
@@ -789,4 +789,18 @@ public final class AnomalyDetectorSettings {
     // Cold start setting
     // ======================================
     public static int MAX_COLD_START_ROUNDS = 2;
+
+    // ======================================
+    // Validate Detector API setting
+    // ======================================
+    public static final long TOP_VALIDATE_TIMEOUT_IN_MILLIS = 10_000;
+    public static final long MAX_INTERVAL_REC_LENGTH_IN_MINUTES = 60L;
+    public static final double INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER = 1.2;
+    public static final double INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER = 0.8;
+    public static final double INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE = 0.75;
+    public static final double CONFIG_BUCKET_MINIMUM_SUCCESS_RATE = 0.25;
+    // This value is set to decrease the number of times we decrease the interval when recommending a new one
+    // The reason we need a max is because user could give an arbitrarly large interval where we don't know even
+    // with multiplying the interval down how many intervals will be tried.
+    public static final int MAX_TIMES_DECREASING_INTERVAL = 10;
 }

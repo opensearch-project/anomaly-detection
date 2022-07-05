@@ -26,13 +26,13 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.mockito.ArgumentCaptor;
-import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
@@ -47,12 +47,10 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
@@ -68,8 +66,6 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  *
@@ -101,26 +97,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     private RestRequest.Method method;
     private ADTaskManager adTaskManager;
     private SearchFeatureDao searchFeatureDao;
-
-    /**
-     * Mockito does not allow mock final methods.  Make my own delegates and mock them.
-     *
-     */
-    class NodeClientDelegate extends NodeClient {
-
-        NodeClientDelegate(Settings settings, ThreadPool threadPool) {
-            super(settings, threadPool);
-        }
-
-        public <Request extends ActionRequest, Response extends ActionResponse> void execute2(
-            ActionType<Response> action,
-            Request request,
-            ActionListener<Response> listener
-        ) {
-            super.execute(action, request, listener);
-        }
-
-    }
 
     @BeforeClass
     public static void beforeClass() {
@@ -204,26 +180,24 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void testNoCategoricalField() throws IOException {
+    public void testMoreThanTenThousandSingleEntityDetectors() throws IOException {
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = 1001;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+        SearchResponse detectorResponse = mock(SearchResponse.class);
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
+        SearchResponse userIndexResponse = mock(SearchResponse.class);
+        int userIndexHits = 0;
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
 
-            assertTrue(args[0] instanceof SearchRequest);
-            assertTrue(args[1] instanceof ActionListener);
-
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
-            listener.onResponse(mockResponse);
-
-            return null;
-        }).when(clientMock).search(any(SearchRequest.class), any());
+        // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
+        // we can also use spy to overstep the final methods
+        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
+        NodeClient clientSpy = spy(client);
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
-            clientMock,
+            clientSpy,
             transportService,
             channel,
             anomalyDetectionIndices,
@@ -281,14 +255,16 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                     if (action.equals(SearchAction.INSTANCE)) {
                         listener.onResponse((Response) detectorResponse);
                     } else {
+                        // passes first get field mapping call where timestamp has to be of type date
+                        // fails on second call where categorical field is checked to be type keyword or IP
                         // we need to put the test in the same package of GetFieldMappingsResponse since its constructor is package private
                         GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, TEXT_FIELD_TYPE)
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, "date")
                         );
                         listener.onResponse((Response) response);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Create field mapping threw an exception", e);
                 }
             }
         };
@@ -337,7 +313,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
         when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
-
+        AtomicBoolean isPreCategoryMappingQuery = new AtomicBoolean(true);
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
         NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
@@ -356,15 +332,20 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                         } else {
                             listener.onResponse((Response) userIndexResponse);
                         }
+                    } else if (isPreCategoryMappingQuery.get()) {
+                        isPreCategoryMappingQuery.set(false);
+                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), field, "date")
+                        );
+                        listener.onResponse((Response) response);
                     } else {
-
                         GetFieldMappingsResponse response = new GetFieldMappingsResponse(
                             TestHelpers.createFieldMappings(detector.getIndices().get(0), field, filedTypeName)
                         );
                         listener.onResponse((Response) response);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Create field mapping threw an exception", e);
                 }
             }
         };
@@ -397,7 +378,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         handler.start();
 
-        verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
+        verify(clientSpy, times(2)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
@@ -456,7 +437,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                         listener.onResponse((Response) response);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Create field mapping threw an exception", e);
                 }
             }
         };
@@ -500,7 +481,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         } else {
             assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.CATEGORICAL_FIELD_TYPE_ERR_MSG));
         }
-
     }
 
     @Ignore
@@ -518,32 +498,82 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         testUpdateTemplate(TEXT_FIELD_TYPE);
     }
 
+    public static NodeClient getCustomNodeClient(
+        SearchResponse detectorResponse,
+        SearchResponse userIndexResponse,
+        AnomalyDetector detector,
+        ThreadPool pool
+    ) {
+        return new NodeClient(Settings.EMPTY, pool) {
+            @Override
+            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                try {
+                    if (action.equals(SearchAction.INSTANCE)) {
+                        assertTrue(request instanceof SearchRequest);
+                        SearchRequest searchRequest = (SearchRequest) request;
+                        if (searchRequest.indices()[0].equals(ANOMALY_DETECTORS_INDEX)) {
+                            listener.onResponse((Response) detectorResponse);
+                        } else {
+                            listener.onResponse((Response) userIndexResponse);
+                        }
+                    } else {
+                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
+                        );
+                        listener.onResponse((Response) response);
+                    }
+                } catch (IOException e) {
+                    logger.error("Create field mapping threw an exception", e);
+                }
+            }
+        };
+    }
+
     @SuppressWarnings("unchecked")
     public void testMoreThanTenMultiEntityDetectors() throws IOException {
-        SearchResponse mockResponse = mock(SearchResponse.class);
-
+        String field = "a";
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
+        SearchResponse detectorResponse = mock(SearchResponse.class);
         int totalHits = 11;
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
-        when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
+        SearchResponse userIndexResponse = mock(SearchResponse.class);
+        int userIndexHits = 0;
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
+        // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
+        // we can also use spy to overstep the final methods
+        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
+        NodeClient clientSpy = spy(client);
 
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
-
-            assertTrue(args[0] instanceof SearchRequest);
-            assertTrue(args[1] instanceof ActionListener);
-
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
-
-            listener.onResponse(mockResponse);
-
-            return null;
-        }).when(clientMock).search(any(SearchRequest.class), any());
+        handler = new IndexAnomalyDetectorActionHandler(
+            clusterService,
+            clientSpy,
+            transportService,
+            channel,
+            anomalyDetectionIndices,
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            detector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            method,
+            xContentRegistry(),
+            null,
+            adTaskManager,
+            searchFeatureDao
+        );
 
         handler.start();
-
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
-        verify(clientMock, times(1)).search(any(SearchRequest.class), any());
+        verify(clientSpy, times(1)).search(any(SearchRequest.class), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
         assertTrue(value instanceof IllegalArgumentException);
@@ -569,7 +599,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof SearchRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -583,7 +616,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof GetRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -645,7 +681,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof SearchRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -659,7 +698,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
+            assertTrue(
+                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                args.length == 2
+            );
 
             assertTrue(args[0] instanceof GetRequest);
             assertTrue(args[1] instanceof ActionListener);
@@ -707,51 +749,5 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         // make sure execution passes all necessary checks
         assertTrue(value instanceof IllegalStateException);
         assertTrue(value.getMessage().contains("NodeClient has not been initialized"));
-    }
-
-    @SuppressWarnings("unchecked")
-    public void testCreateAnomalyDetectorWithDuplicateFeatureAggregationNames() throws IOException {
-        Feature featureOne = TestHelpers.randomFeature("featureName", "test-1");
-        Feature featureTwo = TestHelpers.randomFeature("featureNameTwo", "test-1");
-        AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableList.of(featureOne, featureTwo));
-        SearchResponse mockResponse = mock(SearchResponse.class);
-        when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(9));
-        doAnswer(invocation -> {
-            Object[] args = invocation.getArguments();
-            assertTrue(String.format("The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)), args.length == 2);
-            assertTrue(args[0] instanceof SearchRequest);
-            assertTrue(args[1] instanceof ActionListener);
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
-            listener.onResponse(mockResponse);
-            return null;
-        }).when(clientMock).search(any(SearchRequest.class), any());
-
-        handler = new IndexAnomalyDetectorActionHandler(
-            clusterService,
-            clientMock,
-            transportService,
-            channel,
-            anomalyDetectionIndices,
-            detectorId,
-            seqNo,
-            primaryTerm,
-            refreshPolicy,
-            anomalyDetector,
-            requestTimeout,
-            maxSingleEntityAnomalyDetectors,
-            maxMultiEntityAnomalyDetectors,
-            maxAnomalyFeatures,
-            method,
-            xContentRegistry(),
-            null,
-            adTaskManager,
-            searchFeatureDao
-        );
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
-        handler.start();
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof OpenSearchStatusException);
-        assertTrue(value.getMessage().contains(CommonErrorMessages.DUPLICATE_FEATURE_AGGREGATION_NAMES));
     }
 }
