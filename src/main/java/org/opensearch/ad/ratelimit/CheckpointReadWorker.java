@@ -354,8 +354,16 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             ModelState<EntityModel> modelState = modelManager
                 .processEntityCheckpoint(checkpoint, entity, modelId, detectorId, detector.getShingleSize());
 
-            ThresholdingResult result = modelManager
-                .getAnomalyResultForEntity(origRequest.getCurrentFeature(), modelState, modelId, entity, detector.getShingleSize());
+            ThresholdingResult result = null;
+            try {
+                result = modelManager
+                    .getAnomalyResultForEntity(origRequest.getCurrentFeature(), modelState, modelId, entity, detector.getShingleSize());
+            } catch (IllegalArgumentException e) {
+                // fail to score likely due to model corruption. Re-cold start to recover.
+                entityColdStartQueue.put(origRequest);
+                processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
+                return;
+            }
 
             if (result != null && result.getRcfScore() > 0) {
                 AnomalyResult resultToSave = result

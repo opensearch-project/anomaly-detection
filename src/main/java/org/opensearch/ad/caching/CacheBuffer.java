@@ -32,8 +32,12 @@ import org.opensearch.ad.MemoryTracker.Origin;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.InitProgressProfile;
+import org.opensearch.ad.ratelimit.CheckpointMaintainRequest;
+import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.util.DateUtils;
 
 /**
  * We use a layered cache to manage active entities’ states.  We have a two-level
@@ -75,7 +79,9 @@ public class CacheBuffer implements ExpiringState {
     private final PriorityTracker priorityTracker;
     private final Clock clock;
     private final CheckpointWriteWorker checkpointWriteQueue;
+    private final CheckpointMaintainWorker checkpointMaintainQueue;
     private final Random random;
+    private final int checkpointIntervalHrs;
 
     public CacheBuffer(
         int minimumCapacity,
@@ -86,7 +92,8 @@ public class CacheBuffer implements ExpiringState {
         Duration modelTtl,
         String detectorId,
         CheckpointWriteWorker checkpointWriteQueue,
-        Random random
+        Random random,
+        CheckpointMaintainWorker checkpointMaintainQueue
     ) {
         this.memoryConsumptionPerEntity = memoryConsumptionPerEntity;
         setMinimumCapacity(minimumCapacity);
@@ -102,6 +109,8 @@ public class CacheBuffer implements ExpiringState {
         this.priorityTracker = new PriorityTracker(clock, intervalSecs, clock.instant().getEpochSecond(), MAX_TRACKING_ENTITIES);
         this.checkpointWriteQueue = checkpointWriteQueue;
         this.random = random;
+        this.checkpointMaintainQueue = checkpointMaintainQueue;
+        this.checkpointIntervalHrs = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ.toHoursPart();
     }
 
     /**
@@ -182,6 +191,26 @@ public class CacheBuffer implements ExpiringState {
     }
 
     /**
+     * Retrieve the ModelState associated with the model Id or null if the CacheBuffer
+     * contains no mapping for the model Id. Compared to get method, the method won't
+     * increment entity priority. Used in cache buffer maintenance.
+     *
+     * @param key the model Id
+     * @return the Model state to which the specified model Id is mapped, or null
+     * if this CacheBuffer contains no mapping for the model Id
+     */
+    public ModelState<EntityModel> getWithoutUpdatePriority(String key) {
+        // We can get an item that is to be removed soon due to race condition.
+        // This is acceptable as it won't cause any corruption and exception.
+        // And this item is used for scoring one last time.
+        ModelState<EntityModel> node = items.get(key);
+        if (node == null) {
+            return null;
+        }
+        return node;
+    }
+
+    /**
      *
      * @return whether there is one item that can be removed from shared cache
      */
@@ -220,6 +249,18 @@ public class CacheBuffer implements ExpiringState {
      * is no associated ModelState for the key
      */
     public ModelState<EntityModel> remove(String keyToRemove) {
+        return remove(keyToRemove, true);
+    }
+
+    /**
+     * Remove everything associated with the key and make a checkpoint if input specified so.
+     *
+     * @param keyToRemove The key to remove
+     * @param saveCheckpoint Whether saving checkpoint or not
+     * @return the associated ModelState associated with the key, or null if there
+     * is no associated ModelState for the key
+     */
+    public ModelState<EntityModel> remove(String keyToRemove, boolean saveCheckpoint) {
         priorityTracker.removePriority(keyToRemove);
 
         // if shared cache is empty, we are using reserved memory
@@ -235,11 +276,13 @@ public class CacheBuffer implements ExpiringState {
 
             EntityModel modelRemoved = valueRemoved.getModel();
             if (modelRemoved != null) {
-                // null model has only samples. For null model we save a checkpoint
-                // regardless of last checkpoint time. whether If we don't save,
-                // we throw the new samples and might never be able to initialize the model
-                boolean isNullModel = !modelRemoved.getTrcf().isPresent();
-                checkpointWriteQueue.write(valueRemoved, isNullModel, RequestPriority.MEDIUM);
+                if (saveCheckpoint) {
+                    // null model has only samples. For null model we save a checkpoint
+                    // regardless of last checkpoint time. whether If we don't save,
+                    // we throw the new samples and might never be able to initialize the model
+                    boolean isNullModel = !modelRemoved.getTrcf().isPresent();
+                    checkpointWriteQueue.write(valueRemoved, isNullModel, RequestPriority.MEDIUM);
+                }
 
                 modelRemoved.clear();
             }
@@ -304,13 +347,16 @@ public class CacheBuffer implements ExpiringState {
      * @return removed states
      */
     public List<ModelState<EntityModel>> maintenance() {
-        List<ModelState<EntityModel>> modelsToSave = new ArrayList<>();
+        List<CheckpointMaintainRequest> modelsToSave = new ArrayList<>();
         List<ModelState<EntityModel>> removedStates = new ArrayList<>();
+        Instant now = clock.instant();
+        int currentHour = DateUtils.getHourOfDay(now);
+        int currentSlot = currentHour % checkpointIntervalHrs;
         items.entrySet().stream().forEach(entry -> {
             String entityModelId = entry.getKey();
             try {
                 ModelState<EntityModel> modelState = entry.getValue();
-                Instant now = clock.instant();
+
                 if (modelState.getLastUsedTime().plus(modelTtl).isBefore(now)) {
                     // race conditions can happen between the put and one of the following operations:
                     // remove: not a problem as all of the data structures are concurrent.
@@ -322,7 +368,7 @@ public class CacheBuffer implements ExpiringState {
                     // already in the cache
                     // remove method saves checkpoint as well
                     removedStates.add(remove(entityModelId));
-                } else if (random.nextInt(6) == 0) {
+                } else if (Math.abs(entityModelId.hashCode()) % checkpointIntervalHrs == currentSlot) {
                     // checkpoint is relatively big compared to other queued requests
                     // save checkpoints with 1/6 probability as we expect to save
                     // all every 6 hours statistically
@@ -350,7 +396,16 @@ public class CacheBuffer implements ExpiringState {
                     // is stale (i.e., we don't recover from the freshest model in disaster.).
                     //
                     // All in all, randomness is mostly due to performance and easy maintenance.
-                    modelsToSave.add(modelState);
+                    modelsToSave
+                        .add(
+                            new CheckpointMaintainRequest(
+                                // the request expires when the next maintainance starts
+                                System.currentTimeMillis() + modelTtl.toMillis(),
+                                detectorId,
+                                RequestPriority.LOW,
+                                entityModelId
+                            )
+                        );
                 }
 
             } catch (Exception e) {
@@ -358,7 +413,7 @@ public class CacheBuffer implements ExpiringState {
             }
         });
 
-        checkpointWriteQueue.writeAll(modelsToSave, detectorId, false, RequestPriority.MEDIUM);
+        checkpointMaintainQueue.putAll(modelsToSave);
         return removedStates;
     }
 

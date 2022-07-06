@@ -29,6 +29,7 @@ import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
@@ -45,6 +46,7 @@ public class AbstractCacheTest extends AbstractADTest {
     protected long memoryPerEntity;
     protected MemoryTracker memoryTracker;
     protected CheckpointWriteWorker checkpointWriteQueue;
+    protected CheckpointMaintainWorker checkpointMaintainQueue;
     protected Random random;
     protected int shingleSize;
 
@@ -84,6 +86,7 @@ public class AbstractCacheTest extends AbstractADTest {
         memoryTracker = mock(MemoryTracker.class);
 
         checkpointWriteQueue = mock(CheckpointWriteWorker.class);
+        checkpointMaintainQueue = mock(CheckpointMaintainWorker.class);
 
         cacheBuffer = new CacheBuffer(
             1,
@@ -94,7 +97,8 @@ public class AbstractCacheTest extends AbstractADTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             detectorId,
             checkpointWriteQueue,
-            new Random(42)
+            new Random(42),
+            checkpointMaintainQueue
         );
 
         initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);

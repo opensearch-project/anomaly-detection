@@ -38,6 +38,7 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.MemoryTracker.Origin;
@@ -51,6 +52,7 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
@@ -86,6 +88,7 @@ public class PriorityCache implements EntityCache {
     // it again and again for no obvious benefits.
     private Instant lastInActiveEntityMaintenance;
     protected int maintenanceFreqConstant;
+    private CheckpointMaintainWorker checkpointMaintainQueue;
 
     public PriorityCache(
         CheckpointDao checkpointDao,
@@ -99,7 +102,8 @@ public class PriorityCache implements EntityCache {
         Duration modelTtl,
         ThreadPool threadPool,
         CheckpointWriteWorker checkpointWriteQueue,
-        int maintenanceFreqConstant
+        int maintenanceFreqConstant,
+        CheckpointMaintainWorker checkpointMaintainQueue
     ) {
         this.checkpointDao = checkpointDao;
 
@@ -131,6 +135,7 @@ public class PriorityCache implements EntityCache {
         this.checkpointWriteQueue = checkpointWriteQueue;
         this.lastInActiveEntityMaintenance = Instant.MIN;
         this.maintenanceFreqConstant = maintenanceFreqConstant;
+        this.checkpointMaintainQueue = checkpointMaintainQueue;
     }
 
     @Override
@@ -450,7 +455,8 @@ public class PriorityCache implements EntityCache {
                     modelTtl,
                     detectorId,
                     checkpointWriteQueue,
-                    random
+                    random,
+                    checkpointMaintainQueue
                 );
                 activeEnities.put(detectorId, buffer);
                 // There can be race conditions between tryClearUpMemory and
@@ -890,5 +896,45 @@ public class PriorityCache implements EntityCache {
                 throw new IllegalArgumentException("We don't have enough memory for the required change");
             }
         }
+    }
+
+    /**
+     * Get a model state without incurring priority update. Used in maintenance.
+     * @param detectorId Detector Id
+     * @param modelId Model Id
+     * @return Model state
+     */
+    @Override
+    public Optional<ModelState<EntityModel>> getForMaintainance(String detectorId, String modelId) {
+        CacheBuffer buffer = activeEnities.get(detectorId);
+        if (buffer == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(buffer.getWithoutUpdatePriority(modelId));
+    }
+
+    /**
+     * Remove entity model from active entity buffer and delete checkpoint. Used to clean corrupted model.
+     * @param detectorId Detector Id
+     * @param entityModelId Model Id
+     */
+    @Override
+    public void removeEntityModel(String detectorId, String entityModelId) {
+        CacheBuffer buffer = activeEnities.get(detectorId);
+        if (buffer != null) {
+            ModelState<EntityModel> removed = null;
+            if ((removed = buffer.remove(entityModelId, false)) != null) {
+                addIntoInactiveCache(removed);
+            }
+        }
+        checkpointDao
+            .deleteModelCheckpoint(
+                entityModelId,
+                ActionListener
+                    .wrap(
+                        r -> LOG.debug(new ParameterizedMessage("Succeeded in deleting checkpoint [{}].", entityModelId)),
+                        e -> LOG.error(new ParameterizedMessage("Failed to delete checkpoint [{}].", entityModelId), e)
+                    )
+            );
     }
 }

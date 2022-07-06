@@ -1073,4 +1073,20 @@ public class ModelManagerTests {
             result
         );
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void score_throw() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor(point, 0);
+        anomalyDescriptor.setRCFScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        // input dimension is 5
+        anomalyDescriptor.setRelevantAttribution(new double[] { 0, 0, 0, 0, 0 });
+        RandomCutForest rcf = mock(RandomCutForest.class);
+        when(rcf.getShingleSize()).thenReturn(8);
+        when(rcf.getDimensions()).thenReturn(40);
+        when(this.trcf.getForest()).thenReturn(rcf);
+        doThrow(new IllegalArgumentException()).when(trcf).process(any(), anyLong());
+        when(this.entityModel.getSamples()).thenReturn(new ArrayDeque<>(Arrays.asList(this.point)));
+        modelManager.score(this.point, this.detectorId, this.modelState);
+    }
 }

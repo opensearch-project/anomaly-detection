@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -304,6 +303,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         @Override
         public void onResponse(CompositeRetriever.Page entityFeatures) {
+            if (pageIterator.hasNext()) {
+                pageIterator.next(this);
+            }
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 // wrap expensive operation inside ad threadpool
                 threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
@@ -345,8 +347,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         }
 
                         final AtomicReference<Exception> failure = new AtomicReference<>();
-                        int nodeCount = node2Entities.size();
-                        AtomicInteger responseCount = new AtomicInteger();
                         node2Entities.stream().forEach(nodeEntity -> {
                             DiscoveryNode node = nodeEntity.getKey();
                             transportService
@@ -356,15 +356,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
                                     option,
                                     new ActionListenerResponseHandler<>(
-                                        new EntityResultListener(
-                                            node.getId(),
-                                            detectorId,
-                                            failure,
-                                            nodeCount,
-                                            pageIterator,
-                                            this,
-                                            responseCount
-                                        ),
+                                        new EntityResultListener(node.getId(), detectorId, failure),
                                         AcknowledgedResponse::new,
                                         ThreadPool.Names.SAME
                                     )
@@ -452,7 +444,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         // HC logic starts here
         if (anomalyDetector.isMultientityDetector()) {
             Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
-
             if (previousException.isPresent()) {
                 Exception exception = previousException.get();
                 LOG.error(new ParameterizedMessage("Previous exception of [{}]", adID), exception);
@@ -1099,27 +1090,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         private String nodeId;
         private final String adID;
         private AtomicReference<Exception> failure;
-        private int nodeCount;
-        private AtomicInteger responseCount;
-        private PageIterator pageIterator;
-        private PageListener pageListener;
 
-        EntityResultListener(
-            String nodeId,
-            String adID,
-            AtomicReference<Exception> failure,
-            int nodeCount,
-            PageIterator pageIterator,
-            PageListener pageListener,
-            AtomicInteger responseCount
-        ) {
+        EntityResultListener(String nodeId, String adID, AtomicReference<Exception> failure) {
             this.nodeId = nodeId;
             this.adID = adID;
             this.failure = failure;
-            this.nodeCount = nodeCount;
-            this.pageIterator = pageIterator;
-            this.responseCount = responseCount;
-            this.pageListener = pageListener;
         }
 
         @Override
@@ -1134,10 +1109,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
                 handleException(ex);
-            } finally {
-                if (nodeCount == responseCount.incrementAndGet() && pageIterator != null && pageIterator.hasNext()) {
-                    pageIterator.next(pageListener);
-                }
             }
         }
 
@@ -1152,16 +1123,11 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } catch (Exception ex) {
                 LOG.error("Unexpected exception: {} for {}", ex, adID);
                 handleException(ex);
-            } finally {
-                if (nodeCount == responseCount.incrementAndGet() && pageIterator != null && pageIterator.hasNext()) {
-                    pageIterator.next(pageListener);
-                }
             }
         }
 
         private void handleException(Exception e) {
             handlePredictionFailure(e, adID, nodeId, failure);
-
             if (failure.get() != null) {
                 stateManager.setException(adID, failure.get());
             }

@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.DetectorModelSize;
 import org.opensearch.ad.MemoryTracker;
@@ -721,7 +722,17 @@ public class ModelManager implements DetectorModelSize {
                 result = toResult(trcf.getForest(), trcf.process(feature, 0));
             }
         } catch (Exception e) {
-            logger.error("Fail to score", e);
+            logger
+                .error(
+                    new ParameterizedMessage(
+                        "Fail to score for [{}]: model Id [{}], feature [{}]",
+                        modelState.getModel().getEntity(),
+                        modelId,
+                        Arrays.toString(feature)
+                    ),
+                    e
+                );
+            throw e;
         } finally {
             modelState.setLastUsedTime(clock.instant());
         }

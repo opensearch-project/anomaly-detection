@@ -46,6 +46,7 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.EntityColdStartWorker;
 import org.opensearch.ad.ratelimit.EntityFeatureRequest;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
@@ -88,6 +89,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private CheckpointReadWorker checkpointReadQueue;
     private ColdEntityWorker coldEntityQueue;
     private ThreadPool threadPool;
+    private EntityColdStartWorker entityColdStartWorker;
 
     @Inject
     public EntityResultTransportAction(
@@ -101,7 +103,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         ResultWriteWorker resultWriteQueue,
         CheckpointReadWorker checkpointReadQueue,
         ColdEntityWorker coldEntityQueue,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        EntityColdStartWorker entityColdStartWorker
     ) {
         super(EntityResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.modelManager = manager;
@@ -113,6 +116,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         this.checkpointReadQueue = checkpointReadQueue;
         this.coldEntityQueue = coldEntityQueue;
         this.threadPool = threadPool;
+        this.entityColdStartWorker = entityColdStartWorker;
     }
 
     @Override
@@ -158,14 +162,14 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     ) {
         return ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {
-                listener.onFailure(new EndRunException(detectorId, "AnomalyDetector is not available.", true));
+                listener.onFailure(new EndRunException(detectorId, "AnomalyDetector is not available.", false));
                 return;
             }
 
             AnomalyDetector detector = detectorOptional.get();
 
             if (request.getEntities() == null) {
-                listener.onResponse(null);
+                listener.onFailure(new EndRunException(detectorId, "Fail to get any entities from request.", false));
                 return;
             }
 
@@ -174,7 +178,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
             for (Entry<Entity, double[]> entityEntry : request.getEntities().entrySet()) {
                 Entity categoricalValues = entityEntry.getKey();
 
-                if (isEntityeFromOldNodeMsg(categoricalValues)
+                if (isEntityFromOldNodeMsg(categoricalValues)
                     && detector.getCategoryField() != null
                     && detector.getCategoryField().size() == 1) {
                     Map<String, String> attrValues = categoricalValues.getAttributes();
@@ -196,35 +200,51 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     cacheMissEntities.put(categoricalValues, datapoint);
                     continue;
                 }
-                ThresholdingResult result = modelManager
-                    .getAnomalyResultForEntity(datapoint, entityModel, modelId, categoricalValues, detector.getShingleSize());
-                // result.getRcfScore() = 0 means the model is not initialized
-                // result.getGrade() = 0 means it is not an anomaly
-                // So many OpenSearchRejectedExecutionException if we write no matter what
-                if (result.getRcfScore() > 0) {
-                    AnomalyResult resultToSave = result
-                        .toAnomalyResult(
-                            detector,
-                            Instant.ofEpochMilli(request.getStart()),
-                            Instant.ofEpochMilli(request.getEnd()),
-                            executionStartTime,
-                            Instant.now(),
-                            ParseUtils.getFeatureData(datapoint, detector),
-                            categoricalValues,
-                            indexUtil.getSchemaVersion(ADIndex.RESULT),
-                            modelId,
-                            null,
-                            null
-                        );
+                try {
+                    ThresholdingResult result = modelManager
+                        .getAnomalyResultForEntity(datapoint, entityModel, modelId, categoricalValues, detector.getShingleSize());
+                    // result.getRcfScore() = 0 means the model is not initialized
+                    // result.getGrade() = 0 means it is not an anomaly
+                    // So many OpenSearchRejectedExecutionException if we write no matter what
+                    if (result.getRcfScore() > 0) {
+                        AnomalyResult resultToSave = result
+                            .toAnomalyResult(
+                                detector,
+                                Instant.ofEpochMilli(request.getStart()),
+                                Instant.ofEpochMilli(request.getEnd()),
+                                executionStartTime,
+                                Instant.now(),
+                                ParseUtils.getFeatureData(datapoint, detector),
+                                categoricalValues,
+                                indexUtil.getSchemaVersion(ADIndex.RESULT),
+                                modelId,
+                                null,
+                                null
+                            );
 
-                    resultWriteQueue
+                        resultWriteQueue
+                            .put(
+                                new ResultWriteRequest(
+                                    System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                                    detectorId,
+                                    result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
+                                    resultToSave,
+                                    detector.getResultIndex()
+                                )
+                            );
+                    }
+                } catch (IllegalArgumentException e) {
+                    // fail to score likely due to model corruption. Re-cold start to recover.
+                    cache.get().removeEntityModel(detectorId, modelId);
+                    entityColdStartWorker
                         .put(
-                            new ResultWriteRequest(
+                            new EntityFeatureRequest(
                                 System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
                                 detectorId,
-                                result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                                resultToSave,
-                                detector.getResultIndex()
+                                RequestPriority.MEDIUM,
+                                categoricalValues,
+                                datapoint,
+                                request.getStart()
                             )
                         );
                 }
@@ -318,7 +338,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
      * @param categoricalValues deserialized Entity from inbound message.
      * @return Whether the received entity comes from an node that doesn't support multi-category fields.
      */
-    private boolean isEntityeFromOldNodeMsg(Entity categoricalValues) {
+    private boolean isEntityFromOldNodeMsg(Entity categoricalValues) {
         Map<String, String> attrValues = categoricalValues.getAttributes();
         return (attrValues != null && attrValues.containsKey(CommonName.EMPTY_FIELD));
     }

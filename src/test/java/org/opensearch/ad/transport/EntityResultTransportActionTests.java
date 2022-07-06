@@ -18,9 +18,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -68,6 +70,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.EntityColdStartWorker;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.Strings;
@@ -117,6 +120,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     Instant now;
     EntityColdStarter coldStarter;
     ColdEntityWorker coldEntityQueue;
+    EntityColdStartWorker entityColdStartQueue;
+    AnomalyDetectionIndices indexUtil;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -189,7 +194,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
 
         settings = Settings.builder().put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
 
-        AnomalyDetectionIndices indexUtil = mock(AnomalyDetectionIndices.class);
+        indexUtil = mock(AnomalyDetectionIndices.class);
         when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
 
         resultWriteQueue = mock(ResultWriteWorker.class);
@@ -206,6 +211,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         }).when(coldStarter).trainModelFromExistingSamples(any(), anyInt());
 
         coldEntityQueue = mock(ColdEntityWorker.class);
+        entityColdStartQueue = mock(EntityColdStartWorker.class);
 
         entityResult = new EntityResultTransportAction(
             actionFilters,
@@ -218,7 +224,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             resultWriteQueue,
             checkpointReadQueue,
             coldEntityQueue,
-            threadPool
+            threadPool,
+            entityColdStartQueue
         );
 
         // timeout in 60 seconds
@@ -326,5 +333,34 @@ public class EntityResultTransportActionTests extends AbstractADTest {
                 assertEquals(0, Double.compare(tooLongData[0], value));
             }
         }
+    }
+
+    public void testFailToScore() {
+        ModelManager spyModelManager = spy(manager);
+        doThrow(new IllegalArgumentException()).when(spyModelManager).getAnomalyResultForEntity(any(), any(), anyString(), any(), anyInt());
+        entityResult = new EntityResultTransportAction(
+            actionFilters,
+            transportService,
+            spyModelManager,
+            adCircuitBreakerService,
+            provider,
+            stateManager,
+            indexUtil,
+            resultWriteQueue,
+            checkpointReadQueue,
+            coldEntityQueue,
+            threadPool,
+            entityColdStartQueue
+        );
+
+        PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
+
+        entityResult.doExecute(null, request, future);
+
+        future.actionGet(timeoutMs);
+
+        verify(resultWriteQueue, never()).put(any());
+        verify(entityCache, times(1)).removeEntityModel(anyString(), anyString());
+        verify(entityColdStartQueue, times(1)).put(any());
     }
 }

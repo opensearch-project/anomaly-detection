@@ -14,6 +14,8 @@ package org.opensearch.ad.ml;
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -293,9 +295,10 @@ public class CheckpointDao {
      * @throws IOException  when serialization fails
      */
     public Map<String, Object> toIndexSource(ModelState<EntityModel> modelState) throws IOException {
+        String modelId = modelState.getModelId();
         Map<String, Object> source = new HashMap<>();
         EntityModel model = modelState.getModel();
-        Optional<String> serializedModel = toCheckpoint(model, modelState.getModelId());
+        Optional<String> serializedModel = toCheckpoint(model, modelId);
         if (!serializedModel.isPresent() || serializedModel.get().length() > maxCheckpointBytes) {
             logger
                 .warn(
@@ -774,5 +777,19 @@ public class CheckpointDao {
             scores = kllThreshold.get().extractScores();
         }
         return Optional.of(new ThresholdedRandomCutForest(rcf.get(), anomalyRate, scores));
+    }
+
+    /**
+     * Should we save the checkpoint or not
+     * @param lastCheckpointTIme Last checkpoint time
+     * @param forceWrite Save no matter what
+     * @param checkpointInterval Checkpoint interval
+     * @param clock UTC clock
+     *
+     * @return true when forceWrite is true or we haven't saved checkpoint in the
+     *  last checkpoint interval; false otherwise
+     */
+    public boolean shouldSave(Instant lastCheckpointTIme, boolean forceWrite, Duration checkpointInterval, Clock clock) {
+        return (lastCheckpointTIme != Instant.MIN && lastCheckpointTIme.plus(checkpointInterval).isBefore(clock.instant())) || forceWrite;
     }
 }

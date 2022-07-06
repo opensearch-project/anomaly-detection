@@ -67,6 +67,7 @@ public class CompositeRetriever extends AbstractRetriever {
     private final NamedXContentRegistry xContent;
     private final Client client;
     private int totalResults;
+    // we can process at most maxEntities entities
     private int maxEntities;
     private final int pageSize;
     private long expirationEpochMs;
@@ -174,11 +175,13 @@ public class CompositeRetriever extends AbstractRetriever {
         private Map<String, Object> afterKey;
         // number of iterations so far
         private int iterations;
+        private long startMs;
 
         public PageIterator(SearchSourceBuilder source) {
             this.source = source;
             this.afterKey = null;
             this.iterations = 0;
+            this.startMs = clock.millis();
         }
 
         /**
@@ -210,13 +213,10 @@ public class CompositeRetriever extends AbstractRetriever {
                 }
 
                 Page page = analyzePage(response);
-                // we can process at most maxEntities entities
-                if (totalResults <= maxEntities && afterKey != null) {
+                if (afterKey != null) {
                     updateCompositeAfterKey(response, source);
-                    listener.onResponse(page);
-                } else {
-                    listener.onResponse(null);
                 }
+                listener.onResponse(page);
             } catch (Exception ex) {
                 listener.onFailure(ex);
             }
@@ -342,7 +342,14 @@ public class CompositeRetriever extends AbstractRetriever {
          * @return true if the iteration has more pages.
          */
         public boolean hasNext() {
-            return (iterations == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
+            long now = clock.millis();
+            if (expirationEpochMs <= now) {
+                LOG.info("Time is up, afterKey: " + afterKey + " " + expirationEpochMs + " " + now);
+            }
+            if ((iterations > 0 && afterKey == null) || totalResults > maxEntities) {
+                LOG.info("Finished in " + (now - startMs) + " msecs. ");
+            }
+            return (iterations == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > now && totalResults <= maxEntities;
         }
 
         @Override

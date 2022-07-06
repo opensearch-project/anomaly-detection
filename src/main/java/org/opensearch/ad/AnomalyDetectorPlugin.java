@@ -58,6 +58,8 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
+import org.opensearch.ad.ratelimit.CheckPointMaintainRequestAdapter;
+import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
@@ -455,6 +457,16 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         Random random = new Random(42);
 
+        CacheProvider cacheProvider = new CacheProvider();
+
+        CheckPointMaintainRequestAdapter adapter = new CheckPointMaintainRequestAdapter(
+            cacheProvider,
+            checkpoint,
+            CommonName.CHECKPOINT_INDEX_NAME,
+            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+            getClock()
+        );
+
         CheckpointWriteWorker checkpointWriteQueue = new CheckpointWriteWorker(
             heapSizeBytes,
             AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
@@ -477,6 +489,26 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
 
+        CheckpointMaintainWorker checkpointMaintainQueue = new CheckpointMaintainWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.CHECKPOINT_MAINTAIN_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
+            clusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            checkpointWriteQueue,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager,
+            adapter
+        );
+
         EntityCache cache = new PriorityCache(
             checkpoint,
             AnomalyDetectorSettings.DEDICATED_CACHE_SIZE.get(settings),
@@ -489,10 +521,11 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             threadPool,
             checkpointWriteQueue,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            checkpointMaintainQueue
         );
 
-        CacheProvider cacheProvider = new CacheProvider(cache);
+        cacheProvider.set(cache);
 
         EntityColdStarter entityColdStarter = new EntityColdStarter(
             getClock(),
@@ -544,7 +577,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
             entityColdStarter,
             featureManager,
             memoryTracker
@@ -857,8 +890,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
                 AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
                 AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
                 AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
                 AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
+                AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS,
                 // query limit
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,

@@ -757,4 +757,31 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         verify(nodeStateManager, times(1)).setException(eq(detectorId2), any(LimitExceededException.class));
         verify(nodeStateManager, never()).setException(eq(detectorId), any(LimitExceededException.class));
     }
+
+    public void testFailToScore() {
+        doAnswer(invocation -> {
+            MultiGetItemResponse[] items = new MultiGetItemResponse[1];
+            items[0] = new MultiGetItemResponse(
+                new GetResponse(
+                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
+                ),
+                null
+            );
+            ActionListener<MultiGetResponse> listener = invocation.getArgument(1);
+            listener.onResponse(new MultiGetResponse(items));
+            return null;
+        }).when(checkpoint).batchRead(any(), any());
+
+        state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        when(modelManager.processEntityCheckpoint(any(), any(), anyString(), anyString(), anyInt())).thenReturn(state);
+        doThrow(new IllegalArgumentException()).when(modelManager).getAnomalyResultForEntity(any(), any(), anyString(), any(), anyInt());
+
+        List<EntityFeatureRequest> requests = new ArrayList<>();
+        requests.add(request);
+        worker.putAll(requests);
+
+        verify(resultWriteQueue, never()).put(any());
+        verify(checkpointWriteQueue, never()).write(any(), anyBoolean(), any());
+        verify(coldstartQueue, times(1)).put(any());
+    }
 }
