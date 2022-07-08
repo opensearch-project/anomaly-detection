@@ -766,6 +766,7 @@ tasks.withType(licenseHeaders.class) {
     additionalLicense 'AL   ', 'Apache', 'Licensed under the Apache License, Version 2.0 (the "License")'
 }
 
+// versionIncrement: Task to auto increment to the next development iteration
 task versionIncrement {
     onlyIf { System.getProperty('newVersion') }
     doLast {
@@ -774,6 +775,7 @@ task versionIncrement {
         // String tokenization to support -SNAPSHOT
         ant.replaceregexp(match: opensearch_version.tokenize('-')[0], replace: newVersion.tokenize('-')[0], flags:'g', byline:true) {
             fileset(dir: projectDir) {
+                // Include the required files that needs to be updated with new Version
                 include(name: ".github/workflows/CI.yml")
                 include(name: "build.gradle")
             }
