@@ -38,10 +38,14 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        bwcOpenDistroADDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
-                'opendistro-anomaly-detection/opendistro-anomaly-detection-1.13.0.0.zip'
-        bwcOpenDistroJSDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
-                'opendistro-job-scheduler/opendistro-job-scheduler-1.13.0.0.zip'
+        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
+                'opensearch-anomaly-detection-1.1.0.0.zip'
+        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
+                'opensearch-job-scheduler-1.1.0.0.zip'
+        // gradle build won't print logs during test by default unless there is a failure.
+        // It is useful to record intermediately information like prediction precision and recall.
+        // This option turn on log printing during tests. 
+        printLogs = "true" == System.getProperty("test.logs", "false")
     }
 
     repositories {
@@ -179,6 +183,12 @@ test {
     }
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.ml.HCADModelPerfTests"
+        }
+    }
 }
 
 task integTest(type: RestIntegTestTask) {
@@ -224,6 +234,12 @@ integTest {
         }
     }
 
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamModelPerfIT"
+        }
+    }
+
     // The 'doFirst' delays till execution time.
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
@@ -244,6 +260,12 @@ integTest {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
 
+    if (printLogs) {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
 }
 
 testClusters.integTest {
@@ -331,7 +353,7 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
-String bwcVersion = "1.13.0.0"
+String bwcVersion = "1.1.0.0"
 String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
 String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
@@ -341,7 +363,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["7.10.2", opensearch_version]
+            versions = ["1.1.0", opensearch_version]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
@@ -353,7 +375,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
                                 project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$bwcVersion"))
                             }
                             project.mkdir bwcJobSchedulerPath + bwcVersion
-                            ant.get(src: bwcOpenDistroJSDownload,
+                            ant.get(src: bwcOpenSearchJSDownload,
                                     dest: bwcJobSchedulerPath + bwcVersion,
                                     httpusecaches: false)
                             return fileTree(bwcJobSchedulerPath + bwcVersion).getSingleFile()
@@ -371,7 +393,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
                                 project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$bwcVersion"))
                             }
                             project.mkdir bwcAnomalyDetectionPath + bwcVersion
-                            ant.get(src: bwcOpenDistroADDownload,
+                            ant.get(src: bwcOpenSearchADDownload,
                                     dest: bwcAnomalyDetectionPath + bwcVersion,
                                     httpusecaches: false)
                             return fileTree(bwcAnomalyDetectionPath + bwcVersion).getSingleFile()
@@ -756,4 +778,14 @@ validateNebulaPom.enabled = false
 
 tasks.withType(licenseHeaders.class) {
     additionalLicense 'AL   ', 'Apache', 'Licensed under the Apache License, Version 2.0 (the "License")'
+}
+
+// show test results so that we can record information like precion/recall results of correctness testing.
+if (printLogs) {
+    test {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
 }

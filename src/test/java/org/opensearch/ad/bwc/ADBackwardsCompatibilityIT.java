@@ -70,6 +70,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
     private List<String> runningRealtimeDetectors;
     private List<String> historicalDetectors;
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -143,8 +144,8 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                         categoryFieldSize
                     );
                     assertEquals(totalDocsPerCategory * categoryFieldSize * 2, getDocCountOfIndex(client(), dataIndexName));
-                    Assert.assertTrue(pluginNames.contains("opendistro-anomaly-detection"));
-                    Assert.assertTrue(pluginNames.contains("opendistro-job-scheduler"));
+                    Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
+                    Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
                     // Create single entity detector and start realtime job
                     createRealtimeAnomalyDetectorsAndStart(SINGLE_ENTITY_DETECTOR);
@@ -403,8 +404,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void createHistoricalAnomalyDetectorsAndStart() throws Exception {
+    private List<String> createHistoricalAnomalyDetectorsAndStart() throws Exception {
         // only support single entity for historical detector
         Response historicalSingleFlowDetectorResponse = createAnomalyDetector(
             client(),
@@ -418,16 +418,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
             null,
             true
         );
-        List<String> historicalDetectorStartResult = startAnomalyDetector(historicalSingleFlowDetectorResponse, true);
-        String detectorId = historicalDetectorStartResult.get(0);
-        String taskId = historicalDetectorStartResult.get(1);
-        deleteRunningDetector(detectorId);
-        waitUntilTaskDone(client(), detectorId);
-        List<ADTask> adTasks = searchLatestAdTaskOfDetector(client(), detectorId, ADTaskType.HISTORICAL.name());
-        assertEquals(1, adTasks.size());
-        assertEquals(taskId, adTasks.get(0).getTaskId());
-        int adResultCount = countADResultOfDetector(client(), detectorId, taskId);
-        assertTrue(adResultCount > 0);
+        return startAnomalyDetector(historicalSingleFlowDetectorResponse, true);
     }
 
     private void deleteRunningDetector(String detectorId) {
