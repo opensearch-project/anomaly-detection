@@ -1,0 +1,86 @@
+name: Run AD benchmark
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+
+  Build-ad:
+    strategy:
+      matrix:
+        java: [14]
+
+    name: Run Anomaly detection model performance benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+
+      # anomaly-detection
+      - name: Checkout AD
+        uses: actions/checkout@v2
+
+      # dependencies: OpenSearch
+      - name: Checkout OpenSearch
+        uses: actions/checkout@v2
+        with:
+          repository: 'opensearch-project/OpenSearch'
+          path: OpenSearch
+          ref: '1.1.0'
+      - name: Build OpenSearch
+        working-directory: ./OpenSearch
+        run: ./gradlew publishToMavenLocal
+
+      # dependencies: common-utils
+      - name: Checkout common-utils
+        uses: actions/checkout@v2
+        with:
+          ref: '1.1'
+          repository: 'opensearch-project/common-utils'
+          path: common-utils
+      - name: Build common-utils
+        working-directory: ./common-utils
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.1.0-SNAPSHOT
+
+      # dependencies: job-scheduler
+      - name: Checkout job-scheduler
+        uses: actions/checkout@v2
+        with:
+          ref: '1.1'
+          repository: 'opensearch-project/job-scheduler'
+          path: job-scheduler
+
+      - name: Build job-scheduler
+        working-directory: ./job-scheduler
+        run: ./gradlew publishToMavenLocal -Dopensearch.version=1.1.0-SNAPSHOT
+      - name: Assemble job-scheduler
+        working-directory: ./job-scheduler
+        run: |
+          ./gradlew assemble -Dopensearch.version=1.1.0-SNAPSHOT
+          echo "Creating ../src/test/resources/job-scheduler ..."
+          mkdir -p ../src/test/resources/job-scheduler
+          pwd
+          echo "Copying ./build/distributions/*.zip to ../src/test/resources/job-scheduler ..."
+          ls ./build/distributions/
+          cp ./build/distributions/*.zip ../src/test/resources/job-scheduler
+          echo "Copied ./build/distributions/*.zip to ../src/test/resources/job-scheduler ..."
+          ls ../src/test/resources/job-scheduler
+          echo "Creating ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
+          mkdir -p ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
+          echo "Copying ./build/distributions/*.zip to ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
+          ls ./build/distributions/
+          cp ./build/distributions/*.zip ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
+          echo "Copied ./build/distributions/*.zip to ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT ..."
+          ls ../src/test/resources/org/opensearch/ad/bwc/job-scheduler/1.1.0.0-SNAPSHOT
+
+      - name: Build and Run Tests
+        run: |
+          ./gradlew ':test' --tests "org.opensearch.ad.ml.HCADModelPerfTests" -Dtests.seed=2AEBDBBAE75AC5E0 -Dtests.security.manager=false -Dtests.locale=es-CU -Dtests.timezone=Chile/EasterIsland -Dtest.logs=true -Dmodel-benchmark=true
+          ./gradlew integTest --tests "org.opensearch.ad.e2e.SingleStreamModelPerfIT" -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true -Dmodel-benchmark=true
