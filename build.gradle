@@ -208,6 +208,12 @@ test {
     }
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
+    
+    if (System.getProperty("hcad-benchmark") == null) {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.ml.HCADModelPerfTests"
+        }
+    }
 }
 
 task integTest(type: RestIntegTestTask) {
