@@ -33,13 +33,17 @@ buildscript {
         opensearch_version = System.getProperty("opensearch.version", "1.0.0")
         common_utils_version = '1.0.0.0'
         job_scheduler_version = '1.0.0.0'
+        // gradle build won't print logs during test by default unless there is a failure.
+        // It is useful to record intermediately information like prediction precision and recall.
+        // This option turn on log printing during tests. 
+        printLogs = "true" == System.getProperty("test.logs", "false")
     }
 
     repositories {
         mavenLocal()
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
-        jcenter()
+        maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     }
 
     dependencies {
@@ -56,9 +60,9 @@ plugins {
 
 repositories {
     mavenLocal()
+    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
-    jcenter()
 }
 
 ext {
@@ -206,6 +210,12 @@ integTest {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
 
+    if (printLogs) {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
 }
 
 testClusters.integTest {
@@ -484,4 +494,14 @@ validateNebulaPom.enabled = false
 
 tasks.withType(licenseHeaders.class) {
     additionalLicense 'AL   ', 'Apache', 'Licensed under the Apache License, Version 2.0 (the "License")'
+}
+
+// show test results so that we can record information like precion/recall results of correctness testing.
+if (printLogs) {
+    test {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
 }

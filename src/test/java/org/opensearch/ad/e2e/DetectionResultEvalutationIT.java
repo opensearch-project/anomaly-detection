@@ -44,6 +44,8 @@ import java.util.Set;
 
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.opensearch.ad.ODFERestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.client.Request;
@@ -57,6 +59,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class DetectionResultEvalutationIT extends ODFERestTestCase {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
 
     public void testDataset() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
@@ -112,6 +115,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         assertTrue(recall >= minRecall);
 
         assertTrue(errors <= maxError);
+        LOG.info("Precision: {}, Window recall: {}", precision, recall);
     }
 
     private int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
