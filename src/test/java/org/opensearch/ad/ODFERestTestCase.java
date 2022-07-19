@@ -11,6 +11,8 @@
 
 package org.opensearch.ad;
 
+import static org.opensearch.client.RestClientBuilder.DEFAULT_MAX_CONN_PER_ROUTE;
+import static org.opensearch.client.RestClientBuilder.DEFAULT_MAX_CONN_TOTAL;
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_ENABLED;
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH;
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD;
@@ -186,21 +188,18 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                 .ofNullable(System.getProperty("password"))
                 .orElseThrow(() -> new RuntimeException("password is missing"));
             BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-            credentialsProvider
-                .setCredentials(
-                    new AuthScope(new HttpHost("localhost", 9200)),
-                    new UsernamePasswordCredentials(userName, password.toCharArray())
-                );
+            final AuthScope anyScope = new AuthScope(null, -1);
+            credentialsProvider.setCredentials(anyScope, new UsernamePasswordCredentials(userName, password.toCharArray()));
             try {
                 final TlsStrategy tlsStrategy = ClientTlsStrategyBuilder
                     .create()
-                    .setSslContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build())
-                    // disable the certificate since our testing cluster just uses the default security configuration
                     .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .setSslContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build())
                     .build();
-
                 final PoolingAsyncClientConnectionManager connectionManager = PoolingAsyncClientConnectionManagerBuilder
                     .create()
+                    .setMaxConnPerRoute(DEFAULT_MAX_CONN_PER_ROUTE)
+                    .setMaxConnTotal(DEFAULT_MAX_CONN_TOTAL)
                     .setTlsStrategy(tlsStrategy)
                     .build();
                 return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider).setConnectionManager(connectionManager);
@@ -212,8 +211,12 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         final String socketTimeoutString = settings.get(CLIENT_SOCKET_TIMEOUT);
         final TimeValue socketTimeout = TimeValue
             .parseTimeValue(socketTimeoutString == null ? "60s" : socketTimeoutString, CLIENT_SOCKET_TIMEOUT);
-        builder
-            .setRequestConfigCallback(conf -> conf.setResponseTimeout(Timeout.ofMilliseconds(Math.toIntExact(socketTimeout.getMillis()))));
+        builder.setRequestConfigCallback(conf -> {
+            Timeout timeout = Timeout.ofMilliseconds(Math.toIntExact(socketTimeout.getMillis()));
+            conf.setConnectTimeout(timeout);
+            conf.setResponseTimeout(timeout);
+            return conf;
+        });
         if (settings.hasValue(CLIENT_PATH_PREFIX)) {
             builder.setPathPrefix(settings.get(CLIENT_PATH_PREFIX));
         }
