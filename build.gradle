@@ -21,6 +21,10 @@ buildscript {
         opensearch_build = opensearch_version.replaceAll(/(\.\d)([^\d]*)$/, '$1.0$2')
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
+        // gradle build won't print logs during test by default unless there is a failure.
+        // It is useful to record intermediately information like prediction precision and recall.
+        // This option turn on log printing during tests. 
+        printLogs = "true" == System.getProperty("test.logs", "false")
     }
 
     repositories {
@@ -154,6 +158,12 @@ opensearch_tmp_dir.mkdirs()
 test {
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.ml.HCADModelPerfTests"
+        }
+    }
 }
 
 task integTest(type: RestIntegTestTask) {
@@ -192,6 +202,12 @@ integTest {
         }
     }
 
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamModelPerfIT"
+        }
+    }
+
     // The 'doFirst' delays till execution time.
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
@@ -212,6 +228,12 @@ integTest {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
 
+    if (printLogs) {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
 }
 
 testClusters.integTest {
@@ -702,4 +724,14 @@ validateNebulaPom.enabled = false
 
 tasks.withType(licenseHeaders.class) {
     additionalLicense 'AL   ', 'Apache', 'Licensed under the Apache License, Version 2.0 (the "License")'
+}
+
+// show test results so that we can record information like precion/recall results of correctness testing.
+if (printLogs) {
+    test {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
 }
