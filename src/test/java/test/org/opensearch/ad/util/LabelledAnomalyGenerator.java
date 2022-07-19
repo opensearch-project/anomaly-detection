@@ -29,6 +29,7 @@ public class LabelledAnomalyGenerator {
      * @param useSlope whether to use slope in cosine data
      * @param historicalData the number of historical points relative to now
      * @param delta point interval
+     * @param anomalyIndependent whether anomalies in each dimension is generated independently
      * @return the labelled data
      */
     public static MultiDimDataWithTime getMultiDimData(
@@ -40,7 +41,8 @@ public class LabelledAnomalyGenerator {
         int baseDimension,
         boolean useSlope,
         int historicalData,
-        int delta
+        int delta,
+        boolean anomalyIndependent
     ) {
         double[][] data = new double[num][];
         long[] timestamps = new long[num];
@@ -66,14 +68,34 @@ public class LabelledAnomalyGenerator {
             startEpochMs += delta;
             data[i] = new double[baseDimension];
             double[] newChange = new double[baseDimension];
-            for (int j = 0; j < baseDimension; j++) {
-                data[i][j] = amp[j] * Math.cos(2 * PI * (i + phase[j]) / period) + slope[j] * i + noise * noiseprg.nextDouble();
-                if (noiseprg.nextDouble() < 0.01 && noiseprg.nextDouble() < 0.3) {
-                    double factor = 5 * (1 + noiseprg.nextDouble());
-                    double change = noiseprg.nextDouble() < 0.5 ? factor * noise : -factor * noise;
-                    data[i][j] += newChange[j] = change;
-                    changedTimestamps[i] = timestamps[i];
-                    changes[i] = newChange;
+            // decide whether we should inject anomalies at this point
+            // If we do this for each dimension, each dimension's anomalies
+            // are independent and will make it harder for RCF to detect anomalies.
+            // Doing it in point level will make each dimension's anomalies
+            // correlated.
+            if (anomalyIndependent) {
+                for (int j = 0; j < baseDimension; j++) {
+                    data[i][j] = amp[j] * Math.cos(2 * PI * (i + phase[j]) / period) + slope[j] * i + noise * noiseprg.nextDouble();
+                    if (noiseprg.nextDouble() < 0.01 && noiseprg.nextDouble() < 0.3) {
+                        double factor = 5 * (1 + noiseprg.nextDouble());
+                        double change = noiseprg.nextDouble() < 0.5 ? factor * noise : -factor * noise;
+                        data[i][j] += newChange[j] = change;
+                        changedTimestamps[i] = timestamps[i];
+                        changes[i] = newChange;
+                    }
+                }
+            } else {
+                boolean flag = (noiseprg.nextDouble() < 0.01);
+                for (int j = 0; j < baseDimension; j++) {
+                    data[i][j] = amp[j] * Math.cos(2 * PI * (i + phase[j]) / period) + slope[j] * i + noise * noiseprg.nextDouble();
+                    // adding the condition < 0.3 so there is still some variance if all features have an anomaly or not
+                    if (flag && noiseprg.nextDouble() < 0.3) {
+                        double factor = 5 * (1 + noiseprg.nextDouble());
+                        double change = noiseprg.nextDouble() < 0.5 ? factor * noise : -factor * noise;
+                        data[i][j] += newChange[j] = change;
+                        changedTimestamps[i] = timestamps[i];
+                        changes[i] = newChange;
+                    }
                 }
             }
         }

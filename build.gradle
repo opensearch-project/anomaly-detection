@@ -36,6 +36,10 @@ buildscript {
                 'opensearch-anomaly-detection-1.1.0.0.zip'
         bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
                 'opensearch-job-scheduler-1.1.0.0.zip'
+        // gradle build won't print logs during test by default unless there is a failure.
+        // It is useful to record intermediately information like prediction precision and recall.
+        // This option turn on log printing during tests. 
+        printLogs = "true" == System.getProperty("test.logs", "false")
     }
 
     repositories {
@@ -175,6 +179,12 @@ test {
     }
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.ml.HCADModelPerfTests"
+        }
+    }
 }
 
 task integTest(type: RestIntegTestTask) {
@@ -220,6 +230,12 @@ integTest {
         }
     }
 
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamModelPerfIT"
+        }
+    }
+
     // The 'doFirst' delays till execution time.
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
@@ -240,6 +256,12 @@ integTest {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
 
+    if (printLogs) {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
 }
 
 testClusters.integTest {
@@ -670,6 +692,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
     testCompileOnly 'junit:junit:4.13.2'
+    implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
 }
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
@@ -773,5 +796,15 @@ task updateVersion {
             }
         }
         ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
+    }
+}
+
+// show test results so that we can record information like precion/recall results of correctness testing.
+if (printLogs) {
+    test {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
     }
 }
