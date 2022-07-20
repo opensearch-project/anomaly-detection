@@ -45,6 +45,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonName;
@@ -62,7 +63,6 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
@@ -433,7 +433,7 @@ public final class ParseUtils {
         return featureData;
     }
 
-    public static SearchSourceBuilder addUserBackendRolesFilter(User user, SearchSourceBuilder searchSourceBuilder) {
+    public static SearchSourceBuilder addUserBackendRolesFilter(UserIdentity user, SearchSourceBuilder searchSourceBuilder) {
         if (user == null) {
             return searchSourceBuilder;
         }
@@ -456,14 +456,14 @@ public final class ParseUtils {
         return searchSourceBuilder;
     }
 
-    public static User getUserContext(Client client) {
+    public static UserIdentity getUserContext(Client client) {
         String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
         logger.debug("Filtering result by " + userStr);
-        return User.parse(userStr);
+        return UserIdentity.parse(userStr);
     }
 
     public static void resolveUserAndExecute(
-        User requestedUser,
+        UserIdentity requestedUser,
         String detectorId,
         boolean filterByEnabled,
         ActionListener listener,
@@ -498,7 +498,7 @@ public final class ParseUtils {
      * @param filterByBackendRole filter by backend role or not
      */
     public static void getDetector(
-        User requestUser,
+        UserIdentity requestUser,
         String detectorId,
         ActionListener listener,
         Consumer<AnomalyDetector> function,
@@ -536,7 +536,7 @@ public final class ParseUtils {
 
     public static void onGetAdResponse(
         GetResponse response,
-        User requestUser,
+        UserIdentity requestUser,
         String detectorId,
         ActionListener<GetAnomalyDetectorResponse> listener,
         Consumer<AnomalyDetector> function,
@@ -549,7 +549,7 @@ public final class ParseUtils {
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser);
-                User resourceUser = detector.getUser();
+                UserIdentity resourceUser = detector.getUser();
 
                 if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, detectorId)) {
                     function.accept(detector);
@@ -565,7 +565,7 @@ public final class ParseUtils {
         }
     }
 
-    private static boolean checkUserPermissions(User requestedUser, User resourceUser, String detectorId) throws Exception {
+    private static boolean checkUserPermissions(UserIdentity requestedUser, UserIdentity resourceUser, String detectorId) throws Exception {
         if (resourceUser.getBackendRoles() == null || requestedUser.getBackendRoles() == null) {
             return false;
         }
@@ -587,7 +587,7 @@ public final class ParseUtils {
         return false;
     }
 
-    public static boolean checkFilterByBackendRoles(User requestedUser, ActionListener listener) {
+    public static boolean checkFilterByBackendRoles(UserIdentity requestedUser, ActionListener listener) {
         if (requestedUser == null) {
             return false;
         }

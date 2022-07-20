@@ -22,12 +22,12 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.commons.authuser.User;
 
 /**
  * Handle general search request, check user role and return search response.
@@ -51,7 +51,7 @@ public class ADSearchHandler {
      * @param actionListener action listerner
      */
     public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
-        User user = getUserContext(client);
+        UserIdentity user = getUserContext(client);
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, user, listener);
@@ -61,7 +61,7 @@ public class ADSearchHandler {
         }
     }
 
-    private void validateRole(SearchRequest request, User user, ActionListener<SearchResponse> listener) {
+    private void validateRole(SearchRequest request, UserIdentity user, ActionListener<SearchResponse> listener) {
         if (user == null || !filterEnabled) {
             // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
             // Case 2: If Security is enabled and filter is disabled, proceed with search as

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.opensearch.action.ActionResponse;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.common.io.stream.InputStreamStreamInput;
@@ -28,7 +29,6 @@ import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
-import org.opensearch.commons.authuser.User;
 
 public class AnomalyResultResponse extends ActionResponse implements ToXContentObject {
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
@@ -341,7 +341,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         Instant executionStartInstant,
         Instant executionEndInstant,
         Integer schemaVersion,
-        User user,
+        UserIdentity user,
         String error
     ) {
         // Detector interval in milliseconds

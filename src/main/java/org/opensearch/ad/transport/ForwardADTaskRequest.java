@@ -20,6 +20,7 @@ import java.util.Objects;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.cluster.ADVersionUtil;
 import org.opensearch.ad.common.exception.ADVersionException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -30,7 +31,6 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.transport.TransportService;
 
 public class ForwardADTaskRequest extends ActionRequest {
@@ -38,7 +38,7 @@ public class ForwardADTaskRequest extends ActionRequest {
     private ADTask adTask;
     private DetectionDateRange detectionDateRange;
     private List<String> staleRunningEntities;
-    private User user;
+    private UserIdentity user;
     private Integer availableTaskSlots;
     private ADTaskAction adTaskAction;
 
@@ -59,7 +59,7 @@ public class ForwardADTaskRequest extends ActionRequest {
     public ForwardADTaskRequest(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         ADTaskAction adTaskAction,
         Integer availableTaskSlots,
         Version remoteAdVersion
@@ -77,7 +77,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         this.adTaskAction = adTaskAction;
     }
 
-    public ForwardADTaskRequest(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ADTaskAction adTaskAction) {
+    public ForwardADTaskRequest(AnomalyDetector detector, DetectionDateRange detectionDateRange, UserIdentity user, ADTaskAction adTaskAction) {
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
         this.user = user;
@@ -106,7 +106,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         super(in);
         this.detector = new AnomalyDetector(in);
         if (in.readBoolean()) {
-            this.user = new User(in);
+            this.user = new UserIdentity(in);
         }
         this.adTaskAction = in.readEnum(ADTaskAction.class);
         if (in.available() == 0) {
@@ -183,7 +183,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         return detectionDateRange;
     }
 
-    public User getUser() {
+    public UserIdentity getUser() {
         return user;
     }
 

@@ -82,6 +82,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -116,7 +117,6 @@ import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.ToXContent;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
@@ -1002,7 +1002,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testStartHistoricalAnalysisWithNoOwningNode() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of());
         DetectionDateRange detectionDateRange = TestHelpers.randomDetectionDateRange();
-        User user = null;
+        UserIdentity user = null;
         int availableTaskSlots = randomIntBetween(1, 10);
         ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
         doAnswer(invocation -> {
@@ -1455,7 +1455,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testStartDetectorWithException() throws IOException {
         AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
         DetectionDateRange detectionDateRange = randomDetectionDateRange();
-        User user = null;
+        UserIdentity user = null;
         ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
         when(detectionIndices.doesDetectorStateIndexExist()).thenReturn(false);
         doThrow(new RuntimeException("test")).when(detectionIndices).initDetectionStateIndex(any());

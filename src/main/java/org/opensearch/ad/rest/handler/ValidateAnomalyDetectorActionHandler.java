@@ -14,6 +14,7 @@ package org.opensearch.ad.rest.handler;
 import java.time.Clock;
 
 import org.opensearch.action.ActionListener;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -22,7 +23,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.rest.RestRequest;
 
 /**
@@ -62,7 +62,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         Integer maxAnomalyFeatures,
         RestRequest.Method method,
         NamedXContentRegistry xContentRegistry,
-        User user,
+        UserIdentity user,
         SearchFeatureDao searchFeatureDao,
         String validationType,
         Clock clock

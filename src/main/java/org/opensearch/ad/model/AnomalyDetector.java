@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
@@ -51,7 +52,6 @@ import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParseException;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 
@@ -114,7 +114,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private final Integer schemaVersion;
     private final Instant lastUpdateTime;
     private final List<String> categoryFields;
-    private User user;
+    private UserIdentity user;
     private String detectorType;
     private String resultIndex;
 
@@ -162,7 +162,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Integer schemaVersion,
         Instant lastUpdateTime,
         List<String> categoryFields,
-        User user,
+        UserIdentity user,
         String resultIndex
     ) {
         if (Strings.isBlank(name)) {
@@ -274,7 +274,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         this.categoryFields = input.readOptionalStringList();
         lastUpdateTime = input.readInstant();
         if (input.readBoolean()) {
-            this.user = new User(input);
+            this.user = new UserIdentity(input);
         } else {
             user = null;
         }
@@ -435,7 +435,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         Map<String, Object> uiMetadata = null;
         Instant lastUpdateTime = null;
-        User user = null;
+        UserIdentity user = null;
         DetectionDateRange detectionDateRange = null;
         String resultIndex = null;
 
@@ -541,7 +541,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     categoryField = (List) parser.list();
                     break;
                 case USER_FIELD:
-                    user = User.parse(parser);
+                    user = UserIdentity.parse(parser);
                     break;
                 case DETECTION_DATE_RANGE_FIELD:
                     detectionDateRange = DetectionDateRange.parse(parser);
@@ -725,11 +725,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration();
     }
 
-    public User getUser() {
+    public UserIdentity getUser() {
         return user;
     }
 
-    public void setUser(User user) {
+    public void setUser(UserIdentity user) {
         this.user = user;
     }
 

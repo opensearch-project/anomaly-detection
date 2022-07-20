@@ -19,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Feature;
@@ -26,7 +27,6 @@ import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -140,7 +140,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
     public void testAddUserRoleFilterWithNullUserBackendRole() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         addUserBackendRolesFilter(
-            new User(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5))),
+            new UserIdentity(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5))),
             searchSourceBuilder
         );
         assertEquals(
@@ -154,7 +154,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
     public void testAddUserRoleFilterWithEmptyUserBackendRole() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         addUserBackendRolesFilter(
-            new User(
+            new UserIdentity(
                 randomAlphaOfLength(5),
                 ImmutableList.of(),
                 ImmutableList.of(randomAlphaOfLength(5)),
@@ -175,7 +175,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         String backendRole1 = randomAlphaOfLength(5);
         String backendRole2 = randomAlphaOfLength(5);
         addUserBackendRolesFilter(
-            new User(
+            new UserIdentity(
                 randomAlphaOfLength(5),
                 ImmutableList.of(backendRole1, backendRole2),
                 ImmutableList.of(randomAlphaOfLength(5)),
