@@ -17,7 +17,7 @@ import static org.opensearch.ad.model.ADTaskType.ALL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
@@ -131,7 +131,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     @Override
     protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> actionListener) {
         String detectorID = request.getDetectorID();
-        UserIdentity user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         ActionListener<GetAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(

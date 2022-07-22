@@ -77,7 +77,12 @@ public class ForwardADTaskRequest extends ActionRequest {
         this.adTaskAction = adTaskAction;
     }
 
-    public ForwardADTaskRequest(AnomalyDetector detector, DetectionDateRange detectionDateRange, UserIdentity user, ADTaskAction adTaskAction) {
+    public ForwardADTaskRequest(
+        AnomalyDetector detector,
+        DetectionDateRange detectionDateRange,
+        UserIdentity user,
+        ADTaskAction adTaskAction
+    ) {
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
         this.user = user;

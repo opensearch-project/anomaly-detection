@@ -14,7 +14,7 @@ package org.opensearch.ad.transport.handler;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_SEARCH;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -51,7 +51,8 @@ public class ADSearchHandler {
      * @param actionListener action listerner
      */
     public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
-        UserIdentity user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always validate role.
+        UserIdentity user = getNullUser();
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, user, listener);

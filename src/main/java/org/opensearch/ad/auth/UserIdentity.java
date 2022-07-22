@@ -232,7 +232,8 @@ final public class UserIdentity implements Writeable, ToXContent {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject()
+        builder
+            .startObject()
             .field(NAME_FIELD, name)
             .field(BACKEND_ROLES_FIELD, backendRoles)
             .field(ROLES_FIELD, roles)

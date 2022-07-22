@@ -140,7 +140,12 @@ public class ParseUtilsTests extends OpenSearchTestCase {
     public void testAddUserRoleFilterWithNullUserBackendRole() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         addUserBackendRolesFilter(
-            new UserIdentity(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5))),
+            new UserIdentity(
+                randomAlphaOfLength(5),
+                null,
+                ImmutableList.of(randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5))
+            ),
             searchSourceBuilder
         );
         assertEquals(

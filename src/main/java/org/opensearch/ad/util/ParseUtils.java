@@ -456,10 +456,26 @@ public final class ParseUtils {
         return searchSourceBuilder;
     }
 
+    /**
+     * @deprecated Extensions will not be using the User from the Thread Context. Temporarily use
+     *     {@link #getNullUser()}.
+     */
+    @Deprecated
     public static UserIdentity getUserContext(Client client) {
         String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
         logger.debug("Filtering result by " + userStr);
         return UserIdentity.parse(userStr);
+    }
+
+    /**
+     * Placeholder method for running AD as an extension without security. User == null when security is disabled or user is super-admin.
+     *
+     * @return null.
+     */
+    public static UserIdentity getNullUser() {
+        // The author of this temporary code thinks it's a really bad idea to have a null object default to super-admin privileges.
+        // But that's how it is so here is the infinity gauntlet.
+        return null;
     }
 
     public static void resolveUserAndExecute(

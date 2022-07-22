@@ -15,7 +15,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_PREVIEW_DET
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -101,7 +101,8 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> actionListener
     ) {
         String detectorId = request.getDetectorId();
-        UserIdentity user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(

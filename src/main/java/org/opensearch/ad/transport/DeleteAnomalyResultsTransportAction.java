@@ -14,7 +14,7 @@ package org.opensearch.ad.transport;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_DELETE_AD_RESULT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -61,7 +61,8 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     }
 
     public void delete(DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> listener) {
-        UserIdentity user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always validate role.
+        UserIdentity user = getNullUser();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, user, listener);
         } catch (Exception e) {

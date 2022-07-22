@@ -13,7 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 
 import java.time.Clock;
 import java.util.HashMap;
@@ -89,7 +89,8 @@ public class ValidateAnomalyDetectorTransportAction extends
 
     @Override
     protected void doExecute(Task task, ValidateAnomalyDetectorRequest request, ActionListener<ValidateAnomalyDetectorResponse> listener) {
-        UserIdentity user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         AnomalyDetector anomalyDetector = request.getDetector();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener));

@@ -15,7 +15,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_START_DETEC
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_STOP_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -88,7 +88,8 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         ActionListener<AnomalyDetectorJobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
         // By the time request reaches here, the user permissions are validated by Security plugin.
-        UserIdentity user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,
