@@ -79,7 +79,10 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
 
         searchHandler = new ADSearchHandler(settings, clusterService, client);
         searchHandler.search(request, listener);
-        verify(listener, times(1)).onFailure(any());
+        // Thread Context User has been replaced with null as part of https://github.com/opensearch-project/opensearch-sdk/issues/23
+        // so the search call will always succeed
+        // verify(listener, times(1)).onFailure(any());
+        verify(listener, times(0)).onFailure(any());
     }
 
     public void testFilterEnabled() {
