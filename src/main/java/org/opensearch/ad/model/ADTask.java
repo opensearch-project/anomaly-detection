@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.time.Instant;
 
 import org.opensearch.ad.annotation.Generated;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -25,7 +26,6 @@ import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 
 import com.google.common.base.Objects;
 
@@ -82,7 +82,7 @@ public class ADTask implements ToXContentObject, Writeable {
     private Entity entity = null;
     private String parentTaskId = null;
     private Integer estimatedMinutesLeft = null;
-    private User user = null;
+    private UserIdentity user = null;
 
     private ADTask() {}
 
@@ -110,7 +110,7 @@ public class ADTask implements ToXContentObject, Writeable {
         this.coordinatingNode = input.readOptionalString();
         this.workerNode = input.readOptionalString();
         if (input.readBoolean()) {
-            this.user = new User(input);
+            this.user = new UserIdentity(input);
         } else {
             user = null;
         }
@@ -226,7 +226,7 @@ public class ADTask implements ToXContentObject, Writeable {
         private Entity entity = null;
         private String parentTaskId;
         private Integer estimatedMinutesLeft;
-        private User user = null;
+        private UserIdentity user = null;
 
         public Builder() {}
 
@@ -340,7 +340,7 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
-        public Builder user(User user) {
+        public Builder user(UserIdentity user) {
             this.user = user;
             return this;
         }
@@ -478,7 +478,7 @@ public class ADTask implements ToXContentObject, Writeable {
         Entity entity = null;
         String parentTaskId = null;
         Integer estimatedMinutesLeft = null;
-        User user = null;
+        UserIdentity user = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -553,7 +553,7 @@ public class ADTask implements ToXContentObject, Writeable {
                     estimatedMinutesLeft = parser.intValue();
                     break;
                 case USER_FIELD:
-                    user = User.parse(parser);
+                    user = UserIdentity.parse(parser);
                     break;
                 default:
                     parser.skipChildren();
@@ -776,7 +776,7 @@ public class ADTask implements ToXContentObject, Writeable {
         return estimatedMinutesLeft;
     }
 
-    public User getUser() {
+    public UserIdentity getUser() {
         return user;
     }
 

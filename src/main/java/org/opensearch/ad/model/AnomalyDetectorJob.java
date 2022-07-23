@@ -17,6 +17,7 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.time.Instant;
 
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParseField;
 import org.opensearch.common.io.stream.StreamInput;
@@ -26,7 +27,6 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
 import org.opensearch.jobscheduler.spi.schedule.CronSchedule;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
@@ -72,7 +72,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     private final Instant disabledTime;
     private final Instant lastUpdateTime;
     private final Long lockDurationSeconds;
-    private final User user;
+    private final UserIdentity user;
     private String resultIndex;
 
     public AnomalyDetectorJob(
@@ -84,7 +84,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         Instant disabledTime,
         Instant lastUpdateTime,
         Long lockDurationSeconds,
-        User user,
+        UserIdentity user,
         String resultIndex
     ) {
         this.name = name;
@@ -113,7 +113,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         lastUpdateTime = input.readInstant();
         lockDurationSeconds = input.readLong();
         if (input.readBoolean()) {
-            user = new User(input);
+            user = new UserIdentity(input);
         } else {
             user = null;
         }
@@ -177,7 +177,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         Instant disabledTime = null;
         Instant lastUpdateTime = null;
         Long lockDurationSeconds = DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
-        User user = null;
+        UserIdentity user = null;
         String resultIndex = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -211,7 +211,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
                     lockDurationSeconds = parser.longValue();
                     break;
                 case USER_FIELD:
-                    user = User.parse(parser);
+                    user = UserIdentity.parse(parser);
                     break;
                 case RESULT_INDEX_FIELD:
                     resultIndex = parser.text();
@@ -295,7 +295,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         return lockDurationSeconds;
     }
 
-    public User getUser() {
+    public UserIdentity getUser() {
         return user;
     }
 

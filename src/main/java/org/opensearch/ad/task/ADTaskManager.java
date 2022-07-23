@@ -102,6 +102,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.ADTaskCancelledException;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
@@ -152,7 +153,6 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
@@ -287,7 +287,7 @@ public class ADTaskManager {
         String detectorId,
         DetectionDateRange detectionDateRange,
         IndexAnomalyDetectorJobActionHandler handler,
-        User user,
+        UserIdentity user,
         TransportService transportService,
         ThreadContext.StoredContext context,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -326,7 +326,7 @@ public class ADTaskManager {
     private void startRealtimeOrHistoricalDetection(
         DetectionDateRange detectionDateRange,
         IndexAnomalyDetectorJobActionHandler handler,
-        User user,
+        UserIdentity user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener,
         Optional<AnomalyDetector> detector
@@ -362,7 +362,7 @@ public class ADTaskManager {
     protected void forwardApplyForTaskSlotsRequestToLeadNode(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
@@ -417,7 +417,7 @@ public class ADTaskManager {
     public void startHistoricalAnalysis(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         int availableTaskSlots,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -469,7 +469,7 @@ public class ADTaskManager {
     protected void forwardDetectRequestToCoordinatingNode(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         Integer availableTaskSlots,
         ADTaskAction adTaskAction,
         TransportService transportService,
@@ -557,7 +557,7 @@ public class ADTaskManager {
         ADTask adTask,
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         ADTaskAction afterCheckAction,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -656,7 +656,7 @@ public class ADTaskManager {
         ADTask adTask,
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         ADTaskAction targetActionOfTaskSlotChecking,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> wrappedActionListener,
@@ -740,7 +740,7 @@ public class ADTaskManager {
     public void startDetector(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
@@ -831,7 +831,7 @@ public class ADTaskManager {
         String detectorId,
         boolean historical,
         IndexAnomalyDetectorJobActionHandler handler,
-        User user,
+        UserIdentity user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
@@ -1231,7 +1231,7 @@ public class ADTaskManager {
     private void stopHistoricalAnalysis(
         String detectorId,
         Optional<ADTask> adTask,
-        User user,
+        UserIdentity user,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         if (!adTask.isPresent()) {
@@ -1481,7 +1481,7 @@ public class ADTaskManager {
     private void updateLatestFlagOfOldTasksAndCreateNewTask(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         UpdateByQueryRequest updateByQueryRequest = new UpdateByQueryRequest();
@@ -1519,7 +1519,7 @@ public class ADTaskManager {
     private void createNewADTask(
         AnomalyDetector detector,
         DetectionDateRange detectionDateRange,
-        User user,
+        UserIdentity user,
         String coordinatingNode,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {

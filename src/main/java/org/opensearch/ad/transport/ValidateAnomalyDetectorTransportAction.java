@@ -13,7 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 
 import java.time.Clock;
 import java.util.HashMap;
@@ -27,6 +27,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -45,7 +46,6 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
@@ -89,7 +89,8 @@ public class ValidateAnomalyDetectorTransportAction extends
 
     @Override
     protected void doExecute(Task task, ValidateAnomalyDetectorRequest request, ActionListener<ValidateAnomalyDetectorResponse> listener) {
-        User user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         AnomalyDetector anomalyDetector = request.getDetector();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener));
@@ -100,7 +101,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     }
 
     private void resolveUserAndExecute(
-        User requestedUser,
+        UserIdentity requestedUser,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         AnomalyDetectorFunction function
     ) {
@@ -119,7 +120,7 @@ public class ValidateAnomalyDetectorTransportAction extends
 
     private void validateExecute(
         ValidateAnomalyDetectorRequest request,
-        User user,
+        UserIdentity user,
         ThreadContext.StoredContext storedContext,
         ActionListener<ValidateAnomalyDetectorResponse> listener
     ) {

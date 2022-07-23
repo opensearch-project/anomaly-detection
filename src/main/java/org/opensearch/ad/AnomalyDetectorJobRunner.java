@@ -34,6 +34,7 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.InternalFailure;
@@ -66,7 +67,6 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.InjectSecurity;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
@@ -508,7 +508,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) jobParameter.getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
             Instant dataEndTime = executionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
-            User user = jobParameter.getUser();
+            UserIdentity user = jobParameter.getUser();
 
             if (response.getError() != null) {
                 log.info("Anomaly result action run successfully for {} with error {}", detectorId, response.getError());
@@ -623,7 +623,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) jobParameter.getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
             Instant dataEndTime = executionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
-            User user = jobParameter.getUser();
+            UserIdentity user = jobParameter.getUser();
 
             AnomalyResult anomalyResult = new AnomalyResult(
                 detectorId,

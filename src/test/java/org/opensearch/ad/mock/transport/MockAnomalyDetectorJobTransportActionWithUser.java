@@ -20,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
@@ -35,7 +36,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
@@ -90,7 +90,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         TimeValue requestTimeout = REQUEST_TIMEOUT.get(settings);
         String userStr = "user_name|backendrole1,backendrole2|roles1,role2";
         // By the time request reaches here, the user permissions are validated by Security plugin.
-        User user = User.parse(userStr);
+        UserIdentity user = UserIdentity.parse(userStr);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,
@@ -125,7 +125,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         long primaryTerm,
         String rawPath,
         TimeValue requestTimeout,
-        User user,
+        UserIdentity user,
         DetectionDateRange detectionDateRange,
         boolean historical
     ) {

@@ -53,6 +53,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
@@ -77,7 +78,6 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -146,7 +146,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     protected final TransportService transportService;
     protected final NamedXContentRegistry xContentRegistry;
     protected final ActionListener<T> listener;
-    protected final User user;
+    protected final UserIdentity user;
     protected final ADTaskManager adTaskManager;
     protected final SearchFeatureDao searchFeatureDao;
     protected final boolean isDryRun;
@@ -196,7 +196,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         Integer maxAnomalyFeatures,
         RestRequest.Method method,
         NamedXContentRegistry xContentRegistry,
-        User user,
+        UserIdentity user,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao,
         String validationType,

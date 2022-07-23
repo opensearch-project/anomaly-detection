@@ -17,18 +17,18 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.commons.authuser.User;
 
 public class MockForwardADTaskRequest_1_0 extends ActionRequest {
     private AnomalyDetector detector;
-    private User user;
+    private UserIdentity user;
     private MockADTaskAction_1_0 adTaskAction;
 
-    public MockForwardADTaskRequest_1_0(AnomalyDetector detector, User user, MockADTaskAction_1_0 adTaskAction) {
+    public MockForwardADTaskRequest_1_0(AnomalyDetector detector, UserIdentity user, MockADTaskAction_1_0 adTaskAction) {
         this.detector = detector;
         this.user = user;
         this.adTaskAction = adTaskAction;
@@ -38,7 +38,7 @@ public class MockForwardADTaskRequest_1_0 extends ActionRequest {
         super(in);
         this.detector = new AnomalyDetector(in);
         if (in.readBoolean()) {
-            this.user = new User(in);
+            this.user = new UserIdentity(in);
         }
         this.adTaskAction = in.readEnum(MockADTaskAction_1_0.class);
     }
@@ -74,7 +74,7 @@ public class MockForwardADTaskRequest_1_0 extends ActionRequest {
         return detector;
     }
 
-    public User getUser() {
+    public UserIdentity getUser() {
         return user;
     }
 

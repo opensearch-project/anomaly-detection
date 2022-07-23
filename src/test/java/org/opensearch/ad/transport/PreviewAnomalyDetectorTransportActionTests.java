@@ -334,17 +334,25 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         ActionListener<PreviewAnomalyDetectorResponse> responseActionListener = new ActionListener<PreviewAnomalyDetectorResponse>() {
             @Override
             public void onResponse(PreviewAnomalyDetectorResponse response) {
-                Assert.assertTrue(false);
+                // Thread Context User has been replaced with null as part of https://github.com/opensearch-project/opensearch-sdk/issues/23
+                // Previously we expected failure but could get a response here
+                // Assert.assertTrue(false);
             }
 
             @Override
             public void onFailure(Exception e) {
+                // Thread Context User has been replaced with null as part of https://github.com/opensearch-project/opensearch-sdk/issues/23
+                // Previously we expected failure but we should now never get here
+                fail("This should never fail with null (super-admin) user");
                 Assert.assertEquals(OpenSearchStatusException.class, e.getClass());
                 inProgressLatch.countDown();
             }
         };
         previewAction.doExecute(task, request, responseActionListener);
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // Thread Context User has been replaced with null as part of https://github.com/opensearch-project/opensearch-sdk/issues/23
+        // Countdown latch was never decremented on failure, so we expect failure here
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        assertFalse(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @SuppressWarnings("unchecked")

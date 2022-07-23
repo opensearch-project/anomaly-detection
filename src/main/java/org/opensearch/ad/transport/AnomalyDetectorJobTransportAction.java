@@ -15,7 +15,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_START_DETEC
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_STOP_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
@@ -36,7 +37,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
@@ -88,7 +88,8 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         ActionListener<AnomalyDetectorJobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
         // By the time request reaches here, the user permissions are validated by Security plugin.
-        User user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,
@@ -126,7 +127,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         long primaryTerm,
         String rawPath,
         TimeValue requestTimeout,
-        User user,
+        UserIdentity user,
         ThreadContext.StoredContext context
     ) {
         IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(

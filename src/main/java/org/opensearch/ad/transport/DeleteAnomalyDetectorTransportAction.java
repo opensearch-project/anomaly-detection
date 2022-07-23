@@ -15,7 +15,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_DELETE_DETE
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -34,6 +34,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -48,7 +49,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
@@ -88,7 +88,8 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
     protected void doExecute(Task task, DeleteAnomalyDetectorRequest request, ActionListener<DeleteResponse> actionListener) {
         String detectorId = request.getDetectorID();
         LOG.info("Delete anomaly detector job {}", detectorId);
-        User user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_DETECTOR);
         // By the time request reaches here, the user permissions are validated by Security plugin.
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
