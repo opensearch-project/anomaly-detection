@@ -404,12 +404,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             return;
         }
         try {
-            ActionListener<T> wrappedListener = ActionListener.wrap(r -> { listener.onResponse(r); }, e -> {
-                listener.onFailure(e);
-            });
-            validateCustomResultIndexAndExecute(resultIndex, () -> {
-                function.execute();
-            }, wrappedListener);
+            ActionListener<T> wrappedListener = ActionListener.wrap(r -> { listener.onResponse(r); }, e -> { listener.onFailure(e); });
+            validateCustomResultIndexAndExecute(resultIndex, () -> { function.execute(); }, wrappedListener);
         } catch (Exception e) {
             logger.error("Failed to validate custom index for backend job " + securityLogId, e);
             listener.onFailure(e);

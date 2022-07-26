@@ -120,10 +120,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         }
     }
 
-    void previewExecute(
-        PreviewAnomalyDetectorRequest request,
-        ActionListener<PreviewAnomalyDetectorResponse> listener
-    ) {
+    void previewExecute(PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
             listener
                 .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
@@ -149,12 +146,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                         return;
                     }
                     anomalyDetectorRunner
-                        .executeDetector(
-                            detector,
-                            startTime,
-                            endTime,
-                            getPreviewDetectorActionListener(releaseListener, detector)
-                        );
+                        .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(releaseListener, detector));
                 } else {
                     previewAnomalyDetector(releaseListener, detectorId, detector, startTime, endTime);
                 }
@@ -209,8 +201,7 @@ public class PreviewAnomalyDetectorTransportAction extends
             GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime));
         } else {
-            anomalyDetectorRunner
-                .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
+            anomalyDetectorRunner.executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
         }
     }
 

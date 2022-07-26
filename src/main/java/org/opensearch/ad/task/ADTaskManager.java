@@ -279,7 +279,6 @@ public class ADTaskManager {
      * @param handler anomaly detector job action handler
      * @param user user
      * @param transportService transport service
-     * @param context thread context
      * @param listener action listener
      */
     public void startDetector(

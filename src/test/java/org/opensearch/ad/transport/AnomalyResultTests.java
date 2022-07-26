@@ -125,9 +125,9 @@ import org.opensearch.transport.TransportResponse;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
-import com.google.gson.JsonElement;
-
 import test.org.opensearch.ad.util.JsonDeserializer;
+
+import com.google.gson.JsonElement;
 
 public class AnomalyResultTests extends AbstractADTest {
     private Settings settings;

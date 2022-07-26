@@ -130,10 +130,10 @@ import org.opensearch.transport.TransportResponse;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
-import com.google.common.collect.ImmutableList;
-
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
+
+import com.google.common.collect.ImmutableList;
 
 public class MultiEntityResultTests extends AbstractADTest {
     private AnomalyResultTransportAction action;

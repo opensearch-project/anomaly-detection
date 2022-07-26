@@ -213,13 +213,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
 
     @Test
     public void testMultiSearch_NoOnlyQueryCustomResultIndex() {
-        action
-            .multiSearch(
-                Arrays.asList("test"),
-                mock(SearchRequest.class),
-                mock(PlainActionFuture.class),
-                false
-            );
+        action.multiSearch(Arrays.asList("test"), mock(SearchRequest.class), mock(PlainActionFuture.class), false);
 
         verify(client).multiSearch(any(), any());
     }

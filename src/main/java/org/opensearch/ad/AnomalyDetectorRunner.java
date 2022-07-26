@@ -59,16 +59,11 @@ public final class AnomalyDetectorRunner {
      * @param detector  anomaly detector instance
      * @param startTime detection period start time
      * @param endTime   detection period end time
-     * @param context   stored thread context
      * @param listener handle anomaly result
      * @throws IOException - if a user gives wrong query input when defining a detector
      */
-    public void executeDetector(
-        AnomalyDetector detector,
-        Instant startTime,
-        Instant endTime,
-        ActionListener<List<AnomalyResult>> listener
-    ) throws IOException {
+    public void executeDetector(AnomalyDetector detector, Instant startTime, Instant endTime, ActionListener<List<AnomalyResult>> listener)
+        throws IOException {
         List<String> categoryField = detector.getCategoryField();
         if (categoryField != null && !categoryField.isEmpty()) {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
