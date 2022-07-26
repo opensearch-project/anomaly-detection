@@ -25,6 +25,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.NodeStateManager;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
@@ -34,7 +35,6 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -81,7 +81,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         String detectorId = detector.getDetectorId();
         ADTask adTask = request.getAdTask();
-        User user = request.getUser();
+        UserIdentity user = request.getUser();
         Integer availableTaskSlots = request.getAvailableTaskSLots();
 
         String entityValue = adTaskManager.convertEntityToString(adTask);

@@ -23,13 +23,13 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.rest.RestStatus;
 
@@ -209,7 +209,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             aliceDetector.getSchemaVersion(),
             Instant.now(),
             aliceDetector.getCategoryField(),
-            new User(
+            new UserIdentity(
                 randomAlphaOfLength(5),
                 ImmutableList.of("odfe", randomAlphaOfLength(5)),
                 ImmutableList.of(randomAlphaOfLength(5)),

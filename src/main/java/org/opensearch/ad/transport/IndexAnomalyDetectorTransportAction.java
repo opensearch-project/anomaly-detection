@@ -16,7 +16,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_UPDATE_DETE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.ad.util.ParseUtils.getDetector;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.List;
@@ -29,6 +29,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -43,7 +44,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -87,7 +87,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
     @Override
     protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
-        User user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always execute detector.
+        UserIdentity user = getNullUser();
         String detectorId = request.getDetectorID();
         RestRequest.Method method = request.getMethod();
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_DETECTOR : FAIL_TO_CREATE_DETECTOR;
@@ -101,7 +102,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     }
 
     private void resolveUserAndExecute(
-        User requestedUser,
+        UserIdentity requestedUser,
         String detectorId,
         RestRequest.Method method,
         ActionListener<IndexAnomalyDetectorResponse> listener,
@@ -132,7 +133,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
     protected void adExecute(
         IndexAnomalyDetectorRequest request,
-        User user,
+        UserIdentity user,
         AnomalyDetector currentDetector,
         ThreadContext.StoredContext storedContext,
         ActionListener<IndexAnomalyDetectorResponse> listener
@@ -153,7 +154,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         checkIndicesAndExecute(detector.getIndices(), () -> {
             // Don't replace detector's user when update detector
             // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
-            User detectorUser = currentDetector == null ? user : currentDetector.getUser();
+            UserIdentity detectorUser = currentDetector == null ? user : currentDetector.getUser();
             IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                 clusterService,
                 client,

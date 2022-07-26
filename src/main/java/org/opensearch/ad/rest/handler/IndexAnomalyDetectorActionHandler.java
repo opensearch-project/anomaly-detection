@@ -13,6 +13,7 @@ package org.opensearch.ad.rest.handler;
 
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -22,7 +23,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.transport.TransportService;
 
@@ -73,7 +73,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
         Integer maxAnomalyFeatures,
         RestRequest.Method method,
         NamedXContentRegistry xContentRegistry,
-        User user,
+        UserIdentity user,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao
     ) {

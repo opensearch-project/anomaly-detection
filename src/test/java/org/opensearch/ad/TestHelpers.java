@@ -59,6 +59,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
@@ -122,7 +123,6 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -293,7 +293,7 @@ public class TestHelpers {
         boolean withUser,
         List<String> categoryFields
     ) throws IOException {
-        User user = withUser ? randomUser() : null;
+        UserIdentity user = withUser ? randomUser() : null;
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -516,7 +516,7 @@ public class TestHelpers {
         private Integer schemaVersion = randomInt();
         private Instant lastUpdateTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         private List<String> categoryFields = null;
-        private User user = randomUser();
+        private UserIdentity user = randomUser();
         private String resultIndex = null;
 
         public static AnomalyDetectorBuilder newInstance() throws IOException {
@@ -602,7 +602,7 @@ public class TestHelpers {
             return this;
         }
 
-        public AnomalyDetectorBuilder setUser(User user) {
+        public AnomalyDetectorBuilder setUser(UserIdentity user) {
             this.user = user;
             return this;
         }
@@ -777,8 +777,8 @@ public class TestHelpers {
         return results;
     }
 
-    public static User randomUser() {
-        return new User(
+    public static UserIdentity randomUser() {
+        return new UserIdentity(
             randomAlphaOfLength(8),
             ImmutableList.of(randomAlphaOfLength(10)),
             ImmutableList.of("all_access"),
@@ -824,7 +824,7 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomAnomalyDetectResult(double score, String error, String taskId, boolean withUser) {
-        User user = withUser ? randomUser() : null;
+        UserIdentity user = withUser ? randomUser() : null;
         List<DataByFeatureId> relavantAttribution = new ArrayList<DataByFeatureId>();
         relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
         relavantAttribution.add(new DataByFeatureId(randomAlphaOfLength(5), randomDoubleBetween(0, 1.0, true)));
