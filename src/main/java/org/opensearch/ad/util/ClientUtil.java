@@ -45,24 +45,20 @@ import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskId;
 import org.opensearch.tasks.TaskInfo;
-import org.opensearch.threadpool.ThreadPool;
 
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
     private Client client;
     private final Throttler throttler;
-    private ThreadPool threadPool;
 
     @Inject
-    public ClientUtil(Settings setting, Client client, Throttler throttler, ThreadPool threadPool) {
+    public ClientUtil(Settings setting, Client client, Throttler throttler) {
         this.requestTimeout = REQUEST_TIMEOUT.get(setting);
         this.client = client;
         this.throttler = throttler;
-        this.threadPool = threadPool;
     }
 
     /**
@@ -203,9 +199,7 @@ public class ClientUtil {
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
 
-            try (ThreadContext.StoredContext context = threadPool.getThreadContext().stashContext()) {
-                assert context != null;
-                threadPool.getThreadContext().putHeader(Task.X_OPAQUE_ID, CommonName.ANOMALY_DETECTOR + ":" + detectorId);
+            try {
                 consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
                     // clear negative cache
                     throttler.clearFilteredQuery(detectorId);

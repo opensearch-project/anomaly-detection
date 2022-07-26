@@ -145,7 +145,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
@@ -289,7 +288,6 @@ public class ADTaskManager {
         IndexAnomalyDetectorJobActionHandler handler,
         UserIdentity user,
         TransportService transportService,
-        ThreadContext.StoredContext context,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         // upgrade index mapping of AD default indices
@@ -312,7 +310,6 @@ public class ADTaskManager {
                 startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
                 return;
             }
-            context.restore();
             detectionIndices
                 .initCustomResultIndexAndExecute(
                     resultIndex,
@@ -331,7 +328,7 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener,
         Optional<AnomalyDetector> detector
     ) {
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             if (detectionDateRange == null) {
                 // start realtime job
                 handler.startAnomalyDetectorJob(detector.get());

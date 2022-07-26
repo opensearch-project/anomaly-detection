@@ -42,7 +42,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
@@ -93,8 +92,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         RestRequest.Method method = request.getMethod();
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_DETECTOR : FAIL_TO_CREATE_DETECTOR;
         ActionListener<IndexAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, errorMessage);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, detectorId, method, listener, (detector) -> adExecute(request, user, detector, context, listener));
+        try {
+            resolveUserAndExecute(user, detectorId, method, listener, (detector) -> adExecute(request, user, detector, listener));
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
@@ -135,7 +134,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         IndexAnomalyDetectorRequest request,
         UserIdentity user,
         AnomalyDetector currentDetector,
-        ThreadContext.StoredContext storedContext,
         ActionListener<IndexAnomalyDetectorResponse> listener
     ) {
         anomalyDetectionIndices.update();
@@ -150,7 +148,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
 
-        storedContext.restore();
         checkIndicesAndExecute(detector.getIndices(), () -> {
             // Don't replace detector's user when update detector
             // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124

@@ -35,7 +35,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -90,7 +89,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         // By the time request reaches here, the user permissions are validated by Security plugin.
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             resolveUserAndExecute(
                 user,
                 detectorId,
@@ -105,8 +104,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
                     primaryTerm,
                     rawPath,
                     requestTimeout,
-                    user,
-                    context
+                    user
                 ),
                 client,
                 clusterService,
@@ -127,8 +125,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         long primaryTerm,
         String rawPath,
         TimeValue requestTimeout,
-        UserIdentity user,
-        ThreadContext.StoredContext context
+        UserIdentity user
     ) {
         IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
             client,
@@ -143,7 +140,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
             adTaskManager
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, context, listener);
+            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
         }

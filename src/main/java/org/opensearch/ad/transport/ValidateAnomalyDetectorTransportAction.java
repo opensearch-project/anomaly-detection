@@ -44,7 +44,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
@@ -92,8 +91,8 @@ public class ValidateAnomalyDetectorTransportAction extends
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
         AnomalyDetector anomalyDetector = request.getDetector();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener));
+        try {
+            resolveUserAndExecute(user, listener, () -> validateExecute(request, user, listener));
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
@@ -121,10 +120,8 @@ public class ValidateAnomalyDetectorTransportAction extends
     private void validateExecute(
         ValidateAnomalyDetectorRequest request,
         UserIdentity user,
-        ThreadContext.StoredContext storedContext,
         ActionListener<ValidateAnomalyDetectorResponse> listener
     ) {
-        storedContext.restore();
         AnomalyDetector detector = request.getDetector();
         ActionListener<ValidateAnomalyDetectorResponse> validateListener = ActionListener.wrap(response -> {
             logger.debug("Result of validation process " + response);

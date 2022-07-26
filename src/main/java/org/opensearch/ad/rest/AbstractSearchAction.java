@@ -32,7 +32,6 @@ import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -89,7 +88,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     }
 
     protected void executeWithAdmin(NodeClient client, AnomalyDetectorFunction function, RestChannel channel) {
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             function.execute();
         } catch (Exception e) {
             logger.error("Failed to execute with admin", e);

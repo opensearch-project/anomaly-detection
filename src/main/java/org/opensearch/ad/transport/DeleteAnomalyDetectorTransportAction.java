@@ -46,7 +46,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.index.IndexNotFoundException;
@@ -92,7 +91,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         UserIdentity user = getNullUser();
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_DETECTOR);
         // By the time request reaches here, the user permissions are validated by Security plugin.
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             resolveUserAndExecute(
                 user,
                 detectorId,
