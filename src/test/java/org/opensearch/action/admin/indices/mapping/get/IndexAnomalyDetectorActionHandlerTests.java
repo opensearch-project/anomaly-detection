@@ -12,8 +12,8 @@
 package org.opensearch.action.admin.indices.mapping.get;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -61,7 +61,6 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -76,7 +75,6 @@ import org.opensearch.transport.TransportService;
  */
 public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     static ThreadPool threadPool;
-    private ThreadContext threadContext;
     private String TEXT_FIELD_TYPE = "text";
     private IndexAnomalyDetectorActionHandler handler;
     private ClusterService clusterService;

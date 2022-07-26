@@ -95,7 +95,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
         MockitoAnnotations.initMocks(this);
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
-        clientUtil = new ClientUtil(settings, client, throttler, context);
+        clientUtil = new ClientUtil(settings, client, throttler);
         indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
     }
 

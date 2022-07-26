@@ -34,7 +34,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -49,7 +48,6 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Boolean filterByEnabled;
-    private ThreadContext.StoredContext context;
     private final ADTaskManager adTaskManager;
     private final TransportService transportService;
 
@@ -74,9 +72,6 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         this.adTaskManager = adTaskManager;
         filterByEnabled = FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
-
-        ThreadContext threadContext = new ThreadContext(settings);
-        context = threadContext.stashContext();
     }
 
     @Override
@@ -91,7 +86,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         String userStr = "user_name|backendrole1,backendrole2|roles1,role2";
         // By the time request reaches here, the user permissions are validated by Security plugin.
         UserIdentity user = UserIdentity.parse(userStr);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             resolveUserAndExecute(
                 user,
                 detectorId,
@@ -142,7 +137,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
             adTaskManager
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, context, listener);
+            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             // Stop detector
             adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);

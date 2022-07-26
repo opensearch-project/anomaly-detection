@@ -13,8 +13,8 @@ package org.opensearch.ad.cluster.diskcleanup;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,8 +34,6 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.client.IndicesAdminClient;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.store.StoreStats;
 
@@ -80,7 +78,6 @@ public class IndexCleanupTests extends AbstractADTest {
         when(shardStats.getStats()).thenReturn(commonStats);
         when(commonStats.getStore()).thenReturn(storeStats);
         when(client.admin().indices()).thenReturn(indicesAdminClient);
-        when(client.threadPool().getThreadContext()).thenReturn(new ThreadContext(Settings.EMPTY));
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             ActionListener<IndicesStatsResponse> listener = (ActionListener<IndicesStatsResponse>) args[1];

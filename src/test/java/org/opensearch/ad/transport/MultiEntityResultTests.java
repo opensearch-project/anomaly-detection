@@ -15,8 +15,8 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -130,10 +130,10 @@ import org.opensearch.transport.TransportResponse;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
+import com.google.common.collect.ImmutableList;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.google.common.collect.ImmutableList;
 
 public class MultiEntityResultTests extends AbstractADTest {
     private AnomalyResultTransportAction action;
@@ -210,11 +210,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         transportService = mock(TransportService.class);
 
         client = mock(Client.class);
-        ThreadContext threadContext = new ThreadContext(settings);
-        mockThreadPool = mock(ThreadPool.class);
-        setUpADThreadPool(mockThreadPool);
-        when(client.threadPool()).thenReturn(mockThreadPool);
-        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
 
         featureQuery = mock(FeatureManager.class);
 

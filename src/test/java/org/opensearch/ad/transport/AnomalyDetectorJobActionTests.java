@@ -35,12 +35,9 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.commons.ConfigConstants;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
@@ -59,14 +56,8 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
         );
 
-        Settings build = Settings.builder().build();
-        ThreadContext threadContext = new ThreadContext(build);
-        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         Client client = mock(Client.class);
-        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
-        when(client.threadPool()).thenReturn(mockThreadPool);
-        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
 
         action = new AnomalyDetectorJobTransportAction(
             mock(TransportService.class),

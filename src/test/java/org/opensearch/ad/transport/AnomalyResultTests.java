@@ -19,27 +19,22 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.anyDouble;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
-import static org.opensearch.test.OpenSearchTestCase.randomDouble;
-import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -130,9 +125,9 @@ import org.opensearch.transport.TransportResponse;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.JsonElement;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class AnomalyResultTests extends AbstractADTest {
     private Settings settings;
@@ -256,11 +251,7 @@ public class AnomalyResultTests extends AbstractADTest {
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
-        ThreadPool threadPool = mock(ThreadPool.class);
         client = mock(Client.class);
-        ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
-        when(client.threadPool()).thenReturn(threadPool);
-        when(client.threadPool().getThreadContext()).thenReturn(threadContext);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(

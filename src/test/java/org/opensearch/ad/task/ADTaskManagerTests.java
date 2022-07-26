@@ -115,7 +115,6 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
@@ -147,8 +146,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private AnomalyDetectionIndices detectionIndices;
     private ADTaskCacheManager adTaskCacheManager;
     private HashRing hashRing;
-    private ThreadContext.StoredContext context;
-    private ThreadContext threadContext;
     private TransportService transportService;
     private ADTaskManager adTaskManager;
     private ThreadPool threadPool;
@@ -235,8 +232,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         hashRing = mock(HashRing.class);
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
-        threadContext = new ThreadContext(settings);
-        when(threadPool.getThreadContext()).thenReturn(threadContext);
         when(client.threadPool()).thenReturn(threadPool);
         indexAnomalyDetectorJobActionHandler = mock(IndexAnomalyDetectorJobActionHandler.class);
         adTaskManager = spy(
@@ -278,9 +273,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             Version.CURRENT
         );
         maxRunningEntities = MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.get(settings).intValue();
-
-        ThreadContext threadContext = new ThreadContext(settings);
-        context = threadContext.stashContext();
     }
 
     private void setupGetDetector(AnomalyDetector detector) {
@@ -384,7 +376,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                 indexAnomalyDetectorJobActionHandler,
                 randomUser(),
                 transportService,
-                context,
                 listener
             );
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
@@ -403,7 +394,6 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                 indexAnomalyDetectorJobActionHandler,
                 randomUser(),
                 transportService,
-                context,
                 listener
             );
         verify(adTaskManager, times(1)).forwardRequestToLeadNode(any(), any(), any());
