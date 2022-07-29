@@ -180,10 +180,14 @@ public final class AnomalyDetectorSettings {
 
     public static final Duration HOURLY_MAINTENANCE = Duration.ofHours(1);
 
-    // saving checkpoint every 6 hours.
-    public static final Duration CHECKPOINT_SAVING_FREQ = Duration.ofHours(6);
+    // saving checkpoint every 12 hours.
+    // To support 1 million entities in 36 data nodes, each node has roughly 28K models.
+    // In each hour, we roughly need to save 2400 models. Since each model saving can
+    // take about 1 seconds (default value of AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS)
+    // we can use up to 2400 seconds to finish saving checkpoints.
+    public static final Duration CHECKPOINT_SAVING_FREQ = Duration.ofHours(12);
 
-    public static final Duration CHECKPOINT_TTL = Duration.ofDays(3);
+    public static final Duration CHECKPOINT_TTL = Duration.ofDays(7);
 
     // ======================================
     // ML parameters
@@ -537,7 +541,7 @@ public final class AnomalyDetectorSettings {
     public static final Setting<Integer> EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS = Setting
         .intSetting(
             "plugins.anomaly_detection.expected_checkpoint_maintain_time_in_secs",
-            10,
+            1,
             0,
             3600,
             Setting.Property.NodeScope,

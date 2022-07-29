@@ -133,16 +133,14 @@ public abstract class ScheduledWorker<RequestType extends QueuedRequest, Transfo
     /**
      * The method calculates the delay we have to set to control the rate of cold
      * entity processing. We wait longer if the requestSize is larger to give the
-     * system more time to processing requests.  We ddd randomness to cope with the
-     * case that we want to execute at least 1 request every few seconds, but
-     * cannot guarantee that.
+     * system more time to processing requests.
      * @param requestSize requests to process
      * @return the delay for the next scheduled run
      */
     private TimeValue getScheduleDelay(int requestSize) {
         int expectedSingleRequestExecutionMillis = 1000 * expectedExecutionTimeInSecsPerRequest;
         int waitMilliSeconds = requestSize * expectedSingleRequestExecutionMillis;
-        return TimeValue.timeValueMillis(waitMilliSeconds + random.nextInt(waitMilliSeconds));
+        return TimeValue.timeValueMillis(waitMilliSeconds);
     }
 
     /**
