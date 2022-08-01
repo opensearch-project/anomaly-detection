@@ -14,7 +14,7 @@ package org.opensearch.ad.transport;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_DELETE_AD_RESULT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.getNullUser;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -22,12 +22,12 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.commons.authuser.User;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
@@ -61,7 +61,8 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     }
 
     public void delete(DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> listener) {
-        User user = getUserContext(client);
+        // Temporary null user for AD extension without security. Will always validate role.
+        UserIdentity user = getNullUser();
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, user, listener);
         } catch (Exception e) {
@@ -70,7 +71,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         }
     }
 
-    private void validateRole(DeleteByQueryRequest request, User user, ActionListener<BulkByScrollResponse> listener) {
+    private void validateRole(DeleteByQueryRequest request, UserIdentity user, ActionListener<BulkByScrollResponse> listener) {
         if (user == null || !filterEnabled) {
             // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
             // Case 2: If Security is enabled and filter is disabled, proceed with search as

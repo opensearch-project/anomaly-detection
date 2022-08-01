@@ -26,6 +26,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ad.annotation.Generated;
+import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.util.ParseUtils;
@@ -37,7 +38,6 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 
 import com.google.common.base.Objects;
 
@@ -87,7 +87,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     private final Instant executionEndTime;
     private final String error;
     private final Entity entity;
-    private User user;
+    private UserIdentity user;
     private final Integer schemaVersion;
     /*
      * model id for easy aggregations of entities. The front end needs to query
@@ -224,7 +224,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionEndTime,
         String error,
         Entity entity,
-        User user,
+        UserIdentity user,
         Integer schemaVersion,
         String modelId
     ) {
@@ -265,7 +265,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionEndTime,
         String error,
         Entity entity,
-        User user,
+        UserIdentity user,
         Integer schemaVersion,
         String modelId,
         Instant approxAnomalyStartTime,
@@ -336,7 +336,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionEndTime,
         String error,
         Entity entity,
-        User user,
+        UserIdentity user,
         Integer schemaVersion,
         String modelId,
         double[] relevantAttribution,
@@ -469,7 +469,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             this.entity = null;
         }
         if (input.readBoolean()) {
-            this.user = new User(input);
+            this.user = new UserIdentity(input);
         } else {
             user = null;
         }
@@ -601,7 +601,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         Instant executionEndTime = null;
         String error = null;
         Entity entity = null;
-        User user = null;
+        UserIdentity user = null;
         Integer schemaVersion = CommonValue.NO_SCHEMA_VERSION;
         String taskId = null;
         String modelId = null;
@@ -654,7 +654,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                     entity = Entity.parse(parser);
                     break;
                 case USER_FIELD:
-                    user = User.parse(parser);
+                    user = UserIdentity.parse(parser);
                     break;
                 case SCHEMA_VERSION_FIELD:
                     schemaVersion = parser.intValue();
