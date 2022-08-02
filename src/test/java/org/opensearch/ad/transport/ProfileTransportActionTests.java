@@ -45,7 +45,7 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.transport.TransportService;
 
-@Ignore //Transport action does not exist
+@Ignore // Transport action does not exist
 public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
     private ProfileTransportAction action;
     private String detectorId = "Pl536HEBnXkDrah03glg";

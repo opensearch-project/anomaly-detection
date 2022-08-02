@@ -19,15 +19,11 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.commons.pool2.BasePooledObjectFactory;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,12 +31,7 @@ import org.opensearch.SpecialPermission;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.caching.PriorityCache;
-import org.opensearch.ad.cluster.ADClusterEventListener;
 import org.opensearch.ad.cluster.ADDataMigrator;
-import org.opensearch.ad.cluster.ClusterManagerEventListener;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
@@ -54,112 +45,20 @@ import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.ratelimit.ColdEntityWorker;
-import org.opensearch.ad.ratelimit.EntityColdStartWorker;
-import org.opensearch.ad.ratelimit.ResultWriteWorker;
-import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
-import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
-import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestPreviewAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestSearchADTasksAction;
-import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestSearchAnomalyDetectorInfoAction;
-import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
-import org.opensearch.ad.rest.RestSearchTopAnomalyResultAction;
-import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.settings.LegacyOpenDistroAnomalyDetectorSettings;
-import org.opensearch.ad.settings.NumericSetting;
-import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
-import org.opensearch.ad.stats.suppliers.CounterSupplier;
-import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
-import org.opensearch.ad.stats.suppliers.ModelsOnNodeCountSupplier;
-import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
-import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
-import org.opensearch.ad.transport.ADBatchAnomalyResultTransportAction;
-import org.opensearch.ad.transport.ADBatchTaskRemoteExecutionAction;
-import org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction;
-import org.opensearch.ad.transport.ADCancelTaskAction;
-import org.opensearch.ad.transport.ADCancelTaskTransportAction;
-import org.opensearch.ad.transport.ADResultBulkAction;
-import org.opensearch.ad.transport.ADResultBulkTransportAction;
-import org.opensearch.ad.transport.ADStatsNodesAction;
-import org.opensearch.ad.transport.ADStatsNodesTransportAction;
-import org.opensearch.ad.transport.ADTaskProfileAction;
-import org.opensearch.ad.transport.ADTaskProfileTransportAction;
-import org.opensearch.ad.transport.AnomalyDetectorJobAction;
-import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
-import org.opensearch.ad.transport.AnomalyResultAction;
-import org.opensearch.ad.transport.AnomalyResultTransportAction;
-import org.opensearch.ad.transport.CronAction;
-import org.opensearch.ad.transport.CronTransportAction;
-import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
-import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
-import org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction;
-import org.opensearch.ad.transport.DeleteModelAction;
-import org.opensearch.ad.transport.DeleteModelTransportAction;
-import org.opensearch.ad.transport.EntityProfileAction;
-import org.opensearch.ad.transport.EntityProfileTransportAction;
-import org.opensearch.ad.transport.EntityResultAction;
-import org.opensearch.ad.transport.EntityResultTransportAction;
-import org.opensearch.ad.transport.ForwardADTaskAction;
-import org.opensearch.ad.transport.ForwardADTaskTransportAction;
-import org.opensearch.ad.transport.GetAnomalyDetectorAction;
-import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
-import org.opensearch.ad.transport.PreviewAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.ProfileAction;
-import org.opensearch.ad.transport.ProfileTransportAction;
-import org.opensearch.ad.transport.RCFPollingAction;
-import org.opensearch.ad.transport.RCFPollingTransportAction;
-import org.opensearch.ad.transport.RCFResultAction;
-import org.opensearch.ad.transport.RCFResultTransportAction;
-import org.opensearch.ad.transport.SearchADTasksAction;
-import org.opensearch.ad.transport.SearchADTasksTransportAction;
-import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
-import org.opensearch.ad.transport.SearchAnomalyDetectorInfoAction;
-import org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction;
-import org.opensearch.ad.transport.SearchAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.SearchAnomalyResultAction;
-import org.opensearch.ad.transport.SearchAnomalyResultTransportAction;
-import org.opensearch.ad.transport.SearchTopAnomalyResultAction;
-import org.opensearch.ad.transport.SearchTopAnomalyResultTransportAction;
-import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
-import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.StopDetectorAction;
-import org.opensearch.ad.transport.StopDetectorTransportAction;
-import org.opensearch.ad.transport.ThresholdResultAction;
-import org.opensearch.ad.transport.ThresholdResultTransportAction;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
-import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
@@ -170,8 +69,6 @@ import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParserUtils;
@@ -190,7 +87,6 @@ import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
 import org.opensearch.threadpool.ExecutorBuilder;
-import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
@@ -199,7 +95,6 @@ import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestS
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -268,7 +163,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             this.indexUtils,
             clusterService
         );
-
+        
         AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
         jobRunner.setClient(client);
         jobRunner.setThreadPool(threadPool);
@@ -277,7 +172,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setAnomalyDetectionIndices(anomalyDetectionIndices);
         jobRunner.setNodeFilter(nodeFilter);
         jobRunner.setAdTaskManager(adTaskManager);
-
+        
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
         */
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
@@ -299,20 +194,20 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .of(
                 // restGetAnomalyDetectorAction,
                 restIndexAnomalyDetectorAction
-                /* @anomaly-detection.create-detector
-                searchAnomalyDetectorAction,
-                searchAnomalyResultAction,
-                searchADTasksAction,
-                deleteAnomalyDetectorAction,
-                executeAnomalyDetectorAction,
-                anomalyDetectorJobAction,
-                statsAnomalyDetectorAction,
-                searchAnomalyDetectorInfoAction,
-                previewAnomalyDetectorAction,
-                deleteAnomalyResultsAction,
-                searchTopAnomalyResultAction,
-                validateAnomalyDetectorAction
-                 */
+            /* @anomaly-detection.create-detector
+            searchAnomalyDetectorAction,
+            searchAnomalyResultAction,
+            searchADTasksAction,
+            deleteAnomalyDetectorAction,
+            executeAnomalyDetectorAction,
+            anomalyDetectorJobAction,
+            statsAnomalyDetectorAction,
+            searchAnomalyDetectorInfoAction,
+            previewAnomalyDetectorAction,
+            deleteAnomalyResultsAction,
+            searchTopAnomalyResultAction,
+            validateAnomalyDetectorAction
+             */
             );
     }
 
@@ -428,7 +323,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                     public LinkedBuffer create() throws Exception {
                         return LinkedBuffer.allocate(AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES);
                     }
-
+        
                     @Override
                     public PooledObject<LinkedBuffer> wrap(LinkedBuffer obj) {
                         return new DefaultPooledObject<>(obj);
@@ -501,7 +396,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             checkpointWriteQueue,
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT
         );
-
+        
         CacheProvider cacheProvider = new CacheProvider(cache);
         */
         EntityColdStarter entityColdStarter = new EntityColdStarter(
@@ -570,7 +465,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             this.indexUtils,
             clusterService
         );
-
+        
         ResultWriteWorker resultWriteQueue = new ResultWriteWorker(
             heapSizeBytes,
             AnomalyDetectorSettings.RESULT_WRITE_QUEUE_SIZE_IN_BYTES,
@@ -591,7 +486,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             stateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
-
+        
         CheckpointReadWorker checkpointReadQueue = new CheckpointReadWorker(
             heapSizeBytes,
             AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
@@ -617,7 +512,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue
         );
-
+        
         ColdEntityWorker coldEntityQueue = new ColdEntityWorker(
             heapSizeBytes,
             AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
@@ -641,7 +536,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, dataMigrator, modelManager);
         /* @anomaly-detection.create-detector
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
-
+        
         Map<String, ADStat<?>> stats = ImmutableMap
             .<String, ADStat<?>>builder()
             .put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
@@ -681,9 +576,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             .put(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
             .put(StatNames.MODEL_COUNT.getName(), new ADStat<>(false, new ModelsOnNodeCountSupplier(modelManager, cacheProvider)))
             .build();
-
+        
         adStats = new ADStats(stats);
-
+        
         adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
         */
         adTaskManager = new ADTaskManager(
@@ -723,9 +618,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             hashRing,
             modelManager
         );
-
+        
         ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client);
-
+        
         // return objects used by Guice to inject dependencies for e.g.,
         // transport action handler constructors
         return ImmutableList
@@ -804,7 +699,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
         /* @anomaly-detection.create-detector
         List<Setting<?>> numericSetting = NumericSetting.getInstance().getSettings();
-
+        
         List<Setting<?>> systemSetting = ImmutableList
             .of(
                 // HCAD cache
@@ -914,7 +809,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         // TODO: evaluate if these settings are needed for create detector
          */
         List<Setting<?>> systemSetting = ImmutableList
-                .of(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+            .of(
+                AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                 AnomalyDetectorSettings.PAGE_SIZE,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
@@ -938,13 +834,14 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
                 AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
-                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES);
+                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES
+            );
         return unmodifiableList(
-                Stream
-                    .of(enabledSetting.stream(), systemSetting.stream())
-                    .reduce(Stream::concat)
-                    .orElseGet(Stream::empty)
-                    .collect(Collectors.toList())
+            Stream
+                .of(enabledSetting.stream(), systemSetting.stream())
+                .reduce(Stream::concat)
+                .orElseGet(Stream::empty)
+                .collect(Collectors.toList())
         );
     }
 
@@ -987,22 +884,22 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class),
                 */
                 new ActionHandler<>(IndexAnomalyDetectorAction.INSTANCE, IndexAnomalyDetectorTransportAction.class)
-                /* @anomaly-detection.create-detector
-                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
-                new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class),
-                new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
-                new ActionHandler<>(EntityProfileAction.INSTANCE, EntityProfileTransportAction.class),
-                new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
-                new ActionHandler<>(PreviewAnomalyDetectorAction.INSTANCE, PreviewAnomalyDetectorTransportAction.class),
-                new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
-                new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
-                new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
-                new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
-                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
-                new ActionHandler<>(DeleteAnomalyResultsAction.INSTANCE, DeleteAnomalyResultsTransportAction.class),
-                new ActionHandler<>(SearchTopAnomalyResultAction.INSTANCE, SearchTopAnomalyResultTransportAction.class),
-                new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class)
-                 */
+            /* @anomaly-detection.create-detector
+            new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
+            new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class),
+            new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
+            new ActionHandler<>(EntityProfileAction.INSTANCE, EntityProfileTransportAction.class),
+            new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
+            new ActionHandler<>(PreviewAnomalyDetectorAction.INSTANCE, PreviewAnomalyDetectorTransportAction.class),
+            new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
+            new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
+            new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
+            new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
+            new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
+            new ActionHandler<>(DeleteAnomalyResultsAction.INSTANCE, DeleteAnomalyResultsTransportAction.class),
+            new ActionHandler<>(SearchTopAnomalyResultAction.INSTANCE, SearchTopAnomalyResultTransportAction.class),
+            new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class)
+             */
             );
     }
 

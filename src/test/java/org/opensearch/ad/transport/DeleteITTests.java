@@ -22,7 +22,7 @@ import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 
-@Ignore //Transport Action does not exist
+@Ignore // Transport Action does not exist
 public class DeleteITTests extends ADIntegTestCase {
 
     @Override

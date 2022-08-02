@@ -38,7 +38,7 @@ import org.opensearch.test.rest.OpenSearchRestTestCase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-@Ignore //Transport Action does not exist
+@Ignore // Transport Action does not exist
 public class AnomalyResultTransportActionTests extends ADIntegTestCase {
     private static final Logger LOG = LogManager.getLogger(AnomalyResultTransportActionTests.class);
 
