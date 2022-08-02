@@ -645,12 +645,13 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.ADBatchAnomalyResultTransportAction',
         'org.opensearch.ad.transport.ADTaskProfileRequest',
         'org.opensearch.ad.transport.SearchADTasksAction',
-        'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction.*',
         'org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction',
         'org.opensearch.ad.transport.SearchAnomalyResultTransportAction',
-        'org.opensearch.ad.transport.SearchTopAnomalyResultTransportAction',
+        'org.opensearch.ad.transport.SearchTopAnomalyResultTransportAction.*',
         'org.opensearch.ad.indices.AnomalyDetectionIndices',
         'org.opensearch.ad.stats.ADStat',
+
 ]
 
 
