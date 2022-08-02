@@ -11,10 +11,13 @@
 
 package org.opensearch.ad.util;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
+
+import org.opensearch.common.unit.TimeValue;
 
 public class DateUtils {
     public static final ZoneId UTC = ZoneId.of("Z");
@@ -25,8 +28,12 @@ public class DateUtils {
      *
      * @return Hour of day
      */
-    public static int getHourOfDay(Instant instant) {
+    public static int getUTCHourOfDay(Instant instant) {
         ZonedDateTime time = ZonedDateTime.ofInstant(instant, UTC);
         return time.get(ChronoField.HOUR_OF_DAY);
+    }
+
+    public static Duration toDuration(TimeValue timeValue) {
+        return Duration.ofMillis(timeValue.millis());
     }
 }

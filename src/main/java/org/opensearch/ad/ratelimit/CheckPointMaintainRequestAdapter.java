@@ -25,7 +25,12 @@ import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.util.DateUtils;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 
 public class CheckPointMaintainRequestAdapter {
     private static final Logger LOG = LogManager.getLogger(CheckPointMaintainRequestAdapter.class);
@@ -39,13 +44,20 @@ public class CheckPointMaintainRequestAdapter {
         CacheProvider cache,
         CheckpointDao checkpointDao,
         String indexName,
-        Duration checkpointInterval,
-        Clock clock
+        Setting<TimeValue> checkpointIntervalSetting,
+        Clock clock,
+        ClusterService clusterService,
+        Settings settings
     ) {
         this.cache = cache;
         this.checkpointDao = checkpointDao;
         this.indexName = indexName;
-        this.checkpointInterval = checkpointInterval;
+
+        this.checkpointInterval = DateUtils.toDuration(checkpointIntervalSetting.get(settings));
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(checkpointIntervalSetting, it -> this.checkpointInterval = DateUtils.toDuration(it));
+
         this.clock = clock;
     }
 

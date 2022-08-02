@@ -22,7 +22,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,6 +42,7 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 
@@ -70,9 +70,10 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS,
+                                AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
                                 AnomalyDetectorSettings.CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE
+                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+                                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
                             )
                     )
                 )
@@ -84,7 +85,7 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
         CacheProvider cache = mock(CacheProvider.class);
         checkpointDao = mock(CheckpointDao.class);
         String indexName = CommonName.CHECKPOINT_INDEX_NAME;
-        Duration checkpointInterval = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
+        Setting<TimeValue> checkpointInterval = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
         EntityCache entityCache = mock(EntityCache.class);
         when(cache.get()).thenReturn(entityCache);
         ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
@@ -94,7 +95,9 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
             checkpointDao,
             indexName,
             checkpointInterval,
-            clock
+            clock,
+            clusterService,
+            settings
         );
 
         // Integer.MAX_VALUE makes a huge heap
@@ -131,11 +134,10 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
 
             TimeValue value = invocation.getArgument(1);
             // since we have only 1 request each time
-            long expectedExecutionPerRequestMilli = 1000 * AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS
+            long expectedExecutionPerRequestMilli = AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
                 .getDefault(Settings.EMPTY);
             long delay = value.getMillis();
-            assertTrue(delay >= expectedExecutionPerRequestMilli);
-            assertTrue(delay <= expectedExecutionPerRequestMilli * 2);
+            assertTrue(delay == expectedExecutionPerRequestMilli);
             return null;
         }).when(threadPool).schedule(any(), any(), any());
     }

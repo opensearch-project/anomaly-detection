@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -344,10 +345,18 @@ public class CompositeRetriever extends AbstractRetriever {
         public boolean hasNext() {
             long now = clock.millis();
             if (expirationEpochMs <= now) {
-                LOG.info("Time is up, afterKey: " + afterKey + " " + expirationEpochMs + " " + now);
+                LOG
+                    .debug(
+                        new ParameterizedMessage(
+                            "Time is up, afterKey: [{}], expirationEpochMs: [{}], now [{}]",
+                            afterKey,
+                            expirationEpochMs,
+                            now
+                        )
+                    );
             }
             if ((iterations > 0 && afterKey == null) || totalResults > maxEntities) {
-                LOG.info("Finished in " + (now - startMs) + " msecs. ");
+                LOG.debug(new ParameterizedMessage("Finished in [{}] msecs. ", (now - startMs)));
             }
             return (iterations == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > now && totalResults <= maxEntities;
         }

@@ -741,6 +741,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             // we can have OpenSearchTimeoutException when a node tries to load RCF or
             // threshold model
             failure.set(new InternalFailure(adID, causeException));
+        } else if (causeException instanceof IllegalArgumentException) {
+            // we can have IllegalArgumentException when a model is corrupted
+            failure.set(new InternalFailure(adID, causeException));
         } else {
             // some unexpected bug occurred or cluster is unstable (e.g., ClusterBlockException) or index is red (e.g.
             // NoShardAvailableActionException) while predicting anomaly

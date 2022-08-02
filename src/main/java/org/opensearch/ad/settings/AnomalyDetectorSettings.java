@@ -185,9 +185,21 @@ public final class AnomalyDetectorSettings {
     // In each hour, we roughly need to save 2400 models. Since each model saving can
     // take about 1 seconds (default value of AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS)
     // we can use up to 2400 seconds to finish saving checkpoints.
-    public static final Duration CHECKPOINT_SAVING_FREQ = Duration.ofHours(12);
+    public static final Setting<TimeValue> CHECKPOINT_SAVING_FREQ = Setting
+        .positiveTimeSetting(
+            "plugins.anomaly_detection.checkpoint_saving_freq",
+            TimeValue.timeValueHours(12),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
-    public static final Duration CHECKPOINT_TTL = Duration.ofDays(7);
+    public static final Setting<TimeValue> CHECKPOINT_TTL = Setting
+        .positiveTimeSetting(
+            "plugins.anomaly_detection.checkpoint_ttl",
+            TimeValue.timeValueDays(7),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     // ======================================
     // ML parameters
@@ -525,12 +537,12 @@ public final class AnomalyDetectorSettings {
     // expected execution time per cold entity request. This setting controls
     // the speed of cold entity requests execution. The larger, the faster, and
     // the more performance impact to customers' workload.
-    public static final Setting<Integer> EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS = Setting
+    public static final Setting<Integer> EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS = Setting
         .intSetting(
-            "plugins.anomaly_detection.expected_cold_entity_execution_time_in_secs",
-            3,
+            "plugins.anomaly_detection.expected_cold_entity_execution_time_in_millisecs",
+            3000,
             0,
-            3600,
+            3600000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -538,12 +550,12 @@ public final class AnomalyDetectorSettings {
     // expected execution time per checkpoint maintain request. This setting controls
     // the speed of checkpoint maintenance execution. The larger, the faster, and
     // the more performance impact to customers' workload.
-    public static final Setting<Integer> EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS = Setting
+    public static final Setting<Integer> EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS = Setting
         .intSetting(
-            "plugins.anomaly_detection.expected_checkpoint_maintain_time_in_secs",
-            1,
+            "plugins.anomaly_detection.expected_checkpoint_maintain_time_in_millisecs",
+            1000,
             0,
-            3600,
+            3600000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );

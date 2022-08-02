@@ -253,6 +253,7 @@ public class MultiEntityResultTests extends AbstractADTest {
                 put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
                 put(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
                 put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+                put(StatNames.MODEL_CORRUTPION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
             }
         };
         adStats = new ADStats(statsMap);
@@ -409,7 +410,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue
+            entityColdStartQueue,
+            adStats
         );
 
         when(normalModelManager.getAnomalyResultForEntity(any(), any(), any(), any(), anyInt()))
@@ -778,7 +780,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue
+            entityColdStartQueue,
+            adStats
         );
 
         CountDownLatch inProgress = new CountDownLatch(1);
@@ -961,7 +964,8 @@ public class MultiEntityResultTests extends AbstractADTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue
+            entityColdStartQueue,
+            adStats
         );
 
         CountDownLatch modelNodeInProgress = new CountDownLatch(1);

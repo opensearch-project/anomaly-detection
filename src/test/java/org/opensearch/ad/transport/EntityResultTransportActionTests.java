@@ -33,7 +33,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,7 +75,13 @@ import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.EntityColdStartWorker;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.stats.ADStat;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
+import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.ToXContent;
@@ -122,6 +130,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     ColdEntityWorker coldEntityQueue;
     EntityColdStartWorker entityColdStartQueue;
     AnomalyDetectionIndices indexUtil;
+    ClusterService clusterService;
+    ADStats adStats;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -157,7 +167,35 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         now = Instant.now();
         when(clock.instant()).thenReturn(now);
 
-        manager = new ModelManager(null, clock, 0, 0, 0, 0, 0, 0, null, null, mock(EntityColdStarter.class), null, null);
+        settings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5))
+            .put(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ.getKey(), TimeValue.timeValueHours(12))
+            .build();
+
+        clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        manager = new ModelManager(
+            null,
+            clock,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            null,
+            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+            mock(EntityColdStarter.class),
+            null,
+            null,
+            settings,
+            clusterService
+        );
 
         provider = mock(CacheProvider.class);
         entityCache = mock(EntityCache.class);
@@ -192,8 +230,6 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         coldEntities.add(cacheMissEntityObj);
         when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
 
-        settings = Settings.builder().put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
-
         indexUtil = mock(AnomalyDetectionIndices.class);
         when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
 
@@ -213,6 +249,14 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         coldEntityQueue = mock(ColdEntityWorker.class);
         entityColdStartQueue = mock(EntityColdStartWorker.class);
 
+        Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
+            {
+                put(StatNames.MODEL_CORRUTPION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+            }
+        };
+
+        adStats = new ADStats(statsMap);
+
         entityResult = new EntityResultTransportAction(
             actionFilters,
             transportService,
@@ -225,7 +269,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue
+            entityColdStartQueue,
+            adStats
         );
 
         // timeout in 60 seconds
@@ -350,7 +395,8 @@ public class EntityResultTransportActionTests extends AbstractADTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue
+            entityColdStartQueue,
+            adStats
         );
 
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
@@ -362,5 +408,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         verify(resultWriteQueue, never()).put(any());
         verify(entityCache, times(1)).removeEntityModel(anyString(), anyString());
         verify(entityColdStartQueue, times(1)).put(any());
+        Object val = adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).getValue();
+        assertEquals(1L, ((Long) val).longValue());
     }
 }

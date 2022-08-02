@@ -51,6 +51,8 @@ import org.opensearch.ad.ratelimit.EntityFeatureRequest;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.inject.Inject;
@@ -90,6 +92,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private ColdEntityWorker coldEntityQueue;
     private ThreadPool threadPool;
     private EntityColdStartWorker entityColdStartWorker;
+    private ADStats adStats;
 
     @Inject
     public EntityResultTransportAction(
@@ -104,7 +107,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         CheckpointReadWorker checkpointReadQueue,
         ColdEntityWorker coldEntityQueue,
         ThreadPool threadPool,
-        EntityColdStartWorker entityColdStartWorker
+        EntityColdStartWorker entityColdStartWorker,
+        ADStats adStats
     ) {
         super(EntityResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.modelManager = manager;
@@ -117,6 +121,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         this.coldEntityQueue = coldEntityQueue;
         this.threadPool = threadPool;
         this.entityColdStartWorker = entityColdStartWorker;
+        this.adStats = adStats;
     }
 
     @Override
@@ -235,6 +240,8 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     }
                 } catch (IllegalArgumentException e) {
                     // fail to score likely due to model corruption. Re-cold start to recover.
+                    LOG.error(new ParameterizedMessage("Likely model corruption for [{}]", modelId), e);
+                    adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).increment();
                     cache.get().removeEntityModel(detectorId, modelId);
                     entityColdStartWorker
                         .put(

@@ -49,6 +49,8 @@ import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.cluster.service.ClusterService;
@@ -79,6 +81,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
     private final AnomalyDetectionIndices indexUtil;
     private final CacheProvider cacheProvider;
     private final CheckpointWriteWorker checkpointWriteQueue;
+    private final ADStats adStats;
 
     public CheckpointReadWorker(
         long heapSizeInBytes,
@@ -103,7 +106,8 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         AnomalyDetectionIndices indexUtil,
         CacheProvider cacheProvider,
         Duration stateTtl,
-        CheckpointWriteWorker checkpointWriteQueue
+        CheckpointWriteWorker checkpointWriteQueue,
+        ADStats adStats
     ) {
         super(
             WORKER_NAME,
@@ -134,6 +138,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         this.indexUtil = indexUtil;
         this.cacheProvider = cacheProvider;
         this.checkpointWriteQueue = checkpointWriteQueue;
+        this.adStats = adStats;
     }
 
     @Override
@@ -360,6 +365,21 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                     .getAnomalyResultForEntity(origRequest.getCurrentFeature(), modelState, modelId, entity, detector.getShingleSize());
             } catch (IllegalArgumentException e) {
                 // fail to score likely due to model corruption. Re-cold start to recover.
+                LOG.error(new ParameterizedMessage("Likely model corruption for [{}]", origRequest.getModelId()), e);
+                adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).increment();
+                if (origRequest.getModelId().isPresent()) {
+                    String entityModelId = origRequest.getModelId().get();
+                    checkpointDao
+                        .deleteModelCheckpoint(
+                            entityModelId,
+                            ActionListener
+                                .wrap(
+                                    r -> LOG.debug(new ParameterizedMessage("Succeeded in deleting checkpoint [{}].", entityModelId)),
+                                    ex -> LOG.error(new ParameterizedMessage("Failed to delete checkpoint [{}].", entityModelId), ex)
+                                )
+                        );
+                }
+
                 entityColdStartQueue.put(origRequest);
                 processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
                 return;

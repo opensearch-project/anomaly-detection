@@ -97,8 +97,8 @@ public class AbstractCacheTest extends AbstractADTest {
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             detectorId,
             checkpointWriteQueue,
-            new Random(42),
-            checkpointMaintainQueue
+            checkpointMaintainQueue,
+            Duration.ofHours(12).toHoursPart()
         );
 
         initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);

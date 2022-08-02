@@ -19,8 +19,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,6 +34,11 @@ import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -40,10 +47,11 @@ public class CheckPointMaintainRequestAdapterTests extends AbstractRateLimitingT
     private CacheProvider cache;
     private CheckpointDao checkpointDao;
     private String indexName;
-    private Duration checkpointInterval;
+    private Setting<TimeValue> checkpointInterval;
     private CheckPointMaintainRequestAdapter adapter;
     private ModelState<EntityModel> state;
     private CheckpointMaintainRequest request;
+    private ClusterService clusterService;
 
     @Override
     public void setUp() throws Exception {
@@ -56,7 +64,21 @@ public class CheckPointMaintainRequestAdapterTests extends AbstractRateLimitingT
         when(cache.get()).thenReturn(entityCache);
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
         when(entityCache.getForMaintainance(anyString(), anyString())).thenReturn(Optional.of(state));
-        adapter = new CheckPointMaintainRequestAdapter(cache, checkpointDao, indexName, checkpointInterval, clock);
+        clusterService = mock(ClusterService.class);
+        ClusterSettings settings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(settings);
+        adapter = new CheckPointMaintainRequestAdapter(
+            cache,
+            checkpointDao,
+            indexName,
+            checkpointInterval,
+            clock,
+            clusterService,
+            Settings.EMPTY
+        );
         request = new CheckpointMaintainRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity.getModelId(detectorId).get());
 
     }

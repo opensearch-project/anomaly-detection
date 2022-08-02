@@ -16,6 +16,7 @@ import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
@@ -25,6 +26,8 @@ import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
@@ -36,6 +39,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
     private ModelManager manager;
     private ADCircuitBreakerService adCircuitBreakerService;
     private HashRing hashRing;
+    private ADStats adStats;
 
     @Inject
     public RCFResultTransportAction(
@@ -43,12 +47,14 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
         TransportService transportService,
         ModelManager manager,
         ADCircuitBreakerService adCircuitBreakerService,
-        HashRing hashRing
+        HashRing hashRing,
+        ADStats adStats
     ) {
         super(RCFResultAction.NAME, transportService, actionFilters, RCFResultRequest::new);
         this.manager = manager;
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.hashRing = hashRing;
+        this.adStats = adStats;
     }
 
     @Override
@@ -92,8 +98,24 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                     )
                                 ),
                             exception -> {
-                                LOG.warn(exception);
-                                listener.onFailure(exception);
+                                if (exception instanceof IllegalArgumentException) {
+                                    // fail to score likely due to model corruption. Re-cold start to recover.
+                                    LOG.error(new ParameterizedMessage("Likely model corruption for [{}]", request.getAdID()), exception);
+                                    adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).increment();
+                                    manager
+                                        .clear(
+                                            request.getAdID(),
+                                            ActionListener
+                                                .wrap(
+                                                    r -> LOG.info("Deleted model for [{}] with response [{}] ", request.getAdID(), r),
+                                                    ex -> LOG.error("Fail to delete model for " + request.getAdID(), ex)
+                                                )
+                                        );
+                                    listener.onFailure(exception);
+                                } else {
+                                    LOG.warn(exception);
+                                    listener.onFailure(exception);
+                                }
                             }
                         )
                 );

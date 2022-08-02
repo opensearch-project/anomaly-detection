@@ -99,7 +99,9 @@ public class PriorityCacheTests extends AbstractCacheTest {
                             .asList(
                                 AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
                                 AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE
+                                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
+                                AnomalyDetectorSettings.CHECKPOINT_TTL,
+                                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
                             )
                     )
                 )
@@ -124,7 +126,9 @@ public class PriorityCacheTests extends AbstractCacheTest {
             threadPool,
             checkpointWriteQueue,
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            checkpointMaintainQueue
+            checkpointMaintainQueue,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
         );
 
         CacheProvider cacheProvider = new CacheProvider();
@@ -177,7 +181,9 @@ public class PriorityCacheTests extends AbstractCacheTest {
             threadPool,
             checkpointWriteQueue,
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            checkpointMaintainQueue
+            checkpointMaintainQueue,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
         );
 
         CacheProvider cacheProvider = new CacheProvider();

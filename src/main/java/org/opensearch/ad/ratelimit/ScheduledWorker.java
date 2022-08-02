@@ -36,7 +36,7 @@ public abstract class ScheduledWorker<RequestType extends QueuedRequest, Transfo
     private final RateLimitedRequestWorker<TransformedRequestType> targetQueue;
     // indicate whether a future pull over cold entity queues is scheduled
     private boolean scheduled;
-    protected volatile int expectedExecutionTimeInSecsPerRequest;
+    protected volatile int expectedExecutionTimeInMilliSecsPerRequest;
 
     public ScheduledWorker(
         String workerName,
@@ -138,9 +138,7 @@ public abstract class ScheduledWorker<RequestType extends QueuedRequest, Transfo
      * @return the delay for the next scheduled run
      */
     private TimeValue getScheduleDelay(int requestSize) {
-        int expectedSingleRequestExecutionMillis = 1000 * expectedExecutionTimeInSecsPerRequest;
-        int waitMilliSeconds = requestSize * expectedSingleRequestExecutionMillis;
-        return TimeValue.timeValueMillis(waitMilliSeconds);
+        return TimeValue.timeValueMillis(requestSize * expectedExecutionTimeInMilliSecsPerRequest);
     }
 
     /**

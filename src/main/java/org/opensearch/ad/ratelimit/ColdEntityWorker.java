@@ -12,7 +12,7 @@
 package org.opensearch.ad.ratelimit;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -87,10 +87,14 @@ public class ColdEntityWorker extends ScheduledWorker<EntityFeatureRequest, Enti
         this.batchSize = CHECKPOINT_READ_QUEUE_BATCH_SIZE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(CHECKPOINT_READ_QUEUE_BATCH_SIZE, it -> this.batchSize = it);
 
-        this.expectedExecutionTimeInSecsPerRequest = AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS.get(settings);
+        this.expectedExecutionTimeInMilliSecsPerRequest = AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS
+            .get(settings);
         clusterService
             .getClusterSettings()
-            .addSettingsUpdateConsumer(EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS, it -> this.expectedExecutionTimeInSecsPerRequest = it);
+            .addSettingsUpdateConsumer(
+                EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
+                it -> this.expectedExecutionTimeInMilliSecsPerRequest = it
+            );
     }
 
     @Override

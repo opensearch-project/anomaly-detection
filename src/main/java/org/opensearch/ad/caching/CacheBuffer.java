@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -36,7 +35,6 @@ import org.opensearch.ad.ratelimit.CheckpointMaintainRequest;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DateUtils;
 
 /**
@@ -80,8 +78,7 @@ public class CacheBuffer implements ExpiringState {
     private final Clock clock;
     private final CheckpointWriteWorker checkpointWriteQueue;
     private final CheckpointMaintainWorker checkpointMaintainQueue;
-    private final Random random;
-    private final int checkpointIntervalHrs;
+    private int checkpointIntervalHrs;
 
     public CacheBuffer(
         int minimumCapacity,
@@ -92,8 +89,8 @@ public class CacheBuffer implements ExpiringState {
         Duration modelTtl,
         String detectorId,
         CheckpointWriteWorker checkpointWriteQueue,
-        Random random,
-        CheckpointMaintainWorker checkpointMaintainQueue
+        CheckpointMaintainWorker checkpointMaintainQueue,
+        int checkpointIntervalHrs
     ) {
         this.memoryConsumptionPerEntity = memoryConsumptionPerEntity;
         setMinimumCapacity(minimumCapacity);
@@ -108,9 +105,8 @@ public class CacheBuffer implements ExpiringState {
         this.clock = clock;
         this.priorityTracker = new PriorityTracker(clock, intervalSecs, clock.instant().getEpochSecond(), MAX_TRACKING_ENTITIES);
         this.checkpointWriteQueue = checkpointWriteQueue;
-        this.random = random;
         this.checkpointMaintainQueue = checkpointMaintainQueue;
-        this.checkpointIntervalHrs = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ.toHoursPart();
+        setCheckpointIntervalHrs(checkpointIntervalHrs);
     }
 
     /**
@@ -350,7 +346,7 @@ public class CacheBuffer implements ExpiringState {
         List<CheckpointMaintainRequest> modelsToSave = new ArrayList<>();
         List<ModelState<EntityModel>> removedStates = new ArrayList<>();
         Instant now = clock.instant();
-        int currentHour = DateUtils.getHourOfDay(now);
+        int currentHour = DateUtils.getUTCHourOfDay(now);
         int currentSlot = currentHour % checkpointIntervalHrs;
         items.entrySet().stream().forEach(entry -> {
             String entityModelId = entry.getKey();
@@ -370,8 +366,8 @@ public class CacheBuffer implements ExpiringState {
                     removedStates.add(remove(entityModelId));
                 } else if (Math.abs(entityModelId.hashCode()) % checkpointIntervalHrs == currentSlot) {
                     // checkpoint is relatively big compared to other queued requests
-                    // save checkpoints with 1/6 probability as we expect to save
-                    // all every 6 hours statistically
+                    // Evens out the resource usage more fairly across a large maintenance window
+                    // by adding saving requests to CheckpointMaintainWorker.
                     //
                     // Background:
                     // We will save a checkpoint when
@@ -539,5 +535,18 @@ public class CacheBuffer implements ExpiringState {
         }
         this.minimumCapacity = minimumCapacity;
         this.reservedBytes = memoryConsumptionPerEntity * minimumCapacity;
+    }
+
+    public void setCheckpointIntervalHrs(int checkpointIntervalHrs) {
+        this.checkpointIntervalHrs = checkpointIntervalHrs;
+        // 0 can cause java.lang.ArithmeticException: / by zero
+        // negative value is meaningless
+        if (checkpointIntervalHrs <= 0) {
+            this.checkpointIntervalHrs = 1;
+        }
+    }
+
+    public int getCheckpointIntervalHrs() {
+        return checkpointIntervalHrs;
     }
 }
