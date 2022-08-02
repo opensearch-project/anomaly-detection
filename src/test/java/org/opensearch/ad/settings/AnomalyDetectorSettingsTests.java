@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -22,6 +23,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.test.OpenSearchTestCase;
 
 @SuppressWarnings({ "rawtypes" })
+@Ignore
 public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
     AnomalyDetectorPlugin plugin;
 

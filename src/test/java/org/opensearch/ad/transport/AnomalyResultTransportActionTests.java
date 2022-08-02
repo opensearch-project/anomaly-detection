@@ -22,6 +22,7 @@ import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
@@ -37,6 +38,7 @@ import org.opensearch.test.rest.OpenSearchRestTestCase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+@Ignore //Transport Action does not exist
 public class AnomalyResultTransportActionTests extends ADIntegTestCase {
     private static final Logger LOG = LogManager.getLogger(AnomalyResultTransportActionTests.class);
 
