@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
@@ -36,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 
+@Ignore
 public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase {
 
     @Test

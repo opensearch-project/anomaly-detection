@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
@@ -26,6 +27,7 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 import com.google.common.collect.ImmutableList;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
+@Ignore
 public class DeleteAnomalyDetectorTransportActionTests extends HistoricalAnalysisIntegTestCase {
     private Instant startTime;
     private Instant endTime;
