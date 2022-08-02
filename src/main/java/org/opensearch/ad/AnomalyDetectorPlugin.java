@@ -335,8 +335,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         IndexNameExpressionResolver indexNameExpressionResolver,
         Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
-        /* @anomaly-detection.create-detector
         EnabledSetting.getInstance().init(clusterService);
+        /* @anomaly-detection.create-detector
         NumericSetting.getInstance().init(clusterService);
         this.client = client;
         this.threadPool = threadPool;
@@ -801,8 +801,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public List<Setting<?>> getSettings() {
-        /* @anomaly-detection.create-detector
         List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
+        /* @anomaly-detection.create-detector
         List<Setting<?>> numericSetting = NumericSetting.getInstance().getSettings();
 
         List<Setting<?>> systemSetting = ImmutableList
@@ -911,9 +911,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         // DELETE_AD_RESULT_WHEN_DELETE_DETECTOR, MAX_BATCH_TASK_PER_NODE, MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS, REQUEST_TIMEOUT is needed for ADTaskManager
         // FILTER_BY_BACKEND_ROLES is needed by IndexAnomalyDetectorTransportAction
         // DETECTION_INTERVAL, DETECTION_WINDOW_DELAY, MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, MAX_MULTI_ENTITY_ANOMALY_DETECTORS, MAX_ANOMALY_FEATURES is needed for AbstractAnomalyDetectorAction
-         */
         // TODO: evaluate if these settings are needed for create detector
-        return ImmutableList.of(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+         */
+        List<Setting<?>> systemSetting = ImmutableList
+                .of(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                 AnomalyDetectorSettings.PAGE_SIZE,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
@@ -938,6 +939,13 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.MAX_ANOMALY_FEATURES);
+        return unmodifiableList(
+                Stream
+                    .of(enabledSetting.stream(), systemSetting.stream())
+                    .reduce(Stream::concat)
+                    .orElseGet(Stream::empty)
+                    .collect(Collectors.toList())
+        );
     }
 
     @Override
