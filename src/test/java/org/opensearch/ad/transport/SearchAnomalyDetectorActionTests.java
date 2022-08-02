@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import org.junit.Ignore;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
@@ -30,6 +31,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 import com.google.common.collect.ImmutableList;
 
+@Ignore
 public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTestCase {
 
     private String indexName = "test-data";
