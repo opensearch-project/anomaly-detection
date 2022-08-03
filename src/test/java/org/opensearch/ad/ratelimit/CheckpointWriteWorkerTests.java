@@ -12,6 +12,7 @@
 package org.opensearch.ad.ratelimit;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -99,6 +100,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         Map<String, Object> checkpointMap = new HashMap<>();
         checkpointMap.put(CheckpointDao.FIELD_MODEL, "a");
         when(checkpoint.toIndexSource(any())).thenReturn(checkpointMap);
+        when(checkpoint.shouldSave(any(), anyBoolean(), any(), any())).thenReturn(true);
 
         // Integer.MAX_VALUE makes a huge heap
         worker = new CheckpointWriteWorker(

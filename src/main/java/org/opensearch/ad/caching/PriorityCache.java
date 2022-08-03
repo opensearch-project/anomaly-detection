@@ -38,6 +38,7 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.MemoryTracker.Origin;
@@ -51,10 +52,14 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -86,11 +91,13 @@ public class PriorityCache implements EntityCache {
     // it again and again for no obvious benefits.
     private Instant lastInActiveEntityMaintenance;
     protected int maintenanceFreqConstant;
+    private CheckpointMaintainWorker checkpointMaintainQueue;
+    private int checkpointIntervalHrs;
 
     public PriorityCache(
         CheckpointDao checkpointDao,
         int dedicatedCacheSize,
-        Duration inactiveEntityTtl,
+        Setting<TimeValue> checkpointTtl,
         int maxInactiveStates,
         MemoryTracker memoryTracker,
         int numberOfTrees,
@@ -99,7 +106,10 @@ public class PriorityCache implements EntityCache {
         Duration modelTtl,
         ThreadPool threadPool,
         CheckpointWriteWorker checkpointWriteQueue,
-        int maintenanceFreqConstant
+        int maintenanceFreqConstant,
+        CheckpointMaintainWorker checkpointMaintainQueue,
+        Settings settings,
+        Setting<TimeValue> checkpointSavingFreq
     ) {
         this.checkpointDao = checkpointDao;
 
@@ -119,18 +129,28 @@ public class PriorityCache implements EntityCache {
         this.modelTtl = modelTtl;
         this.doorKeepers = new ConcurrentHashMap<>();
 
-        this.inActiveEntities = CacheBuilder
-            .newBuilder()
-            .expireAfterAccess(inactiveEntityTtl.toHours(), TimeUnit.HOURS)
-            .maximumSize(maxInactiveStates)
-            .concurrencyLevel(1)
-            .build();
+        Duration inactiveEntityTtl = DateUtils.toDuration(checkpointTtl.get(settings));
+
+        this.inActiveEntities = createInactiveCache(inactiveEntityTtl, maxInactiveStates);
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(
+                checkpointTtl,
+                it -> { this.inActiveEntities = createInactiveCache(DateUtils.toDuration(it), maxInactiveStates); }
+            );
 
         this.threadPool = threadPool;
         this.random = new Random(42);
         this.checkpointWriteQueue = checkpointWriteQueue;
         this.lastInActiveEntityMaintenance = Instant.MIN;
         this.maintenanceFreqConstant = maintenanceFreqConstant;
+        this.checkpointMaintainQueue = checkpointMaintainQueue;
+
+        this.checkpointIntervalHrs = DateUtils.toDuration(checkpointSavingFreq.get(settings)).toHoursPart();
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(checkpointSavingFreq, it -> {
+            this.checkpointIntervalHrs = DateUtils.toDuration(it).toHoursPart();
+            this.setCheckpointFreqListener();
+        });
     }
 
     @Override
@@ -450,7 +470,8 @@ public class PriorityCache implements EntityCache {
                     modelTtl,
                     detectorId,
                     checkpointWriteQueue,
-                    random
+                    checkpointMaintainQueue,
+                    checkpointIntervalHrs
                 );
                 activeEnities.put(detectorId, buffer);
                 // There can be race conditions between tryClearUpMemory and
@@ -833,6 +854,10 @@ public class PriorityCache implements EntityCache {
         activeEnities.values().stream().forEach(cacheBuffer -> cacheBuffer.setMinimumCapacity(dedicatedCacheSize));
     }
 
+    private void setCheckpointFreqListener() {
+        activeEnities.values().stream().forEach(cacheBuffer -> cacheBuffer.setCheckpointIntervalHrs(checkpointIntervalHrs));
+    }
+
     @Override
     public List<ModelProfile> getAllModelProfile(String detectorId) {
         CacheBuffer cacheBuffer = activeEnities.get(detectorId);
@@ -890,5 +915,54 @@ public class PriorityCache implements EntityCache {
                 throw new IllegalArgumentException("We don't have enough memory for the required change");
             }
         }
+    }
+
+    /**
+     * Get a model state without incurring priority update. Used in maintenance.
+     * @param detectorId Detector Id
+     * @param modelId Model Id
+     * @return Model state
+     */
+    @Override
+    public Optional<ModelState<EntityModel>> getForMaintainance(String detectorId, String modelId) {
+        CacheBuffer buffer = activeEnities.get(detectorId);
+        if (buffer == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(buffer.getWithoutUpdatePriority(modelId));
+    }
+
+    /**
+     * Remove entity model from active entity buffer and delete checkpoint. Used to clean corrupted model.
+     * @param detectorId Detector Id
+     * @param entityModelId Model Id
+     */
+    @Override
+    public void removeEntityModel(String detectorId, String entityModelId) {
+        CacheBuffer buffer = activeEnities.get(detectorId);
+        if (buffer != null) {
+            ModelState<EntityModel> removed = null;
+            if ((removed = buffer.remove(entityModelId, false)) != null) {
+                addIntoInactiveCache(removed);
+            }
+        }
+        checkpointDao
+            .deleteModelCheckpoint(
+                entityModelId,
+                ActionListener
+                    .wrap(
+                        r -> LOG.debug(new ParameterizedMessage("Succeeded in deleting checkpoint [{}].", entityModelId)),
+                        e -> LOG.error(new ParameterizedMessage("Failed to delete checkpoint [{}].", entityModelId), e)
+                    )
+            );
+    }
+
+    private Cache<String, ModelState<EntityModel>> createInactiveCache(Duration inactiveEntityTtl, int maxInactiveStates) {
+        return CacheBuilder
+            .newBuilder()
+            .expireAfterAccess(inactiveEntityTtl.toHours(), TimeUnit.HOURS)
+            .maximumSize(maxInactiveStates)
+            .concurrencyLevel(1)
+            .build();
     }
 }

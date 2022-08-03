@@ -15,6 +15,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.ExpiringState;
 import org.opensearch.ad.MaintenanceState;
 
@@ -29,6 +31,7 @@ import com.google.common.hash.Funnels;
  *
  */
 public class DoorKeeper implements MaintenanceState, ExpiringState {
+    private final Logger LOG = LogManager.getLogger(DoorKeeper.class);
     // stores entity's model id
     private BloomFilter<String> bloomFilter;
     // the number of expected insertions to the constructed BloomFilter<T>; must be positive
@@ -65,6 +68,7 @@ public class DoorKeeper implements MaintenanceState, ExpiringState {
     @Override
     public void maintenance() {
         if (bloomFilter == null || lastMaintenanceTime.plus(resetInterval).isBefore(clock.instant())) {
+            LOG.debug("maintaining for doorkeeper");
             bloomFilter = BloomFilter.create(Funnels.stringFunnel(Charsets.US_ASCII), expectedInsertions, fpp);
             lastMaintenanceTime = clock.instant();
         }

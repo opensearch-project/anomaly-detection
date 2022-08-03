@@ -34,6 +34,7 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -78,6 +79,7 @@ import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -160,6 +162,7 @@ public class ModelManagerTests {
     private double[] attribution;
     private double[] point;
     private DiVector attributionVec;
+    private ClusterSettings clusterSettings;
 
     @Mock
     private ActionListener<ThresholdingResult> rcfResultListener;
@@ -226,6 +229,19 @@ public class ModelManagerTests {
         memoryTracker = mock(MemoryTracker.class);
         when(memoryTracker.isHostingAllowed(anyString(), any())).thenReturn(true);
 
+        clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ)))
+        );
+        clusterService = mock(ClusterService.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        settings = Settings
+            .builder()
+            .put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage)
+            .put("plugins.anomaly_detection.checkpoint_saving_freq", TimeValue.timeValueHours(12))
+            .build();
+
         modelManager = spy(
             new ModelManager(
                 checkpointDao,
@@ -237,10 +253,12 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                checkpointInterval,
+                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                settings,
+                clusterService
             )
         );
 
@@ -250,7 +268,6 @@ public class ModelManagerTests {
 
         when(this.modelState.getModel()).thenReturn(this.entityModel);
         when(this.entityModel.getTrcf()).thenReturn(Optional.of(this.trcf));
-        settings = Settings.builder().put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage).build();
 
         when(anomalyDetector.getShingleSize()).thenReturn(shingleSize);
     }
@@ -410,7 +427,7 @@ public class ModelManagerTests {
         final Set<Setting<?>> settingsSet = Stream
             .concat(
                 ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(),
-                Sets.newHashSet(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE).stream()
+                Sets.newHashSet(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE, AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ).stream()
             )
             .collect(Collectors.toSet());
         ClusterSettings clusterSettings = new ClusterSettings(settings, settingsSet);
@@ -438,10 +455,12 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                checkpointInterval,
+                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                settings,
+                clusterService
             )
         );
 
@@ -968,10 +987,12 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                checkpointInterval,
+                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
-                memoryTracker
+                memoryTracker,
+                settings,
+                clusterService
             )
         );
 
@@ -1072,5 +1093,21 @@ public class ModelManagerTests {
             ),
             result
         );
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void score_throw() {
+        AnomalyDescriptor anomalyDescriptor = new AnomalyDescriptor(point, 0);
+        anomalyDescriptor.setRCFScore(2);
+        anomalyDescriptor.setAnomalyGrade(1);
+        // input dimension is 5
+        anomalyDescriptor.setRelevantAttribution(new double[] { 0, 0, 0, 0, 0 });
+        RandomCutForest rcf = mock(RandomCutForest.class);
+        when(rcf.getShingleSize()).thenReturn(8);
+        when(rcf.getDimensions()).thenReturn(40);
+        when(this.trcf.getForest()).thenReturn(rcf);
+        doThrow(new IllegalArgumentException()).when(trcf).process(any(), anyLong());
+        when(this.entityModel.getSamples()).thenReturn(new ArrayDeque<>(Arrays.asList(this.point)));
+        modelManager.score(this.point, this.detectorId, this.modelState);
     }
 }

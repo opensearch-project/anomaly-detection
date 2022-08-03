@@ -14,16 +14,21 @@ package org.opensearch.ad.transport;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import org.hamcrest.Matchers;
@@ -41,6 +46,10 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
+import org.opensearch.ad.stats.ADStat;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
+import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -70,6 +79,7 @@ public class RCFResultTests extends OpenSearchTestCase {
     private double[][] expectedValuesList = new double[][] { new double[] { 789, 12 } };
     private double[] likelihood = new double[] { randomDouble() };
     private double threshold = 1.1d;
+    private ADStats adStats;
 
     @Override
     @Before
@@ -78,6 +88,14 @@ public class RCFResultTests extends OpenSearchTestCase {
         hashRing = mock(HashRing.class);
         node = mock(DiscoveryNode.class);
         doReturn(Optional.of(node)).when(hashRing).getNodeByAddress(any());
+        Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
+            {
+                put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+                put(StatNames.MODEL_CORRUTPION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+            }
+        };
+
+        adStats = new ADStats(statsMap);
     }
 
     @SuppressWarnings("unchecked")
@@ -99,7 +117,8 @@ public class RCFResultTests extends OpenSearchTestCase {
             transportService,
             manager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
 
         double rcfScore = 0.5;
@@ -156,7 +175,8 @@ public class RCFResultTests extends OpenSearchTestCase {
             transportService,
             manager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         doThrow(NullPointerException.class)
             .when(manager)
@@ -271,7 +291,8 @@ public class RCFResultTests extends OpenSearchTestCase {
             transportService,
             manager,
             breakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         doAnswer(invocation -> {
             ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
@@ -300,5 +321,46 @@ public class RCFResultTests extends OpenSearchTestCase {
         action.doExecute(mock(Task.class), request, future);
 
         expectThrows(LimitExceededException.class, () -> future.actionGet());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testCorruptModel() {
+        TransportService transportService = new TransportService(
+            Settings.EMPTY,
+            mock(Transport.class),
+            null,
+            TransportService.NOOP_TRANSPORT_INTERCEPTOR,
+            x -> null,
+            null,
+            Collections.emptySet()
+        );
+
+        ModelManager manager = mock(ModelManager.class);
+        ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        RCFResultTransportAction action = new RCFResultTransportAction(
+            mock(ActionFilters.class),
+            transportService,
+            manager,
+            adCircuitBreakerService,
+            hashRing,
+            adStats
+        );
+        doAnswer(invocation -> {
+            ActionListener<ThresholdingResult> listener = invocation.getArgument(3);
+            listener.onFailure(new IllegalArgumentException());
+            return null;
+        }).when(manager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
+
+        when(adCircuitBreakerService.isOpen()).thenReturn(false);
+
+        final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
+        String detectorId = "123";
+        RCFResultRequest request = new RCFResultRequest(detectorId, "123-rcf-1", new double[] { 0 });
+        action.doExecute(mock(Task.class), request, future);
+
+        expectThrows(IllegalArgumentException.class, () -> future.actionGet());
+        Object val = adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).getValue();
+        assertEquals(1L, ((Long) val).longValue());
+        verify(manager, times(1)).clear(eq(detectorId), any());
     }
 }

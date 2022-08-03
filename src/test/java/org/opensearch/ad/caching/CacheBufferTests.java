@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import org.mockito.ArgumentCaptor;
 import org.opensearch.ad.MemoryTracker;
+import org.opensearch.ad.ratelimit.CheckpointMaintainRequest;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -117,9 +118,56 @@ public class CacheBufferTests extends AbstractCacheTest {
         cacheBuffer.maintenance();
         assertEquals(3, cacheBuffer.getActiveEntities());
         assertEquals(3, cacheBuffer.getAllModels().size());
-        when(clock.instant()).thenReturn(Instant.MAX);
+        // the year of 2122, 100 years later to simulate we are gonna remove all cached entries
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(4814540761L));
         cacheBuffer.maintenance();
         assertEquals(0, cacheBuffer.getActiveEntities());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testMaintainByHourNothingToSave() {
+        // hash code 49 % 6 = 1
+        String modelId1 = "1";
+        // hash code 50 % 6 = 2
+        String modelId2 = "2";
+        // hash code 51 % 6 = 3
+        String modelId3 = "3";
+        // hour 17. 17 % 6 (check point frequency) = 5
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(1658854904L));
+        cacheBuffer.put(modelId1, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+        cacheBuffer.put(modelId2, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+        cacheBuffer.put(modelId3, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+
+        ArgumentCaptor<List<CheckpointMaintainRequest>> savedStates = ArgumentCaptor.forClass(List.class);
+        cacheBuffer.maintenance();
+        verify(checkpointMaintainQueue, times(1)).putAll(savedStates.capture());
+        assertTrue(savedStates.getValue().isEmpty());
+
+        // hour 13. 13 % 6 (check point frequency) = 1
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(1658928080L));
+
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testMaintainByHourSaveOne() {
+        // hash code 49 % 6 = 1
+        String modelId1 = "1";
+        // hash code 50 % 6 = 2
+        String modelId2 = "2";
+        // hash code 51 % 6 = 3
+        String modelId3 = "3";
+        // hour 13. 13 % 6 (check point frequency) = 1
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(1658928080L));
+        cacheBuffer.put(modelId1, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+        cacheBuffer.put(modelId2, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+        cacheBuffer.put(modelId3, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
+
+        ArgumentCaptor<List<CheckpointMaintainRequest>> savedStates = ArgumentCaptor.forClass(List.class);
+        cacheBuffer.maintenance();
+        verify(checkpointMaintainQueue, times(1)).putAll(savedStates.capture());
+        List<CheckpointMaintainRequest> toSave = savedStates.getValue();
+        assertEquals(1, toSave.size());
+        assertEquals(modelId1, toSave.get(0).getEntityModelId());
     }
 
     /**
