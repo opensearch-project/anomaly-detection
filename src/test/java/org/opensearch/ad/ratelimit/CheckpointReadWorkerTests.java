@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,10 @@ import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.stats.ADStat;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
+import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -94,6 +99,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     EntityCache entityCache;
     EntityFeatureRequest request, request2, request3;
     ClusterSettings clusterSettings;
+    ADStats adStats;
 
     @Override
     public void setUp() throws Exception {
@@ -137,6 +143,14 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         when(cacheProvider.get()).thenReturn(entityCache);
         when(entityCache.hostIfPossible(any(), any())).thenReturn(true);
 
+        Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
+            {
+                put(StatNames.MODEL_CORRUTPION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+            }
+        };
+
+        adStats = new ADStats(statsMap);
+
         // Integer.MAX_VALUE makes a huge heap
         worker = new CheckpointReadWorker(
             Integer.MAX_VALUE,
@@ -161,7 +175,8 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             anomalyDetectionIndices,
             cacheProvider,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue
+            checkpointWriteQueue,
+            adStats
         );
 
         request = new EntityFeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity, new double[] { 0 }, 0);
@@ -539,7 +554,8 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             anomalyDetectionIndices,
             cacheProvider,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue
+            checkpointWriteQueue,
+            adStats
         );
 
         regularTestSetUp(new RegularSetUpConfig.Builder().build());
@@ -590,7 +606,8 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             anomalyDetectionIndices,
             cacheProvider,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue
+            checkpointWriteQueue,
+            adStats
         );
 
         List<EntityFeatureRequest> requests = new ArrayList<>();
@@ -642,7 +659,8 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             anomalyDetectionIndices,
             cacheProvider,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue
+            checkpointWriteQueue,
+            adStats
         );
 
         List<EntityFeatureRequest> requests = new ArrayList<>();
@@ -756,5 +774,34 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
 
         verify(nodeStateManager, times(1)).setException(eq(detectorId2), any(LimitExceededException.class));
         verify(nodeStateManager, never()).setException(eq(detectorId), any(LimitExceededException.class));
+    }
+
+    public void testFailToScore() {
+        doAnswer(invocation -> {
+            MultiGetItemResponse[] items = new MultiGetItemResponse[1];
+            items[0] = new MultiGetItemResponse(
+                new GetResponse(
+                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
+                ),
+                null
+            );
+            ActionListener<MultiGetResponse> listener = invocation.getArgument(1);
+            listener.onResponse(new MultiGetResponse(items));
+            return null;
+        }).when(checkpoint).batchRead(any(), any());
+
+        state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        when(modelManager.processEntityCheckpoint(any(), any(), anyString(), anyString(), anyInt())).thenReturn(state);
+        doThrow(new IllegalArgumentException()).when(modelManager).getAnomalyResultForEntity(any(), any(), anyString(), any(), anyInt());
+
+        List<EntityFeatureRequest> requests = new ArrayList<>();
+        requests.add(request);
+        worker.putAll(requests);
+
+        verify(resultWriteQueue, never()).put(any());
+        verify(checkpointWriteQueue, never()).write(any(), anyBoolean(), any());
+        verify(coldstartQueue, times(1)).put(any());
+        Object val = adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).getValue();
+        assertEquals(1L, ((Long) val).longValue());
     }
 }

@@ -180,7 +180,26 @@ public final class AnomalyDetectorSettings {
 
     public static final Duration HOURLY_MAINTENANCE = Duration.ofHours(1);
 
-    public static final Duration CHECKPOINT_TTL = Duration.ofDays(3);
+    // saving checkpoint every 12 hours.
+    // To support 1 million entities in 36 data nodes, each node has roughly 28K models.
+    // In each hour, we roughly need to save 2400 models. Since each model saving can
+    // take about 1 seconds (default value of AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS)
+    // we can use up to 2400 seconds to finish saving checkpoints.
+    public static final Setting<TimeValue> CHECKPOINT_SAVING_FREQ = Setting
+        .positiveTimeSetting(
+            "plugins.anomaly_detection.checkpoint_saving_freq",
+            TimeValue.timeValueHours(12),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<TimeValue> CHECKPOINT_TTL = Setting
+        .positiveTimeSetting(
+            "plugins.anomaly_detection.checkpoint_ttl",
+            TimeValue.timeValueDays(7),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     // ======================================
     // ML parameters
@@ -367,9 +386,6 @@ public final class AnomalyDetectorSettings {
     // max entity value's length
     public static int MAX_ENTITY_LENGTH = 256;
 
-    // max number of index checkpoint requests in one bulk
-    public static int MAX_BULK_CHECKPOINT_SIZE = 1000;
-
     // number of bulk checkpoints per second
     public static double CHECKPOINT_BULK_PER_SECOND = 0.02;
 
@@ -509,15 +525,37 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    public static final Setting<Float> CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "plugins.anomaly_detection.checkpoint_maintain_queue_max_heap_percent",
+            0.001f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
     // expected execution time per cold entity request. This setting controls
     // the speed of cold entity requests execution. The larger, the faster, and
     // the more performance impact to customers' workload.
-    public static final Setting<Integer> EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS = Setting
+    public static final Setting<Integer> EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS = Setting
         .intSetting(
-            "plugins.anomaly_detection.expected_cold_entity_execution_time_in_secs",
-            3,
+            "plugins.anomaly_detection.expected_cold_entity_execution_time_in_millisecs",
+            3000,
             0,
-            3600,
+            3600000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    // expected execution time per checkpoint maintain request. This setting controls
+    // the speed of checkpoint maintenance execution. The larger, the faster, and
+    // the more performance impact to customers' workload.
+    public static final Setting<Integer> EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS = Setting
+        .intSetting(
+            "plugins.anomaly_detection.expected_checkpoint_maintain_time_in_millisecs",
+            1000,
+            0,
+            3600000,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -572,6 +610,18 @@ public final class AnomalyDetectorSettings {
      * 10^ 7 / 2.0 * 10^5 = 50
      */
     public static int CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES = 200_000;
+
+    /**
+     * CheckpointMaintainRequest has model Id (roughly 256 bytes), and QueuedRequest
+     * fields including detector Id(roughly 128 bytes), expirationEpochMs (long,
+     *  8 bytes), and priority (12 bytes).
+     * Plus Java object size (12 bytes), we have roughly 416 bytes per request.
+     * We don't want the total size exceeds 0.1% of the heap.
+     * We can have at most 0.1% heap / 416 = heap / 416,000.
+     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
+     * 10^ 6 / 416 = 2403
+     */
+    public static int CHECKPOINT_MAINTAIN_REQUEST_SIZE_IN_BYTES = 416;
 
     /**
      * Max concurrent entity cold starts per node
@@ -710,7 +760,7 @@ public final class AnomalyDetectorSettings {
     // within an interval, how many percents are used to process requests.
     // 1.0 means we use all of the detection interval to process requests.
     // to ensure we don't block next interval, it is better to set it less than 1.0.
-    public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.8f;
+    public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.9f;
 
     // ======================================
     // preview setting

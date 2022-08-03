@@ -12,16 +12,19 @@
 package org.opensearch.ad.cluster;
 
 import java.time.Clock;
+import java.time.Duration;
 
 import org.opensearch.ad.cluster.diskcleanup.IndexCleanup;
 import org.opensearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.DateUtils;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.component.LifecycleListener;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
@@ -38,6 +41,7 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
     private Clock clock;
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
+    private Duration checkpointTtlDuration;
 
     public ClusterManagerEventListener(
         ClusterService clusterService,
@@ -45,7 +49,9 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
         Client client,
         Clock clock,
         ClientUtil clientUtil,
-        DiscoveryNodeFilterer nodeFilter
+        DiscoveryNodeFilterer nodeFilter,
+        Setting<TimeValue> checkpointTtl,
+        Settings settings
     ) {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
@@ -54,6 +60,20 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
         this.clock = clock;
         this.clientUtil = clientUtil;
         this.nodeFilter = nodeFilter;
+
+        this.checkpointTtlDuration = DateUtils.toDuration(checkpointTtl.get(settings));
+
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(checkpointTtl, it -> {
+            this.checkpointTtlDuration = DateUtils.toDuration(it);
+            cancel(checkpointIndexRetentionCron);
+            IndexCleanup indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
+            checkpointIndexRetentionCron = threadPool
+                .scheduleWithFixedDelay(
+                    new ModelCheckpointIndexRetention(checkpointTtlDuration, clock, indexCleanup),
+                    TimeValue.timeValueHours(24),
+                    executorName()
+                );
+        });
     }
 
     @Override
@@ -73,7 +93,7 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
             IndexCleanup indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
             checkpointIndexRetentionCron = threadPool
                 .scheduleWithFixedDelay(
-                    new ModelCheckpointIndexRetention(AnomalyDetectorSettings.CHECKPOINT_TTL, clock, indexCleanup),
+                    new ModelCheckpointIndexRetention(checkpointTtlDuration, clock, indexCleanup),
                     TimeValue.timeValueHours(24),
                     executorName()
                 );

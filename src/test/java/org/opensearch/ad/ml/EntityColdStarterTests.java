@@ -20,6 +20,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.io.IOException;
@@ -116,6 +117,7 @@ public class EntityColdStarterTests extends AbstractADTest {
     long rcfSeed;
     ModelManager modelManager;
     ClientUtil clientUtil;
+    ClusterService clusterService;
 
     @BeforeClass
     public static void initOnce() {
@@ -158,7 +160,6 @@ public class EntityColdStarterTests extends AbstractADTest {
             .build();
         when(clock.millis()).thenReturn(1602401500000L);
         doAnswer(invocation -> {
-            GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
             listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
@@ -169,6 +170,7 @@ public class EntityColdStarterTests extends AbstractADTest {
         Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
         nodestateSetting.add(BACKOFF_MINUTES);
+        nodestateSetting.add(CHECKPOINT_SAVING_FREQ);
         ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
 
         DiscoveryNode discoveryNode = new DiscoveryNode(
@@ -179,7 +181,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             Version.CURRENT
         );
 
-        ClusterService clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
+        clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
 
         stateManager = new NodeStateManager(
             client,
@@ -265,10 +267,13 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
             entityColdStarter,
             mock(FeatureManager.class),
-            mock(MemoryTracker.class)
+            mock(MemoryTracker.class),
+            settings,
+            clusterService
+
         );
     }
 
@@ -912,10 +917,12 @@ public class EntityColdStarterTests extends AbstractADTest {
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
             entityColdStarter,
             mock(FeatureManager.class),
-            mock(MemoryTracker.class)
+            mock(MemoryTracker.class),
+            settings,
+            clusterService
         );
 
         accuracyTemplate(1, 0.6f, 0.6f);
