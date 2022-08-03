@@ -21,18 +21,23 @@ import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 
 import org.junit.Before;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.component.LifecycleListener;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
@@ -53,6 +58,12 @@ public class ClusterManagerEventListenerTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(ClusterService.class);
+        ClusterSettings settings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_TTL)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(settings);
+
         threadPool = mock(ThreadPool.class);
         hourlyCancellable = mock(Cancellable.class);
         checkpointIndexRetentionCancellable = mock(Cancellable.class);
@@ -67,7 +78,16 @@ public class ClusterManagerEventListenerTests extends AbstractADTest {
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
-        clusterManagerService = new ClusterManagerEventListener(clusterService, threadPool, client, clock, clientUtil, nodeFilter);
+        clusterManagerService = new ClusterManagerEventListener(
+            clusterService,
+            threadPool,
+            client,
+            clock,
+            clientUtil,
+            nodeFilter,
+            AnomalyDetectorSettings.CHECKPOINT_TTL,
+            Settings.EMPTY
+        );
     }
 
     public void testOnOffMaster() {

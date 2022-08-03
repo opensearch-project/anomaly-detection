@@ -22,7 +22,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.anyDouble;
 import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -36,10 +35,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
-import static org.opensearch.test.OpenSearchTestCase.randomDouble;
-import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -350,7 +345,8 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             normalModelManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -471,7 +467,8 @@ public class AnomalyResultTests extends AbstractADTest {
             testNodes[1].transportService,
             normalModelManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
 
         TransportService realTransportService = testNodes[0].transportService;
@@ -524,7 +521,8 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             rcfManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -567,7 +565,8 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             rcfManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -684,7 +683,14 @@ public class AnomalyResultTests extends AbstractADTest {
         when(hashRing.getNodeByAddress(any(TransportAddress.class))).thenReturn(discoveryNode);
         // register handlers on testNodes[1]
         ActionFilters actionFilters = new ActionFilters(Collections.emptySet());
-        new RCFResultTransportAction(actionFilters, testNodes[1].transportService, normalModelManager, adCircuitBreakerService, hashRing);
+        new RCFResultTransportAction(
+            actionFilters,
+            testNodes[1].transportService,
+            normalModelManager,
+            adCircuitBreakerService,
+            hashRing,
+            adStats
+        );
         new ThresholdResultTransportAction(actionFilters, testNodes[1].transportService, normalModelManager);
 
         TransportService realTransportService = testNodes[0].transportService;
@@ -727,7 +733,8 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             normalModelManager,
             breakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -796,7 +803,8 @@ public class AnomalyResultTests extends AbstractADTest {
             exceptionTransportService,
             normalModelManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
@@ -883,7 +891,8 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             normalModelManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         Optional<DiscoveryNode> localNode = Optional.of(clusterService.state().nodes().getLocalNode());
 
@@ -1416,7 +1425,8 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             normalModelManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -1627,7 +1637,8 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             rcfManager,
             adCircuitBreakerService,
-            hashRing
+            hashRing,
+            adStats
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 

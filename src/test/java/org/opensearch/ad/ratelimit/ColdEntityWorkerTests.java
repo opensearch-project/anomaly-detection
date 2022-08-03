@@ -53,7 +53,7 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
+                                AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
                                 AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
                                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
                             )
@@ -99,11 +99,10 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
 
             TimeValue value = invocation.getArgument(1);
             // since we have only 1 request each time
-            long expectedExecutionPerRequestMilli = 1000 * AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS
+            long expectedExecutionPerRequestMilli = AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS
                 .getDefault(Settings.EMPTY);
             long delay = value.getMillis();
-            assertTrue(delay >= expectedExecutionPerRequestMilli);
-            assertTrue(delay <= expectedExecutionPerRequestMilli * 2);
+            assertTrue(delay == expectedExecutionPerRequestMilli);
             return null;
         }).when(threadPool).schedule(any(), any(), any());
     }
@@ -144,7 +143,7 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
+                                AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
                                 AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
                                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
                             )

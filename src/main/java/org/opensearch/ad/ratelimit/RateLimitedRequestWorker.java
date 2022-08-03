@@ -324,6 +324,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                 int maxQueueSize = (int) (maxQueuedTaskRatio * threadPool.info(name).getQueueSize().singles());
                 // in case that users set queue size to -1 (unbounded)
                 if (maxQueueSize > 0 && stats.getQueue() > maxQueueSize) {
+                    LOG.info(new ParameterizedMessage("Queue [{}] size [{}], reached limit [{}]", name, stats.getQueue(), maxQueueSize));
                     setCoolDownStart();
                     break;
                 }
