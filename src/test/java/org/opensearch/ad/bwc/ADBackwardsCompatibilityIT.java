@@ -143,8 +143,8 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                         categoryFieldSize
                     );
                     assertEquals(totalDocsPerCategory * categoryFieldSize * 2, getDocCountOfIndex(client(), dataIndexName));
-                    Assert.assertTrue(pluginNames.contains("opendistro-anomaly-detection"));
-                    Assert.assertTrue(pluginNames.contains("opendistro-job-scheduler"));
+                    Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
+                    Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
                     // Create single entity detector and start realtime job
                     createRealtimeAnomalyDetectorsAndStart(SINGLE_ENTITY_DETECTOR);
