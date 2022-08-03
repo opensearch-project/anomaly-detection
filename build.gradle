@@ -38,10 +38,10 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        opensearch1xADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/1.0.0/latest/linux/x64/tar/builds/opensearch/plugins/' +
-                'opensearch-anomaly-detection-1.0.0.0.zip'
-        opensearch1xJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/1.0.0/latest/linux/x64/tar/builds/opensearch/plugins/' +
-                'opensearch-job-scheduler-1.0.0.0.zip'
+        opensearch1xADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/1.1.0/latest/linux/x64/tar/builds/opensearch/plugins/' +
+                'opensearch-anomaly-detection-1.1.0.0.zip'
+        opensearch1xJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/1.1.0/latest/linux/x64/tar/builds/opensearch/plugins/' +
+                'opensearch-job-scheduler-1.1.0.0.zip'
 
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
@@ -367,7 +367,7 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
-String bwcVersion = "1.0.0.0"
+String bwcVersion = "1.1.0.0"
 String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
 String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
@@ -377,7 +377,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["1.0.1", opensearch_version]
+            versions = ["1.1.0", opensearch_version]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
