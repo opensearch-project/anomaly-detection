@@ -38,9 +38,9 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        opensearch1xADDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
+        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
                 'opensearch-anomaly-detection-1.1.0.0.zip'
-        opensearch1xJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
+        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
                 'opensearch-job-scheduler-1.1.0.0.zip'
 
         // gradle build won't print logs during test by default unless there is a failure.
@@ -389,7 +389,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
                                 project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$bwcVersion"))
                             }
                             project.mkdir bwcJobSchedulerPath + bwcVersion
-                            ant.get(src: opensearch1xJSDownload,
+                            ant.get(src: bwcOpenSearchJSDownload,
                                     dest: bwcJobSchedulerPath + bwcVersion,
                                     httpusecaches: false)
                             return fileTree(bwcJobSchedulerPath + bwcVersion).getSingleFile()
@@ -407,7 +407,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
                                 project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$bwcVersion"))
                             }
                             project.mkdir bwcAnomalyDetectionPath + bwcVersion
-                            ant.get(src: opensearch1xADDownload,
+                            ant.get(src: bwcOpenSearchADDownload,
                                     dest: bwcAnomalyDetectionPath + bwcVersion,
                                     httpusecaches: false)
                             return fileTree(bwcAnomalyDetectionPath + bwcVersion).getSingleFile()
