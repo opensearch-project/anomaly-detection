@@ -68,7 +68,7 @@ import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 
-public class EntityColdStarterTests extends AbstractModelPerfTest {
+public class EntityColdStarterTests extends AbstractCosineDataTest {
 
     @BeforeClass
     public static void initOnce() {
@@ -85,6 +85,12 @@ public class EntityColdStarterTests extends AbstractModelPerfTest {
     public static void clearOnce() {
         // restore to default value
         EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
+    }
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
     }
 
     @Override

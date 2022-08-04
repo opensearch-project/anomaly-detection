@@ -52,7 +52,7 @@ import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
 
 @TimeoutSuite(millis = 60 * TimeUnits.MINUTE) // rcf may be slow due to bounding box cache disabled
-public class HCADModelPerfTests extends AbstractModelPerfTest {
+public class HCADModelPerfTests extends AbstractCosineDataTest {
 
     /**
      * A template to perform precision/recall test by simulating HCAD logic with only one entity.

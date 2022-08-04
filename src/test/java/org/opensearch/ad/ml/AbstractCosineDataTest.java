@@ -48,7 +48,6 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -63,7 +62,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
 
-public class AbstractModelPerfTest extends AbstractADTest {
+public class AbstractCosineDataTest extends AbstractADTest {
     int numMinSamples;
     String modelId;
     String entityName;
@@ -194,7 +193,6 @@ public class AbstractModelPerfTest extends AbstractADTest {
             rcfSeed,
             AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
         );
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
 
         detectorId = "123";
         modelId = "123_entity_abc";
