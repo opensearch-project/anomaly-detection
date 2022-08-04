@@ -403,8 +403,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void createHistoricalAnomalyDetectorsAndStart() throws Exception {
+    private List<String> createHistoricalAnomalyDetectorsAndStart() throws Exception {
         // only support single entity for historical detector
         Response historicalSingleFlowDetectorResponse = createAnomalyDetector(
             client(),
@@ -418,16 +417,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
             null,
             true
         );
-        List<String> historicalDetectorStartResult = startAnomalyDetector(historicalSingleFlowDetectorResponse, true);
-        String detectorId = historicalDetectorStartResult.get(0);
-        String taskId = historicalDetectorStartResult.get(1);
-        deleteRunningDetector(detectorId);
-        waitUntilTaskDone(client(), detectorId);
-        List<ADTask> adTasks = searchLatestAdTaskOfDetector(client(), detectorId, ADTaskType.HISTORICAL.name());
-        assertEquals(1, adTasks.size());
-        assertEquals(taskId, adTasks.get(0).getTaskId());
-        int adResultCount = countADResultOfDetector(client(), detectorId, taskId);
-        assertTrue(adResultCount > 0);
+        return startAnomalyDetector(historicalSingleFlowDetectorResponse, true);
     }
 
     private void deleteRunningDetector(String detectorId) {
