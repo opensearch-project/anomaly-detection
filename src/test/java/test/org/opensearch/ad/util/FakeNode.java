@@ -48,6 +48,7 @@ import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.util.PageCacheRecycler;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.tasks.TaskManager;
+import org.opensearch.tasks.TaskResourceTrackingService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.tasks.MockTaskManager;
 import org.opensearch.threadpool.ThreadPool;
@@ -109,7 +110,8 @@ public class FakeNode implements Releasable {
         clusterService = createClusterService(threadPool, discoveryNode.get(), clusterSettings);
         clusterService.addStateApplier(transportService.getTaskManager());
         ActionFilters actionFilters = new ActionFilters(emptySet());
-        transportListTasksAction = new TransportListTasksAction(clusterService, transportService, actionFilters);
+        TaskResourceTrackingService taskResourceTrackingService = new TaskResourceTrackingService(Settings.EMPTY, clusterService.getClusterSettings(), threadPool);
+        transportListTasksAction = new TransportListTasksAction(clusterService, transportService, actionFilters, taskResourceTrackingService);
         transportCancelTasksAction = new TransportCancelTasksAction(clusterService, transportService, actionFilters);
         transportService.acceptIncomingRequests();
     }
