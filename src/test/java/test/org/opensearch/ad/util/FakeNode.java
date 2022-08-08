@@ -94,11 +94,11 @@ public class FakeNode implements Releasable {
             Collections.emptySet()
         ) {
             @Override
-            protected TaskManager createTaskManager(Settings settings, ThreadPool threadPool, Set<String> taskHeaders) {
+            protected TaskManager createTaskManager(Settings settings, ClusterSettings clusterSettings, ThreadPool threadPool, Set<String> taskHeaders) {
                 if (MockTaskManager.USE_MOCK_TASK_MANAGER_SETTING.get(settings)) {
                     return new MockTaskManager(settings, threadPool, taskHeaders);
                 } else {
-                    return super.createTaskManager(settings, threadPool, taskHeaders);
+                    return super.createTaskManager(settings, clusterSettings, threadPool, taskHeaders);
                 }
             }
         };
