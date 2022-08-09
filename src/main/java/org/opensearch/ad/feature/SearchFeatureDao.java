@@ -114,9 +114,13 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.interpolator = interpolator;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
+
         this.pageSize = pageSize;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
+
+        if (clusterService != null) {
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
+        }
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
         this.clock = clock;

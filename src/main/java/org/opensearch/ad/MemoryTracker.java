@@ -76,9 +76,12 @@ public class MemoryTracker {
         this.heapSize = jvmService.info().getMem().getHeapMax().getBytes();
         this.heapLimitBytes = (long) (heapSize * modelMaxSizePercentage);
         this.desiredModelSize = (long) (heapSize * modelDesiredSizePercentage);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
+        if (clusterService != null) {
+            clusterService
+                .getClusterSettings()
+                .addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
+        }
+
         this.thresholdModelBytes = 180_000;
         this.adCircuitBreakerService = adCircuitBreakerService;
     }

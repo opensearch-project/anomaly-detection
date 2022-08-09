@@ -94,7 +94,12 @@ public class FakeNode implements Releasable {
             Collections.emptySet()
         ) {
             @Override
-            protected TaskManager createTaskManager(Settings settings, ClusterSettings clusterSettings, ThreadPool threadPool, Set<String> taskHeaders) {
+            protected TaskManager createTaskManager(
+                Settings settings,
+                ClusterSettings clusterSettings,
+                ThreadPool threadPool,
+                Set<String> taskHeaders
+            ) {
                 if (MockTaskManager.USE_MOCK_TASK_MANAGER_SETTING.get(settings)) {
                     return new MockTaskManager(settings, threadPool, taskHeaders);
                 } else {
@@ -110,8 +115,17 @@ public class FakeNode implements Releasable {
         clusterService = createClusterService(threadPool, discoveryNode.get(), clusterSettings);
         clusterService.addStateApplier(transportService.getTaskManager());
         ActionFilters actionFilters = new ActionFilters(emptySet());
-        TaskResourceTrackingService taskResourceTrackingService = new TaskResourceTrackingService(Settings.EMPTY, clusterService.getClusterSettings(), threadPool);
-        transportListTasksAction = new TransportListTasksAction(clusterService, transportService, actionFilters, taskResourceTrackingService);
+        TaskResourceTrackingService taskResourceTrackingService = new TaskResourceTrackingService(
+            Settings.EMPTY,
+            clusterService.getClusterSettings(),
+            threadPool
+        );
+        transportListTasksAction = new TransportListTasksAction(
+            clusterService,
+            transportService,
+            actionFilters,
+            taskResourceTrackingService
+        );
         transportCancelTasksAction = new TransportCancelTasksAction(clusterService, transportService, actionFilters);
         transportService.acceptIncomingRequests();
     }
