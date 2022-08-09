@@ -148,9 +148,11 @@ public class ModelManager implements DetectorModelSize {
         this.minPreviewSize = minPreviewSize;
         this.modelTtl = modelTtl;
         this.checkpointInterval = DateUtils.toDuration(checkpointIntervalSetting.get(settings));
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(checkpointIntervalSetting, it -> this.checkpointInterval = DateUtils.toDuration(it));
+        if (clusterService != null) {
+            clusterService
+                .getClusterSettings()
+                .addSettingsUpdateConsumer(checkpointIntervalSetting, it -> this.checkpointInterval = DateUtils.toDuration(it));
+        }
 
         this.forests = new TRCFMemoryAwareConcurrentHashmap<>(memoryTracker);
         this.thresholds = new ConcurrentHashMap<>();
