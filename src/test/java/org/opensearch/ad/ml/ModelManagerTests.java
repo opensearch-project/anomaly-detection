@@ -34,12 +34,10 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -77,7 +75,6 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmService;
@@ -92,7 +89,6 @@ import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
-import com.google.common.collect.Sets;
 
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
@@ -229,13 +225,6 @@ public class ModelManagerTests {
         memoryTracker = mock(MemoryTracker.class);
         when(memoryTracker.isHostingAllowed(anyString(), any())).thenReturn(true);
 
-        clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ)))
-        );
-        clusterService = mock(ClusterService.class);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-
         settings = Settings
             .builder()
             .put("plugins.anomaly_detection.model_max_size_percent", modelMaxSizePercentage)
@@ -258,7 +247,7 @@ public class ModelManagerTests {
                 featureManager,
                 memoryTracker,
                 settings,
-                clusterService
+                null
             )
         );
 
@@ -424,20 +413,12 @@ public class ModelManagerTests {
         }).when(checkpointDao).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
-        final Set<Setting<?>> settingsSet = Stream
-            .concat(
-                ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(),
-                Sets.newHashSet(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE, AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ).stream()
-            )
-            .collect(Collectors.toSet());
-        ClusterSettings clusterSettings = new ClusterSettings(settings, settingsSet);
-        clusterService = new ClusterService(settings, clusterSettings, null);
 
         MemoryTracker memoryTracker = new MemoryTracker(
             jvmService,
             modelMaxSizePercentage,
             modelDesiredSizePercentage,
-            clusterService,
+            null,
             adCircuitBreakerService
         );
 
@@ -460,7 +441,7 @@ public class ModelManagerTests {
                 featureManager,
                 memoryTracker,
                 settings,
-                clusterService
+                null
             )
         );
 

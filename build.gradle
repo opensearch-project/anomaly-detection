@@ -685,7 +685,7 @@ dependencies {
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-core', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.7'
+    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.2'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
