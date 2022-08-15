@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 // being installed on test clusters spun up in OpenSearchIntegTestCase classes (which this class extends),
 // which is needed for executing the API on ingested data. Valid test cases are covered at the REST layer.
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST)
+@Ignore
 public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTestCase {
 
     private String testIndex;

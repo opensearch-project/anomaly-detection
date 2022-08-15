@@ -15,10 +15,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
+import org.junit.Ignore;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
+@Ignore
 public class ADStatsITTests extends OpenSearchIntegTestCase {
 
     @Override

@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.opensearch.action.ActionListener;
@@ -43,6 +44,7 @@ import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
+@Ignore
 public class SearchTopAnomalyResultTransportActionTests extends ADIntegTestCase {
     private SearchTopAnomalyResultTransportAction action;
 

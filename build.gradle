@@ -17,7 +17,7 @@ buildscript {
     ext {
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        opensearch_version = System.getProperty("opensearch.version", "2.1.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "2.1.1-SNAPSHOT")
         buildVersionQualifier = System.getProperty("build.version_qualifier", "")
         // 2.1.0-SNAPSHOT -> 2.1.0.0-SNAPSHOT
         version_tokens = opensearch_version.tokenize('-')
@@ -613,6 +613,45 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.auth.UserIdentity',
         'org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction',
         'org.opensearch.ad.transport.handler.ADSearchHandler',
+
+        // TODO: Removing all code except for create detector.
+        // See https://github.com/opensearch-project/opensearch-sdk/issues/20
+        'org.opensearch.ad.util.ParseUtils',
+        'org.opensearch.ad.util.DiscoveryNodeFilterer',
+        'org.opensearch.ad.cluster.HashRing',
+        'org.opensearch.ad.model.ValidationAspect',
+        'org.opensearch.ad.transport.ADCancelTaskNodeRequest',
+        'org.opensearch.ad.transport.ADBatchAnomalyResultRequest',
+        'org.opensearch.ad.transport.ProfileTransportAction',
+        'org.opensearch.ad.transport.SearchTopAnomalyResultAction',
+        'org.opensearch.ad.transport.ADBatchAnomalyResultResponse',
+        'org.opensearch.ad.transport.SearchAnomalyDetectorAction',
+        'org.opensearch.ad.transport.ADCancelTaskRequest',
+        'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionAction',
+        'org.opensearch.ad.transport.ADTaskProfileNodeRequest',
+        'org.opensearch.ad.transport.ADBatchTaskRemoteExecutionTransportAction',
+        'org.opensearch.ad.transport.ADTaskProfileTransportAction',
+        'org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.ADCancelTaskAction',
+        'org.opensearch.ad.transport.DeleteAnomalyResultsAction',
+        'org.opensearch.ad.transport.SearchAnomalyResultAction',
+        'org.opensearch.ad.transport.SearchAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.ADCancelTaskTransportAction',
+        'org.opensearch.ad.transport.SearchTopAnomalyResultTransportAction',
+        'org.opensearch.ad.transport.SearchADTasksTransportAction',
+        'org.opensearch.ad.transport.ADBatchAnomalyResultTransportAction',
+        'org.opensearch.ad.transport.ADTaskProfileRequest',
+        'org.opensearch.ad.transport.SearchADTasksAction',
+        'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction.*',
+        'org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction',
+        'org.opensearch.ad.transport.SearchAnomalyResultTransportAction',
+        'org.opensearch.ad.transport.SearchTopAnomalyResultTransportAction.*',
+        'org.opensearch.ad.indices.AnomalyDetectionIndices',
+        'org.opensearch.ad.stats.ADStat',
+
 ]
 
 

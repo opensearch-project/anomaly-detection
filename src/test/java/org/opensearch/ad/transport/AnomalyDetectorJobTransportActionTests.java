@@ -64,6 +64,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
+@Ignore
 public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIntegTestCase {
     private Instant startTime;
     private Instant endTime;

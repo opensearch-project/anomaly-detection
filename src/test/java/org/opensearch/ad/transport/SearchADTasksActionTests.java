@@ -15,12 +15,14 @@ import static org.opensearch.ad.TestHelpers.matchAllRequest;
 
 import java.io.IOException;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
 
+@Ignore // Transport Action does not exist
 public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
 
     @Test

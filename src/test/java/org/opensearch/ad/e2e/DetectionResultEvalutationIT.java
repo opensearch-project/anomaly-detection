@@ -42,6 +42,7 @@ import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.junit.Ignore;
 import org.opensearch.ad.ODFERestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -63,6 +64,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
+@Ignore
 public class DetectionResultEvalutationIT extends ODFERestTestCase {
     protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
 

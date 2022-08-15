@@ -33,6 +33,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
+@Ignore
 public class SearchADTasksTransportActionTests extends HistoricalAnalysisIntegTestCase {
 
     private Instant startTime;

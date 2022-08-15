@@ -16,11 +16,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 
+import org.junit.Ignore;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
+@Ignore
 public class ProfileITTests extends OpenSearchIntegTestCase {
 
     @Override

@@ -15,12 +15,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
+import org.junit.Ignore;
 import org.opensearch.action.ActionFuture;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.plugins.Plugin;
 
+@Ignore // Transport Action does not exist
 public class DeleteITTests extends ADIntegTestCase {
 
     @Override

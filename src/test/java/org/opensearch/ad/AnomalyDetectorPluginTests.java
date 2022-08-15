@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 
 import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.junit.Ignore;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -50,6 +51,7 @@ public class AnomalyDetectorPluginTests extends ADUnitTestCase {
         return false;
     }
 
+    @Ignore
     public void testDeserializeRCFBufferPool() throws Exception {
         Settings.Builder settingsBuilder = Settings.builder();
         List<Setting<?>> allSettings = plugin.getSettings();

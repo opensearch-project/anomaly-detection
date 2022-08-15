@@ -31,6 +31,7 @@ import java.util.List;
 
 import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.MultiSearchResponse;
@@ -63,6 +64,7 @@ import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
+@Ignore
 public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestCase {
     private SearchAnomalyResultTransportAction action;
     private TransportService transportService;

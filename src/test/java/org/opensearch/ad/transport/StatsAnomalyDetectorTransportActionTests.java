@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.Map;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.stats.InternalStatNames;
@@ -23,6 +24,7 @@ import org.opensearch.ad.stats.StatNames;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+@Ignore
 public class StatsAnomalyDetectorTransportActionTests extends ADIntegTestCase {
 
     @Override
