@@ -50,7 +50,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
@@ -104,13 +103,13 @@ public class PreviewAnomalyDetectorTransportAction extends
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             resolveUserAndExecute(
                 user,
                 detectorId,
                 filterByEnabled,
                 listener,
-                (anomalyDetector) -> previewExecute(request, context, listener),
+                (anomalyDetector) -> previewExecute(request, listener),
                 client,
                 clusterService,
                 xContentRegistry
@@ -121,11 +120,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         }
     }
 
-    void previewExecute(
-        PreviewAnomalyDetectorRequest request,
-        ThreadContext.StoredContext context,
-        ActionListener<PreviewAnomalyDetectorResponse> listener
-    ) {
+    void previewExecute(PreviewAnomalyDetectorRequest request, ActionListener<PreviewAnomalyDetectorResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
             listener
                 .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
@@ -151,15 +146,9 @@ public class PreviewAnomalyDetectorTransportAction extends
                         return;
                     }
                     anomalyDetectorRunner
-                        .executeDetector(
-                            detector,
-                            startTime,
-                            endTime,
-                            context,
-                            getPreviewDetectorActionListener(releaseListener, detector)
-                        );
+                        .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(releaseListener, detector));
                 } else {
-                    previewAnomalyDetector(releaseListener, detectorId, detector, startTime, endTime, context);
+                    previewAnomalyDetector(releaseListener, detectorId, detector, startTime, endTime);
                 }
             } catch (Exception e) {
                 logger.error("Fail to preview", e);
@@ -206,23 +195,20 @@ public class PreviewAnomalyDetectorTransportAction extends
         String detectorId,
         AnomalyDetector detector,
         Instant startTime,
-        Instant endTime,
-        ThreadContext.StoredContext context
+        Instant endTime
     ) throws IOException {
         if (!StringUtils.isBlank(detectorId)) {
             GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
-            client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, context));
+            client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime));
         } else {
-            anomalyDetectorRunner
-                .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
+            anomalyDetectorRunner.executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
         }
     }
 
     private ActionListener<GetResponse> onGetAnomalyDetectorResponse(
         ActionListener<PreviewAnomalyDetectorResponse> listener,
         Instant startTime,
-        Instant endTime,
-        ThreadContext.StoredContext context
+        Instant endTime
     ) {
         return ActionListener.wrap(new CheckedConsumer<GetResponse, Exception>() {
             @Override
@@ -242,7 +228,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                     AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
                     anomalyDetectorRunner
-                        .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
+                        .executeDetector(detector, startTime, endTime, getPreviewDetectorActionListener(listener, detector));
                 } catch (IOException e) {
                     listener.onFailure(e);
                 }

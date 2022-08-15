@@ -51,14 +51,11 @@ import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.commons.ConfigConstants;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
@@ -195,12 +192,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     @Test
     public void testIndexTransportActionWithUserAndFilterOn() {
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
-        ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
-        when(client.threadPool()).thenReturn(mockThreadPool);
-        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
 
         IndexAnomalyDetectorTransportAction transportAction = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
@@ -220,12 +212,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     @Test
     public void testIndexTransportActionWithUserAndFilterOff() {
         Settings settings = Settings.builder().build();
-        ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
-        when(client.threadPool()).thenReturn(mockThreadPool);
-        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
 
         IndexAnomalyDetectorTransportAction transportAction = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),

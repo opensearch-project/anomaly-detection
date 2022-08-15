@@ -62,7 +62,6 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.commons.ConfigConstants;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
@@ -462,9 +461,7 @@ public final class ParseUtils {
      */
     @Deprecated
     public static UserIdentity getUserContext(Client client) {
-        String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
-        logger.debug("Filtering result by " + userStr);
-        return UserIdentity.parse(userStr);
+        return getNullUser();
     }
 
     /**

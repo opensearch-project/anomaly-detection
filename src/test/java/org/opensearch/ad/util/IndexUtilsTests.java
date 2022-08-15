@@ -18,12 +18,10 @@ import java.time.Clock;
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.threadpool.ThreadPool;
 
 public class IndexUtilsTests extends OpenSearchIntegTestCase {
 
@@ -36,8 +34,7 @@ public class IndexUtilsTests extends OpenSearchIntegTestCase {
         Client client = client();
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
-        ThreadPool context = TestHelpers.createThreadPool();
-        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, context);
+        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
         indexNameResolver = mock(IndexNameExpressionResolver.class);
     }
 

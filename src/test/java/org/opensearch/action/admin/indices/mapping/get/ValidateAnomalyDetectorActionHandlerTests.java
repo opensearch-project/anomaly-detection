@@ -12,7 +12,7 @@
 package org.opensearch.action.admin.indices.mapping.get;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.eq;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -27,7 +27,6 @@ import java.util.Locale;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
@@ -49,7 +48,6 @@ import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
@@ -82,7 +80,6 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
     private Client clientMock;
     @Mock
     protected ThreadPool threadPool;
-    protected ThreadContext threadContext;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -117,10 +114,6 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         method = RestRequest.Method.POST;
         adTaskManager = mock(ADTaskManager.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
-
-        threadContext = new ThreadContext(settings);
-        Mockito.doReturn(threadPool).when(clientMock).threadPool();
-        Mockito.doReturn(threadContext).when(threadPool).getThreadContext();
     }
 
     @SuppressWarnings("unchecked")

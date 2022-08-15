@@ -95,7 +95,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.commons.InjectSecurity;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -1157,9 +1156,7 @@ public class ADBatchTaskRunner {
             return;
         }
 
-        try (InjectSecurity injectSecurity = new InjectSecurity(adTask.getTaskId(), settings, client.threadPool().getThreadContext())) {
-            // Injecting user role to verify if the user has permissions to write result to result index.
-            injectSecurity.inject(user, roles);
+        try {
             storeAnomalyResultAndRunNextPiece(
                 adTask,
                 pieceEndTime,
@@ -1169,7 +1166,7 @@ public class ADBatchTaskRunner {
                 internalListener,
                 anomalyResults,
                 resultIndex,
-                () -> injectSecurity.close()
+                null
             );
         } catch (Exception exception) {
             logger.error("Failed to inject user roles", exception);

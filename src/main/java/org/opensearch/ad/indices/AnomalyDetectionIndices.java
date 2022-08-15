@@ -86,7 +86,6 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParser.Token;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.commons.InjectSecurity;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
@@ -404,16 +403,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             listener.onFailure(new EndRunException("Result index mapping is not correct", true));
             return;
         }
-        try (InjectSecurity injectSecurity = new InjectSecurity(securityLogId, settings, client.threadPool().getThreadContext())) {
-            injectSecurity.inject(user, roles);
-            ActionListener<T> wrappedListener = ActionListener.wrap(r -> { listener.onResponse(r); }, e -> {
-                injectSecurity.close();
-                listener.onFailure(e);
-            });
-            validateCustomResultIndexAndExecute(resultIndex, () -> {
-                injectSecurity.close();
-                function.execute();
-            }, wrappedListener);
+        try {
+            ActionListener<T> wrappedListener = ActionListener.wrap(r -> { listener.onResponse(r); }, e -> { listener.onFailure(e); });
+            validateCustomResultIndexAndExecute(resultIndex, () -> { function.execute(); }, wrappedListener);
         } catch (Exception e) {
             logger.error("Failed to validate custom index for backend job " + securityLogId, e);
             listener.onFailure(e);

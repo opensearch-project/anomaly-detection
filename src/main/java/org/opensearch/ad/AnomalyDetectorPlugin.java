@@ -336,7 +336,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         this.threadPool = threadPool;
         Settings settings = environment.settings();
         Throttler throttler = new Throttler(getClock());
-        this.clientUtil = new ClientUtil(settings, client, throttler, threadPool);
+        this.clientUtil = new ClientUtil(settings, client, throttler);
         this.indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameExpressionResolver);
         this.nodeFilter = new DiscoveryNodeFilterer(clusterService);
         this.anomalyDetectionIndices = new AnomalyDetectionIndices(

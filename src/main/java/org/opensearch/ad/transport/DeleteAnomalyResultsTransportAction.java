@@ -27,7 +27,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
@@ -63,7 +62,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     public void delete(DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> listener) {
         // Temporary null user for AD extension without security. Will always validate role.
         UserIdentity user = getNullUser();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             validateRole(request, user, listener);
         } catch (Exception e) {
             logger.error(e);

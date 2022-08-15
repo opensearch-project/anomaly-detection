@@ -11,7 +11,7 @@
 
 package org.opensearch.ad;
 
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -61,7 +61,6 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.search.SearchModule;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -72,7 +71,6 @@ public class NodeStateManagerTests extends AbstractADTest {
     private Clock clock;
     private Duration duration;
     private Throttler throttler;
-    private ThreadPool context;
     private AnomalyDetector detectorToCheck;
     private Settings settings;
     private String adId = "123";
@@ -111,10 +109,9 @@ public class NodeStateManagerTests extends AbstractADTest {
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
-        context = TestHelpers.createThreadPool();
         throttler = new Throttler(clock);
 
-        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, mock(ThreadPool.class));
+        clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
         Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
         nodestateSetting.add(BACKOFF_MINUTES);
@@ -240,7 +237,7 @@ public class NodeStateManagerTests extends AbstractADTest {
             client,
             xContentRegistry(),
             settings,
-            new ClientUtil(settings, client, throttler, context),
+            new ClientUtil(settings, client, throttler),
             clock,
             duration,
             clusterService

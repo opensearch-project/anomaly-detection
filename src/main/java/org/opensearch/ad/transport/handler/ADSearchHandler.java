@@ -27,7 +27,6 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 
 /**
  * Handle general search request, check user role and return search response.
@@ -54,7 +53,7 @@ public class ADSearchHandler {
         // Temporary null user for AD extension without security. Will always validate role.
         UserIdentity user = getNullUser();
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_SEARCH);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             validateRole(request, user, listener);
         } catch (Exception e) {
             logger.error(e);

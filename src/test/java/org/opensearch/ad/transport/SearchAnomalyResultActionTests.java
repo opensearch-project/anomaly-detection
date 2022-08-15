@@ -50,7 +50,6 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.Aggregations;
@@ -68,7 +67,6 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
     private SearchAnomalyResultTransportAction action;
     private TransportService transportService;
     private ThreadPool threadPool;
-    private ThreadContext threadContext;
     private Client client;
     private ClusterService clusterService;
     private ActionFilters actionFilters;
@@ -104,11 +102,6 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         );
 
         client = mock(Client.class);
-        threadPool = mock(ThreadPool.class);
-        when(client.threadPool()).thenReturn(threadPool);
-        Settings settings = Settings.builder().build();
-        threadContext = new ThreadContext(settings);
-        when(threadPool.getThreadContext()).thenReturn(threadContext);
 
         actionFilters = mock(ActionFilters.class);
         searchHandler = mock(ADSearchHandler.class);
@@ -220,14 +213,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
 
     @Test
     public void testMultiSearch_NoOnlyQueryCustomResultIndex() {
-        action
-            .multiSearch(
-                Arrays.asList("test"),
-                mock(SearchRequest.class),
-                mock(PlainActionFuture.class),
-                false,
-                threadContext.stashContext()
-            );
+        action.multiSearch(Arrays.asList("test"), mock(SearchRequest.class), mock(PlainActionFuture.class), false);
 
         verify(client).multiSearch(any(), any());
     }

@@ -65,7 +65,6 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.Strings;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
@@ -134,7 +133,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
         ActionListener<GetAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             resolveUserAndExecute(
                 user,
                 detectorID,

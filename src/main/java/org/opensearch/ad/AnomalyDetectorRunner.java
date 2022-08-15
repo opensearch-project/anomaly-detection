@@ -36,7 +36,6 @@ import org.opensearch.ad.model.EntityAnomalyResult;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.common.util.concurrent.ThreadContext;
 
 /**
  * Runner to trigger an anomaly detector.
@@ -60,18 +59,11 @@ public final class AnomalyDetectorRunner {
      * @param detector  anomaly detector instance
      * @param startTime detection period start time
      * @param endTime   detection period end time
-     * @param context   stored thread context
      * @param listener handle anomaly result
      * @throws IOException - if a user gives wrong query input when defining a detector
      */
-    public void executeDetector(
-        AnomalyDetector detector,
-        Instant startTime,
-        Instant endTime,
-        ThreadContext.StoredContext context,
-        ActionListener<List<AnomalyResult>> listener
-    ) throws IOException {
-        context.restore();
+    public void executeDetector(AnomalyDetector detector, Instant startTime, Instant endTime, ActionListener<List<AnomalyResult>> listener)
+        throws IOException {
         List<String> categoryField = detector.getCategoryField();
         if (categoryField != null && !categoryField.isEmpty()) {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {

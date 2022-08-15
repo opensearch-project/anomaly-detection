@@ -48,7 +48,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
@@ -68,11 +67,10 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
         Client client = client();
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
-        ThreadPool threadPool = mock(ThreadPool.class);
         IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
         IndexUtils indexUtils = new IndexUtils(
             client,
-            new ClientUtil(Settings.EMPTY, client, throttler, threadPool),
+            new ClientUtil(Settings.EMPTY, client, throttler),
             clusterService(),
             indexNameResolver
         );

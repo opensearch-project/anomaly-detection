@@ -66,8 +66,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         Settings settings = Settings.EMPTY;
         Clock clock = mock(Clock.class);
         Throttler throttler = new Throttler(clock);
-        ThreadPool threadpool = mock(ThreadPool.class);
-        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, threadpool);
+        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
         indexUtils = mock(IndexUtils.class);
         ClusterService clusterService = mock(ClusterService.class);
         ThreadPool threadPool = mock(ThreadPool.class);

@@ -66,7 +66,6 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.commons.InjectSecurity;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
@@ -265,11 +264,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String user,
         List<String> roles
     ) {
-
-        try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
-            // Injecting user role to verify if the user has permissions for our API.
-            injectSecurity.inject(user, roles);
-
+        try {
             AnomalyResultRequest request = new AnomalyResultRequest(
                 detectorId,
                 detectionStartTime.toEpochMilli(),

@@ -26,7 +26,6 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
@@ -61,7 +60,7 @@ public class SearchAnomalyDetectorInfoTransportAction extends
         String name = request.getName();
         String rawPath = request.getRawPath();
         ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR_INFO);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             SearchRequest searchRequest = new SearchRequest().indices(ANOMALY_DETECTORS_INDEX);
             if (rawPath.endsWith(RestHandlerUtils.COUNT)) {
                 // Count detectors

@@ -38,7 +38,6 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
@@ -53,7 +52,6 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     private ClusterService clusterService;
     private Client client;
     private ThreadPool threadPool;
-    ThreadContext threadContext;
     private PlainActionFuture<SearchAnomalyDetectorInfoResponse> future;
 
     @Override
@@ -86,8 +84,6 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
         threadPool = mock(ThreadPool.class);
         when(client.threadPool()).thenReturn(threadPool);
         Settings settings = Settings.builder().build();
-        threadContext = new ThreadContext(settings);
-        when(threadPool.getThreadContext()).thenReturn(threadContext);
 
         clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(

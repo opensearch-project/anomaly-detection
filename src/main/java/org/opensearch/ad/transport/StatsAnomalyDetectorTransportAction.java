@@ -35,7 +35,6 @@ import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
@@ -70,7 +69,7 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
     @Override
     protected void doExecute(Task task, ADStatsRequest request, ActionListener<StatsAnomalyDetectorResponse> actionListener) {
         ActionListener<StatsAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_STATS);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             getStats(client, listener, request);
         } catch (Exception e) {
             logger.error(e);

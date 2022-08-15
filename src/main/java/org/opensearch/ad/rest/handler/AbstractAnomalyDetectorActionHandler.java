@@ -74,7 +74,6 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
@@ -276,7 +275,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     // if isDryRun is true then this method is being executed through Validation API meaning actual
     // index won't be created, only validation checks will be executed throughout the class
     private void createOrUpdateDetector() {
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist() && !this.isDryRun) {
                 logger.info("AnomalyDetector Indices do not exist");
                 anomalyDetectionIndices

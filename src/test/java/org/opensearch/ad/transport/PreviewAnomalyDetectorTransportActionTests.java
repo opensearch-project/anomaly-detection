@@ -66,15 +66,12 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.commons.ConfigConstants;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
-import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
@@ -291,11 +288,6 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         Client client = mock(Client.class);
-        ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
-        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
-        when(client.threadPool()).thenReturn(mockThreadPool);
-        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
         PreviewAnomalyDetectorTransportAction previewAction = new PreviewAnomalyDetectorTransportAction(
             settings,
             mock(TransportService.class),

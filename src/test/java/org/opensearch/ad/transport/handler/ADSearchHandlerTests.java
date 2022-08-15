@@ -16,7 +16,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.opensearch.ad.TestHelpers.matchAllRequest;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 
@@ -29,9 +28,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.commons.ConfigConstants;
-import org.opensearch.threadpool.ThreadPool;
 
 public class ADSearchHandlerTests extends ADUnitTestCase {
 
@@ -55,13 +51,6 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         clusterService = new ClusterService(settings, clusterSettings, null);
         client = mock(Client.class);
         searchHandler = new ADSearchHandler(settings, clusterService, client);
-
-        ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
-        org.opensearch.threadpool.ThreadPool mockThreadPool = mock(ThreadPool.class);
-        when(client.threadPool()).thenReturn(mockThreadPool);
-        when(client.threadPool().getThreadContext()).thenReturn(threadContext);
-        when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
 
         request = mock(SearchRequest.class);
         listener = mock(ActionListener.class);

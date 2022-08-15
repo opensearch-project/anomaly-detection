@@ -86,7 +86,6 @@ import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.NetworkExceptionHelper;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
@@ -242,7 +241,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      */
     @Override
     protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<AnomalyResultResponse> listener) {
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             AnomalyResultRequest request = AnomalyResultRequest.fromActionRequest(actionRequest);
             String adID = request.getAdID();
             ActionListener<AnomalyResultResponse> original = listener;
