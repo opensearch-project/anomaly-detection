@@ -17,7 +17,7 @@ buildscript {
     ext {
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        opensearch_version = System.getProperty("opensearch.version", "1.3.3-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "1.3.4-SNAPSHOT")
         if (isSnapshot) {
             plugin_version = opensearch_version.substring(0, opensearch_version.indexOf("-"))
         } else {
@@ -336,7 +336,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["7.10.2","1.3.3-SNAPSHOT"]
+            versions = ["7.10.2","1.3.4-SNAPSHOT"]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
@@ -405,15 +405,8 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        if (new File("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build").exists()) {
-                            project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build"))
-                        }
-                        project.mkdir bwcAnomalyDetectionPath + opensearch_build
-                        ant.get(src: anomaly_detection_build_download,
-                                dest: bwcAnomalyDetectionPath + opensearch_build,
-                                httpusecaches: false)
-                        return fileTree(bwcAnomalyDetectionPath + opensearch_build).getSingleFile()
-                    }
+                    	return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
+		    }
                 }
             }
         })
