@@ -71,7 +71,6 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.LocalNodeClusterManagerListener;
-import org.opensearch.cluster.LocalNodeClusterManagerListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;

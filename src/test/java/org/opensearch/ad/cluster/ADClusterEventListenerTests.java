@@ -81,7 +81,10 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         oldClusterState = ClusterState
             .builder(new ClusterName(clusterName))
             .nodes(
-                new DiscoveryNodes.Builder().clusterManagerNodeId(clusterManagerNodeId).localNodeId(clusterManagerNodeId).add(clusterManagerNode)
+                new DiscoveryNodes.Builder()
+                    .clusterManagerNodeId(clusterManagerNodeId)
+                    .localNodeId(clusterManagerNodeId)
+                    .add(clusterManagerNode)
             )
             .build();
         newClusterState = ClusterState
