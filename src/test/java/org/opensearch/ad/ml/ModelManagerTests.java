@@ -47,6 +47,7 @@ import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Answers;
@@ -95,6 +96,7 @@ import com.google.common.collect.Sets;
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
 @SuppressWarnings("unchecked")
+@Ignore
 public class ModelManagerTests {
 
     private ModelManager modelManager;
