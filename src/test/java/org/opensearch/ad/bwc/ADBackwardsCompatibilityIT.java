@@ -403,7 +403,8 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         }
     }
 
-    private List<String> createHistoricalAnomalyDetectorsAndStart() throws Exception {        // only support single entity for historical detector
+    private List<String> createHistoricalAnomalyDetectorsAndStart() throws Exception {        // only support single entity for historical
+                                                                                              // detector
         Response historicalSingleFlowDetectorResponse = createAnomalyDetector(
             client(),
             dataIndexName,
