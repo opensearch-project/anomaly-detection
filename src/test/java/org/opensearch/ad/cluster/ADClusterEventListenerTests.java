@@ -81,14 +81,14 @@ public class ADClusterEventListenerTests extends AbstractADTest {
         oldClusterState = ClusterState
             .builder(new ClusterName(clusterName))
             .nodes(
-                new DiscoveryNodes.Builder().masterNodeId(clusterManagerNodeId).localNodeId(clusterManagerNodeId).add(clusterManagerNode)
+                new DiscoveryNodes.Builder().clusterManagerNodeId(clusterManagerNodeId).localNodeId(clusterManagerNodeId).add(clusterManagerNode)
             )
             .build();
         newClusterState = ClusterState
             .builder(new ClusterName(clusterName))
             .nodes(
                 new DiscoveryNodes.Builder()
-                    .masterNodeId(clusterManagerNodeId)
+                    .clusterManagerNodeId(clusterManagerNodeId)
                     .localNodeId(dataNode1Id)
                     .add(clusterManagerNode)
                     .add(dataNode1)
@@ -123,7 +123,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .builder(new ClusterName(clusterName))
             .nodes(
                 new DiscoveryNodes.Builder()
-                    .masterNodeId(clusterManagerNodeId)
+                    .clusterManagerNodeId(clusterManagerNodeId)
                     .localNodeId(dataNode1Id)
                     .add(clusterManagerNode)
                     .add(dataNode1)
@@ -139,7 +139,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .builder(new ClusterName(clusterName))
             .nodes(
                 new DiscoveryNodes.Builder()
-                    .masterNodeId(clusterManagerNodeId)
+                    .clusterManagerNodeId(clusterManagerNodeId)
                     .localNodeId(dataNode1Id)
                     .add(clusterManagerNode)
                     .add(dataNode1)
@@ -191,7 +191,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
             .builder(new ClusterName(clusterName))
             .nodes(
                 new DiscoveryNodes.Builder()
-                    .masterNodeId(clusterManagerNodeId)
+                    .clusterManagerNodeId(clusterManagerNodeId)
                     .localNodeId(dataNode1Id)
                     .add(new DiscoveryNode(clusterManagerNodeId, buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT))
                     .add(dataNode1)

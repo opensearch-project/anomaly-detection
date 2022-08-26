@@ -20,7 +20,7 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.LocalNodeMasterListener;
+import org.opensearch.cluster.LocalNodeClusterManagerListener;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.component.LifecycleListener;
 import org.opensearch.common.settings.Setting;
@@ -31,7 +31,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.annotations.VisibleForTesting;
 
-public class ClusterManagerEventListener implements LocalNodeMasterListener {
+public class ClusterManagerEventListener implements LocalNodeClusterManagerListener {
 
     private Cancellable checkpointIndexRetentionCron;
     private Cancellable hourlyCron;
@@ -56,7 +56,7 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.client = client;
-        this.clusterService.addLocalNodeMasterListener(this);
+        this.clusterService.addLocalNodeClusterManagerListener(this);
         this.clock = clock;
         this.clientUtil = clientUtil;
         this.nodeFilter = nodeFilter;
@@ -77,7 +77,7 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
     }
 
     @Override
-    public void onMaster() {
+    public void onClusterManager() {
         if (hourlyCron == null) {
             hourlyCron = threadPool.scheduleWithFixedDelay(new HourlyCron(client, nodeFilter), TimeValue.timeValueHours(1), executorName());
             clusterService.addLifecycleListener(new LifecycleListener() {
@@ -108,7 +108,7 @@ public class ClusterManagerEventListener implements LocalNodeMasterListener {
     }
 
     @Override
-    public void offMaster() {
+    public void offClusterManager() {
         cancel(hourlyCron);
         cancel(checkpointIndexRetentionCron);
         hourlyCron = null;

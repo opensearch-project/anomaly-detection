@@ -70,7 +70,8 @@ import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.LocalNodeMasterListener;
+import org.opensearch.cluster.LocalNodeClusterManagerListener;
+import org.opensearch.cluster.LocalNodeClusterManagerListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
@@ -99,7 +100,7 @@ import com.google.common.io.Resources;
 /**
  * This class provides utility methods for various anomaly detection indices.
  */
-public class AnomalyDetectionIndices implements LocalNodeMasterListener {
+public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener {
     private static final Logger logger = LogManager.getLogger(AnomalyDetectionIndices.class);
 
     // The index name pattern to query all the AD result history indices
@@ -185,7 +186,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.adminClient = client.admin();
         this.clusterService = clusterService;
         this.threadPool = threadPool;
-        this.clusterService.addLocalNodeMasterListener(this);
+        this.clusterService.addLocalNodeClusterManagerListener(this);
         this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
         this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings);
         this.historyRetentionPeriod = AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings);
@@ -677,7 +678,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     @Override
-    public void onMaster() {
+    public void onClusterManager() {
         try {
             // try to rollover immediately as we might be restarting the cluster
             rolloverAndDeleteHistoryIndex();
@@ -692,7 +693,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     @Override
-    public void offMaster() {
+    public void offClusterManager() {
         if (scheduledRollover != null) {
             scheduledRollover.cancel();
         }
@@ -703,7 +704,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     private void rescheduleRollover() {
-        if (clusterService.state().getNodes().isLocalNodeElectedMaster()) {
+        if (clusterService.state().getNodes().isLocalNodeElectedClusterManager()) {
             if (scheduledRollover != null) {
                 scheduledRollover.cancel();
             }

@@ -90,13 +90,13 @@ public class ClusterManagerEventListenerTests extends AbstractADTest {
         );
     }
 
-    public void testOnOffMaster() {
-        clusterManagerService.onMaster();
+    public void testOnOffClusterManager() {
+        clusterManagerService.onClusterManager();
         assertThat(hourlyCancellable, is(notNullValue()));
         assertThat(checkpointIndexRetentionCancellable, is(notNullValue()));
         assertTrue(!clusterManagerService.getHourlyCron().isCancelled());
         assertTrue(!clusterManagerService.getCheckpointIndexRetentionCron().isCancelled());
-        clusterManagerService.offMaster();
+        clusterManagerService.offClusterManager();
         assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
         assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
     }
@@ -120,10 +120,10 @@ public class ClusterManagerEventListenerTests extends AbstractADTest {
             return null;
         }).when(clusterService).addLifecycleListener(any());
 
-        clusterManagerService.onMaster();
+        clusterManagerService.onClusterManager();
         assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
         assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
-        clusterManagerService.offMaster();
+        clusterManagerService.offClusterManager();
         assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
         assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
     }
