@@ -210,6 +210,8 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
+// Commented this code until Job Scheduler is published to https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/ with OpenSearch 3.0.0-SNAPSHOT
+
 //task integTest(type: RestIntegTestTask) {
 //    description = "Run tests against a cluster"
 //    testClassesDirs = sourceSets.test.output.classesDirs
@@ -419,6 +421,8 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
         }
     }
 }
+
+// Commented this code until Job Scheduler is published to https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/ with OpenSearch 3.0.0-SNAPSHOT
 
 //List<Provider<RegularFile>> plugins = [
 //        provider(new Callable<RegularFile>(){
