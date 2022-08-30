@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
@@ -35,7 +34,6 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.transport.BackPressureRouting;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ExceptionUtil;
@@ -370,41 +368,41 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         };
     }
 
-    public void getAnomalyDetectorJob(String adID, ActionListener<Optional<AnomalyDetectorJob>> listener) {
-        NodeState state = states.get(adID);
-        if (state != null && state.getDetectorJob() != null) {
-            listener.onResponse(Optional.of(state.getDetectorJob()));
-        } else {
-            GetRequest request = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, adID);
-            clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorJobResponse(adID, listener));
-        }
-    }
+    // public void getAnomalyDetectorJob(String adID, ActionListener<Optional<AnomalyDetectorJob>> listener) {
+    // NodeState state = states.get(adID);
+    // if (state != null && state.getDetectorJob() != null) {
+    // listener.onResponse(Optional.of(state.getDetectorJob()));
+    // } else {
+    // GetRequest request = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, adID);
+    // clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorJobResponse(adID, listener));
+    // }
+    // }
 
-    private ActionListener<GetResponse> onGetDetectorJobResponse(String adID, ActionListener<Optional<AnomalyDetectorJob>> listener) {
-        return ActionListener.wrap(response -> {
-            if (response == null || !response.isExists()) {
-                listener.onResponse(Optional.empty());
-                return;
-            }
-
-            String xc = response.getSourceAsString();
-            LOG.debug("Fetched anomaly detector: {}", xc);
-
-            try (
-                XContentParser parser = XContentType.JSON
-                    .xContent()
-                    .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString())
-            ) {
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
-                NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
-                state.setDetectorJob(job);
-
-                listener.onResponse(Optional.of(job));
-            } catch (Exception t) {
-                LOG.error(new ParameterizedMessage("Fail to parse job {}", adID), t);
-                listener.onResponse(Optional.empty());
-            }
-        }, listener::onFailure);
-    }
+    // private ActionListener<GetResponse> onGetDetectorJobResponse(String adID, ActionListener<Optional<AnomalyDetectorJob>> listener) {
+    // return ActionListener.wrap(response -> {
+    // if (response == null || !response.isExists()) {
+    // listener.onResponse(Optional.empty());
+    // return;
+    // }
+    //
+    // String xc = response.getSourceAsString();
+    // LOG.debug("Fetched anomaly detector: {}", xc);
+    //
+    // try (
+    // XContentParser parser = XContentType.JSON
+    // .xContent()
+    // .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString())
+    // ) {
+    // ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+    // AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+    // NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));
+    // state.setDetectorJob(job);
+    //
+    // listener.onResponse(Optional.of(job));
+    // } catch (Exception t) {
+    // LOG.error(new ParameterizedMessage("Fail to parse job {}", adID), t);
+    // listener.onResponse(Optional.empty());
+    // }
+    // }, listener::onFailure);
+    // }
 }

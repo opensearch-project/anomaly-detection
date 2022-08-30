@@ -7,60 +7,11 @@
  *
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
- */
+
+
 
 package org.opensearch.ad;
 
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.emptySet;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-
-import org.junit.Before;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.FailedNodeException;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.DetectorState;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.ProfileAction;
-import org.opensearch.ad.transport.ProfileNodeResponse;
-import org.opensearch.ad.transport.ProfileResponse;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterName;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.common.transport.TransportAddress;
-import org.opensearch.transport.TransportService;
 
 public class MultiEntityProfileRunnerTests extends AbstractADTest {
     private AnomalyDetectorProfileRunner runner;
@@ -287,10 +238,11 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
-    /**
+*
      * Although profile action results indicate initted, we trust what result index tells us
      * @throws InterruptedException if CountDownLatch is interrupted while waiting
-     */
+
+
     public void testResultIndexFinalTruth() throws InterruptedException {
         setUpClientExecuteProfileAction(InittedEverResultStatus.NOT_INITTED);
         setUpClientSearch(InittedEverResultStatus.INITTED);
@@ -308,3 +260,4 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 }
+*/

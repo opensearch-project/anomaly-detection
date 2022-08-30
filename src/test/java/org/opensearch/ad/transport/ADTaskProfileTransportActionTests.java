@@ -9,17 +9,8 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.transport;
+/*package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-
-import org.junit.Before;
-import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.common.settings.Settings;
 
 public class ADTaskProfileTransportActionTests extends HistoricalAnalysisIntegTestCase {
 
@@ -44,4 +35,4 @@ public class ADTaskProfileTransportActionTests extends HistoricalAnalysisIntegTe
             .build();
     }
 
-}
+}*/

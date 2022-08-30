@@ -9,22 +9,8 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.transport;
+/*package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.matchAllRequest;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
-
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Ignore;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.index.reindex.BulkByScrollResponse;
-import org.opensearch.index.reindex.DeleteByQueryRequest;
 
 public class DeleteAnomalyResultsTransportActionTests extends HistoricalAnalysisIntegTestCase {
 
@@ -49,4 +35,4 @@ public class DeleteAnomalyResultsTransportActionTests extends HistoricalAnalysis
         }, 90, TimeUnit.SECONDS);
         assertEquals(1, deleteADResultResponse.getDeleted());
     }
-}
+}*/

@@ -1,140 +1,16 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
+/* * SPDX-License-Identifier: Apache-2.0
  *
  * The OpenSearch Contributors require contributions made to
  * this file be licensed under the Apache-2.0 license or a
  * compatible open source license.
  *
  * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
- */
+ * GitHub history for details.*/
+
+/*
 
 package org.opensearch.ad.task;
 
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.emptySet;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyFloat;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.randomAdTask;
-import static org.opensearch.ad.TestHelpers.randomAnomalyDetector;
-import static org.opensearch.ad.TestHelpers.randomDetectionDateRange;
-import static org.opensearch.ad.TestHelpers.randomDetector;
-import static org.opensearch.ad.TestHelpers.randomFeature;
-import static org.opensearch.ad.TestHelpers.randomIntervalSchedule;
-import static org.opensearch.ad.TestHelpers.randomIntervalTimeConfiguration;
-import static org.opensearch.ad.TestHelpers.randomUser;
-import static org.opensearch.ad.constant.CommonErrorMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
-import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
-import static org.opensearch.ad.model.Entity.createSingleAttributeEntity;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.function.Consumer;
-
-import org.apache.lucene.search.TotalHits;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.opensearch.ResourceAlreadyExistsException;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.DocWriteResponse;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.action.bulk.BulkItemResponse;
-import org.opensearch.action.bulk.BulkResponse;
-import org.opensearch.action.delete.DeleteResponse;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.index.IndexResponse;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.auth.UserIdentity;
-import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.DuplicateTaskException;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.mock.model.MockSimpleLog;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskAction;
-import org.opensearch.ad.model.ADTaskProfile;
-import org.opensearch.ad.model.ADTaskState;
-import org.opensearch.ad.model.ADTaskType;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
-import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
-import org.opensearch.ad.stats.InternalStatNames;
-import org.opensearch.ad.transport.ADStatsNodeResponse;
-import org.opensearch.ad.transport.ADStatsNodesResponse;
-import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
-import org.opensearch.ad.transport.ADTaskProfileResponse;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
-import org.opensearch.ad.transport.ForwardADTaskRequest;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterName;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.transport.TransportAddress;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.ToXContent;
-import org.opensearch.index.Index;
-import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.index.engine.VersionConflictEngineException;
-import org.opensearch.index.get.GetResult;
-import org.opensearch.index.reindex.BulkByScrollResponse;
-import org.opensearch.index.reindex.DeleteByQueryAction;
-import org.opensearch.index.shard.ShardId;
-import org.opensearch.search.SearchHit;
-import org.opensearch.search.SearchHits;
-import org.opensearch.search.aggregations.InternalAggregations;
-import org.opensearch.search.internal.InternalSearchResponse;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportResponseHandler;
-import org.opensearch.transport.TransportService;
-
-import com.amazon.randomcutforest.RandomCutForest;
-import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public class ADTaskManagerTests extends ADUnitTestCase {
 
@@ -618,7 +494,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         verify(actionListener, times(1)).onResponse(eq(Optional.empty()));
     }
 
-    @SuppressWarnings("unchecked")
+@SuppressWarnings("unchecked")
     public void testGetADTaskWithNotExistTask() {
         String taskId = randomAlphaOfLength(5);
         ActionListener<Optional<ADTask>> actionListener = mock(ActionListener.class);
@@ -644,6 +520,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         adTaskManager.getADTask(taskId, actionListener);
         verify(actionListener, times(1)).onResponse(eq(Optional.empty()));
     }
+
 
     @SuppressWarnings("unchecked")
     public void testGetADTaskWithIndexNotFoundException() {
@@ -1528,7 +1405,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             return null;
         }).when(client).search(any(), any());
 
-        adTaskManager.stopDetector(detectorId, historical, indexAnomalyDetectorJobActionHandler, null, transportService, listener);
+//        adTaskManager.stopDetector(detectorId, historical, indexAnomalyDetectorJobActionHandler, null, transportService, listener);
         verify(listener, times(1)).onFailure(any());
     }
 
@@ -1614,3 +1491,4 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         verify(function, times(1)).execute();
     }
 }
+*/

@@ -392,15 +392,15 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      */
     protected void prepareAnomalyDetectorIndexing(boolean indexingDryRun) {
         if (method == RestRequest.Method.PUT) {
-            handler
-                .getDetectorJob(
-                    clusterService,
-                    client,
-                    detectorId,
-                    listener,
-                    () -> updateAnomalyDetector(detectorId, indexingDryRun),
-                    xContentRegistry
-                );
+            // handler
+            // .getDetectorJob(
+            // clusterService,
+            // client,
+            // detectorId,
+            // listener,
+            // () -> updateAnomalyDetector(detectorId, indexingDryRun),
+            // xContentRegistry
+            // );
         } else {
             createAnomalyDetector(indexingDryRun);
         }

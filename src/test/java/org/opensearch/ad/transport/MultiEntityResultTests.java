@@ -48,10 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.*;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
@@ -135,6 +132,7 @@ import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.google.common.collect.ImmutableList;
 
+@Ignore
 public class MultiEntityResultTests extends AbstractADTest {
     private AnomalyResultTransportAction action;
     private AnomalyResultRequest request;

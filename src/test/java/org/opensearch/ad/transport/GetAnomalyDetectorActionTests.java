@@ -9,25 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad.transport;
 
-import java.io.IOException;
-
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.rest.RestStatus;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(GetAnomalyDetectorResponse.class)
@@ -77,3 +61,4 @@ public class GetAnomalyDetectorActionTests {
         Assert.assertNotNull(newResponse);
     }
 }
+*/

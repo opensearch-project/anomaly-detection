@@ -9,36 +9,8 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.transport;
+/*package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-import static org.opensearch.ad.settings.EnabledSetting.AD_PLUGIN_ENABLED;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Before;
-import org.junit.Ignore;
-import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.test.OpenSearchIntegTestCase;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
 @Ignore
@@ -190,4 +162,4 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertEquals(error, doc.getSourceAsMap().get(ADTask.ERROR_FIELD));
     }
-}
+}*/

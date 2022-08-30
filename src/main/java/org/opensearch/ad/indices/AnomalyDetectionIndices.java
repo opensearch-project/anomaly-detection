@@ -51,10 +51,7 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverRequest;
-import org.opensearch.action.admin.indices.settings.get.GetSettingsAction;
-import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
-import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.GroupedActionListener;
@@ -64,7 +61,6 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -307,9 +303,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      *
      * @return true if anomaly detector job index exists
      */
-    public boolean doesAnomalyDetectorJobIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
-    }
+    // public boolean doesAnomalyDetectorJobIndexExist() {
+    // return clusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+    // }
 
     /**
      * anomaly result index exist or not.
@@ -606,32 +602,32 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      *
      * @param actionListener action called after create index
      */
-    public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
-        try {
-            CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
-            request
-                .settings(
-                    Settings
-                        .builder()
-                        // AD job index is small. 1 primary shard is enough
-                        .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
-                        // Job scheduler puts both primary and replica shards in the
-                        // hash ring. Auto-expand the number of replicas based on the
-                        // number of data nodes (up to 20) in the cluster so that each node can
-                        // become a coordinating node. This is useful when customers
-                        // scale out their cluster so that we can do adaptive scaling
-                        // accordingly.
-                        // At least 1 replica for fail-over.
-                        .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
-                        .put("index.hidden", true)
-                );
-            adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
-        } catch (IOException e) {
-            logger.error("Fail to init AD job index", e);
-            actionListener.onFailure(e);
-        }
-    }
+    // public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
+    // try {
+    // CreateIndexRequest request = new CreateIndexRequest(".opendistro-anomaly-detector-jobs")
+    // .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
+    // request
+    // .settings(
+    // Settings
+    // .builder()
+    // // AD job index is small. 1 primary shard is enough
+    // .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+    // // Job scheduler puts both primary and replica shards in the
+    // // hash ring. Auto-expand the number of replicas based on the
+    // // number of data nodes (up to 20) in the cluster so that each node can
+    // // become a coordinating node. This is useful when customers
+    // // scale out their cluster so that we can do adaptive scaling
+    // // accordingly.
+    // // At least 1 replica for fail-over.
+    // .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
+    // .put("index.hidden", true)
+    // );
+    // adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
+    // } catch (IOException e) {
+    // logger.error("Fail to init AD job index", e);
+    // actionListener.onFailure(e);
+    // }
+    // }
 
     /**
      * Create the state index.
@@ -858,9 +854,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         for (ADIndex adIndex : updates) {
             logger.info(new ParameterizedMessage("Check [{}]'s setting", adIndex.getIndexName()));
             switch (adIndex) {
-                case JOB:
-                    updateJobIndexSettingIfNecessary(indexStates.computeIfAbsent(adIndex, IndexState::new), conglomerateListeneer);
-                    break;
+                // case JOB:
+                // updateJobIndexSettingIfNecessary(indexStates.computeIfAbsent(adIndex, IndexState::new), conglomerateListeneer);
+                // break;
                 default:
                     // we don't have settings to update for other indices
                     IndexState indexState = indexStates.computeIfAbsent(adIndex, IndexState::new);
@@ -1065,67 +1061,67 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         return indexState.schemaVersion;
     }
 
-    private void updateJobIndexSettingIfNecessary(IndexState jobIndexState, ActionListener<Void> listener) {
-        GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
-            .indices(ADIndex.JOB.getIndexName())
-            .names(
-                new String[] {
-                    IndexMetadata.SETTING_NUMBER_OF_SHARDS,
-                    IndexMetadata.SETTING_NUMBER_OF_REPLICAS,
-                    IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS }
-            );
-        client.execute(GetSettingsAction.INSTANCE, getSettingsRequest, ActionListener.wrap(settingResponse -> {
-            // auto expand setting is a range string like "1-all"
-            String autoExpandReplica = getStringSetting(settingResponse, IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS);
-            // if the auto expand setting is already there, return immediately
-            if (autoExpandReplica != null) {
-                jobIndexState.settingUpToDate = true;
-                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
-                listener.onResponse(null);
-                return;
-            }
-            Integer primaryShardsNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_SHARDS);
-            Integer replicaNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_REPLICAS);
-            if (primaryShardsNumber == null || replicaNumber == null) {
-                logger
-                    .error(
-                        new ParameterizedMessage(
-                            "Fail to find AD job index's primary or replica shard number: primary [{}], replica [{}]",
-                            primaryShardsNumber,
-                            replicaNumber
-                        )
-                    );
-                // don't throw exception as we don't know how to handle it and retry next time
-                listener.onResponse(null);
-                return;
-            }
-            // at least minJobIndexReplicas
-            // at most maxJobIndexReplicas / primaryShardsNumber replicas.
-            // For example, if we have 2 primary shards, since the max number of shards are maxJobIndexReplicas (20),
-            // we will use 20 / 2 = 10 replicas as the upper bound of replica.
-            int maxExpectedReplicas = Math.max(maxJobIndexReplicas / primaryShardsNumber, minJobIndexReplicas);
-            Settings updatedSettings = Settings
-                .builder()
-                .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxExpectedReplicas)
-                .build();
-            final UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(ADIndex.JOB.getIndexName())
-                .settings(updatedSettings);
-            client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(response -> {
-                jobIndexState.settingUpToDate = true;
-                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
-                listener.onResponse(null);
-            }, listener::onFailure));
-        }, e -> {
-            if (e instanceof IndexNotFoundException) {
-                // new index will be created with auto expand replica setting
-                jobIndexState.settingUpToDate = true;
-                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
-                listener.onResponse(null);
-            } else {
-                listener.onFailure(e);
-            }
-        }));
-    }
+    // private void updateJobIndexSettingIfNecessary(IndexState jobIndexState, ActionListener<Void> listener) {
+    // GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
+    // .indices(ADIndex.JOB.getIndexName())
+    // .names(
+    // new String[] {
+    // IndexMetadata.SETTING_NUMBER_OF_SHARDS,
+    // IndexMetadata.SETTING_NUMBER_OF_REPLICAS,
+    // IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS }
+    // );
+    // client.execute(GetSettingsAction.INSTANCE, getSettingsRequest, ActionListener.wrap(settingResponse -> {
+    // // auto expand setting is a range string like "1-all"
+    // String autoExpandReplica = getStringSetting(settingResponse, IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS);
+    // // if the auto expand setting is already there, return immediately
+    // if (autoExpandReplica != null) {
+    // jobIndexState.settingUpToDate = true;
+    // logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+    // listener.onResponse(null);
+    // return;
+    // }
+    // Integer primaryShardsNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_SHARDS);
+    // Integer replicaNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_REPLICAS);
+    // if (primaryShardsNumber == null || replicaNumber == null) {
+    // logger
+    // .error(
+    // new ParameterizedMessage(
+    // "Fail to find AD job index's primary or replica shard number: primary [{}], replica [{}]",
+    // primaryShardsNumber,
+    // replicaNumber
+    // )
+    // );
+    // // don't throw exception as we don't know how to handle it and retry next time
+    // listener.onResponse(null);
+    // return;
+    // }
+    // // at least minJobIndexReplicas
+    // // at most maxJobIndexReplicas / primaryShardsNumber replicas.
+    // // For example, if we have 2 primary shards, since the max number of shards are maxJobIndexReplicas (20),
+    // // we will use 20 / 2 = 10 replicas as the upper bound of replica.
+    // int maxExpectedReplicas = Math.max(maxJobIndexReplicas / primaryShardsNumber, minJobIndexReplicas);
+    // Settings updatedSettings = Settings
+    // .builder()
+    // .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxExpectedReplicas)
+    // .build();
+    // final UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(ADIndex.JOB.getIndexName())
+    // .settings(updatedSettings);
+    // client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(response -> {
+    // jobIndexState.settingUpToDate = true;
+    // logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+    // listener.onResponse(null);
+    // }, listener::onFailure));
+    // }, e -> {
+    // if (e instanceof IndexNotFoundException) {
+    // // new index will be created with auto expand replica setting
+    // jobIndexState.settingUpToDate = true;
+    // logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+    // listener.onResponse(null);
+    // } else {
+    // listener.onFailure(e);
+    // }
+    // }));
+    // }
 
     private static Integer getIntegerSetting(GetSettingsResponse settingsResponse, String settingKey) {
         Integer value = null;

@@ -44,7 +44,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.ClientUtil;
@@ -79,7 +78,7 @@ public class NodeStateManagerTests extends AbstractADTest {
     private GetResponse checkpointResponse;
     private ClusterService clusterService;
     private ClusterSettings clusterSettings;
-    private AnomalyDetectorJob jobToCheck;
+    // private AnomalyDetectorJob jobToCheck;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -129,7 +128,7 @@ public class NodeStateManagerTests extends AbstractADTest {
         stateManager = new NodeStateManager(client, xContentRegistry(), settings, clientUtil, clock, duration, clusterService);
 
         checkpointResponse = mock(GetResponse.class);
-        jobToCheck = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
+        // jobToCheck = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
     }
 
     @Override
@@ -389,10 +388,10 @@ public class NodeStateManagerTests extends AbstractADTest {
         assertTrue(!stateManager.isMuted(nodeId, adId));
     }
 
-    @SuppressWarnings("unchecked")
-    private String setupJob() throws IOException {
+    // @SuppressWarnings("unchecked")
+    /*private String setupJob() throws IOException {
         String detectorId = jobToCheck.getName();
-
+    
         doAnswer(invocation -> {
             GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(1);
@@ -401,51 +400,51 @@ public class NodeStateManagerTests extends AbstractADTest {
             }
             return null;
         }).when(client).get(any(), any(ActionListener.class));
-
+    
         return detectorId;
-    }
+    }*/
 
-    public void testGetAnomalyJob() throws IOException, InterruptedException {
-        String detectorId = setupJob();
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
-            assertEquals(jobToCheck, asDetector.get());
-            inProgressLatch.countDown();
-        }, exception -> {
-            assertTrue(false);
-            inProgressLatch.countDown();
-        }));
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-    }
+    // public void testGetAnomalyJob() throws IOException, InterruptedException {
+    // String detectorId = setupJob();
+    // final CountDownLatch inProgressLatch = new CountDownLatch(1);
+    // stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
+    // assertEquals(jobToCheck, asDetector.get());
+    // inProgressLatch.countDown();
+    // }, exception -> {
+    // assertTrue(false);
+    // inProgressLatch.countDown();
+    // }));
+    // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    // }
 
     /**
      * Test that we caches anomaly detector job definition after the first call
      * @throws IOException if client throws exception
      * @throws InterruptedException  if the current thread is interrupted while waiting
      */
-    @SuppressWarnings("unchecked")
-    public void testRepeatedGetAnomalyJob() throws IOException, InterruptedException {
-        String detectorId = setupJob();
-        final CountDownLatch inProgressLatch = new CountDownLatch(2);
-
-        stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
-            assertEquals(jobToCheck, asDetector.get());
-            inProgressLatch.countDown();
-        }, exception -> {
-            assertTrue(false);
-            inProgressLatch.countDown();
-        }));
-
-        stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
-            assertEquals(jobToCheck, asDetector.get());
-            inProgressLatch.countDown();
-        }, exception -> {
-            assertTrue(false);
-            inProgressLatch.countDown();
-        }));
-
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-
-        verify(client, times(1)).get(any(), any(ActionListener.class));
-    }
+    // @SuppressWarnings("unchecked")
+    // public void testRepeatedGetAnomalyJob() throws IOException, InterruptedException {
+    // String detectorId = setupJob();
+    // final CountDownLatch inProgressLatch = new CountDownLatch(2);
+    //
+    // stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
+    // assertEquals(jobToCheck, asDetector.get());
+    // inProgressLatch.countDown();
+    // }, exception -> {
+    // assertTrue(false);
+    // inProgressLatch.countDown();
+    // }));
+    //
+    // stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
+    // assertEquals(jobToCheck, asDetector.get());
+    // inProgressLatch.countDown();
+    // }, exception -> {
+    // assertTrue(false);
+    // inProgressLatch.countDown();
+    // }));
+    //
+    // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    //
+    // verify(client, times(1)).get(any(), any(ActionListener.class));
+    // }
 }

@@ -9,34 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad.mock.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.auth.UserIdentity;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
-import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
-import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
 
 public class MockAnomalyDetectorJobTransportActionWithUser extends
     HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
@@ -144,3 +119,4 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         }
     }
 }
+*/

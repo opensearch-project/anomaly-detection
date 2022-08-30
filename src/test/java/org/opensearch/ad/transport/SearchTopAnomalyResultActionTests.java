@@ -3,25 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-
-import org.junit.Before;
-import org.junit.Ignore;
-import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.test.OpenSearchIntegTestCase;
-
-import com.google.common.collect.ImmutableList;
 
 // Only invalid test cases are covered here. This is due to issues with the lang-painless module not
 // being installed on test clusters spun up in OpenSearchIntegTestCase classes (which this class extends),
@@ -268,3 +252,4 @@ public class SearchTopAnomalyResultActionTests extends HistoricalAnalysisIntegTe
         );
     }
 }
+*/

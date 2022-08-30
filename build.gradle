@@ -33,7 +33,7 @@ buildscript {
         opensearch_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
-        job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
+//        job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
 //        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
 //                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
 //        anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
@@ -660,8 +660,52 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.feature.SearchFeatureDao',
         'org.opensearch.ad.ml.TRCFMemoryAwareConcurrentHashmap',
         'org.opensearch.ad.ml.ModelManager',
-        'org.opensearch.ad.ml.SingleStreamModelIdMapper'
-
+        'org.opensearch.ad.ml.SingleStreamModelIdMapper',
+        'org.opensearch.ad.settings.AbstractSetting',
+        'org.opensearch.ad.util.ExceptionUtil',
+        'org.opensearch.ad.util.DiscoveryNodeFilterer.HotDataNodePredicate',
+        'org.opensearch.ad.common.exception.ADVersionException',
+        'org.opensearch.ad.common.exception.ResourceNotFoundException',
+        'org.opensearch.ad.cluster.ADNodeInfo',
+        'org.opensearch.ad.model.EntityProfile',
+        'org.opensearch.ad.model.ADTask',
+        'org.opensearch.ad.model.ExpectedValueList',
+        'org.opensearch.ad.model.DataByFeatureId',
+        'org.opensearch.ad.model.AnomalyResult',
+        'org.opensearch.ad.model.ADTaskProfile',
+        'org.opensearch.ad.model.ADEntityTaskProfile',
+        'org.opensearch.ad.model.AnomalyDetectorExecutionInput',
+        'org.opensearch.ad.model.DetectionDateRange',
+        'org.opensearch.ad.model.DetectorProfile',
+        'org.opensearch.ad.transport.EntityResultAction',
+        'org.opensearch.ad.transport.EntityResultTransportAction',
+        'org.opensearch.ad.transport.DeleteAnomalyDetectorRequest',
+        'org.opensearch.ad.transport.ADTaskProfileAction',
+        'org.opensearch.ad.transport.ProfileAction',
+        'org.opensearch.ad.transport.GetAnomalyDetectorResponse',
+        'org.opensearch.ad.transport.EntityResultRequest',
+        'org.opensearch.ad.transport.AnomalyDetectorJobRequest',
+        'org.opensearch.ad.transport.ADBatchAnomalyResultAction',
+        'org.opensearch.ad.transport.ADTaskProfileNodeResponse',
+        'org.opensearch.ad.transport.AnomalyDetectorJobAction',
+        'org.opensearch.ad.transport.AnomalyResultTransportAction',
+        'org.opensearch.ad.transport.GetAnomalyDetectorAction',
+        'org.opensearch.ad.transport.AnomalyDetectorJobResponse',
+        'org.opensearch.ad.transport.GetAnomalyDetectorRequest',
+        'org.opensearch.ad.transport.AnomalyResultTransportAction',
+        'org.opensearch.ad.transport.DeleteAnomalyDetectorAction',
+        'org.opensearch.ad.transport.ForwardADTaskRequest',
+        'org.opensearch.ad.transport.AnomalyResultTransportAction.EntityResultListener',
+        'org.opensearch.ad.feature.CompositeRetriever',
+        'org.opensearch.ad.ml.EntityColdStarter',
+        'org.opensearch.ad.AbstractProfileRunner',
+        'org.opensearch.ad.Name',
+        'org.opensearch.ad.NodeStateManager',
+        'org.opensearch.ad.model.EntityProfile.Builder',
+        'org.opensearch.ad.transport.AnomalyResultTransportAction.PageListener',
+        'org.opensearch.ad.feature.CompositeRetriever.Page',
+        'org.opensearch.ad.feature.CompositeRetriever.PageIterator.1',
+        'org.opensearch.ad.feature.CompositeRetriever.PageIterator'
 ]
 
 
@@ -700,7 +744,8 @@ jacocoTestCoverageVerification.dependsOn jacocoTestReport
 dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
+    // Removed Job Scheduler dependency from AD
+//    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
@@ -829,7 +874,7 @@ spotless {
     java {
         removeUnusedImports()
         importOrder 'java', 'javax', 'org', 'com'
-
+        paddedCell()
         eclipse().configFile rootProject.file('.eclipseformat.xml')
     }
 }

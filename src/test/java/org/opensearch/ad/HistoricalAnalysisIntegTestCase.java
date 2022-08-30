@@ -9,54 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad;
 
-import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
-import static org.opensearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
-import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
-import static org.opensearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
-import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
-import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
-import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-import org.opensearch.action.bulk.BulkResponse;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.mock.plugin.MockReindexPlugin;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
-import org.opensearch.ad.model.ADTaskType;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.Feature;
-import org.opensearch.ad.transport.AnomalyDetectorJobAction;
-import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.plugins.Plugin;
-import org.opensearch.rest.RestStatus;
-import org.opensearch.search.SearchHit;
-import org.opensearch.search.aggregations.AggregationBuilder;
-import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.search.sort.SortOrder;
-import org.opensearch.test.transport.MockTransportService;
-
-import com.google.common.collect.ImmutableList;
 
 public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
 
@@ -210,17 +165,17 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         return adTask;
     }
 
-    public AnomalyDetectorJob getADJob(String detectorId) throws IOException {
-        return toADJob(getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId));
-    }
+//    public AnomalyDetectorJob getADJob(String detectorId) throws IOException {
+//        return toADJob(getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId));
+//    }
 
     public ADTask toADTask(GetResponse doc) throws IOException {
         return ADTask.parse(TestHelpers.parser(doc.getSourceAsString()));
     }
 
-    public AnomalyDetectorJob toADJob(GetResponse doc) throws IOException {
-        return AnomalyDetectorJob.parse(TestHelpers.parser(doc.getSourceAsString()));
-    }
+//    public AnomalyDetectorJob toADJob(GetResponse doc) throws IOException {
+//        return AnomalyDetectorJob.parse(TestHelpers.parser(doc.getSourceAsString()));
+//    }
 
     public ADTask startHistoricalAnalysis(Instant startTime, Instant endTime) throws IOException {
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
@@ -253,3 +208,4 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         return getADTask(response.getId());
     }
 }
+*/

@@ -17,7 +17,6 @@ import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_LATEST
 import static org.opensearch.ad.constant.CommonErrorMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.constant.CommonErrorMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.constant.CommonErrorMessages.HC_DETECTOR_TASK_IS_UPDATING;
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
@@ -42,7 +41,6 @@ import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.REALTIME_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.taskTypeToString;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.model.AnomalyResult.TASK_ID_FIELD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
@@ -118,12 +116,10 @@ import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
-import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
 import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
 import org.opensearch.ad.transport.ADCancelTaskAction;
@@ -281,65 +277,65 @@ public class ADTaskManager {
      * @param transportService transport service
      * @param listener action listener
      */
-    public void startDetector(
-        String detectorId,
-        DetectionDateRange detectionDateRange,
-        IndexAnomalyDetectorJobActionHandler handler,
-        UserIdentity user,
-        TransportService transportService,
-        ActionListener<AnomalyDetectorJobResponse> listener
-    ) {
-        // upgrade index mapping of AD default indices
-        detectionIndices.update();
+    // public void startDetector(
+    // String detectorId,
+    // DetectionDateRange detectionDateRange,
+    // IndexAnomalyDetectorJobActionHandler handler,
+    // UserIdentity user,
+    // TransportService transportService,
+    // ActionListener<AnomalyDetectorJobResponse> listener
+    // ) {
+    // // upgrade index mapping of AD default indices
+    // detectionIndices.update();
+    //
+    // getDetector(detectorId, (detector) -> {
+    // if (!detector.isPresent()) {
+    // listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
+    // return;
+    // }
+    //
+    // // Validate if detector is ready to start. Will return null if ready to start.
+    // String errorMessage = validateDetector(detector.get());
+    // if (errorMessage != null) {
+    // listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
+    // return;
+    // }
+    // String resultIndex = detector.get().getResultIndex();
+    // if (resultIndex == null) {
+    // startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
+    // return;
+    // }
+    // detectionIndices
+    // .initCustomResultIndexAndExecute(
+    // resultIndex,
+    // () -> startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector),
+    // listener
+    // );
+    //
+    // }, listener);
+    // }
 
-        getDetector(detectorId, (detector) -> {
-            if (!detector.isPresent()) {
-                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
-                return;
-            }
-
-            // Validate if detector is ready to start. Will return null if ready to start.
-            String errorMessage = validateDetector(detector.get());
-            if (errorMessage != null) {
-                listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
-                return;
-            }
-            String resultIndex = detector.get().getResultIndex();
-            if (resultIndex == null) {
-                startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
-                return;
-            }
-            detectionIndices
-                .initCustomResultIndexAndExecute(
-                    resultIndex,
-                    () -> startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector),
-                    listener
-                );
-
-        }, listener);
-    }
-
-    private void startRealtimeOrHistoricalDetection(
-        DetectionDateRange detectionDateRange,
-        IndexAnomalyDetectorJobActionHandler handler,
-        UserIdentity user,
-        TransportService transportService,
-        ActionListener<AnomalyDetectorJobResponse> listener,
-        Optional<AnomalyDetector> detector
-    ) {
-        try {
-            if (detectionDateRange == null) {
-                // start realtime job
-                handler.startAnomalyDetectorJob(detector.get());
-            } else {
-                // start historical analysis task
-                forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
-            }
-        } catch (Exception e) {
-            logger.error("Failed to stash context", e);
-            listener.onFailure(e);
-        }
-    }
+    // private void startRealtimeOrHistoricalDetection(
+    // DetectionDateRange detectionDateRange,
+    // IndexAnomalyDetectorJobActionHandler handler,
+    // UserIdentity user,
+    // TransportService transportService,
+    // ActionListener<AnomalyDetectorJobResponse> listener,
+    // Optional<AnomalyDetector> detector
+    // ) {
+    // try {
+    // if (detectionDateRange == null) {
+    // // start realtime job
+    // handler.startAnomalyDetectorJob(detector.get());
+    // } else {
+    // // start historical analysis task
+    // forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
+    // }
+    // } catch (Exception e) {
+    // logger.error("Failed to stash context", e);
+    // listener.onFailure(e);
+    // }
+    // }
 
     /**
      * When AD receives start historical analysis request for a detector, will
@@ -823,35 +819,35 @@ public class ADTaskManager {
      * @param transportService transport service
      * @param listener action listener
      */
-    public void stopDetector(
-        String detectorId,
-        boolean historical,
-        IndexAnomalyDetectorJobActionHandler handler,
-        UserIdentity user,
-        TransportService transportService,
-        ActionListener<AnomalyDetectorJobResponse> listener
-    ) {
-        getDetector(detectorId, (detector) -> {
-            if (!detector.isPresent()) {
-                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
-                return;
-            }
-            if (historical) {
-                // stop historical analyis
-                getAndExecuteOnLatestDetectorLevelTask(
-                    detectorId,
-                    HISTORICAL_DETECTOR_TASK_TYPES,
-                    (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
-                    transportService,
-                    false,// don't need to reset task state when stop detector
-                    listener
-                );
-            } else {
-                // stop realtime detector job
-                handler.stopAnomalyDetectorJob(detectorId);
-            }
-        }, listener);
-    }
+    // public void stopDetector(
+    // String detectorId,
+    // boolean historical,
+    // IndexAnomalyDetectorJobActionHandler handler,
+    // UserIdentity user,
+    // TransportService transportService,
+    // ActionListener<AnomalyDetectorJobResponse> listener
+    // ) {
+    // getDetector(detectorId, (detector) -> {
+    // if (!detector.isPresent()) {
+    // listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
+    // return;
+    // }
+    // if (historical) {
+    // // stop historical analyis
+    // getAndExecuteOnLatestDetectorLevelTask(
+    // detectorId,
+    // HISTORICAL_DETECTOR_TASK_TYPES,
+    // (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
+    // transportService,
+    // false,// don't need to reset task state when stop detector
+    // listener
+    // );
+    // } else {
+    // // stop realtime detector job
+    // handler.stopAnomalyDetectorJob(detectorId);
+    // }
+    // }, listener);
+    // }
 
     /**
      * Get anomaly detector and execute consumer function.
@@ -1071,51 +1067,51 @@ public class ADTaskManager {
             }
         }
 
-        resetHistoricalDetectorTaskState(
-            runningHistoricalTasks,
-            () -> resetRealtimeDetectorTaskState(runningRealtimeTasks, () -> function.accept(adTasks), transportService, listener),
-            transportService,
-            listener
-        );
+        // resetHistoricalDetectorTaskState(
+        // runningHistoricalTasks,
+        // () -> resetRealtimeDetectorTaskState(runningRealtimeTasks, () -> function.accept(adTasks), transportService, listener),
+        // transportService,
+        // listener
+        // );
     }
 
-    private <T> void resetRealtimeDetectorTaskState(
-        List<ADTask> runningRealtimeTasks,
-        AnomalyDetectorFunction function,
-        TransportService transportService,
-        ActionListener<T> listener
-    ) {
-        if (isNullOrEmpty(runningRealtimeTasks)) {
-            function.execute();
-            return;
-        }
-        ADTask adTask = runningRealtimeTasks.get(0);
-        String detectorId = adTask.getDetectorId();
-        GetRequest getJobRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
-        client.get(getJobRequest, ActionListener.wrap(r -> {
-            if (r.isExists()) {
-                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
-                    if (!job.isEnabled()) {
-                        logger.debug("AD job is disabled, reset realtime task as stopped for detector {}", detectorId);
-                        resetTaskStateAsStopped(adTask, function, transportService, listener);
-                    } else {
-                        function.execute();
-                    }
-                } catch (IOException e) {
-                    logger.error(" Failed to parse AD job " + detectorId, e);
-                    listener.onFailure(e);
-                }
-            } else {
-                logger.debug("AD job is not found, reset realtime task as stopped for detector {}", detectorId);
-                resetTaskStateAsStopped(adTask, function, transportService, listener);
-            }
-        }, e -> {
-            logger.error("Fail to get AD realtime job for detector " + detectorId, e);
-            listener.onFailure(e);
-        }));
-    }
+    // private <T> void resetRealtimeDetectorTaskState(
+    // List<ADTask> runningRealtimeTasks,
+    // AnomalyDetectorFunction function,
+    // TransportService transportService,
+    // ActionListener<T> listener
+    // ) {
+    // if (isNullOrEmpty(runningRealtimeTasks)) {
+    // function.execute();
+    // return;
+    // }
+    // ADTask adTask = runningRealtimeTasks.get(0);
+    // String detectorId = adTask.getDetectorId();
+    // GetRequest getJobRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+    // client.get(getJobRequest, ActionListener.wrap(r -> {
+    // if (r.isExists()) {
+    // try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
+    // ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+    // AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+    // if (!job.isEnabled()) {
+    // logger.debug("AD job is disabled, reset realtime task as stopped for detector {}", detectorId);
+    // resetTaskStateAsStopped(adTask, function, transportService, listener);
+    // } else {
+    // function.execute();
+    // }
+    // } catch (IOException e) {
+    // logger.error(" Failed to parse AD job " + detectorId, e);
+    // listener.onFailure(e);
+    // }
+    // } else {
+    // logger.debug("AD job is not found, reset realtime task as stopped for detector {}", detectorId);
+    // resetTaskStateAsStopped(adTask, function, transportService, listener);
+    // }
+    // }, e -> {
+    // logger.error("Fail to get AD realtime job for detector " + detectorId, e);
+    // listener.onFailure(e);
+    // }));
+    // }
 
     private <T> void resetHistoricalDetectorTaskState(
         List<ADTask> runningHistoricalTasks,

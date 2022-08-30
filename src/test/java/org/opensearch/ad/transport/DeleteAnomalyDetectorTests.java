@@ -3,62 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
 package org.opensearch.ad.transport;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.function.Consumer;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.opensearch.OpenSearchStatusException;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.DocWriteResponse;
-import org.opensearch.action.delete.DeleteResponse;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterName;
-import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.collect.ImmutableOpenMap;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.ToXContent;
-import org.opensearch.index.get.GetResult;
-import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
-import org.opensearch.tasks.Task;
-import org.opensearch.transport.Transport;
-import org.opensearch.transport.TransportService;
 
 public class DeleteAnomalyDetectorTests extends AbstractADTest {
     private DeleteAnomalyDetectorTransportAction action;
@@ -299,3 +246,4 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
         }).when(client).get(any(), any());
     }
 }
+*/

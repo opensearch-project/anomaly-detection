@@ -12,7 +12,6 @@
 package org.opensearch.ad;
 
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
@@ -72,7 +71,6 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.model.DataByFeatureId;
@@ -127,7 +125,6 @@ import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -719,13 +716,13 @@ public class TestHelpers {
         return new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 1000), ChronoUnit.MINUTES);
     }
 
-    public static IntervalSchedule randomIntervalSchedule() {
-        return new IntervalSchedule(
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            OpenSearchRestTestCase.randomIntBetween(1, 1000),
-            ChronoUnit.MINUTES
-        );
-    }
+    // public static IntervalSchedule randomIntervalSchedule() {
+    // return new IntervalSchedule(
+    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
+    // OpenSearchRestTestCase.randomIntBetween(1, 1000),
+    // ChronoUnit.MINUTES
+    // );
+    // }
 
     public static Feature randomFeature() {
         return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5));
@@ -944,32 +941,32 @@ public class TestHelpers {
         );
     }
 
-    public static AnomalyDetectorJob randomAnomalyDetectorJob() {
-        return randomAnomalyDetectorJob(true);
-    }
+    // public static AnomalyDetectorJob randomAnomalyDetectorJob() {
+    // return randomAnomalyDetectorJob(true);
+    // }
+    //
+    // public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
+    // return new AnomalyDetectorJob(
+    // randomAlphaOfLength(10),
+    // randomIntervalSchedule(),
+    // randomIntervalTimeConfiguration(),
+    // enabled,
+    // enabledTime,
+    // disabledTime,
+    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
+    // 60L,
+    // randomUser(),
+    // null
+    // );
+    // }
 
-    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
-        return new AnomalyDetectorJob(
-            randomAlphaOfLength(10),
-            randomIntervalSchedule(),
-            randomIntervalTimeConfiguration(),
-            enabled,
-            enabledTime,
-            disabledTime,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            60L,
-            randomUser(),
-            null
-        );
-    }
-
-    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
-        return randomAnomalyDetectorJob(
-            enabled,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
-        );
-    }
+    // public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
+    // return randomAnomalyDetectorJob(
+    // enabled,
+    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
+    // Instant.now().truncatedTo(ChronoUnit.SECONDS)
+    // );
+    // }
 
     public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() throws IOException {
         return new AnomalyDetectorExecutionInput(
@@ -1502,7 +1499,7 @@ public class TestHelpers {
         ImmutableOpenMap<String, IndexMetadata> immutableOpenMap = ImmutableOpenMap
             .<String, IndexMetadata>builder()
             .fPut(
-                ANOMALY_DETECTOR_JOB_INDEX,
+                ".opendistro-anomaly-detector-jobs",
                 IndexMetadata
                     .builder("test")
                     .settings(

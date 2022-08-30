@@ -9,59 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
-import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
-import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
-import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
-import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
-import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.opensearch.OpenSearchStatusException;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.mock.model.MockSimpleLog;
-import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobAction;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskProfile;
-import org.opensearch.ad.model.ADTaskState;
-import org.opensearch.ad.model.ADTaskType;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.stats.StatNames;
-import org.opensearch.client.Client;
-import org.opensearch.common.lucene.uid.Versions;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.test.OpenSearchIntegTestCase;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
 @Ignore
@@ -349,20 +299,20 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
     }
 
-    public void testStartRealtimeDetector() throws IOException {
-        List<String> realtimeResult = startRealtimeDetector();
-        String detectorId = realtimeResult.get(0);
-        String jobId = realtimeResult.get(1);
-        GetResponse jobDoc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
-        AnomalyDetectorJob job = toADJob(jobDoc);
-        assertTrue(job.isEnabled());
-        assertEquals(detectorId, job.getName());
-
-        List<ADTask> adTasks = searchADTasks(detectorId, true, 10);
-        assertEquals(1, adTasks.size());
-        assertEquals(ADTaskType.REALTIME_SINGLE_ENTITY.name(), adTasks.get(0).getTaskType());
-        assertNotEquals(jobId, adTasks.get(0).getTaskId());
-    }
+//    public void testStartRealtimeDetector() throws IOException {
+//        List<String> realtimeResult = startRealtimeDetector();
+//        String detectorId = realtimeResult.get(0);
+//        String jobId = realtimeResult.get(1);
+//        GetResponse jobDoc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+//        AnomalyDetectorJob job = toADJob(jobDoc);
+//        assertTrue(job.isEnabled());
+//        assertEquals(detectorId, job.getName());
+//
+//        List<ADTask> adTasks = searchADTasks(detectorId, true, 10);
+//        assertEquals(1, adTasks.size());
+//        assertEquals(ADTaskType.REALTIME_SINGLE_ENTITY.name(), adTasks.get(0).getTaskType());
+//        assertNotEquals(jobId, adTasks.get(0).getTaskId());
+//    }
 
     private List<String> startRealtimeDetector() throws IOException {
         AnomalyDetector detector = TestHelpers
@@ -415,24 +365,24 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         return new AnomalyDetectorJobRequest(detectorId, null, historical, UNASSIGNED_SEQ_NO, UNASSIGNED_PRIMARY_TERM, STOP_JOB);
     }
 
-    public void testStopRealtimeDetector() throws IOException {
-        List<String> realtimeResult = startRealtimeDetector();
-        String detectorId = realtimeResult.get(0);
-        String jobId = realtimeResult.get(1);
-
-        AnomalyDetectorJobRequest request = stopDetectorJobRequest(detectorId, false);
-        client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
-        GetResponse doc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
-        AnomalyDetectorJob job = toADJob(doc);
-        assertFalse(job.isEnabled());
-        assertEquals(detectorId, job.getName());
-
-        List<ADTask> adTasks = searchADTasks(detectorId, true, 10);
-        assertEquals(1, adTasks.size());
-        assertEquals(ADTaskType.REALTIME_SINGLE_ENTITY.name(), adTasks.get(0).getTaskType());
-        assertNotEquals(jobId, adTasks.get(0).getTaskId());
-        assertEquals(ADTaskState.STOPPED.name(), adTasks.get(0).getState());
-    }
+//    public void testStopRealtimeDetector() throws IOException {
+//        List<String> realtimeResult = startRealtimeDetector();
+//        String detectorId = realtimeResult.get(0);
+//        String jobId = realtimeResult.get(1);
+//
+//        AnomalyDetectorJobRequest request = stopDetectorJobRequest(detectorId, false);
+//        client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
+//        GetResponse doc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+//        AnomalyDetectorJob job = toADJob(doc);
+//        assertFalse(job.isEnabled());
+//        assertEquals(detectorId, job.getName());
+//
+//        List<ADTask> adTasks = searchADTasks(detectorId, true, 10);
+//        assertEquals(1, adTasks.size());
+//        assertEquals(ADTaskType.REALTIME_SINGLE_ENTITY.name(), adTasks.get(0).getTaskType());
+//        assertNotEquals(jobId, adTasks.get(0).getTaskId());
+//        assertEquals(ADTaskState.STOPPED.name(), adTasks.get(0).getState());
+//    }
 
     public void testStopHistoricalDetector() throws IOException, InterruptedException {
         updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
@@ -519,3 +469,4 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         return totalExecutingTask.get();
     }
 }
+*/

@@ -23,7 +23,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
@@ -68,10 +67,8 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.time.DateFormatter;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
-import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.search.DocValueFormat;
@@ -564,27 +561,27 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
-    public void testGetColdStartSamplesForPeriodsMillisFormat() throws IOException, InterruptedException {
+    /*public void testGetColdStartSamplesForPeriodsMillisFormat() throws IOException, InterruptedException {
         DocValueFormat format = new DocValueFormat.DateTime(
             DateFormatter.forPattern("epoch_millis"),
             ZoneOffset.UTC,
             DateFieldMapper.Resolution.MILLISECONDS
         );
         getColdStartSamplesForPeriodsTemplate(format);
-    }
+    }*/
 
-    public void testGetColdStartSamplesForPeriodsDefaultFormat() throws IOException, InterruptedException {
+    /*public void testGetColdStartSamplesForPeriodsDefaultFormat() throws IOException, InterruptedException {
         DocValueFormat format = new DocValueFormat.DateTime(
             DateFieldMapper.DEFAULT_DATE_TIME_FORMATTER,
             ZoneOffset.UTC,
             DateFieldMapper.Resolution.MILLISECONDS
         );
         getColdStartSamplesForPeriodsTemplate(format);
-    }
+    }*/
 
-    public void testGetColdStartSamplesForPeriodsRawFormat() throws IOException, InterruptedException {
-        getColdStartSamplesForPeriodsTemplate(DocValueFormat.RAW);
-    }
+    // public void testGetColdStartSamplesForPeriodsRawFormat() throws IOException, InterruptedException {
+    // getColdStartSamplesForPeriodsTemplate(DocValueFormat.RAW);
+    // }
 
     @SuppressWarnings("rawtypes")
     public void testParseBuckets() throws InstantiationException,

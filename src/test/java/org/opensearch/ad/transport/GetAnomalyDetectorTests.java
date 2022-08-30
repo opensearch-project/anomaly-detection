@@ -9,54 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad.transport;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.function.Consumer;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.opensearch.OpenSearchStatusException;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.get.MultiGetItemResponse;
-import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskType;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.index.get.GetResult;
-import org.opensearch.transport.Transport;
-import org.opensearch.transport.TransportService;
 
 public class GetAnomalyDetectorTests extends AbstractADTest {
     private GetAnomalyDetectorTransportAction action;
@@ -230,3 +185,4 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
         return Arrays.asList(adTask1, adTask2, adTask3, adTask4, adTask5);
     }
 }
+*/

@@ -38,6 +38,7 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import com.google.common.collect.ImmutableList;
 
+@Ignore
 public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {

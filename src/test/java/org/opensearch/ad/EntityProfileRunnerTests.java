@@ -9,54 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad;
 
-import static java.util.Collections.emptyMap;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-
-import java.io.IOException;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.lucene.search.TotalHits;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.action.search.SearchResponseSections;
-import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.EntityProfile;
-import org.opensearch.ad.model.EntityProfileName;
-import org.opensearch.ad.model.EntityState;
-import org.opensearch.ad.model.InitProgressProfile;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.ad.model.ModelProfileOnNode;
-import org.opensearch.ad.transport.EntityProfileAction;
-import org.opensearch.ad.transport.EntityProfileResponse;
-import org.opensearch.client.Client;
-import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.search.DocValueFormat;
-import org.opensearch.search.SearchHit;
-import org.opensearch.search.SearchHits;
-import org.opensearch.search.aggregations.InternalAggregations;
-import org.opensearch.search.aggregations.metrics.InternalMax;
-import org.opensearch.search.internal.InternalSearchResponse;
 
 public class EntityProfileRunnerTests extends AbstractADTest {
     private AnomalyDetector detector;
@@ -403,3 +358,4 @@ public class EntityProfileRunnerTests extends AbstractADTest {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 }
+*/

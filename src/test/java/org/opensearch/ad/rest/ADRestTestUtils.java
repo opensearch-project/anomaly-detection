@@ -9,9 +9,6 @@
 package org.opensearch.ad.rest;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.randomBoolean;
-import static org.opensearch.ad.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
-import static org.opensearch.ad.util.RestHandlerUtils.REALTIME_TASK;
 import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
 import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomInt;
@@ -23,7 +20,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,7 +36,6 @@ import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.client.Response;
@@ -334,55 +329,55 @@ public class ADRestTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static Map<String, Object> getDetectorWithJobAndTask(RestClient client, String detectorId) throws IOException {
-        Map<String, Object> results = new HashMap<>();
-        Response searchAdTaskResponse = TestHelpers
-            .makeRequest(
-                client,
-                "GET",
-                TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI + "/" + detectorId + "?job=true&task=true",
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
-            );
-        Map<String, Object> responseMap = entityAsMap(searchAdTaskResponse);
-
-        Map<String, Object> jobMap = (Map<String, Object>) responseMap.get(ANOMALY_DETECTOR_JOB);
-        if (jobMap != null) {
-            String jobName = (String) jobMap.get(AnomalyDetectorJob.NAME_FIELD);
-            boolean enabled = (boolean) jobMap.get(AnomalyDetectorJob.IS_ENABLED_FIELD);
-            long enabledTime = (long) jobMap.get(AnomalyDetectorJob.ENABLED_TIME_FIELD);
-            long lastUpdateTime = (long) jobMap.get(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD);
-
-            AnomalyDetectorJob job = new AnomalyDetectorJob(
-                jobName,
-                null,
-                null,
-                enabled,
-                Instant.ofEpochMilli(enabledTime),
-                null,
-                Instant.ofEpochMilli(lastUpdateTime),
-                null,
-                null,
-                null
-            );
-            results.put(ANOMALY_DETECTOR_JOB, job);
-        }
-
-        Map<String, Object> historicalTaskMap = (Map<String, Object>) responseMap.get(HISTORICAL_ANALYSIS_TASK);
-        if (historicalTaskMap != null) {
-            ADTask historicalAdTask = parseAdTask(historicalTaskMap);
-            results.put(HISTORICAL_ANALYSIS_TASK, historicalAdTask);
-        }
-
-        Map<String, Object> realtimeTaskMap = (Map<String, Object>) responseMap.get(REALTIME_TASK);
-        if (realtimeTaskMap != null) {
-            ADTask realtimeAdTask = parseAdTask(realtimeTaskMap);
-            results.put(REALTIME_TASK, realtimeAdTask);
-        }
-
-        return results;
-    }
+    // public static Map<String, Object> getDetectorWithJobAndTask(RestClient client, String detectorId) throws IOException {
+    // Map<String, Object> results = new HashMap<>();
+    // Response searchAdTaskResponse = TestHelpers
+    // .makeRequest(
+    // client,
+    // "GET",
+    // TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI + "/" + detectorId + "?job=true&task=true",
+    // ImmutableMap.of(),
+    // (HttpEntity) null,
+    // null
+    // );
+    // Map<String, Object> responseMap = entityAsMap(searchAdTaskResponse);
+    //
+    // Map<String, Object> jobMap = (Map<String, Object>) responseMap.get(ANOMALY_DETECTOR_JOB);
+    // if (jobMap != null) {
+    // String jobName = (String) jobMap.get(AnomalyDetectorJob.NAME_FIELD);
+    // boolean enabled = (boolean) jobMap.get(AnomalyDetectorJob.IS_ENABLED_FIELD);
+    // long enabledTime = (long) jobMap.get(AnomalyDetectorJob.ENABLED_TIME_FIELD);
+    // long lastUpdateTime = (long) jobMap.get(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD);
+    //
+    // AnomalyDetectorJob job = new AnomalyDetectorJob(
+    // jobName,
+    // null,
+    // null,
+    // enabled,
+    // Instant.ofEpochMilli(enabledTime),
+    // null,
+    // Instant.ofEpochMilli(lastUpdateTime),
+    // null,
+    // null,
+    // null
+    // );
+    // results.put(ANOMALY_DETECTOR_JOB, job);
+    // }
+    //
+    // Map<String, Object> historicalTaskMap = (Map<String, Object>) responseMap.get(HISTORICAL_ANALYSIS_TASK);
+    // if (historicalTaskMap != null) {
+    // ADTask historicalAdTask = parseAdTask(historicalTaskMap);
+    // results.put(HISTORICAL_ANALYSIS_TASK, historicalAdTask);
+    // }
+    //
+    // Map<String, Object> realtimeTaskMap = (Map<String, Object>) responseMap.get(REALTIME_TASK);
+    // if (realtimeTaskMap != null) {
+    // ADTask realtimeAdTask = parseAdTask(realtimeTaskMap);
+    // results.put(REALTIME_TASK, realtimeAdTask);
+    // }
+    //
+    // return results;
+    // }
 
     private static ADTask parseAdTask(Map<String, Object> taskMap) {
         String id = (String) taskMap.get(ADTask.TASK_ID_FIELD);

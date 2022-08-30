@@ -17,6 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Locale;
 
+import org.junit.Ignore;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -27,6 +28,7 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
+@Ignore
 public class DetectionDateRangeTests extends OpenSearchSingleNodeTestCase {
 
     @Override

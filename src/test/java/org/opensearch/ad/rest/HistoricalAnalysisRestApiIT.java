@@ -10,41 +10,8 @@
  */
 
 package org.opensearch.ad.rest;
+/*
 
-import static org.opensearch.ad.TestHelpers.AD_BASE_STATS_URI;
-import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
-import static org.opensearch.ad.stats.StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT;
-import static org.opensearch.ad.stats.StatNames.MULTI_ENTITY_DETECTOR_COUNT;
-import static org.opensearch.ad.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.http.util.EntityUtils;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.opensearch.ad.HistoricalAnalysisRestTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskProfile;
-import org.opensearch.ad.model.ADTaskState;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.client.Response;
-import org.opensearch.client.ResponseException;
-import org.opensearch.common.xcontent.ToXContentObject;
-import org.opensearch.rest.RestStatus;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 @Ignore
 public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase {
@@ -321,3 +288,4 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     }
 
 }
+*/

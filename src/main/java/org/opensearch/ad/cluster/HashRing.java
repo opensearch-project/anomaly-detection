@@ -93,7 +93,7 @@ public class HashRing {
 
     private final DiscoveryNodeFilterer nodeFilter;
     private final ClusterService clusterService;
-    private final ADDataMigrator dataMigrator;
+    // private final ADDataMigrator dataMigrator;
     private final Clock clock;
     private final Client client;
     private final ModelManager modelManager;
@@ -104,7 +104,7 @@ public class HashRing {
         Settings settings,
         Client client,
         ClusterService clusterService,
-        ADDataMigrator dataMigrator,
+        // ADDataMigrator dataMigrator,
         ModelManager modelManager
     ) {
         this.nodeFilter = nodeFilter;
@@ -116,7 +116,7 @@ public class HashRing {
         this.lastUpdateForRealtimeAD = 0;
         this.client = client;
         this.clusterService = clusterService;
-        this.dataMigrator = dataMigrator;
+        // this.dataMigrator = dataMigrator;
         this.nodeAdVersions = new ConcurrentHashMap<>();
         this.circles = new TreeMap<>();
         this.circlesForRealtimeAD = new TreeMap<>();
@@ -292,17 +292,17 @@ public class HashRing {
                 // rebuild AD version hash ring with cooldown after all new node added.
                 rebuildCirclesForRealtimeAD();
 
-                if (!dataMigrator.isMigrated() && circles.size() > 0 && circles.lastEntry().getKey().onOrAfter(Version.V_1_1_0)) {
-                    // Find owning node with highest AD version to make sure the data migration logic be compatible to
-                    // latest AD version when upgrade.
-                    Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
-                    String localNodeId = localNode.getId();
-                    if (owningNode.isPresent() && localNodeId.equals(owningNode.get().getId())) {
-                        dataMigrator.migrateData();
-                    } else {
-                        dataMigrator.skipMigration();
-                    }
-                }
+                // if (!dataMigrator.isMigrated() && circles.size() > 0 && circles.lastEntry().getKey().onOrAfter(Version.V_1_1_0)) {
+                // // Find owning node with highest AD version to make sure the data migration logic be compatible to
+                // // latest AD version when upgrade.
+                // Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
+                // String localNodeId = localNode.getId();
+                // if (owningNode.isPresent() && localNodeId.equals(owningNode.get().getId())) {
+                // dataMigrator.migrateData();
+                // } else {
+                // dataMigrator.skipMigration();
+                // }
+                // }
                 buildHashRingSemaphore.release();
                 hashRingInited.set(true);
                 actionListener.onResponse(true);

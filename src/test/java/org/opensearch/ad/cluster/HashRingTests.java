@@ -9,51 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad.cluster;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptyMap;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
-
-import java.net.UnknownHostException;
-import java.time.Clock;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
-import org.junit.Before;
-import org.opensearch.Build;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.admin.cluster.node.info.NodeInfo;
-import org.opensearch.action.admin.cluster.node.info.NodesInfoResponse;
-import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
-import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
-import org.opensearch.client.ClusterAdminClient;
-import org.opensearch.cluster.ClusterName;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.plugins.PluginInfo;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public class HashRingTests extends ADUnitTestCase {
 
@@ -280,3 +238,4 @@ public class HashRingTests extends ADUnitTestCase {
         );
     }
 }
+*/

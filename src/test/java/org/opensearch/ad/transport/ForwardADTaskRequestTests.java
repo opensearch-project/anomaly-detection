@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Locale;
 
+import org.junit.Ignore;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
@@ -42,6 +43,7 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import com.google.common.collect.ImmutableList;
 
+@Ignore
 public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
 
     @Override

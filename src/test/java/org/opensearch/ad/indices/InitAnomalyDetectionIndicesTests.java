@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.indices;
 
-import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -32,7 +31,6 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
@@ -167,11 +165,11 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
             }
 
             Settings settings = request.settings();
-            if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-                assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(1)));
-            } else {
-                assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(numberOfHotNodes)));
-            }
+            // if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
+            // assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(1)));
+            // } else {
+            // assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(numberOfHotNodes)));
+            // }
 
             ActionListener<CreateIndexResponse> listener = (ActionListener<CreateIndexResponse>) invocation.getArgument(1);
 
@@ -186,9 +184,11 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
             adIndices.initDetectionStateIndex(listener);
         } else if (index.equals(CommonName.CHECKPOINT_INDEX_NAME)) {
             adIndices.initCheckpointIndex(listener);
-        } else if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-            adIndices.initAnomalyDetectorJobIndex(listener);
-        } else {
+        }
+        // else if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
+        // adIndices.initAnomalyDetectorJobIndex(listener);
+        // }
+        else {
             adIndices.initDefaultAnomalyResultIndexIfAbsent(listener);
         }
 
@@ -214,9 +214,9 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         fixedPrimaryShardsIndexCreationTemplate(CommonName.DETECTION_STATE_INDEX);
     }
 
-    public void testCreateJob() throws IOException {
-        adaptivePrimaryShardsIndexCreationTemplate(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
-    }
+    // public void testCreateJob() throws IOException {
+    // adaptivePrimaryShardsIndexCreationTemplate(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+    // }
 
     public void testCreateResult() throws IOException {
         adaptivePrimaryShardsIndexCreationTemplate(CommonName.ANOMALY_RESULT_INDEX_ALIAS);

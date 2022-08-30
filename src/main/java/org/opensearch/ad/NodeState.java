@@ -17,7 +17,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
+//import org.opensearch.ad.model.AnomalyDetectorJob;
 
 /**
  * Storing intermediate state during the execution of transport action
@@ -43,7 +43,7 @@ public class NodeState implements ExpiringState {
     // cold start running flag to prevent concurrent cold start
     private boolean coldStartRunning;
     // detector job
-    private AnomalyDetectorJob detectorJob;
+    // private AnomalyDetectorJob detectorJob;
 
     public NodeState(String detectorId, Clock clock) {
         this.detectorId = detectorId;
@@ -55,7 +55,7 @@ public class NodeState implements ExpiringState {
         this.checkPointExists = false;
         this.clock = clock;
         this.coldStartRunning = false;
-        this.detectorJob = null;
+        // this.detectorJob = null;
     }
 
     public String getDetectorId() {
@@ -174,19 +174,19 @@ public class NodeState implements ExpiringState {
      *
      * @return Detector configuration object
      */
-    public AnomalyDetectorJob getDetectorJob() {
-        refreshLastUpdateTime();
-        return detectorJob;
-    }
+    // public AnomalyDetectorJob getDetectorJob() {
+    // refreshLastUpdateTime();
+    // return detectorJob;
+    // }
 
     /**
      *
      * @param detectorJob Detector job
      */
-    public void setDetectorJob(AnomalyDetectorJob detectorJob) {
-        this.detectorJob = detectorJob;
-        refreshLastUpdateTime();
-    }
+    // public void setDetectorJob(AnomalyDetectorJob detectorJob) {
+    // this.detectorJob = detectorJob;
+    // refreshLastUpdateTime();
+    // }
 
     /**
      * refresh last access time.

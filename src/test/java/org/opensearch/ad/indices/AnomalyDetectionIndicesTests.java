@@ -20,7 +20,6 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -68,20 +67,20 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
         );
     }
 
-    public void testAnomalyDetectorIndexNotExists() {
+    /*public void testAnomalyDetectorIndexNotExists() {
         boolean exists = indices.doesAnomalyDetectorIndexExist();
         assertFalse(exists);
-    }
+    }*/
 
-    public void testAnomalyDetectorIndexExists() throws IOException {
+    /*public void testAnomalyDetectorIndexExists() throws IOException {
         indices.initAnomalyDetectorIndexIfAbsent(TestHelpers.createActionListener(response -> {
             boolean acknowledged = response.isAcknowledged();
             assertTrue(acknowledged);
         }, failure -> { throw new RuntimeException("should not recreate index"); }));
         TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-    }
+    }*/
 
-    public void testAnomalyDetectorIndexExistsAndNotRecreate() throws IOException {
+    /*public void testAnomalyDetectorIndexExistsAndNotRecreate() throws IOException {
         indices
             .initAnomalyDetectorIndexIfAbsent(
                 TestHelpers
@@ -105,22 +104,22 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
                         )
                 );
         }
-    }
+    }*/
 
-    public void testAnomalyResultIndexNotExists() {
+    /*public void testAnomalyResultIndexNotExists() {
         boolean exists = indices.doesDefaultAnomalyResultIndexExist();
         assertFalse(exists);
-    }
+    }*/
 
-    public void testAnomalyResultIndexExists() throws IOException {
+    /*public void testAnomalyResultIndexExists() throws IOException {
         indices.initDefaultAnomalyResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
             boolean acknowledged = response.isAcknowledged();
             assertTrue(acknowledged);
         }, failure -> { throw new RuntimeException("should not recreate index"); }));
         TestHelpers.waitForIndexCreationToComplete(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-    }
+    }*/
 
-    public void testAnomalyResultIndexExistsAndNotRecreate() throws IOException {
+    /*public void testAnomalyResultIndexExistsAndNotRecreate() throws IOException {
         indices
             .initDefaultAnomalyResultIndexIfAbsent(
                 TestHelpers
@@ -144,7 +143,7 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
                         )
                 );
         }
-    }
+    }*/
 
     private void createRandomDetector(String indexName) throws IOException {
         // creates a random anomaly detector and indexes it
@@ -157,11 +156,11 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
         assertEquals("Doc was not created", RestStatus.CREATED, indexResponse.status());
     }
 
-    public void testGetDetectionStateIndexMapping() throws IOException {
+    /*public void testGetDetectionStateIndexMapping() throws IOException {
         String detectorIndexMappings = AnomalyDetectionIndices.getAnomalyDetectorMappings();
         detectorIndexMappings = detectorIndexMappings
             .substring(detectorIndexMappings.indexOf("\"properties\""), detectorIndexMappings.lastIndexOf("}"));
         String detectionStateIndexMapping = AnomalyDetectionIndices.getDetectionStateMappings();
         assertTrue(detectionStateIndexMapping.contains(detectorIndexMappings));
-    }
+    }*/
 }
