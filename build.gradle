@@ -121,7 +121,7 @@ opensearchplugin {
     name 'opensearch-anomaly-detection'
     description 'OpenSearch anomaly detector plugin'
     classname 'org.opensearch.ad.AnomalyDetectorPlugin'
-    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler']
+    extendedPlugins = ['lang-painless']
 }
 
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses
