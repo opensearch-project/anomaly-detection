@@ -52,6 +52,7 @@ import junitparams.Parameters;
 
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -124,6 +125,7 @@ import com.google.gson.Gson;
 @RunWith(PowerMockRunner.class)
 @PowerMockRunnerDelegate(JUnitParamsRunner.class)
 @PrepareForTest({ ParseUtils.class, Gson.class })
+@Ignore
 public class SearchFeatureDaoTests {
     // private final Logger LOG = LogManager.getLogger(SearchFeatureDaoTests.class);
 
