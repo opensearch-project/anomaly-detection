@@ -16,6 +16,14 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
+      
+       - uses: actions/checkout@v3
+        with:
+          repository: opensearch-project/OpenSearch
+          ref: feature/extensions
+       - name: Publish to Maven Local
+        run: |
+          ./gradlew publishToMavenLocal
 
       # anomaly-detection
       - name: Checkout AD
