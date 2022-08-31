@@ -23,7 +23,7 @@ jobs:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
 
-       - name: Publish to Maven Local
+      - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
 
