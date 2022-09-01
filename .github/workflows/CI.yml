@@ -23,6 +23,14 @@ jobs:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
 
+      - name: ls
+        run: |
+          ls
+
+      - name: pwd
+        run: |
+          pwd
+
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
