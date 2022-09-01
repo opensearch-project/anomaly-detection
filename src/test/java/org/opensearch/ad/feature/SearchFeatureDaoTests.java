@@ -38,7 +38,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +81,6 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -197,25 +195,9 @@ public class SearchFeatureDaoTests {
         }).when(executorService).execute(any(Runnable.class));
 
         settings = Settings.EMPTY;
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE))
-                )
-        );
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         searchFeatureDao = spy(
-            new SearchFeatureDao(
-                client,
-                xContent,
-                interpolator,
-                clientUtil,
-                settings,
-                clusterService,
-                AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
-            )
+            new SearchFeatureDao(client, xContent, interpolator, clientUtil, settings, null, AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
         );
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);

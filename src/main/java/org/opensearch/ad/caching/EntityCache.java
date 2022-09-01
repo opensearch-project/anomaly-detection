@@ -139,4 +139,19 @@ public interface EntityCache extends MaintenanceState, CleanState, DetectorModel
      * @return the entity's memory size
      */
     Optional<ModelProfile> getModelProfile(String detectorId, String entityModelId);
+
+    /**
+     * Get a model state without incurring priority update. Used in maintenance.
+     * @param detectorId Detector Id
+     * @param modelId Model Id
+     * @return Model state
+     */
+    Optional<ModelState<EntityModel>> getForMaintainance(String detectorId, String modelId);
+
+    /**
+     * Remove entity model from active entity buffer and delete checkpoint. Used to clean corrupted model.
+     * @param detectorId Detector Id
+     * @param entityModelId Model Id
+     */
+    void removeEntityModel(String detectorId, String entityModelId);
 }

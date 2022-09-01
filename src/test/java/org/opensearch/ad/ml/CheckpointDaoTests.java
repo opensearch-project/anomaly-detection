@@ -39,6 +39,7 @@ import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.Month;
 import java.time.OffsetDateTime;
@@ -1084,5 +1085,14 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             assertEquals(descriptor.getRCFScore(), scores.get(i), 1e-9);
             assertEquals(descriptor.getAnomalyGrade(), grade.get(i), 1e-9);
         }
+    }
+
+    public void testShouldSave() {
+        assertTrue(!checkpointDao.shouldSave(Instant.MIN, false, null, clock));
+        assertTrue(checkpointDao.shouldSave(Instant.ofEpochMilli(Instant.now().toEpochMilli()), true, Duration.ofHours(6), clock));
+        // now + 6 hrs > Instant.now
+        assertTrue(!checkpointDao.shouldSave(Instant.ofEpochMilli(Instant.now().toEpochMilli()), false, Duration.ofHours(6), clock));
+        // 1658863778000L + 6 hrs < Instant.now
+        assertTrue(checkpointDao.shouldSave(Instant.ofEpochMilli(1658863778000L), false, Duration.ofHours(6), clock));
     }
 }

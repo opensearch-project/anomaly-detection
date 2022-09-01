@@ -22,12 +22,16 @@ import org.opensearch.common.inject.Provider;
 public class CacheProvider implements Provider<EntityCache> {
     private EntityCache cache;
 
-    public CacheProvider(EntityCache cache) {
-        this.cache = cache;
+    public CacheProvider() {
+
     }
 
     @Override
     public EntityCache get() {
         return cache;
+    }
+
+    public void set(EntityCache cache) {
+        this.cache = cache;
     }
 }

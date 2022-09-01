@@ -20,6 +20,7 @@ import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -90,6 +91,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.EntityColdStartWorker;
 import org.opensearch.ad.ratelimit.EntityFeatureRequest;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -159,6 +161,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     private AnomalyDetectionIndices indexUtil;
     private ResultWriteWorker resultWriteQueue;
     private CheckpointReadWorker checkpointReadQueue;
+    private EntityColdStartWorker entityColdStartQueue;
     private ColdEntityWorker coldEntityQueue;
     private String app0 = "app_0";
     private String server1 = "server_1";
@@ -250,6 +253,7 @@ public class MultiEntityResultTests extends AbstractADTest {
                 put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
                 put(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
                 put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+                put(StatNames.MODEL_CORRUTPION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
             }
         };
         adStats = new ADStats(statsMap);
@@ -296,6 +300,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         indexUtil = mock(AnomalyDetectionIndices.class);
         resultWriteQueue = mock(ResultWriteWorker.class);
         checkpointReadQueue = mock(CheckpointReadWorker.class);
+        entityColdStartQueue = mock(EntityColdStartWorker.class);
 
         coldEntityQueue = mock(ColdEntityWorker.class);
 
@@ -404,7 +409,9 @@ public class MultiEntityResultTests extends AbstractADTest {
             resultWriteQueue,
             checkpointReadQueue,
             coldEntityQueue,
-            threadPool
+            threadPool,
+            entityColdStartQueue,
+            adStats
         );
 
         when(normalModelManager.getAnomalyResultForEntity(any(), any(), any(), any(), anyInt()))
@@ -579,7 +586,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         return new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
     }
 
-    private CountDownLatch setUpSearchResponse() throws IOException {
+    private void setUpSearchResponse() throws IOException {
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(serviceField, hostField));
         // set up a non-empty response
         CompositeAggregation composite = mock(CompositeAggregation.class);
@@ -618,29 +625,25 @@ public class MultiEntityResultTests extends AbstractADTest {
         SearchResponseSections sections = new SearchResponseSections(SearchHits.empty(), aggs, null, false, null, null, 1);
         SearchResponse response = new SearchResponse(sections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
 
-        CountDownLatch inProgress = new CountDownLatch(2);
         AtomicBoolean firstCalled = new AtomicBoolean();
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
             if (firstCalled.get()) {
                 listener.onResponse(createEmptyResponse());
-                inProgress.countDown();
             } else {
                 // set firstCalled to be true before returning in case that listener return
                 // and the 2nd call comes in before firstCalled is set to true. Then we
                 // have the 2nd response.
                 firstCalled.set(true);
                 listener.onResponse(response);
-                inProgress.countDown();
             }
             return null;
         }).when(client).search(any(), any());
-
-        return inProgress;
     }
 
     private <T extends TransportResponse> void setUpTransportInterceptor(
-        Function<TransportResponseHandler<T>, TransportResponseHandler<T>> interceptor
+        Function<TransportResponseHandler<T>, TransportResponseHandler<T>> interceptor,
+        NodeStateManager nodeStateManager
     ) {
         entityResultInterceptor = new TransportInterceptor() {
             @Override
@@ -684,7 +687,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             realTransportService,
             settings,
             client,
-            stateManager,
+            nodeStateManager,
             featureQuery,
             normalModelManager,
             hashRing,
@@ -698,13 +701,27 @@ public class MultiEntityResultTests extends AbstractADTest {
         );
     }
 
+    private <T extends TransportResponse> void setUpTransportInterceptor(
+        Function<TransportResponseHandler<T>, TransportResponseHandler<T>> interceptor
+    ) {
+        setUpTransportInterceptor(interceptor, stateManager);
+    }
+
     public void testNonEmptyFeatures() throws InterruptedException, IOException {
-        CountDownLatch inProgress = setUpSearchResponse();
+        setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
+
+        CountDownLatch modelNodeInProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            if (modelNodeInProgress.getCount() == 1) {
+                modelNodeInProgress.countDown();
+            }
+            return null;
+        }).when(coldEntityQueue).putAll(any());
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 
@@ -713,7 +730,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         AnomalyResultResponse response = listener.actionGet(10000L);
         assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
 
-        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+        assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since we have 3 results in the first page
         verify(resultWriteQueue, times(3)).put(any());
@@ -738,32 +755,17 @@ public class MultiEntityResultTests extends AbstractADTest {
             clusterService
         );
 
-        action = new AnomalyResultTransportAction(
-            new ActionFilters(Collections.emptySet()),
-            transportService,
-            settings,
-            client,
-            stateManager,
-            featureQuery,
-            normalModelManager,
-            hashRing,
-            clusterService,
-            indexNameResolver,
-            adCircuitBreakerService,
-            adStats,
-            mockThreadPool,
-            xContentRegistry(),
-            adTaskManager
-        );
+        NodeStateManager spyStateManager = spy(stateManager);
 
-        CountDownLatch inProgress = setUpSearchResponse();
-        setUpTransportInterceptor(this::entityResultHandler);
+        setUpSearchResponse();
+        setUpTransportInterceptor(this::entityResultHandler, spyStateManager);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         ADCircuitBreakerService openBreaker = mock(ADCircuitBreakerService.class);
         when(openBreaker.isOpen()).thenReturn(true);
+
         // register entity result action
         new EntityResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -772,13 +774,25 @@ public class MultiEntityResultTests extends AbstractADTest {
             normalModelManager,
             openBreaker,
             provider,
-            stateManager,
+            spyStateManager,
             indexUtil,
             resultWriteQueue,
             checkpointReadQueue,
             coldEntityQueue,
-            threadPool
+            threadPool,
+            entityColdStartQueue,
+            adStats
         );
+
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            String id = invocation.getArgument(0);
+            Exception exp = invocation.getArgument(1);
+
+            stateManager.setException(id, exp);
+            inProgress.countDown();
+            return null;
+        }).when(spyStateManager).setException(any(), any());
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
@@ -793,12 +807,18 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testNotAck() throws InterruptedException, IOException {
-        CountDownLatch inProgress = setUpSearchResponse();
+        setUpSearchResponse();
         setUpTransportInterceptor(this::unackEntityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
         setUpEntityResult(1);
+
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            inProgress.countDown();
+            return null;
+        }).when(stateManager).addPressure(anyString(), anyString());
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 
@@ -813,7 +833,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testMultipleNode() throws InterruptedException, IOException {
-        CountDownLatch inProgress = setUpSearchResponse();
+        setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
 
         Entity entity1 = Entity.createEntityByReordering(attrs1);
@@ -834,6 +854,12 @@ public class MultiEntityResultTests extends AbstractADTest {
             setUpEntityResult(i);
         }
 
+        CountDownLatch modelNodeInProgress = new CountDownLatch(3);
+        doAnswer(invocation -> {
+            modelNodeInProgress.countDown();
+            return null;
+        }).when(coldEntityQueue).putAll(any());
+
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 
         action.doExecute(null, request, listener);
@@ -841,14 +867,14 @@ public class MultiEntityResultTests extends AbstractADTest {
         AnomalyResultResponse response = listener.actionGet(10000L);
         assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
 
-        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+        assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since we have 3 results in the first page
         verify(resultWriteQueue, times(3)).put(any());
     }
 
     public void testCacheSelectionError() throws IOException, InterruptedException {
-        CountDownLatch inProgress = setUpSearchResponse();
+        setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         setUpEntityResult(1);
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
@@ -870,11 +896,19 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         when(entityCache.selectUpdateCandidate(any(), any(), any())).thenReturn(Pair.of(hotEntities, coldEntities));
 
+        CountDownLatch modelNodeInProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            if (modelNodeInProgress.getCount() == 1) {
+                modelNodeInProgress.countDown();
+            }
+            return null;
+        }).when(coldEntityQueue).putAll(any());
+
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 
         action.doExecute(null, request, listener);
 
-        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+        assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
         // size 0 because cacheMissEntities has no record of these entities
         verify(checkpointReadQueue).putAll(argThat(new ArgumentMatcher<List<EntityFeatureRequest>>() {
 
@@ -898,7 +932,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testCacheSelection() throws IOException, InterruptedException {
-        CountDownLatch inProgress = setUpSearchResponse();
+        setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
@@ -929,14 +963,24 @@ public class MultiEntityResultTests extends AbstractADTest {
             resultWriteQueue,
             checkpointReadQueue,
             coldEntityQueue,
-            threadPool
+            threadPool,
+            entityColdStartQueue,
+            adStats
         );
+
+        CountDownLatch modelNodeInProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            if (modelNodeInProgress.getCount() == 1) {
+                modelNodeInProgress.countDown();
+            }
+            return null;
+        }).when(coldEntityQueue).putAll(any());
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 
         action.doExecute(null, request, listener);
 
-        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+        assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
         verify(checkpointReadQueue).putAll(argThat(new ArgumentMatcher<List<EntityFeatureRequest>>() {
 
             @Override
@@ -1053,21 +1097,30 @@ public class MultiEntityResultTests extends AbstractADTest {
         // set up an empty response
         SearchResponse emptyResponse = createEmptyResponse();
 
-        CountDownLatch inProgress = new CountDownLatch(3);
+        CountDownLatch coordinatingNodeinProgress = new CountDownLatch(3);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            if (inProgress.getCount() == 3) {
-                inProgress.countDown();
+            if (coordinatingNodeinProgress.getCount() == 3) {
+                coordinatingNodeinProgress.countDown();
                 listener.onResponse(emptyNonNullResponse);
-            } else if (inProgress.getCount() == 2) {
-                inProgress.countDown();
+            } else if (coordinatingNodeinProgress.getCount() == 2) {
+                coordinatingNodeinProgress.countDown();
                 listener.onResponse(nonEmptyResponse);
             } else {
-                inProgress.countDown();
+                coordinatingNodeinProgress.countDown();
                 listener.onResponse(emptyResponse);
             }
             return null;
         }).when(client).search(any(), any());
+
+        // only the EntityResultRequest from nonEmptyResponse will reach model node
+        CountDownLatch modelNodeInProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            if (modelNodeInProgress.getCount() == 1) {
+                modelNodeInProgress.countDown();
+            }
+            return null;
+        }).when(coldEntityQueue).putAll(any());
 
         setUpTransportInterceptor(this::entityResultHandler);
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
@@ -1081,7 +1134,11 @@ public class MultiEntityResultTests extends AbstractADTest {
         AnomalyResultResponse response = listener.actionGet(10000L);
         assertEquals(Double.NaN, response.getAnomalyGrade(), 0.01);
 
-        assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
+        // since coordinating node and model node run in async model (i.e., coordinating node
+        // does not need sync response to proceed next page, we have to make sure both
+        // coordinating node and model node finishes before checking assertions)
+        assertTrue(coordinatingNodeinProgress.await(10000L, TimeUnit.MILLISECONDS));
+        assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since we have 3 results in the first page
         verify(resultWriteQueue, times(1)).put(any());
@@ -1136,27 +1193,41 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     @SuppressWarnings("unchecked")
-    private Pair<NodeStateManager, CountDownLatch> setUpTestExceptionTestingInModelNode() throws IOException {
-        CountDownLatch inProgress = setUpSearchResponse();
+    private NodeStateManager setUpTestExceptionTestingInModelNode() throws IOException {
+        setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
         NodeStateManager modelNodeStateManager = mock(NodeStateManager.class);
+        CountDownLatch modelNodeInProgress = new CountDownLatch(1);
         // make sure parameters are not null, otherwise this mock won't get invoked
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(detector));
+            modelNodeInProgress.countDown();
             return null;
         }).when(modelNodeStateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
-        return Pair.of(modelNodeStateManager, inProgress);
+        return modelNodeStateManager;
     }
 
     public void testEndRunNowInModelNode() throws InterruptedException, IOException {
-        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
-        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
-        CountDownLatch inProgress = preparedFixture.getRight();
+        NodeStateManager modelNodeStateManager = setUpTestExceptionTestingInModelNode();
+
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            inProgress.countDown();
+            return Optional
+                .of(
+                    new EndRunException(
+                        detectorId,
+                        CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                        new NoSuchElementException("No value present"),
+                        true
+                    )
+                );
+        }).when(modelNodeStateManager).fetchExceptionAndClear(anyString());
 
         when(modelNodeStateManager.fetchExceptionAndClear(anyString()))
             .thenReturn(
@@ -1187,9 +1258,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     }
 
     public void testEndRunNowFalseInModelNode() throws InterruptedException, IOException {
-        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
-        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
-        CountDownLatch inProgress = preparedFixture.getRight();
+        NodeStateManager modelNodeStateManager = setUpTestExceptionTestingInModelNode();
 
         when(modelNodeStateManager.fetchExceptionAndClear(anyString()))
             .thenReturn(
@@ -1205,6 +1274,14 @@ public class MultiEntityResultTests extends AbstractADTest {
             );
 
         setUpEntityResult(1, modelNodeStateManager);
+
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            if (inProgress.getCount() == 1) {
+                inProgress.countDown();
+            }
+            return null;
+        }).when(stateManager).setException(anyString(), any());
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 
@@ -1229,11 +1306,15 @@ public class MultiEntityResultTests extends AbstractADTest {
      * @throws InterruptedException when failing to wait for inProgress to finish
      */
     public void testTimeOutExceptionInModelNode() throws IOException, InterruptedException {
-        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
-        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
-        CountDownLatch inProgress = preparedFixture.getRight();
+        NodeStateManager modelNodeStateManager = setUpTestExceptionTestingInModelNode();
 
         when(modelNodeStateManager.fetchExceptionAndClear(anyString())).thenReturn(Optional.of(new OpenSearchTimeoutException("blah")));
+
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            inProgress.countDown();
+            return null;
+        }).when(stateManager).setException(anyString(), any(Exception.class));
 
         setUpEntityResult(1, modelNodeStateManager);
 
@@ -1263,13 +1344,17 @@ public class MultiEntityResultTests extends AbstractADTest {
     public void testSelectHigherExceptionInModelNode() throws InterruptedException, IOException {
         when(entityCache.get(any(), any())).thenThrow(EndRunException.class);
 
-        Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
-        NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
-        CountDownLatch inProgress = preparedFixture.getRight();
+        NodeStateManager modelNodeStateManager = setUpTestExceptionTestingInModelNode();
 
         when(modelNodeStateManager.fetchExceptionAndClear(anyString())).thenReturn(Optional.of(new OpenSearchTimeoutException("blah")));
 
         setUpEntityResult(1, modelNodeStateManager);
+
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            inProgress.countDown();
+            return null;
+        }).when(stateManager).setException(anyString(), any(Exception.class));
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
 

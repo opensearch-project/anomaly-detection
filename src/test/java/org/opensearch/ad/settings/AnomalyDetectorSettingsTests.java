@@ -114,7 +114,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                             AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
                             AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
                             AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
-                            AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
+                            AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
                             AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
                             AnomalyDetectorSettings.PAGE_SIZE
                         )

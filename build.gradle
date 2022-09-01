@@ -17,9 +17,9 @@ buildscript {
     ext {
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        opensearch_version = System.getProperty("opensearch.version", "2.1.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "2.2.0-SNAPSHOT")
         buildVersionQualifier = System.getProperty("build.version_qualifier", "")
-        // 2.1.0-SNAPSHOT -> 2.1.0.0-SNAPSHOT
+        // 2.2.0-SNAPSHOT -> 2.2.0.0-SNAPSHOT
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
         plugin_no_snapshot = opensearch_build
@@ -38,10 +38,11 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        bwcOpenDistroADDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
-                'opendistro-anomaly-detection/opendistro-anomaly-detection-1.13.0.0.zip'
-        bwcOpenDistroJSDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
-                'opendistro-job-scheduler/opendistro-job-scheduler-1.13.0.0.zip'
+        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
+                'opensearch-anomaly-detection-1.1.0.0.zip'
+        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
+                'opensearch-job-scheduler-1.1.0.0.zip'
+
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
         // This option turn on log printing during tests. 
@@ -366,7 +367,7 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
-String bwcVersion = "1.13.0.0"
+String bwcVersion = "1.1.0.0"
 String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
 String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
@@ -376,7 +377,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["7.10.2", opensearch_version]
+            versions = ["1.1.0", opensearch_version]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
@@ -388,7 +389,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
                                 project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$bwcVersion"))
                             }
                             project.mkdir bwcJobSchedulerPath + bwcVersion
-                            ant.get(src: bwcOpenDistroJSDownload,
+                            ant.get(src: bwcOpenSearchJSDownload,
                                     dest: bwcJobSchedulerPath + bwcVersion,
                                     httpusecaches: false)
                             return fileTree(bwcJobSchedulerPath + bwcVersion).getSingleFile()
@@ -406,7 +407,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
                                 project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$bwcVersion"))
                             }
                             project.mkdir bwcAnomalyDetectionPath + bwcVersion
-                            ant.get(src: bwcOpenDistroADDownload,
+                            ant.get(src: bwcOpenSearchADDownload,
                                     dest: bwcAnomalyDetectionPath + bwcVersion,
                                     httpusecaches: false)
                             return fileTree(bwcAnomalyDetectionPath + bwcVersion).getSingleFile()
@@ -445,15 +446,8 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        if (new File("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build").exists()) {
-                            project.delete(files("$project.rootDir/$bwcFilePath/anomaly-detection/$opensearch_build"))
-                        }
-                        project.mkdir bwcAnomalyDetectionPath + opensearch_build
-                        ant.get(src: anomaly_detection_build_download,
-                                dest: bwcAnomalyDetectionPath + opensearch_build,
-                                httpusecaches: false)
-                        return fileTree(bwcAnomalyDetectionPath + opensearch_build).getSingleFile()
-                    }
+                    	return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
+		    }
                 }
             }
         })
@@ -691,7 +685,7 @@ dependencies {
     testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-core', version: '2.0.2'
     testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.7'
+    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.2'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
@@ -797,5 +791,17 @@ if (printLogs) {
             showStandardStreams = true
             outputs.upToDateWhen {false}
         }
+    }
+}
+
+// updateVersion: Task to auto increment to the next development iteration
+task updateVersion {
+    onlyIf { System.getProperty('newVersion') }
+    doLast {
+        ext.newVersion = System.getProperty('newVersion')
+        println "Setting version to ${newVersion}."
+        // String tokenization to support -SNAPSHOT
+        // Include the required files that needs to be updated with new Version
+        ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
     }
 }

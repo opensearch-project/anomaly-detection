@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.DetectorModelSize;
 import org.opensearch.ad.MemoryTracker;
@@ -40,6 +41,11 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.util.DateUtils;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -84,7 +90,7 @@ public class ModelManager implements DetectorModelSize {
     private final double thresholdMinPvalue;
     private final int minPreviewSize;
     private final Duration modelTtl;
-    private final Duration checkpointInterval;
+    private Duration checkpointInterval;
 
     // dependencies
     private final CheckpointDao checkpointDao;
@@ -108,10 +114,12 @@ public class ModelManager implements DetectorModelSize {
      * @param thresholdMinPvalue min P-value for thresholding
      * @param minPreviewSize minimum number of data points for preview
      * @param modelTtl time to live for hosted models
-     * @param checkpointInterval interval between checkpoints
+     * @param checkpointIntervalSetting setting of interval between checkpoints
      * @param entityColdStarter HCAD cold start utility
      * @param featureManager Used to create features for models
      * @param memoryTracker AD memory usage tracker
+     * @param settings Node settings
+     * @param clusterService Cluster service accessor
      */
     public ModelManager(
         CheckpointDao checkpointDao,
@@ -123,10 +131,12 @@ public class ModelManager implements DetectorModelSize {
         double thresholdMinPvalue,
         int minPreviewSize,
         Duration modelTtl,
-        Duration checkpointInterval,
+        Setting<TimeValue> checkpointIntervalSetting,
         EntityColdStarter entityColdStarter,
         FeatureManager featureManager,
-        MemoryTracker memoryTracker
+        MemoryTracker memoryTracker,
+        Settings settings,
+        ClusterService clusterService
     ) {
         this.checkpointDao = checkpointDao;
         this.clock = clock;
@@ -137,7 +147,12 @@ public class ModelManager implements DetectorModelSize {
         this.thresholdMinPvalue = thresholdMinPvalue;
         this.minPreviewSize = minPreviewSize;
         this.modelTtl = modelTtl;
-        this.checkpointInterval = checkpointInterval;
+        this.checkpointInterval = DateUtils.toDuration(checkpointIntervalSetting.get(settings));
+        if (clusterService != null) {
+            clusterService
+                .getClusterSettings()
+                .addSettingsUpdateConsumer(checkpointIntervalSetting, it -> this.checkpointInterval = DateUtils.toDuration(it));
+        }
 
         this.forests = new TRCFMemoryAwareConcurrentHashmap<>(memoryTracker);
         this.thresholds = new ConcurrentHashMap<>();
@@ -721,7 +736,17 @@ public class ModelManager implements DetectorModelSize {
                 result = toResult(trcf.getForest(), trcf.process(feature, 0));
             }
         } catch (Exception e) {
-            logger.error("Fail to score", e);
+            logger
+                .error(
+                    new ParameterizedMessage(
+                        "Fail to score for [{}]: model Id [{}], feature [{}]",
+                        modelState.getModel().getEntity(),
+                        modelId,
+                        Arrays.toString(feature)
+                    ),
+                    e
+                );
+            throw e;
         } finally {
             modelState.setLastUsedTime(clock.instant());
         }
