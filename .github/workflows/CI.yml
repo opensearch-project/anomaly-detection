@@ -27,6 +27,12 @@ jobs:
         run: |
           ./gradlew publishToMavenLocal
 
+      - name: Assemble OpenSearch feature/extensions
+        run: |
+          ls
+          pwd
+          ./gradlew assemble
+
       # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v2

@@ -188,7 +188,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("incorrect version", version > 0);
     }
 
-    public void testUpdateAnomalyDetectorCategoryField() throws Exception {
+    /*public void testUpdateAnomalyDetectorCategoryField() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Response response = TestHelpers
             .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
@@ -227,7 +227,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 )
         );
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD));
-    }
+    }*/
 
     @Ignore
     public void testGetAnomalyDetector() throws Exception {

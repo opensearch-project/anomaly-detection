@@ -31,6 +31,7 @@ import org.opensearch.SpecialPermission;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.Interpolator;
@@ -525,7 +526,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         */
         // ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
-        // HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, dataMigrator, modelManager);
+        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, modelManager);
         /* @anomaly-detection.create-detector
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
         
@@ -573,17 +574,17 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         
         adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
         */
-        // adTaskManager = new ADTaskManager(
-        // settings,
-        // clusterService,
-        // client,
-        // xContentRegistry,
-        // anomalyDetectionIndices,
-        // nodeFilter,
-        // hashRing,
-        // adTaskCacheManager,
-        // threadPool
-        // );
+        adTaskManager = new ADTaskManager(
+            settings,
+            clusterService,
+            client,
+            xContentRegistry,
+            anomalyDetectionIndices,
+            nodeFilter,
+            hashRing,
+            adTaskCacheManager,
+            threadPool
+        );
         /* @anomaly-detection.create-detector
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,

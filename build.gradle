@@ -31,7 +31,7 @@ buildscript {
             opensearch_build += "-SNAPSHOT"
         }
         opensearch_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
-        js_resource_folder = "src/test/resources/job-scheduler"
+//        js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
 //        job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
 //        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
@@ -129,7 +129,7 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
-        force "com.fasterxml.jackson.core:jackson-core:2.13.2"
+//        force "com.fasterxml.jackson.core:jackson-core:2.13.2"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
@@ -212,93 +212,93 @@ test {
 
 // Commented this code until Job Scheduler is published to https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/ with OpenSearch 3.0.0-SNAPSHOT
 
-//task integTest(type: RestIntegTestTask) {
-//    description = "Run tests against a cluster"
-//    testClassesDirs = sourceSets.test.output.classesDirs
-//    classpath = sourceSets.test.runtimeClasspath
-//}
-//tasks.named("check").configure { dependsOn(integTest) }
+task integTest(type: RestIntegTestTask) {
+    description = "Run tests against a cluster"
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+tasks.named("check").configure { dependsOn(integTest) }
 
-//integTest {
-//    retry {
-//        if (isCiServer) {
-//            failOnPassedAfterRetry = false
-//            maxRetries = 6
-//            maxFailures = 10
-//        }
-//    }
-//    dependsOn "bundlePlugin"
-//    systemProperty 'tests.security.manager', 'false'
-//    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
-//
-//    systemProperty "https", System.getProperty("https")
-//    systemProperty "user", System.getProperty("user")
-//    systemProperty "password", System.getProperty("password")
-//
-//    // Only rest case can run with remote cluster
-//    if (System.getProperty("tests.rest.cluster") != null) {
-//        filter {
-//            includeTestsMatching "org.opensearch.ad.rest.*IT"
-//            includeTestsMatching "org.opensearch.ad.e2e.*IT"
-//        }
-//    }
-//
-//    if (System.getProperty("https") == null || System.getProperty("https") == "false") {
-//        filter {
-//            excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
-//        }
-//    }
-//
-//    if (System.getProperty("tests.rest.bwcsuite") == null) {
-//        filter {
-//            excludeTestsMatching "org.opensearch.ad.bwc.*IT"
-//        }
-//    }
-//
-//    // The 'doFirst' delays till execution time.
-//    doFirst {
-//        // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
-//        // use longer timeouts for requests.
-//        def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
-//        systemProperty 'cluster.debug', isDebuggingCluster
-//        // Set number of nodes system property to be used in tests
-//        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
-//        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-//        // not being written, the waitForAllConditions ensures it's written
-//        getClusters().forEach { cluster ->
-//            cluster.waitForAllConditions()
-//        }
-//    }
-//
-//    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-//    if (System.getProperty("test.debug") != null) {
-//        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
-//    }
-//
-//    if (printLogs) {
-//        testLogging {
-//            showStandardStreams = true
-//            outputs.upToDateWhen {false}
-//        }
-//    }
-//}
+integTest {
+    retry {
+        if (isCiServer) {
+            failOnPassedAfterRetry = false
+            maxRetries = 6
+            maxFailures = 10
+        }
+    }
+    dependsOn "bundlePlugin"
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
 
-//testClusters.integTest {
-//    testDistribution = "ARCHIVE"
-//    // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
-//    if (_numNodes > 1) numberOfNodes = _numNodes
-//    // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
-//    // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
-//    // since we also support multi node integration tests we increase debugPort per node
-//    if (System.getProperty("opensearch.debug") != null) {
-//        def debugPort = 5005
-//        nodes.forEach { node ->
-//            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")
-//            debugPort += 1
-//        }
-//    }
-//    plugin(project.tasks.bundlePlugin.archiveFile)
-//
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+
+    // Only rest case can run with remote cluster
+    if (System.getProperty("tests.rest.cluster") != null) {
+        filter {
+            includeTestsMatching "org.opensearch.ad.rest.*IT"
+            includeTestsMatching "org.opensearch.ad.e2e.*IT"
+        }
+    }
+
+    if (System.getProperty("https") == null || System.getProperty("https") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
+        }
+    }
+
+    if (System.getProperty("tests.rest.bwcsuite") == null) {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.bwc.*IT"
+        }
+    }
+
+    // The 'doFirst' delays till execution time.
+    doFirst {
+        // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+        // use longer timeouts for requests.
+        def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+        systemProperty 'cluster.debug', isDebuggingCluster
+        // Set number of nodes system property to be used in tests
+        systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+        // not being written, the waitForAllConditions ensures it's written
+        getClusters().forEach { cluster ->
+            cluster.waitForAllConditions()
+        }
+    }
+
+    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    }
+
+    if (printLogs) {
+        testLogging {
+            showStandardStreams = true
+            outputs.upToDateWhen {false}
+        }
+    }
+}
+
+testClusters.integTest {
+    testDistribution = "ARCHIVE"
+    // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
+    if (_numNodes > 1) numberOfNodes = _numNodes
+    // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
+    // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
+    // since we also support multi node integration tests we increase debugPort per node
+    if (System.getProperty("opensearch.debug") != null) {
+        def debugPort = 5005
+        nodes.forEach { node ->
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")
+            debugPort += 1
+        }
+    }
+    plugin(project.tasks.bundlePlugin.archiveFile)
+
 //    plugin(provider(new Callable<RegularFile>(){
 //        @Override
 //        RegularFile call() throws Exception {
@@ -335,13 +335,13 @@ test {
 //    // ./bin/elasticsearch-plugin install --batch file:opensearch-job-scheduler.zip file:opendistro-anomaly-detection.zip
 //    //
 //    // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
-//    nodes.each { node ->
-//        def plugins = node.plugins
-//        def firstPlugin = plugins.get(0)
-//        plugins.remove(0)
-//        plugins.add(firstPlugin)
-//    }
-//}
+    nodes.each { node ->
+        def plugins = node.plugins
+        def firstPlugin = plugins.get(0)
+        plugins.remove(0)
+        plugins.add(firstPlugin)
+    }
+}
 
 task integTestRemote(type: RestIntegTestTask) {
     testClassesDirs = sourceSets.test.output.classesDirs
@@ -705,7 +705,8 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.AnomalyResultTransportAction.PageListener',
         'org.opensearch.ad.feature.CompositeRetriever.Page',
         'org.opensearch.ad.feature.CompositeRetriever.PageIterator.1',
-        'org.opensearch.ad.feature.CompositeRetriever.PageIterator'
+        'org.opensearch.ad.feature.CompositeRetriever.PageIterator',
+        'org.opensearch.ad.cluster.ADDataMigrator'
 ]
 
 
@@ -762,9 +763,9 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
 
     // force Jackson version to avoid version conflict issue
-    implementation "com.fasterxml.jackson.core:jackson-core:2.13.3"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.13.3"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.3"
+//    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+//    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
+//    implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
