@@ -49,13 +49,13 @@ jobs:
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dtest.logs=true -PcustomDistributionUrl=../OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew build -Dtest.logs=true -PcustomDistributionUrl=~/OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
-          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=../OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=~/OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
@@ -103,7 +103,7 @@ jobs:
       - name: Run AD Backwards Compatibility Tests
         run: |
           echo "Running backwards compatibility tests ..."
-          ./gradlew bwcTestSuite -Dtests.security.manager=false -PcustomDistributionUrl=../OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew bwcTestSuite -Dtests.security.manager=false -PcustomDistributionUrl=~/OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:
