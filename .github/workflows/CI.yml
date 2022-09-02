@@ -30,7 +30,7 @@ jobs:
         with:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
-          path: opensearch
+          path: ~/opensearch
 
 #      - name: Publish to Maven Local
 #        run: |
@@ -38,7 +38,7 @@ jobs:
 
       - name: Assemble OpenSearch feature/extensions
         run: |
-          ./opensearch/gradlew --project-dir ./opensearch/ assemble
+          ~/opensearch/gradlew --project-dir ~/opensearch/ assemble
 
       - name: pwd OpenSearch
         run: |
@@ -55,8 +55,6 @@ jobs:
       # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v2
-        with:
-          path: main
 
       - name: Find TAR
         run: |
@@ -72,7 +70,6 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
-          cd main
           plugin_version=`./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}'`
           echo plugin_version $plugin_version
           ./gradlew assemble
