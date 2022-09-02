@@ -36,7 +36,6 @@ jobs:
 #      - name: Publish to Maven Local
 #        run: |
 #          ./opensearch/gradlew --project-dir ./opensearch/ publishToMavenLocal
-
       - name: Assemble OpenSearch feature/extensions
         run: |
           ./opensearch/gradlew --project-dir ./opensearch/ assemble
