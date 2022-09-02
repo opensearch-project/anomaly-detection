@@ -25,20 +25,23 @@ jobs:
         run: |
           pwd
 
-      - name: Checkout OpenSearch
+      - name: Checkout OpenSearch, Publish to Maven Local and Assemble
         uses: actions/checkout@v3
         with:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
           path: OpenSearch
+          run: |
+            ./gradlew publishToMavenLocal
+            ./gradlew assemble
 
-      - name: Publish to Maven Local
-        run: |
-          ./gradlew publishToMavenLocal
-
-      - name: Assemble OpenSearch feature/extensions
-        run: |
-          ./gradlew assemble
+#      - name: Publish to Maven Local
+#        run: |
+#          ./gradlew publishToMavenLocal
+#
+#      - name: Assemble OpenSearch feature/extensions
+#        run: |
+#          ./gradlew assemble
 
       - name: pwd OpenSearch
         run: |
