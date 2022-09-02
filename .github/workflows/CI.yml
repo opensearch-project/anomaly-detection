@@ -17,9 +17,13 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      - name: LS directory
+      - name: LS directory Root
           run: |
-            ls -l
+           ls -l
+
+      - name: pwd
+        run: |
+          pwd
 
       - name: Checkout OpenSearch
         uses: actions/checkout@v3
@@ -35,7 +39,7 @@ jobs:
         run: |
           ./gradlew assemble
 
-      - name: LS directory
+      - name: LS directory inside OpenSearch
         run: |
           ls -l
 
@@ -55,7 +59,7 @@ jobs:
           cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
           echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
-      - name: LS directory
+      - name: LS directory inside AD
         run: |
           ls -l
       - name: Build and Run Tests
