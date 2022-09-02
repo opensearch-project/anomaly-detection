@@ -31,7 +31,6 @@ jobs:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
           path: opensearch
-          clean: false
 
 #      - name: Publish to Maven Local
 #        run: |
@@ -39,6 +38,10 @@ jobs:
       - name: Assemble OpenSearch feature/extensions
         run: |
           ./opensearch/gradlew --project-dir ./opensearch/ assemble
+
+      - name: Copy Snapshot to tmp
+        run: |
+          cp ./opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz /tmp
 
       - name: pwd OpenSearch
         run: |
@@ -83,13 +86,13 @@ jobs:
 
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dtest.logs=true -PcustomDistributionUrl=../opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew build -Dtest.logs=true -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
-          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=../opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
@@ -137,7 +140,7 @@ jobs:
       - name: Run AD Backwards Compatibility Tests
         run: |
           echo "Running backwards compatibility tests ..."
-          ./gradlew bwcTestSuite -Dtests.security.manager=false -PcustomDistributionUrl=../opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew bwcTestSuite -Dtests.security.manager=false -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:
