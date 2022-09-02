@@ -30,7 +30,8 @@ jobs:
         with:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
-          path: ~/opensearch
+          path: opensearch
+          clean: false
 
 #      - name: Publish to Maven Local
 #        run: |
@@ -38,7 +39,7 @@ jobs:
 
       - name: Assemble OpenSearch feature/extensions
         run: |
-          ~./opensearch/gradlew --project-dir ~/opensearch/ assemble
+          ./opensearch/gradlew --project-dir ./opensearch/ assemble
 
       - name: pwd OpenSearch
         run: |
