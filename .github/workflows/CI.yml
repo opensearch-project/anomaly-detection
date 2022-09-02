@@ -30,15 +30,15 @@ jobs:
         with:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
-          path: ./OpenSearch
+          path: opensearch
 
-      - name: Publish to Maven Local
-        run: |
-          ./OpenSearch/gradlew --project-dir ./OpenSearch/ publishToMavenLocal
+#      - name: Publish to Maven Local
+#        run: |
+#          ./opensearch/gradlew --project-dir ./opensearch/ publishToMavenLocal
 
       - name: Assemble OpenSearch feature/extensions
         run: |
-          ./OpenSearch/gradlew --project-dir ./OpenSearch/ assemble
+          ./opensearch/gradlew --project-dir ./opensearch/ assemble
 
       - name: pwd OpenSearch
         run: |
@@ -48,9 +48,27 @@ jobs:
         run: |
           ls -l
 
+      - name: Find TAR
+        run: |
+          find . -type f -name 'opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz'
+
       # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v2
+        with:
+          path: main
+
+      - name: Find TAR
+        run: |
+           find . -type f -name 'opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz'
+
+      - name: pwd AD
+        run: |
+            pwd
+
+      - name: LS directory inside AD
+        run: |
+            ls -l
 
       - name: Assemble anomaly-detection
         run: |
@@ -64,21 +82,16 @@ jobs:
           cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
           echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
-      - name: pwd AD
-        run: |
-          pwd
-      - name: LS directory inside AD
-        run: |
-          ls -l
+
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dtest.logs=true -PcustomDistributionUrl=../OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew build -Dtest.logs=true -PcustomDistributionUrl=../opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
-          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=../OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=../opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
@@ -126,7 +139,7 @@ jobs:
       - name: Run AD Backwards Compatibility Tests
         run: |
           echo "Running backwards compatibility tests ..."
-          ./gradlew bwcTestSuite -Dtests.security.manager=false -PcustomDistributionUrl=../OpenSearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+          ./gradlew bwcTestSuite -Dtests.security.manager=false -PcustomDistributionUrl=../opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:
