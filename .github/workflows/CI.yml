@@ -72,6 +72,7 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
+          cd main
           plugin_version=`./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}'`
           echo plugin_version $plugin_version
           ./gradlew assemble
