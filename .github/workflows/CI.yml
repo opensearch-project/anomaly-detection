@@ -17,14 +17,6 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      - name: LS directory Root
-        run: |
-          ls -l
-
-      - name: pwd root
-        run: |
-          pwd
-
       - name: Checkout OpenSearch
         uses: actions/checkout@v3
         with:
@@ -44,33 +36,9 @@ jobs:
         run: |
           cp ./opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz /tmp
 
-      - name: pwd OpenSearch
-        run: |
-            pwd
-
-      - name: LS directory inside OpenSearch
-        run: |
-          ls -l
-
-      - name: Find TAR
-        run: |
-          find . -type f -name 'opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz'
-
       # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v2
-
-      - name: Find TAR
-        run: |
-           find . -type f -name 'opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz'
-
-      - name: pwd AD
-        run: |
-            pwd
-
-      - name: LS directory inside AD
-        run: |
-            ls -l
 
       - name: Assemble anomaly-detection
         run: |
