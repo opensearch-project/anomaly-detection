@@ -30,6 +30,7 @@ jobs:
         with:
           repository: opensearch-project/OpenSearch
           ref: feature/extensions
+          path: OpenSearch
 
       - name: Publish to Maven Local
         run: |
