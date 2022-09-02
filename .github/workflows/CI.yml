@@ -16,7 +16,11 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
-      
+
+      - name: LS directory
+          run: |
+            ls -l
+
       - name: Checkout OpenSearch
         uses: actions/checkout@v3
         with:
@@ -30,6 +34,10 @@ jobs:
       - name: Assemble OpenSearch feature/extensions
         run: |
           ./gradlew assemble
+
+      - name: LS directory
+        run: |
+          ls -l
 
       # anomaly-detection
       - name: Checkout AD
