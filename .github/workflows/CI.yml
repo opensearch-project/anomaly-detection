@@ -18,8 +18,8 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: LS directory Root
-          run: |
-           ls -l
+        run: |
+          ls -l
 
       - name: pwd
         run: |
