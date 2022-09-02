@@ -8,6 +8,9 @@
     - [Building from the IDE](#building-from-the-ide)
     - [Debugging](#debugging)
     - [Advanced: Launching multi node clusters locally](#advanced-launching-multi-node-clusters-locally)
+  - [Backports](#backports)
+  - [Gradle Plugins](#gradle-plugins)
+    - [Distribution Download Plugin](#distribution-download-plugin)
 
 ## Developer Guide
 
@@ -88,3 +91,12 @@ original PR with an appropriate label `backport <backport-branch-name>` is merge
 run successfully on the PR. For example, if a PR on main needs to be backported to `1.x` branch, add a label
 `backport 1.x` to the PR and make sure the backport workflow runs on the PR along with other checks. Once this PR is
 merged to main, the workflow will create a backport PR to the `1.x` branch.
+
+### Gradle Plugins
+
+#### Distribution Download Plugin
+
+The Distribution Download plugin downloads the latest version of OpenSearch by default, and supports overriding this behavior by setting `customDistributionUrl`. This will help to pull artifacts from custom location for testing during release process.
+```
+./gradlew integTest -PcustomDistributionUrl="https://ci.opensearch.org/ci/dbc/bundle-build/1.2.0/1127/linux/x64/dist/opensearch-1.2.0-linux-x64.tar.gz"
+```
