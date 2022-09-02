@@ -21,7 +21,7 @@ jobs:
         run: |
           ls -l
 
-      - name: pwd
+      - name: pwd root
         run: |
           pwd
 
@@ -38,6 +38,10 @@ jobs:
       - name: Assemble OpenSearch feature/extensions
         run: |
           ./gradlew assemble
+
+      - name: pwd OpenSearch
+        run: |
+            pwd
 
       - name: LS directory inside OpenSearch
         run: |
@@ -59,6 +63,9 @@ jobs:
           cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
           echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+      - name: pwd AD
+        run: |
+          pwd
       - name: LS directory inside AD
         run: |
           ls -l
