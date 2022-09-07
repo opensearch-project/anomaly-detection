@@ -1,7 +1,7 @@
 [![AD Test](https://github.com/opensearch-project/anomaly-detection/workflows/Build%20and%20Test%20Anomaly%20detection/badge.svg)](https://github.com/opensearch-project/anomaly-detection/actions?query=workflow%3A%22Build+and+Test+Anomaly+detection%22+branch%3A%22main%22)
 [![codecov](https://codecov.io/gh/opensearch-project/anomaly-detection/branch/main/graph/badge.svg?flag=plugin)](https://codecov.io/gh/opensearch-project/anomaly-detection)
 [![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://opensearch.org/docs/monitoring-plugins/ad/index/)
-[![Forum](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/Use-this-category-for-all-questions-around-machine-learning-plugins)
+[![Forum](https://img.shields.io/badge/chat-on%20forums-blue)](https://forum.opensearch.org/)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
 
 <img src="https://opensearch.org/assets/img/opensearch-logo-themed.svg" height="64px">
