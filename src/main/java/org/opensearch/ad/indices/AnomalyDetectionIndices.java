@@ -602,6 +602,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      *
      * @param actionListener action called after create index
      */
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
     // try {
     // CreateIndexRequest request = new CreateIndexRequest(".opendistro-anomaly-detector-jobs")
@@ -854,6 +855,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         for (ADIndex adIndex : updates) {
             logger.info(new ParameterizedMessage("Check [{}]'s setting", adIndex.getIndexName()));
             switch (adIndex) {
+                // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
                 // case JOB:
                 // updateJobIndexSettingIfNecessary(indexStates.computeIfAbsent(adIndex, IndexState::new), conglomerateListeneer);
                 // break;
@@ -1061,6 +1063,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         return indexState.schemaVersion;
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private void updateJobIndexSettingIfNecessary(IndexState jobIndexState, ActionListener<Void> listener) {
     // GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
     // .indices(ADIndex.JOB.getIndexName())

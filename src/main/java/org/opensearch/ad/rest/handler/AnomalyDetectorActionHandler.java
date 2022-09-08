@@ -35,6 +35,7 @@ public class AnomalyDetectorActionHandler {
      * @param function AD function
      * @param xContentRegistry Registry which is used for XContentParser
      */
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public void getDetectorJob(
     // ClusterService clusterService,
     // Client client,

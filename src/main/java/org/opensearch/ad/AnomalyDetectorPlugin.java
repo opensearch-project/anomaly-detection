@@ -525,6 +525,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             stateManager
         );
         */
+        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
         // ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
         HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, modelManager);
         /* @anomaly-detection.create-detector
@@ -896,6 +897,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             );
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // @Override
     // public String getJobType() {
     // return AD_JOB_TYPE;

@@ -36,7 +36,6 @@ import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
-import org.junit.Ignore;
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.support.PlainActionFuture;
@@ -60,7 +59,6 @@ import org.opensearch.transport.TransportService;
 
 import test.org.opensearch.ad.util.FakeNode;
 
-@Ignore
 public class AbstractADTest extends OpenSearchTestCase {
 
     protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractADTest.class);
@@ -272,7 +270,7 @@ public class AbstractADTest extends OpenSearchTestCase {
         Exception e = expectThrows(exceptionType, () -> listener.actionGet(20_000));
         assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(msg));
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // @Override
     // protected NamedXContentRegistry xContentRegistry() {
     // SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());

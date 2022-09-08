@@ -67,6 +67,7 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
         );
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     /*public void testAnomalyDetectorIndexNotExists() {
         boolean exists = indices.doesAnomalyDetectorIndexExist();
         assertFalse(exists);
@@ -155,7 +156,7 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
         IndexResponse indexResponse = client().index(new IndexRequest(indexName).source(xContentBuilder)).actionGet();
         assertEquals("Doc was not created", RestStatus.CREATED, indexResponse.status());
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     /*public void testGetDetectionStateIndexMapping() throws IOException {
         String detectorIndexMappings = AnomalyDetectionIndices.getAnomalyDetectorMappings();
         detectorIndexMappings = detectorIndexMappings

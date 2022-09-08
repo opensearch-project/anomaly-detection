@@ -716,6 +716,7 @@ public class TestHelpers {
         return new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 1000), ChronoUnit.MINUTES);
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public static IntervalSchedule randomIntervalSchedule() {
     // return new IntervalSchedule(
     // Instant.now().truncatedTo(ChronoUnit.SECONDS),
@@ -940,7 +941,7 @@ public class TestHelpers {
             randomDoubleBetween(1.1, 10.0, true)
         );
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public static AnomalyDetectorJob randomAnomalyDetectorJob() {
     // return randomAnomalyDetectorJob(true);
     // }

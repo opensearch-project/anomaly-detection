@@ -253,6 +253,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         String id = null;
         Long version = null;
         AnomalyDetector detector = null;
+        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
         // AnomalyDetectorJob detectorJob = null;
         ADTask realtimeAdTask = null;
         ADTask historicalAdTask = null;
@@ -269,6 +270,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 case "anomaly_detector":
                     detector = AnomalyDetector.parse(parser);
                     break;
+                // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
                 /*case "anomaly_detector_job":
                     detectorJob = AnomalyDetectorJob.parse(parser);
                     break;*/
@@ -308,6 +310,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getUser(),
                 detector.getResultIndex()
             ),
+            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
             // detectorJob,
             historicalAdTask,
             realtimeAdTask };

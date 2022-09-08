@@ -13,7 +13,7 @@ package org.opensearch.ad;
 
 /*
 
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
 public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTests {
     enum RCFPollingStatus {
         INIT_NOT_EXIT,
@@ -37,7 +37,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
      * @param errorResultStatus Error result status
      * @throws IOException when failing the getting request
      *//*
-        
+            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
         @SuppressWarnings("unchecked")
         private void setUpClientGet(
          DetectorStatus detectorStatus,

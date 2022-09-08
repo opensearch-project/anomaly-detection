@@ -43,6 +43,7 @@ public class NodeState implements ExpiringState {
     // cold start running flag to prevent concurrent cold start
     private boolean coldStartRunning;
     // detector job
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private AnomalyDetectorJob detectorJob;
 
     public NodeState(String detectorId, Clock clock) {
@@ -170,6 +171,7 @@ public class NodeState implements ExpiringState {
         refreshLastUpdateTime();
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     /**
      *
      * @return Detector configuration object
@@ -179,6 +181,7 @@ public class NodeState implements ExpiringState {
     // return detectorJob;
     // }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     /**
      *
      * @param detectorJob Detector job

@@ -63,6 +63,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             restStatus = in.readEnum(RestStatus.class);
             detector = new AnomalyDetector(in);
             returnJob = in.readBoolean();
+            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
             // if (returnJob) {
             // adJob = new AnomalyDetectorJob(in);
             // } else {
@@ -105,7 +106,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         this.detector = detector;
         this.restStatus = restStatus;
         this.returnJob = returnJob;
-
+        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
         // if (this.returnJob) {
         // this.adJob = adJob;
         // } else {
@@ -143,6 +144,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             out.writeLong(seqNo);
             out.writeEnum(restStatus);
             detector.writeTo(out);
+            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
             // if (returnJob) {
             // out.writeBoolean(true); // returnJob is true
             // adJob.writeTo(out);
@@ -180,6 +182,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             builder.field(RestHandlerUtils._PRIMARY_TERM, primaryTerm);
             builder.field(RestHandlerUtils._SEQ_NO, seqNo);
             builder.field(RestHandlerUtils.ANOMALY_DETECTOR, detector);
+            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
             // if (returnJob) {
             // builder.field(RestHandlerUtils.ANOMALY_DETECTOR_JOB, adJob);
             // }
@@ -195,7 +198,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     public DetectorProfile getDetectorProfile() {
         return detectorProfile;
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Get Detector for extensibility
     // public AnomalyDetectorJob getAdJob() {
     // return adJob;
     // }

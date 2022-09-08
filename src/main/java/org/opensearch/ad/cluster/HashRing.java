@@ -291,7 +291,7 @@ public class HashRing {
 
                 // rebuild AD version hash ring with cooldown after all new node added.
                 rebuildCirclesForRealtimeAD();
-
+                // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
                 // if (!dataMigrator.isMigrated() && circles.size() > 0 && circles.lastEntry().getKey().onOrAfter(Version.V_1_1_0)) {
                 // // Find owning node with highest AD version to make sure the data migration logic be compatible to
                 // // latest AD version when upgrade.

@@ -1,3 +1,4 @@
+// @anomaly-detection.create-detector Commented this code until we have support of Search Top Anomalies for extensibility
 /*
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0

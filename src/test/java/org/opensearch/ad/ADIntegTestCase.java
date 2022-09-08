@@ -47,6 +47,7 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.Feature;
+import org.opensearch.ad.plugin.MockReindexPlugin;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
@@ -89,7 +90,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     @Override
     protected Collection<Class<? extends Plugin>> getMockPlugins() {
         final ArrayList<Class<? extends Plugin>> plugins = new ArrayList<>();
-        // plugins.add(MockReindexPlugin.class);
+        plugins.add(MockReindexPlugin.class);
         plugins.addAll(super.getMockPlugins());
         plugins.remove(MockTransportService.TestPlugin.class);
         return Collections.unmodifiableList(plugins);

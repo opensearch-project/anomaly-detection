@@ -277,6 +277,7 @@ public class ADTaskManager {
      * @param transportService transport service
      * @param listener action listener
      */
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public void startDetector(
     // String detectorId,
     // DetectionDateRange detectionDateRange,
@@ -819,6 +820,7 @@ public class ADTaskManager {
      * @param transportService transport service
      * @param listener action listener
      */
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public void stopDetector(
     // String detectorId,
     // boolean historical,
@@ -1074,7 +1076,7 @@ public class ADTaskManager {
         // listener
         // );
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private <T> void resetRealtimeDetectorTaskState(
     // List<ADTask> runningRealtimeTasks,
     // AnomalyDetectorFunction function,

@@ -11,13 +11,21 @@
 
 package org.opensearch.ad.model;
 
+import java.io.IOException;
 import java.util.Collection;
+import java.util.Locale;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+
+import com.google.common.base.Objects;
 
 public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
 
@@ -31,7 +39,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
         return getInstanceFromNode(NamedWriteableRegistry.class);
     }
 
-    /*public void testParseAnomalyDetector() throws IOException {
+    public void testParseAnomalyDetector() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult(0.8, randomAlphaOfLength(5), null);
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -39,9 +47,9 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
-    }*/
+    }
 
-    /*public void testParseAnomalyDetectorWithoutUser() throws IOException {
+    public void testParseAnomalyDetectorWithoutUser() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult(0.8, randomAlphaOfLength(5), randomAlphaOfLength(5), false);
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -49,11 +57,11 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
-    }*/
+    }
 
-    /*public void testParseAnomalyDetectorWithoutNormalResult() throws IOException {
+    public void testParseAnomalyDetectorWithoutNormalResult() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(randomDouble(), randomDouble(), null);
-    
+
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         detectResultString = detectResultString
@@ -73,9 +81,9 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
                 && Objects.equal(detectResult.getEntity(), parsedDetectResult.getEntity())
                 && Objects.equal(detectResult.getFeatureData(), parsedDetectResult.getFeatureData())
         );
-    }*/
+    }
 
-    /*public void testParseAnomalyDetectorWithNanAnomalyResult() throws IOException {
+    public void testParseAnomalyDetectorWithNanAnomalyResult() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(Double.NaN, Double.NaN, null);
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -96,9 +104,9 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
                 && Objects.equal(detectResult.getEntity(), parsedDetectResult.getEntity())
                 && Objects.equal(detectResult.getConfidence(), parsedDetectResult.getConfidence())
         );
-    }*/
+    }
 
-    /*public void testParseAnomalyDetectorWithTaskId() throws IOException {
+    public void testParseAnomalyDetectorWithTaskId() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult(0.8, randomAlphaOfLength(5), randomAlphaOfLength(5));
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -106,9 +114,9 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
-    }*/
+    }
 
-    /*public void testParseAnomalyDetectorWithEntity() throws IOException {
+    public void testParseAnomalyDetectorWithEntity() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(0.8, 0.5);
         String detectResultString = TestHelpers
             .xContentBuilderToString(detectResult.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -116,32 +124,32 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertEquals("Parsing anomaly detect result doesn't work", detectResult, parsedDetectResult);
-    }*/
+    }
 
-    /*public void testSerializeAnomalyResult() throws IOException {
+    public void testSerializeAnomalyResult() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult(0.8, randomAlphaOfLength(5), randomAlphaOfLength(5));
         BytesStreamOutput output = new BytesStreamOutput();
         detectResult.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyResult parsedDetectResult = new AnomalyResult(input);
         assertTrue(parsedDetectResult.equals(detectResult));
-    }*/
+    }
 
-    /*public void testSerializeAnomalyResultWithoutUser() throws IOException {
+    public void testSerializeAnomalyResultWithoutUser() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomAnomalyDetectResult(0.8, randomAlphaOfLength(5), randomAlphaOfLength(5), false);
         BytesStreamOutput output = new BytesStreamOutput();
         detectResult.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyResult parsedDetectResult = new AnomalyResult(input);
         assertTrue(parsedDetectResult.equals(detectResult));
-    }*/
+    }
 
-    /*public void testSerializeAnomalyResultWithEntity() throws IOException {
+    public void testSerializeAnomalyResultWithEntity() throws IOException {
         AnomalyResult detectResult = TestHelpers.randomHCADAnomalyDetectResult(0.8, 0.5);
         BytesStreamOutput output = new BytesStreamOutput();
         detectResult.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyResult parsedDetectResult = new AnomalyResult(input);
         assertTrue(parsedDetectResult.equals(detectResult));
-    }*/
+    }
 }

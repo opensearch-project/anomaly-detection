@@ -12,7 +12,7 @@
 package org.opensearch.ad.rest;
 /*
 
-
+// @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
 @Ignore
 public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase {
 

@@ -457,7 +457,9 @@ public final class ParseUtils {
 
     /**
      * @deprecated Extensions will not be using the User from the Thread Context. Temporarily use
+     * @param client Client to make calls to OpenSearch
      *     {@link #getNullUser()}.
+     * @return null user
      */
     @Deprecated
     public static UserIdentity getUserContext(Client client) {

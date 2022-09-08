@@ -78,6 +78,7 @@ public class NodeStateManagerTests extends AbstractADTest {
     private GetResponse checkpointResponse;
     private ClusterService clusterService;
     private ClusterSettings clusterSettings;
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private AnomalyDetectorJob jobToCheck;
 
     @Override
@@ -387,7 +388,7 @@ public class NodeStateManagerTests extends AbstractADTest {
         when(clock.millis()).thenReturn(62000L);
         assertTrue(!stateManager.isMuted(nodeId, adId));
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // @SuppressWarnings("unchecked")
     /*private String setupJob() throws IOException {
         String detectorId = jobToCheck.getName();
@@ -422,6 +423,7 @@ public class NodeStateManagerTests extends AbstractADTest {
      * @throws IOException if client throws exception
      * @throws InterruptedException  if the current thread is interrupted while waiting
      */
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // @SuppressWarnings("unchecked")
     // public void testRepeatedGetAnomalyJob() throws IOException, InterruptedException {
     // String detectorId = setupJob();

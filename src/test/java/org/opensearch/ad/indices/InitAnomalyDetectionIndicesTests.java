@@ -165,6 +165,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
             }
 
             Settings settings = request.settings();
+            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
             // if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
             // assertThat(settings.get("index.number_of_shards"), equalTo(Integer.toString(1)));
             // } else {
@@ -185,6 +186,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         } else if (index.equals(CommonName.CHECKPOINT_INDEX_NAME)) {
             adIndices.initCheckpointIndex(listener);
         }
+        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
         // else if (index.equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
         // adIndices.initAnomalyDetectorJobIndex(listener);
         // }
@@ -213,7 +215,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
     public void testCreateState() throws IOException {
         fixedPrimaryShardsIndexCreationTemplate(CommonName.DETECTION_STATE_INDEX);
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public void testCreateJob() throws IOException {
     // adaptivePrimaryShardsIndexCreationTemplate(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
     // }

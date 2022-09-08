@@ -106,6 +106,7 @@ jobs:
             echo "Security plugin is NOT available"
             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
           fi
+#      Commented this code until we have support of Job Scheduler for extensibility
 #      - name: Run AD Backwards Compatibility Tests
 #        run: |
 #          echo "Running backwards compatibility tests ..."

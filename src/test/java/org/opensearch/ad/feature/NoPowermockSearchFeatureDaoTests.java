@@ -561,6 +561,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     /*public void testGetColdStartSamplesForPeriodsMillisFormat() throws IOException, InterruptedException {
         DocValueFormat format = new DocValueFormat.DateTime(
             DateFormatter.forPattern("epoch_millis"),

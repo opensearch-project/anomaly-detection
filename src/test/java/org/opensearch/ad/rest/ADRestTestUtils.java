@@ -328,6 +328,7 @@ public class ADRestTestUtils {
         return (int) hits.get("value");
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     @SuppressWarnings("unchecked")
     // public static Map<String, Object> getDetectorWithJobAndTask(RestClient client, String detectorId) throws IOException {
     // Map<String, Object> results = new HashMap<>();

@@ -95,6 +95,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         }
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     @SuppressWarnings("unchecked")
     // public void testBackwardsCompatibility() throws Exception {
     // String uri = getUri();
@@ -221,7 +222,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         }
         return mixedClusterTestRound;
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private void verifyAdTasks() throws InterruptedException, IOException {
     // boolean realtimeTaskMissing = false;
     // int i = 0;
@@ -325,7 +326,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                 throw new AssertionError("unknown cluster type: " + CLUSTER_TYPE);
         }
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private List<String> createRealtimeAnomalyDetectorsAndStart(ADRestTestUtils.DetectorType detectorType) throws Exception {
     // switch (detectorType) {
     // case SINGLE_ENTITY_DETECTOR:
@@ -409,7 +410,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
             assertTrue(ExceptionUtil.getErrorMessage(e).contains("running"));
         }
     }
-
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private List<String> startAnomalyDetector(Response response, boolean historicalDetector) throws IOException {
     // // verify that the detector is created
     // assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));

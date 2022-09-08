@@ -188,6 +188,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("incorrect version", version > 0);
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Update Detector for extensibility
     /*public void testUpdateAnomalyDetectorCategoryField() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Response response = TestHelpers
@@ -833,7 +834,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    // @Ignore
+    // // @anomaly-detection.create-detector Commented this code until we have support of Get Detector for extensibility
     // public void testGetDetectorWithAdJob() throws Exception {
     // AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
     // Response startAdJobResponse = TestHelpers

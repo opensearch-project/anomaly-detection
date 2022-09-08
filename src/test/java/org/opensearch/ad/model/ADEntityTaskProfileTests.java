@@ -5,11 +5,16 @@
 
 package org.opensearch.ad.model;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.TreeMap;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -42,24 +47,24 @@ public class ADEntityTaskProfileTests extends OpenSearchSingleNodeTestCase {
         return Entity.createEntityFromOrderedMap(attributes);
     }
 
-    /*public void testADEntityTaskProfileSerialization() throws IOException {
+    public void testADEntityTaskProfileSerialization() throws IOException {
         ADEntityTaskProfile entityTask = createADEntityTaskProfile();
         BytesStreamOutput output = new BytesStreamOutput();
         entityTask.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ADEntityTaskProfile parsedEntityTask = new ADEntityTaskProfile(input);
         assertEquals(entityTask, parsedEntityTask);
-    }*/
+    }
 
-    /*public void testParseADEntityTaskProfile() throws IOException {
+    public void testParseADEntityTaskProfile() throws IOException {
         ADEntityTaskProfile entityTask = createADEntityTaskProfile();
         String adEntityTaskProfileString = TestHelpers
             .xContentBuilderToString(entityTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         ADEntityTaskProfile parsedEntityTask = ADEntityTaskProfile.parse(TestHelpers.parser(adEntityTaskProfileString));
         assertEquals(entityTask, parsedEntityTask);
-    }*/
+    }
 
-    /*public void testParseADEntityTaskProfileWithNullEntity() throws IOException {
+    public void testParseADEntityTaskProfileWithNullEntity() throws IOException {
         ADEntityTaskProfile entityTask = new ADEntityTaskProfile(
             1,
             23L,
@@ -78,9 +83,9 @@ public class ADEntityTaskProfileTests extends OpenSearchSingleNodeTestCase {
             .xContentBuilderToString(entityTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         ADEntityTaskProfile parsedEntityTask = ADEntityTaskProfile.parse(TestHelpers.parser(adEntityTaskProfileString));
         assertEquals(entityTask, parsedEntityTask);
-    }*/
+    }
 
-    /*public void testADEntityTaskProfileEqual() {
+    public void testADEntityTaskProfileEqual() {
         ADEntityTaskProfile entityTaskOne = createADEntityTaskProfile();
         ADEntityTaskProfile entityTaskTwo = createADEntityTaskProfile();
         ADEntityTaskProfile entityTaskThree = new ADEntityTaskProfile(
@@ -96,9 +101,9 @@ public class ADEntityTaskProfileTests extends OpenSearchSingleNodeTestCase {
         );
         assertTrue(entityTaskOne.equals(entityTaskTwo));
         assertFalse(entityTaskOne.equals(entityTaskThree));
-    }*/
+    }
 
-    /*public void testParseADEntityTaskProfileWithMultipleNullFields() throws IOException {
+    public void testParseADEntityTaskProfileWithMultipleNullFields() throws IOException {
         Entity entity = createEntityAndAttributes();
         ADEntityTaskProfile entityTask = new ADEntityTaskProfile(
             null,
@@ -115,5 +120,5 @@ public class ADEntityTaskProfileTests extends OpenSearchSingleNodeTestCase {
             .xContentBuilderToString(entityTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         ADEntityTaskProfile parsedEntityTask = ADEntityTaskProfile.parse(TestHelpers.parser(adEntityTaskProfileString));
         assertEquals(entityTask, parsedEntityTask);
-    }*/
+    }
 }

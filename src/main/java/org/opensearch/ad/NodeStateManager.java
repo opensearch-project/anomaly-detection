@@ -368,6 +368,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         };
     }
 
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // public void getAnomalyDetectorJob(String adID, ActionListener<Optional<AnomalyDetectorJob>> listener) {
     // NodeState state = states.get(adID);
     // if (state != null && state.getDetectorJob() != null) {

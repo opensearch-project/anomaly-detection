@@ -1,3 +1,4 @@
+// @anomaly-detection.create-detector Commented this code until we have support of Delete Detector for extensibility
 /// *
 // * SPDX-License-Identifier: Apache-2.0
 // *
