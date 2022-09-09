@@ -11,20 +11,17 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_ENABLED;
-import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH;
-import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD;
-import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD;
-import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH;
+// @anomaly-detection.create-detector Commented this code until we have support of Common Utils for extensibility
+//import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_ENABLED;
+//import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH;
+//import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD;
+//import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD;
+//import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -42,7 +39,6 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
-import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -50,7 +46,6 @@ import org.opensearch.common.xcontent.DeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
@@ -83,11 +78,12 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             // disable the warning exception for admin client since it's only used for cleanup.
             .put("strictDeprecationMode", false)
             .put("http.port", 9200)
-            .put(OPENSEARCH_SECURITY_SSL_HTTP_ENABLED, isHttps())
+            // @anomaly-detection.create-detector Commented this code until we have support of Common Utils for extensibility
+            /*.put(OPENSEARCH_SECURITY_SSL_HTTP_ENABLED, isHttps())
             .put(OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
             .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH, "test-kirk.jks")
             .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD, "changeit")
-            .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD, "changeit")
+            .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD, "changeit")*/
             .build();
     }
 
@@ -111,7 +107,8 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         boolean strictDeprecationMode = settings.getAsBoolean("strictDeprecationMode", true);
         RestClientBuilder builder = RestClient.builder(hosts);
         if (isHttps()) {
-            String keystore = settings.get(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH);
+            // @anomaly-detection.create-detector Commented this code until we have support of Common Utils for extensibility
+            /*String keystore = settings.get(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH);
             if (Objects.nonNull(keystore)) {
                 URI uri = null;
                 try {
@@ -121,12 +118,10 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                 }
                 Path configPath = PathUtils.get(uri).getParent().toAbsolutePath();
                 return new SecureRestClientBuilder(settings, configPath).build();
-            } else {
-                configureHttpsClient(builder, settings);
-                builder.setStrictDeprecationMode(strictDeprecationMode);
-                return builder.build();
-            }
-
+            } else {*/
+            configureHttpsClient(builder, settings);
+            builder.setStrictDeprecationMode(strictDeprecationMode);
+            return builder.build();
         } else {
             configureClient(builder, settings);
             builder.setStrictDeprecationMode(strictDeprecationMode);
