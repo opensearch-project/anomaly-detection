@@ -1,3 +1,4 @@
+// @anomaly-detection.create-detector Commented this code until we have support of Search Detector for extensibility
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -9,18 +10,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.matchAllRequest;
-
-import java.io.IOException;
-
-import org.junit.Ignore;
-import org.junit.Test;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
 
 @Ignore // Transport Action does not exist
 public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
@@ -43,3 +35,4 @@ public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
     }
 
 }
+*/

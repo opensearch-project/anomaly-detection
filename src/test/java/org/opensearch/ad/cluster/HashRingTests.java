@@ -64,7 +64,7 @@ public class HashRingTests extends ADUnitTestCase {
     private Client client;
     private ClusterAdminClient clusterAdminClient;
     private AdminClient adminClient;
-    private ADDataMigrator dataMigrator;
+    // private ADDataMigrator dataMigrator;
     private HashRing hashRing;
     private DiscoveryNodes.Delta delta;
     private String localNodeId;
@@ -93,7 +93,8 @@ public class HashRingTests extends ADUnitTestCase {
 
         nodeFilter = spy(new DiscoveryNodeFilterer(clusterService));
         client = mock(Client.class);
-        dataMigrator = mock(ADDataMigrator.class);
+        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
+        // dataMigrator = mock(ADDataMigrator.class);
 
         clock = mock(Clock.class);
         when(clock.millis()).thenReturn(700000L);
@@ -113,7 +114,7 @@ public class HashRingTests extends ADUnitTestCase {
             return res;
         }).when(modelManager).getAllModelIds();
 
-        hashRing = spy(new HashRing(nodeFilter, clock, settings, client, clusterService, dataMigrator, modelManager));
+        hashRing = spy(new HashRing(nodeFilter, clock, settings, client, clusterService, modelManager));
     }
 
     public void testGetOwningNodeWithEmptyResult() throws UnknownHostException {

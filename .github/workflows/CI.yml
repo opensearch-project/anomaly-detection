@@ -1,11 +1,5 @@
 name: Build and Test Anomaly detection
-on:
-  push:
-    branches:
-      - "*"
-  pull_request:
-    branches:
-      - "*"
+on: [push, pull_request]
 
 jobs:
   Build-ad:
@@ -23,6 +17,25 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
+      - name: Checkout OpenSearch
+        uses: actions/checkout@v3
+        with:
+          repository: opensearch-project/OpenSearch
+          ref: feature/extensions
+          path: opensearch
+
+      - name: Publish to Maven Local
+        run: |
+          ./opensearch/gradlew --project-dir ./opensearch/ publishToMavenLocal
+
+      - name: Assemble OpenSearch feature/extensions
+        run: |
+          ./opensearch/gradlew --project-dir ./opensearch/ assemble
+
+      - name: Copy Snapshot to tmp
+        run: |
+          cp ./opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz /tmp
+
       # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v2
@@ -39,15 +52,16 @@ jobs:
           cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
           echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dtest.logs=true
+          ./gradlew build -Dtest.logs=true -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
-          ./gradlew integTest -PnumNodes=3
+          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
@@ -92,10 +106,11 @@ jobs:
             echo "Security plugin is NOT available"
             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster"
           fi
-      - name: Run AD Backwards Compatibility Tests
-        run: |
-          echo "Running backwards compatibility tests ..."
-          ./gradlew bwcTestSuite -Dtests.security.manager=false
+#      Commented this code until we have support of Job Scheduler for extensibility
+#      - name: Run AD Backwards Compatibility Tests
+#        run: |
+#          echo "Running backwards compatibility tests ..."
+#          ./gradlew bwcTestSuite -Dtests.security.manager=false -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:

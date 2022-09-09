@@ -80,9 +80,10 @@ public class AnomalyDetectorPluginTests extends ADUnitTestCase {
         assertTrue(null != buffer);
     }
 
-    public void testOverriddenJobTypeAndIndex() {
-        assertEquals("opendistro_anomaly_detector", plugin.getJobType());
-        assertEquals(".opendistro-anomaly-detector-jobs", plugin.getJobIndex());
-    }
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
+    // public void testOverriddenJobTypeAndIndex() {
+    // assertEquals("opendistro_anomaly_detector", plugin.getJobType());
+    // assertEquals(".opendistro-anomaly-detector-jobs", plugin.getJobIndex());
+    // }
 
 }

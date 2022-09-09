@@ -9,27 +9,8 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.transport;
+/*package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.model.AnomalyDetector.DETECTOR_TYPE_FIELD;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-
-import org.junit.Ignore;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorType;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.search.builder.SearchSourceBuilder;
-
-import com.google.common.collect.ImmutableList;
 
 @Ignore
 public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTestCase {
@@ -73,4 +54,4 @@ public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTes
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
     }
 
-}
+}*/

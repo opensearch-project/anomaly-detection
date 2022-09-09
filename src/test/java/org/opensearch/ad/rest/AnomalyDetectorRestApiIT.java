@@ -38,7 +38,6 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
@@ -48,7 +47,6 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestStatus;
@@ -190,7 +188,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("incorrect version", version > 0);
     }
 
-    public void testUpdateAnomalyDetectorCategoryField() throws Exception {
+    // @anomaly-detection.create-detector Commented this code until we have support of Update Detector for extensibility
+    /*public void testUpdateAnomalyDetectorCategoryField() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Response response = TestHelpers
             .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
@@ -229,7 +228,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 )
         );
         assertThat(ex.getMessage(), containsString(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD));
-    }
+    }*/
 
     @Ignore
     public void testGetAnomalyDetector() throws Exception {
@@ -835,30 +834,30 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    @Ignore
-    public void testGetDetectorWithAdJob() throws Exception {
-        AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
-        Response startAdJobResponse = TestHelpers
-            .makeRequest(
-                client(),
-                "POST",
-                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
-                ImmutableMap.of(),
-                "",
-                null
-            );
-
-        assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
-
-        ToXContentObject[] results = getAnomalyDetector(detector.getDetectorId(), true, client());
-        assertEquals("Incorrect Location header", detector, results[0]);
-        assertEquals("Incorrect detector job name", detector.getDetectorId(), ((AnomalyDetectorJob) results[1]).getName());
-        assertTrue(((AnomalyDetectorJob) results[1]).isEnabled());
-
-        results = getAnomalyDetector(detector.getDetectorId(), false, client());
-        assertEquals("Incorrect Location header", detector, results[0]);
-        assertEquals("Should not return detector job", null, results[1]);
-    }
+    // // @anomaly-detection.create-detector Commented this code until we have support of Get Detector for extensibility
+    // public void testGetDetectorWithAdJob() throws Exception {
+    // AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
+    // Response startAdJobResponse = TestHelpers
+    // .makeRequest(
+    // client(),
+    // "POST",
+    // TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
+    // ImmutableMap.of(),
+    // "",
+    // null
+    // );
+    //
+    // assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
+    //
+    // ToXContentObject[] results = getAnomalyDetector(detector.getDetectorId(), true, client());
+    // assertEquals("Incorrect Location header", detector, results[0]);
+    // assertEquals("Incorrect detector job name", detector.getDetectorId(), ((AnomalyDetectorJob) results[1]).getName());
+    // assertTrue(((AnomalyDetectorJob) results[1]).isEnabled());
+    //
+    // results = getAnomalyDetector(detector.getDetectorId(), false, client());
+    // assertEquals("Incorrect Location header", detector, results[0]);
+    // assertEquals("Should not return detector job", null, results[1]);
+    // }
 
     @Ignore
     public void testStartAdJobWithExistingDetector() throws Exception {

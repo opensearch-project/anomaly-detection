@@ -19,7 +19,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -40,23 +39,17 @@ import org.apache.logging.log4j.util.StackLocatorUtil;
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.http.HttpRequest;
 import org.opensearch.http.HttpResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestRequest.Method;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.search.SearchModule;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.TestThreadPool;
@@ -277,23 +270,23 @@ public class AbstractADTest extends OpenSearchTestCase {
         Exception e = expectThrows(exceptionType, () -> listener.actionGet(20_000));
         assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(msg));
     }
-
-    @Override
-    protected NamedXContentRegistry xContentRegistry() {
-        SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
-        List<NamedXContentRegistry.Entry> entries = searchModule.getNamedXContents();
-        entries
-            .addAll(
-                Arrays
-                    .asList(
-                        AnomalyDetector.XCONTENT_REGISTRY,
-                        AnomalyResult.XCONTENT_REGISTRY,
-                        DetectorInternalState.XCONTENT_REGISTRY,
-                        AnomalyDetectorJob.XCONTENT_REGISTRY
-                    )
-            );
-        return new NamedXContentRegistry(entries);
-    }
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
+    // @Override
+    // protected NamedXContentRegistry xContentRegistry() {
+    // SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
+    // List<NamedXContentRegistry.Entry> entries = searchModule.getNamedXContents();
+    // entries
+    // .addAll(
+    // Arrays
+    // .asList(
+    // AnomalyDetector.XCONTENT_REGISTRY,
+    // AnomalyResult.XCONTENT_REGISTRY,
+    // DetectorInternalState.XCONTENT_REGISTRY,
+    // AnomalyDetectorJob.XCONTENT_REGISTRY
+    // )
+    // );
+    // return new NamedXContentRegistry(entries);
+    // }
 
     protected RestRequest createRestRequest(Method method) {
         return RestRequest.request(xContentRegistry(), new HttpRequest() {

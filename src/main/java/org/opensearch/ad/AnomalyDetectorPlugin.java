@@ -31,7 +31,6 @@ import org.opensearch.SpecialPermission;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.cluster.ADDataMigrator;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
@@ -45,7 +44,6 @@ import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -70,13 +68,8 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentParserUtils;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
-import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
-import org.opensearch.jobscheduler.spi.ScheduledJobParser;
-import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
@@ -105,7 +98,7 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of AD plugin.
  */
-public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
+public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin {
 
     private static final Logger LOG = LogManager.getLogger(AnomalyDetectorPlugin.class);
 
@@ -532,8 +525,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             stateManager
         );
         */
-        ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
-        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, dataMigrator, modelManager);
+        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
+        // ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
+        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, modelManager);
         /* @anomaly-detection.create-detector
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
         
@@ -903,28 +897,29 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             );
     }
 
-    @Override
-    public String getJobType() {
-        return AD_JOB_TYPE;
-    }
-
-    @Override
-    public String getJobIndex() {
-        return AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-    }
-
-    @Override
-    public ScheduledJobRunner getJobRunner() {
-        return AnomalyDetectorJobRunner.getJobRunnerInstance();
-    }
-
-    @Override
-    public ScheduledJobParser getJobParser() {
-        return (parser, id, jobDocVersion) -> {
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-            return AnomalyDetectorJob.parse(parser);
-        };
-    }
+    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
+    // @Override
+    // public String getJobType() {
+    // return AD_JOB_TYPE;
+    // }
+    //
+    // @Override
+    // public String getJobIndex() {
+    // return AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+    // }
+    //
+    // @Override
+    // public ScheduledJobRunner getJobRunner() {
+    // return AnomalyDetectorJobRunner.getJobRunnerInstance();
+    // }
+    //
+    // @Override
+    // public ScheduledJobParser getJobParser() {
+    // return (parser, id, jobDocVersion) -> {
+    // XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+    // return AnomalyDetectorJob.parse(parser);
+    // };
+    // }
 
     @Override
     public void close() {

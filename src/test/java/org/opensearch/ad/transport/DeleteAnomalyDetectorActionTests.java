@@ -1,3 +1,4 @@
+// @anomaly-detection.create-detector Commented this code until we have support of Delete Detector for extensibility
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -10,32 +11,8 @@
  */
 
 package org.opensearch.ad.transport;
+/*
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.action.delete.DeleteResponse;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.tasks.Task;
-import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.transport.TransportService;
 
 public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
     private DeleteAnomalyDetectorTransportAction action;
@@ -114,3 +91,4 @@ public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
         action.doExecute(mock(Task.class), request, response);
     }
 }
+*/

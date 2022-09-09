@@ -11,8 +11,6 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.test.OpenSearchTestCase.randomDouble;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Locale;

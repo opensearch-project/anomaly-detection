@@ -9,45 +9,9 @@
  * GitHub history for details.
  */
 
+/*
 package org.opensearch.ad.mock.plugin;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
-import org.opensearch.action.bulk.BulkAction;
-import org.opensearch.action.bulk.BulkRequest;
-import org.opensearch.action.bulk.BulkRequestBuilder;
-import org.opensearch.action.delete.DeleteRequest;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobAction;
-import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobTransportActionWithUser;
-import org.opensearch.client.Client;
-import org.opensearch.common.inject.Inject;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.index.reindex.BulkByScrollResponse;
-import org.opensearch.index.reindex.BulkByScrollTask;
-import org.opensearch.index.reindex.DeleteByQueryAction;
-import org.opensearch.index.reindex.DeleteByQueryRequest;
-import org.opensearch.index.reindex.UpdateByQueryAction;
-import org.opensearch.index.reindex.UpdateByQueryRequest;
-import org.opensearch.plugins.ActionPlugin;
-import org.opensearch.plugins.Plugin;
-import org.opensearch.search.SearchHit;
-import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
-
-import com.google.common.collect.ImmutableList;
 
 public class MockReindexPlugin extends Plugin implements ActionPlugin {
 
@@ -156,3 +120,4 @@ public class MockReindexPlugin extends Plugin implements ActionPlugin {
         }
     }
 }
+*/
