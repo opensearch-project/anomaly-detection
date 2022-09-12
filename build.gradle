@@ -749,9 +749,10 @@ jacocoTestCoverageVerification.dependsOn jacocoTestReport
 dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-    // Removed Job Scheduler dependency from AD
+//  Removed Job Scheduler dependency from AD
 //    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
-    implementation "org.opensearch:common-utils:${common_utils_version}"
+//  Removed Common Utils dependency from AD
+//    implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
     implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'

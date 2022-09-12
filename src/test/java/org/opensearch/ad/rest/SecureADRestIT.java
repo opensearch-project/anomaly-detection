@@ -14,13 +14,9 @@ package org.opensearch.ad.rest;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
 
-import org.apache.http.HttpHost;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.auth.UserIdentity;
@@ -30,7 +26,6 @@ import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
-import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.rest.RestStatus;
 
 import com.google.common.collect.ImmutableList;
@@ -55,7 +50,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     private String indexAllAccessRole = "index_all_access";
     private String indexSearchAccessRole = "index_all_search";
 
-    @Before
+    // @anomaly-detection.create-detector Commented this code until we have support of Common Utils for extensibility
+    /*- @Before
     public void setupSecureTests() throws IOException {
         if (!isHttps())
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
@@ -65,47 +61,39 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, aliceUser)
             .setSocketTimeout(60000)
             .build();
-
         createUser(bobUser, bobUser, new ArrayList<>(Arrays.asList("odfe")));
         bobClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), bobUser, bobUser)
             .setSocketTimeout(60000)
             .build();
-
         createUser(catUser, catUser, new ArrayList<>(Arrays.asList("aes")));
         catClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), catUser, catUser)
             .setSocketTimeout(60000)
             .build();
-
         createUser(dogUser, dogUser, new ArrayList<>(Arrays.asList()));
         dogClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), dogUser, dogUser)
             .setSocketTimeout(60000)
             .build();
-
         createUser(elkUser, elkUser, new ArrayList<>(Arrays.asList("odfe")));
         elkClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), elkUser, elkUser)
             .setSocketTimeout(60000)
             .build();
-
         createUser(fishUser, fishUser, new ArrayList<>(Arrays.asList("odfe", "aes")));
         fishClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), fishUser, fishUser)
             .setSocketTimeout(60000)
             .build();
-
         createUser(goatUser, goatUser, new ArrayList<>(Arrays.asList("opensearch")));
         goatClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), goatUser, goatUser)
             .setSocketTimeout(60000)
             .build();
-
         createUser(lionUser, lionUser, new ArrayList<>(Arrays.asList("opensearch")));
         lionClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), lionUser, lionUser)
             .setSocketTimeout(60000)
             .build();
-
         createRoleMapping("anomaly_read_access", new ArrayList<>(Arrays.asList(bobUser)));
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
         createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
-    }
+    }*/
 
     @After
     public void deleteUserSetup() throws IOException {
