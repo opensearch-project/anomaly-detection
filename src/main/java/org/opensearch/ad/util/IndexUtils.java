@@ -51,7 +51,7 @@ public class IndexUtils {
     /**
      * Inject annotation required by Guice to instantiate EntityResultTransportAction (transitive dependency)
      *
-     * @param client Client to make calls to ElasticSearch
+     * @param client Client to make calls to OpenSearch
      * @param clientUtil AD Client utility
      * @param clusterService ES ClusterService
      * @param indexNameExpressionResolver index name resolver
