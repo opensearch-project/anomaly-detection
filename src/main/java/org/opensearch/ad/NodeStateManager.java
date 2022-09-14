@@ -71,7 +71,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     /**
      * Constructor
      *
-     * @param client Client to make calls to ElasticSearch
+     * @param client Client to make calls to OpenSearch
      * @param xContentRegistry ES named content registry
      * @param settings ES settings
      * @param clientUtil AD Client utility
