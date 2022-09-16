@@ -36,6 +36,17 @@ jobs:
         run: |
           cp ./opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz /tmp
 
+      #opensearch-sdk-java
+      - name: Checkout OpenSearch-SDK-Java
+        uses: actions/checkout@v3
+        with:
+          repository: opensearch-project/opensearch-sdk-java
+          path: sdk
+
+      - name: Publish to Maven Local
+        run: |
+          ./sdk/gradlew --project-dir ./sdk/ publishToMavenLocal
+
       # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v2
