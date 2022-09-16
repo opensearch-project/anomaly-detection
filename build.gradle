@@ -63,6 +63,7 @@ buildscript {
 }
 
 plugins {
+    id 'java'
     id 'nebula.ospackage' version "8.3.0" apply false
     id "com.diffplug.gradle.spotless" version "3.26.1"
     id 'java-library'
@@ -90,13 +91,16 @@ repositories {
 }
 
 apply plugin: 'java'
+apply plugin: 'application'
 apply plugin: 'idea'
-apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.testclusters'
 apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
-apply plugin: 'opensearch.pluginzip'
+//apply plugin: 'opensearch.pluginzip'
+apply plugin: 'maven-publish'
+
+mainClassName = 'org.opensearch.ad.AnomalyDetectorExtension'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -119,22 +123,14 @@ ext {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
-opensearchplugin {
-    name 'opensearch-anomaly-detection'
-    description 'OpenSearch anomaly detector plugin'
-    classname 'org.opensearch.ad.AnomalyDetectorPlugin'
-    extendedPlugins = ['lang-painless']
-}
-
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses
 configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
-        force "joda-time:joda-time:${versions.joda}"
-//        force "com.fasterxml.jackson.core:jackson-core:2.13.2"
-        force "commons-logging:commons-logging:${versions.commonslogging}"
-        force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
-        force "commons-codec:commons-codec:${versions.commonscodec}"
+        force "joda-time:joda-time:2.10.13"
+        force "commons-logging:commons-logging:1.2"
+        force "org.apache.httpcomponents:httpcore:4.4.15"
+        force "commons-codec:commons-codec:1.15"
 
         force "org.mockito:mockito-core:2.25.0"
         force "org.objenesis:objenesis:3.0.1"
@@ -155,8 +151,8 @@ publishing {
     publications {
         pluginZip(MavenPublication) { publication ->
             pom {
-                name = opensearchplugin.name
-                description = opensearchplugin.description
+                name = 'opensearch-anomaly-detection'
+                description = 'OpenSearch anomaly detector plugin'
                 licenses {
                     license {
                         name = "The Apache License, Version 2.0"
@@ -174,25 +170,26 @@ publishing {
     }
 }
 
-tasks.named('forbiddenApisMain').configure {
+// Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
+/*tasks.named('forbiddenApisMain').configure {
     // Only enable limited check because AD code has too many violations.
     replaceSignatureFiles 'jdk-signatures'
     signaturesFiles += files('src/forbidden/ad-signatures.txt')
-}
+}*/
 
 //Adds custom file that only has some of the checks for testApis checks since too many violations
 //For example, we have to allow @Test to be used in test classes not inherited from LuceneTestCase.
 //example: warning for every file: `Forbidden annotation use: org.junit.Test [defaultMessage Just name your test method testFooBar]`
-forbiddenApisTest.setSignaturesFiles(files('src/forbidden/ad-test-signatures.txt'))
+//forbiddenApisTest.setSignaturesFiles(files('src/forbidden/ad-test-signatures.txt'))
 
 // Allow test cases to be named Tests without having to be inherited from LuceneTestCase.
 // see https://github.com/elastic/elasticsearch/blob/323f312bbc829a63056a79ebe45adced5099f6e6/buildSrc/src/main/java/org/elasticsearch/gradle/precommit/TestingConventionsTasks.java
-testingConventions.enabled = false
+//testingConventions.enabled = false
 
-licenseHeaders.enabled = true
-dependencyLicenses.enabled = false
-thirdPartyAudit.enabled = false
-loggerUsageCheck.enabled = false
+//licenseHeaders.enabled = true
+//dependencyLicenses.enabled = false
+//thirdPartyAudit.enabled = false
+//loggerUsageCheck.enabled = false
 
 // See package README.md for details on using these tasks.
 def _numNodes = findProperty('numNodes') as Integer ?: 1
@@ -212,13 +209,14 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
-// Commented this code until Job Scheduler is published to https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/ with OpenSearch 3.0.0-SNAPSHOT
-
 task integTest(type: RestIntegTestTask) {
     description = "Run tests against a cluster"
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 }
+
+// Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
+/*
 tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
@@ -229,7 +227,7 @@ integTest {
             maxFailures = 10
         }
     }
-    dependsOn "bundlePlugin"
+//    dependsOn "bundlePlugin"
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
 
@@ -284,8 +282,9 @@ integTest {
         }
     }
 }
+*/
 
-testClusters.integTest {
+/*testClusters.integTest {
     testDistribution = "ARCHIVE"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
@@ -299,7 +298,7 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    plugin(project.tasks.bundlePlugin.archiveFile)
+    plugin(project.tasks.bundlePlugin.archiveFile)*/
 
 
 //    Commented this code until we have support of Job Scheduler for extensibility
@@ -339,13 +338,13 @@ testClusters.integTest {
 //    // ./bin/elasticsearch-plugin install --batch file:opensearch-job-scheduler.zip file:opendistro-anomaly-detection.zip
 //    //
 //    // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
-    nodes.each { node ->
+/*    nodes.each { node ->
         def plugins = node.plugins
         def firstPlugin = plugins.get(0)
         plugins.remove(0)
         plugins.add(firstPlugin)
     }
-}
+}*/
 
 task integTestRemote(type: RestIntegTestTask) {
     testClassesDirs = sourceSets.test.output.classesDirs
@@ -470,8 +469,8 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
         systemProperty 'tests.rest.bwcsuite', 'old_cluster'
         systemProperty 'tests.rest.bwcsuite_round', 'old'
         systemProperty 'tests.plugin_bwc_version', bwcVersion
-        nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}$i".allHttpSocketURI.join(",")}")
-        nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}$i".getName()}")
+//        nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}$i".allHttpSocketURI.join(",")}")
+//        nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}$i".getName()}")
     }    
 }
 
@@ -490,8 +489,8 @@ task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
     systemProperty 'tests.rest.bwcsuite', 'mixed_cluster'
     systemProperty 'tests.rest.bwcsuite_round', 'first'
     systemProperty 'tests.plugin_bwc_version', bwcVersion
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
+//    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
+//    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
 }
 
 // Upgrades the second node to new OpenSearch version with upgraded plugin version after the first node is upgraded.
@@ -509,8 +508,8 @@ task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTas
     systemProperty 'tests.rest.bwcsuite', 'mixed_cluster'
     systemProperty 'tests.rest.bwcsuite_round', 'second'
     systemProperty 'tests.plugin_bwc_version', bwcVersion
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
+//    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
+//    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
 }
 
 // Upgrades the third node to new OpenSearch version with upgraded plugin version after the second node is upgraded.
@@ -529,8 +528,8 @@ task "${baseName}#rollingUpgradeClusterTask"(type: StandaloneRestIntegTestTask) 
     systemProperty 'tests.rest.bwcsuite', 'mixed_cluster'
     systemProperty 'tests.rest.bwcsuite_round', 'third'
     systemProperty 'tests.plugin_bwc_version', bwcVersion
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
+//    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
+//    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
 }
 
 // Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version 
@@ -546,8 +545,8 @@ task "${baseName}#fullRestartClusterTask"(type: StandaloneRestIntegTestTask) {
     }
     systemProperty 'tests.rest.bwcsuite', 'upgraded_cluster'
     systemProperty 'tests.plugin_bwc_version', bwcVersion
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}1".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}1".getName()}")
+//    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}1".allHttpSocketURI.join(",")}")
+//    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}1".getName()}")
 }
 
 // A bwc test suite which runs all the bwc tasks combined.
@@ -559,29 +558,31 @@ task bwcTestSuite(type: StandaloneRestIntegTestTask) {
     dependsOn tasks.named("${baseName}#fullRestartClusterTask")
 }
 
-run {
-    doFirst {
-        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-        // not being written, the waitForAllConditions ensures it's written
-        getClusters().forEach { cluster ->
-            cluster.waitForAllConditions()
-        }
-    }
-
-// Commented this code until Job Scheduler is published to https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/ with OpenSearch 3.0.0-SNAPSHOT
-//    useCluster testClusters.integTest
-}
+// Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
+//run {
+//    doFirst {
+//        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+//        // not being written, the waitForAllConditions ensures it's written
+//        getClusters().forEach { cluster ->
+//            cluster.waitForAllConditions()
+//        }
+//    }
+//
+//// Commented this code until Job Scheduler is published to https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/ with OpenSearch 3.0.0-SNAPSHOT
+////    useCluster testClusters.integTest
+//}
 
 evaluationDependsOnChildren()
 
-task release(type: Copy, group: 'build') {
-    dependsOn allprojects*.tasks.build
-    from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into "build/plugins/opensearch-anomaly-detection"
-    includeEmptyDirs = false
-    // ES versions < 6.3 have a top-level opensearch directory inside the plugin zip which we need to remove
-    eachFile { it.path = it.path - "opensearch/" }
-}
+// Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
+//task release(type: Copy, group: 'build') {
+//    dependsOn allprojects*.tasks.build
+//    from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
+//    into "build/plugins/opensearch-anomaly-detection"
+//    includeEmptyDirs = false
+//    // ES versions < 6.3 have a top-level opensearch directory inside the plugin zip which we need to remove
+//    eachFile { it.path = it.path - "opensearch/" }
+//}
 
 List<String> jacocoExclusions = [
         // code for configuration, settings, etc is excluded from coverage
@@ -710,7 +711,8 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.feature.CompositeRetriever.Page',
         'org.opensearch.ad.feature.CompositeRetriever.PageIterator.1',
         'org.opensearch.ad.feature.CompositeRetriever.PageIterator',
-        'org.opensearch.ad.cluster.ADDataMigrator'
+        'org.opensearch.ad.cluster.ADDataMigrator',
+        'org.opensearch.ad.AnomalyDetectorExtension'
 ]
 
 
@@ -753,6 +755,7 @@ dependencies {
 //    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
 //  Removed Common Utils dependency from AD
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
+    implementation "org.opensearch:opensearch-sdk-java:1.0.0-SNAPSHOT"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
     implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
@@ -786,6 +789,7 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm-tree'
     }
 
+    testImplementation group: 'org.opensearch.test', name: 'framework', version:"${opensearch_version}"
     testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.25.0'
     testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
@@ -813,8 +817,9 @@ test {
 
 apply plugin: 'nebula.ospackage'
 
+// Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
 // This is afterEvaluate because the bundlePlugin ZIP task is updated afterEvaluate and changes the ZIP name to match the plugin name
-afterEvaluate {
+/*afterEvaluate {
     ospackage {
         packageName = "${name}"
         release = isSnapshot ? "0.1" : '1'
@@ -830,7 +835,7 @@ afterEvaluate {
         fileMode 0644
         dirMode 0755
 
-        requires('opensearch', versions.opensearch, EQUAL)
+        requires('opensearch', '3.0.0', EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
         os = 'LINUX'
@@ -874,7 +879,7 @@ afterEvaluate {
     task buildPackages(type: GradleBuild) {
         tasks = ['build', 'buildRpm', 'buildDeb']
     }
-}
+}*/
 
 spotless {
     java {
@@ -886,11 +891,12 @@ spotless {
 }
 
 // no need to validate pom, as we do not upload to maven/sonatype
-validateNebulaPom.enabled = false
+// Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
+/*validateNebulaPom.enabled = false
 
 tasks.withType(licenseHeaders.class) {
     additionalLicense 'AL   ', 'Apache', 'Licensed under the Apache License, Version 2.0 (the "License")'
-}
+}*/
 
 // show test results so that we can record information like precion/recall results of correctness testing.
 if (printLogs) {
