@@ -70,9 +70,10 @@ jobs:
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
-      - name: Multi Nodes Integration Testing
-        run: |
-          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+#      Commented until https://github.com/opensearch-project/opensearch-sdk-java/issues/120 is done
+#      - name: Multi Nodes Integration Testing
+#        run: |
+#          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
