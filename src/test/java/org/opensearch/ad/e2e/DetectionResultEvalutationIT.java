@@ -565,7 +565,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             .extractValue("model", responseMap);
         // adding plus one since window delay always rounds up another minute
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +minutes + 1, minutes + 1),
+            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC,  minutes + 1, minutes + 1),
             messageMap.get("window_delay").get("message")
         );
     }
