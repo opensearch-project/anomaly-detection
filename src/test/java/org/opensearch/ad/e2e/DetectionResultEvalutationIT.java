@@ -537,6 +537,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
         indexTrainData("validation", data, 2000, client);
         long detectorInterval = 4;
+        long expectedWindowDelayMillis = Instant.now().toEpochMilli() - data.get(0).get("timestamp").getAsLong();
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(expectedWindowDelayMillis);
         String requestBody = String
             .format(
                 Locale.ROOT,
@@ -563,8 +565,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             .extractValue("model", responseMap);
         // adding plus one since window delay always rounds up another minute
         assertEquals(
-            String
-                .format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +recDetectorIntervalMinutes + 1, recDetectorIntervalMinutes + 1),
+            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +minutes + 1, minutes + 1),
             messageMap.get("window_delay").get("message")
         );
     }
