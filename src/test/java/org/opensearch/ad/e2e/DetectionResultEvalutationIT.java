@@ -531,12 +531,14 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
 
     public void testValidationWindowDelayRecommendation() throws Exception {
         RestClient client = client();
-        long recDetectorIntervalMillis = 180000;
+        long recDetectorIntervalMillisForDataSet = 180000;
         // this would be equivalent to the window delay in this data test
-        long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
-        List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
+        List<JsonObject> data = createData(2000, recDetectorIntervalMillisForDataSet);
         indexTrainData("validation", data, 2000, client);
         long detectorInterval = 4;
+        long expectedWindowDelayMillis = Instant.now().toEpochMilli() - data.get(0).get("timestamp").getAsLong();
+        // we always round up for window delay recommendation to reduce chance of missed data.
+        long expectedWindowDelayMinutes = (long) Math.ceil(expectedWindowDelayMillis / 60000.0);
         String requestBody = String
             .format(
                 Locale.ROOT,
@@ -561,10 +563,8 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         @SuppressWarnings("unchecked")
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("model", responseMap);
-        // adding plus one since window delay always rounds up another minute
         assertEquals(
-            String
-                .format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, +recDetectorIntervalMinutes + 1, recDetectorIntervalMinutes + 1),
+            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, expectedWindowDelayMinutes, expectedWindowDelayMinutes),
             messageMap.get("window_delay").get("message")
         );
     }
