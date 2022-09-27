@@ -17,6 +17,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
+      # opensearch
       - name: Checkout OpenSearch
         uses: actions/checkout@v3
         with:
@@ -35,6 +36,17 @@ jobs:
       - name: Copy Snapshot to tmp
         run: |
           cp ./opensearch/distribution/archives/linux-tar/build/distributions/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz /tmp
+
+      # opensearch-sdk-java
+      - name: Checkout OpenSearch-SDK-Java
+        uses: actions/checkout@v3
+        with:
+          repository: opensearch-project/opensearch-sdk-java
+          path: sdk
+
+      - name: Publish to Maven Local
+        run: |
+          ./sdk/gradlew --project-dir ./sdk/ publishToMavenLocal
 
       # anomaly-detection
       - name: Checkout AD
@@ -59,9 +71,10 @@ jobs:
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
-      - name: Multi Nodes Integration Testing
-        run: |
-          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
+#      Commented until https://github.com/opensearch-project/opensearch-sdk-java/issues/120 is done
+#      - name: Multi Nodes Integration Testing
+#        run: |
+#          ./gradlew integTest -PnumNodes=3 -PcustomDistributionUrl=/tmp/opensearch-min-3.0.0-SNAPSHOT-linux-x64.tar.gz
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
