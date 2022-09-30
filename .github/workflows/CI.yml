@@ -49,8 +49,8 @@ jobs:
       - name: Pull and Run Docker
         run: |
           plugin=`ls build/distributions/*.zip`
-          version=1.3.5
-          plugin_version=1.3.5.0-SNAPSHOT
+          version=1.3.6
+          plugin_version=1.3.6.0-SNAPSHOT
           echo Using OpenSearch $version with AD $plugin_version
           cd ..
           if docker pull opensearchstaging/opensearch:$version
