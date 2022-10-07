@@ -139,6 +139,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -261,6 +262,79 @@ public class ADTaskManager {
                         .build();
                 }
             );
+        this.threadPool = threadPool;
+        this.checkingTaskSlot = new Semaphore(1);
+        this.scaleEntityTaskLane = new Semaphore(1);
+    }
+
+    public ADTaskManager(
+        TransportService transportService,
+        ClusterService clusterService,
+        Client client,
+        NamedXContentRegistry xContentRegistry,
+        AnomalyDetectionIndices detectionIndices,
+        DiscoveryNodeFilterer nodeFilter,
+        HashRing hashRing,
+        ADTaskCacheManager adTaskCacheManager,
+        ThreadPool threadPool
+    ) {
+        this.client = client;
+        this.xContentRegistry = xContentRegistry;
+        this.detectionIndices = detectionIndices;
+        this.nodeFilter = nodeFilter;
+        this.clusterService = clusterService;
+        this.adTaskCacheManager = adTaskCacheManager;
+        this.hashRing = hashRing;
+
+        List<Setting<?>> componentSettings = new ArrayList<Setting<?>>();
+        componentSettings.add(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR);
+        componentSettings.add(BATCH_TASK_PIECE_INTERVAL_SECONDS);
+        componentSettings.add(DELETE_AD_RESULT_WHEN_DELETE_DETECTOR);
+        componentSettings.add(MAX_BATCH_TASK_PER_NODE);
+        componentSettings.add(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS);
+        componentSettings.add(REQUEST_TIMEOUT);
+        //TODO: sendEnvironmentSettings request
+        /**
+         * sendEnvironmentSettingsRequest(transportService, componentSettings);
+         * this.maxOldAdTaskDocsPerDetector = map.get(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR);
+         * this.pieceIntervalSeconds = map.get(BATCH_TASK_PIECE_INTERVAL_SECONDS);
+         * this.maxAdBatchTaskPerNode = map.get(MAX_BATCH_TASK_PER_NODE);
+         * this.deleteADResultWhenDeleteDetector = map.get(DELETE_AD_RESULT_WHEN_DELETE_DETECTOR);
+         * this.maxRunningEntitiesPerDetector = map.get(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS);
+         * this.maxPrimaryShards = map.get(MAX_PRIMARY_SHARDS);
+         */
+
+        // TODO: Replace REQUEST_TIMEOUT.get(settings) with map.get(REQUEST_TIMEOUT)
+        transportRequestOptions = TransportRequestOptions
+            .builder()
+            .withType(TransportRequestOptions.Type.REG)
+            .withTimeout(REQUEST_TIMEOUT.get(settings))
+            .build();
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Integer> maxOldAdTaskDocsPerDetectorConsumer = it -> maxOldAdTaskDocsPerDetector = it;
+        Consumer<Integer> batchTaskPieceIntervalSecondsConsumer = it -> pieceIntervalSeconds = it;
+        Consumer<Boolean> deleteADResultWhenDeleteDetectorConsumer = it -> deleteADResultWhenDeleteDetector = it;
+        Consumer<Integer> maxAdBatchTaskPerNodeConsumer = it -> maxAdBatchTaskPerNode = it;
+        Consumer<Integer> maxRunningEntitiesPerDetectorConsumer = it -> maxRunningEntitiesPerDetector = it;
+        Consumer<TimeValue> requestTimeoutConsumer = it -> {
+            transportRequestOptions = TransportRequestOptions
+                .builder()
+                .withType(TransportRequestOptions.Type.REG)
+                .withTimeout(it)
+                .build();
+        };
+
+        settingUpdateConsumers.put(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, maxOldAdTaskDocsPerDetectorConsumer);
+        settingUpdateConsumers.put(BATCH_TASK_PIECE_INTERVAL_SECONDS, batchTaskPieceIntervalSecondsConsumer);
+        settingUpdateConsumers.put(DELETE_AD_RESULT_WHEN_DELETE_DETECTOR, deleteADResultWhenDeleteDetectorConsumer);
+        settingUpdateConsumers.put(MAX_BATCH_TASK_PER_NODE, maxAdBatchTaskPerNodeConsumer);
+        settingUpdateConsumers.put(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS, maxRunningEntitiesPerDetectorConsumer);
+        settingUpdateConsumers.put(REQUEST_TIMEOUT, requestTimeoutConsumer);
+
+        // TODO: sendAdConsumer request
+        // sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers)
+
         this.threadPool = threadPool;
         this.checkingTaskSlot = new Semaphore(1);
         this.scaleEntityTaskLane = new Semaphore(1);

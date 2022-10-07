@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -72,6 +74,7 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -85,6 +88,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
@@ -205,6 +209,78 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
 
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
+
+        this.settings = Settings.builder().put("index.hidden", true).build();
+
+        this.maxUpdateRunningTimes = maxUpdateRunningTimes;
+        this.updateRunningTimes = 0;
+
+        this.AD_RESULT_FIELD_CONFIGS = null;
+    }
+
+    /**
+     * Constructor function
+     *
+     * @param client         ES client supports administrative actions
+     * @param clusterService ES cluster service
+     * @param threadPool     ES thread pool
+     * @param nodeFilter     Used to filter eligible nodes to host AD indices
+     * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
+     */
+    public AnomalyDetectionIndices(
+        Client client,
+        TransportService transportService,
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        DiscoveryNodeFilterer nodeFilter,
+        int maxUpdateRunningTimes
+    ) {
+        this.client = client;
+        this.adminClient = client.admin();
+        this.clusterService = clusterService;
+        this.threadPool = threadPool;
+
+        //TODO: Ask Dan what this is
+        this.clusterService.addLocalNodeMasterListener(this);
+
+        List<Setting<?>> componentSettings = new ArrayList<Setting<?>>();
+        componentSettings.add(AD_RESULT_HISTORY_ROLLOVER_PERIOD);
+        componentSettings.add(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD);
+        componentSettings.add(AD_RESULT_HISTORY_RETENTION_PERIOD);
+        componentSettings.add(MAX_PRIMARY_SHARDS);
+        //TODO: sendEnvironmentSettings request
+        /**
+         * sendEnvironmentSettingsRequest(transportService, componentSettings);
+         * this.historyRolloverPeriod = map.get(AD_RESULT_HISTORY_ROLLOVER_PERIOD);
+         * this.historyMaxDocs = map.get(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD);
+         * this.historyRetentionPeriod = map.get(AD_RESULT_HISTORY_RETENTION_PERIOD);
+         * this.maxPrimaryShards = map.get(MAX_PRIMARY_SHARDS);
+         */
+
+        this.nodeFilter = nodeFilter;
+
+        this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);
+
+        this.allMappingUpdated = false;
+        this.allSettingUpdated = false;
+        this.updateRunning = new AtomicBoolean(false);
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Long> historyMaxDocsConsumer = it -> historyMaxDocs = it;
+        Consumer<TimeValue> historyRolloverPeriodConsumer = it -> {
+            historyRolloverPeriod = it;
+            rescheduleRollover();
+        };
+        Consumer<TimeValue> historyRetentionPeriodConsumer = it -> { historyRetentionPeriod = it; };
+        Consumer<Integer> maxPrimaryShardsConsumer = it -> maxPrimaryShards = it;
+
+        settingUpdateConsumers.put(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, historyMaxDocsConsumer);
+        settingUpdateConsumers.put(AD_RESULT_HISTORY_ROLLOVER_PERIOD, historyRolloverPeriodConsumer);
+        settingUpdateConsumers.put(AD_RESULT_HISTORY_RETENTION_PERIOD, historyRetentionPeriodConsumer);
+        settingUpdateConsumers.put(MAX_PRIMARY_SHARDS, maxPrimaryShardsConsumer);
+
+        // TODO: sendAdConsumer request
+        // sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers)
 
         this.settings = Settings.builder().put("index.hidden", true).build();
 

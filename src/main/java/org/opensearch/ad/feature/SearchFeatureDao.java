@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Consumer;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -50,6 +51,7 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -73,6 +75,7 @@ import org.opensearch.search.aggregations.metrics.Min;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
+import org.opensearch.transport.TransportService;
 
 /**
  * DAO for features from search.
@@ -156,6 +159,38 @@ public class SearchFeatureDao extends AbstractRetriever {
             PAGE_SIZE.get(settings),
             PREVIEW_TIMEOUT_IN_MILLIS
         );
+    }
+
+    public SearchFeatureDao(
+        Client client,
+        TransportService transportService,
+        NamedXContentRegistry xContent,
+        Interpolator interpolator,
+        ClientUtil clientUtil,
+        Settings settings,
+        ClusterService clusterService,
+        int minimumDocCount,
+        Clock clock,
+        int maxEntitiesForPreview,
+        int pageSize,
+        long previewTimeoutInMilliseconds
+    ) {
+        this.client = client;
+        this.xContent = xContent;
+        this.interpolator = interpolator;
+        this.clientUtil = clientUtil;
+        this.maxEntitiesForPreview = maxEntitiesForPreview; 
+        this.pageSize = pageSize;
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Integer> maxEntitiesForPreviewConsumer = it -> this.maxEntitiesForPreview = it;
+        Consumer<Integer> pageSizeConsumer = it -> this.pageSize = it;
+
+        // TODO: sendAdConsumer request
+        // sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers)
+        
+        this.minimumDocCountForPreview = minimumDocCount;
+        this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
+        this.clock = clock;
     }
 
     /**
