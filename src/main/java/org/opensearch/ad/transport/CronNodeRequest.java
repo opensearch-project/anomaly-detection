@@ -13,13 +13,13 @@ package org.opensearch.ad.transport;
 
 import java.io.IOException;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.transport.TransportRequest;
 
 /**
  *  Delete model represents the request to an individual node
  */
-public class CronNodeRequest extends BaseNodeRequest {
+public class CronNodeRequest extends TransportRequest {
 
     public CronNodeRequest() {}
 
