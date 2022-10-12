@@ -13,11 +13,11 @@ package org.opensearch.ad.transport;
 
 import java.io.IOException;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.transport.TransportRequest;
 
-public class ADCancelTaskNodeRequest extends BaseNodeRequest {
+public class ADCancelTaskNodeRequest extends TransportRequest {
     private String detectorId;
     private String detectorTaskId;
     private String userName;
