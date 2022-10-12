@@ -488,7 +488,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         return clusterServiceAccessor.state().metadata().hasAlias(alias);
     }
 
-    private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
+    public ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
         return ActionListener.wrap(createdResponse -> {
             if (createdResponse.isAcknowledged()) {
                 IndexState indexStatetate = indexStates.computeIfAbsent(index, IndexState::new);

@@ -15,6 +15,8 @@ import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.sdk.*;
 
 import com.google.common.collect.ImmutableList;
 
@@ -39,7 +41,14 @@ public class AnomalyDetectorExtension implements Extension {
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        return List.of(new RestCreateDetectorAction());
+        List<ExtensionRestHandler> handler = null;
+        // Get the settings anc clusterService from createComponent
+        try {
+            handler = List.of(new RestCreateDetectorAction(null, null));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return handler;
     }
 
     @Override
@@ -89,6 +98,12 @@ public class AnomalyDetectorExtension implements Extension {
             throw new IOException("Failed to initialize Extension settings. No port bound.");
         }
         return settings;
+    }
+
+    public static OpenSearchClient getClient() throws IOException {
+        SDKClient sdkClient = new SDKClient();
+        OpenSearchClient client = sdkClient.initializeClient("127.0.0.1", 9200);
+        return client;
     }
 
     public static void main(String[] args) throws IOException {
