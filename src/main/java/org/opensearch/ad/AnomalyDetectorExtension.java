@@ -110,7 +110,6 @@ public class AnomalyDetectorExtension implements Extension {
 
     public OpenSearchClient getClient() throws IOException {
         SDKClient sdkClient = new SDKClient();
-        // Need to read this from extensions.yml
         OpenSearchClient client = sdkClient.initializeClient(settings.getHostAddress(), Integer.parseInt(settings.getHostPort()));
         return client;
     }
