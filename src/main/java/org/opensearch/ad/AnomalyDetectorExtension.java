@@ -1,12 +1,22 @@
 package org.opensearch.ad;
 
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.List;
+import java.util.Random;
 
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.cluster.HashRing;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.CheckpointDao;
+import org.opensearch.ad.ml.EntityColdStarter;
+import org.opensearch.ad.ml.HybridThresholdingModel;
+import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
@@ -19,13 +29,23 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmInfo;
+import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
+
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
+import com.amazon.randomcutforest.state.RandomCutForestMapper;
+
+import io.protostuff.Schema;
+import io.protostuff.runtime.RuntimeSchema;
 
 public class AnomalyDetectorExtension implements Extension {
 
@@ -45,6 +65,7 @@ public class AnomalyDetectorExtension implements Extension {
     private ADTaskCacheManager adTaskCacheManager;
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
+    private ExtensionRunner extensionRunner;
 
     public AnomalyDetectorExtension() {
         try {
@@ -71,7 +92,7 @@ public class AnomalyDetectorExtension implements Extension {
         SDKClient client,
         TransportService transportService,
         ClusterService clusterService,
-        ThreadPool threadPool,
+        ThreadPool threadPool
     ) {
         EnabledSetting.getInstance().init(clusterService);
         /* @anomaly-detection.create-detector
@@ -79,7 +100,7 @@ public class AnomalyDetectorExtension implements Extension {
         this.client = client;
         this.threadPool = threadPool;
         */
-        Settings settings = environment.settings();
+        Settings settings = extensionRunner.sendEnvironmentSettingsRequest(transportService);
         /* @anomaly-detection.create-detector
         Throttler throttler = new Throttler(getClock());
         this.clientUtil = new ClientUtil(settings, client, throttler);
@@ -92,8 +113,10 @@ public class AnomalyDetectorExtension implements Extension {
             transportService,
             clusterService,
             threadPool,
+            settings,
             nodeFilter,
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES,
+            extensionRunner
         );
         this.clusterService = clusterService;
 
@@ -103,15 +126,16 @@ public class AnomalyDetectorExtension implements Extension {
         // SearchFeatureDao is Injected for IndexAnomalyDetectorTrasnportAction constructor
         SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
             client,
-            xContentRegistry,
+            transportService,
             interpolator,
             clientUtil,
             settings,
             clusterService,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            extensionRunner
         );
 
-        JvmService jvmService = new JvmService(environment.settings());
+        JvmService jvmService = new JvmService(settings);
         RandomCutForestMapper mapper = new RandomCutForestMapper();
         mapper.setSaveExecutorContextEnabled(true);
         mapper.setSaveTreeStateEnabled(true);
@@ -429,7 +453,6 @@ public class AnomalyDetectorExtension implements Extension {
             transportService,
             clusterService,
             client,
-            xContentRegistry,
             anomalyDetectionIndices,
             nodeFilter,
             hashRing,

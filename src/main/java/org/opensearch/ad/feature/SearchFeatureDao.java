@@ -163,8 +163,33 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     public SearchFeatureDao(
         Client client,
-        TransportService transportService,
         NamedXContentRegistry xContent,
+        Interpolator interpolator,
+        ClientUtil clientUtil,
+        Settings settings,
+        ClusterService clusterService,
+        int minimumDocCount,
+        ExtensionRunner extensionRunner
+    ) {
+        this(
+            client,
+            xContent,
+            interpolator,
+            clientUtil,
+            settings,
+            clusterService,
+            minimumDocCount,
+            Clock.systemUTC(),
+            MAX_ENTITIES_FOR_PREVIEW.get(settings),
+            PAGE_SIZE.get(settings),
+            PREVIEW_TIMEOUT_IN_MILLIS,
+            extensionRunner
+        );
+    }
+
+    public SearchFeatureDao(
+        Client client,
+        TransportService transportService,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
@@ -173,10 +198,10 @@ public class SearchFeatureDao extends AbstractRetriever {
         Clock clock,
         int maxEntitiesForPreview,
         int pageSize,
-        long previewTimeoutInMilliseconds
+        long previewTimeoutInMilliseconds,
+        ExtensionRunner extensionRunner
     ) {
         this.client = client;
-        this.xContent = xContent;
         this.interpolator = interpolator;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview; 
@@ -185,8 +210,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         Consumer<Integer> maxEntitiesForPreviewConsumer = it -> this.maxEntitiesForPreview = it;
         Consumer<Integer> pageSizeConsumer = it -> this.pageSize = it;
 
-        // TODO: sendAdConsumer request
-        // sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers)
+        extensionRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
         
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;

@@ -232,8 +232,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         TransportService transportService,
         ClusterService clusterService,
         ThreadPool threadPool,
+        Settings settings,
         DiscoveryNodeFilterer nodeFilter,
-        int maxUpdateRunningTimes
+        int maxUpdateRunningTimes,
+        ExtensionRunner extensionRunner
     ) {
         this.client = client;
         this.adminClient = client.admin();
@@ -243,19 +245,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         //TODO: Ask Dan what this is
         this.clusterService.addLocalNodeMasterListener(this);
 
-        List<Setting<?>> componentSettings = new ArrayList<Setting<?>>();
-        componentSettings.add(AD_RESULT_HISTORY_ROLLOVER_PERIOD);
-        componentSettings.add(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD);
-        componentSettings.add(AD_RESULT_HISTORY_RETENTION_PERIOD);
-        componentSettings.add(MAX_PRIMARY_SHARDS);
-        //TODO: sendEnvironmentSettings request
-        /**
-         * sendEnvironmentSettingsRequest(transportService, componentSettings);
-         * this.historyRolloverPeriod = map.get(AD_RESULT_HISTORY_ROLLOVER_PERIOD);
-         * this.historyMaxDocs = map.get(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD);
-         * this.historyRetentionPeriod = map.get(AD_RESULT_HISTORY_RETENTION_PERIOD);
-         * this.maxPrimaryShards = map.get(MAX_PRIMARY_SHARDS);
-         */
+        this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
+        this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings);
+        this.historyRetentionPeriod = AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings);
+        this.maxPrimaryShards = MAX_PRIMARY_SHARDS.get(settings);
 
         this.nodeFilter = nodeFilter;
 
@@ -279,8 +272,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         settingUpdateConsumers.put(AD_RESULT_HISTORY_RETENTION_PERIOD, historyRetentionPeriodConsumer);
         settingUpdateConsumers.put(MAX_PRIMARY_SHARDS, maxPrimaryShardsConsumer);
 
-        // TODO: sendAdConsumer request
-        // sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers)
+        extensionRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
 
         this.settings = Settings.builder().put("index.hidden", true).build();
 

@@ -276,7 +276,9 @@ public class ADTaskManager {
         DiscoveryNodeFilterer nodeFilter,
         HashRing hashRing,
         ADTaskCacheManager adTaskCacheManager,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        Settings settings,
+        ExtensionRunner extensionRunner
     ) {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
@@ -286,25 +288,12 @@ public class ADTaskManager {
         this.adTaskCacheManager = adTaskCacheManager;
         this.hashRing = hashRing;
 
-        List<Setting<?>> componentSettings = new ArrayList<Setting<?>>();
-        componentSettings.add(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR);
-        componentSettings.add(BATCH_TASK_PIECE_INTERVAL_SECONDS);
-        componentSettings.add(DELETE_AD_RESULT_WHEN_DELETE_DETECTOR);
-        componentSettings.add(MAX_BATCH_TASK_PER_NODE);
-        componentSettings.add(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS);
-        componentSettings.add(REQUEST_TIMEOUT);
-        //TODO: sendEnvironmentSettings request
-        /**
-         * sendEnvironmentSettingsRequest(transportService, componentSettings);
-         * this.maxOldAdTaskDocsPerDetector = map.get(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR);
-         * this.pieceIntervalSeconds = map.get(BATCH_TASK_PIECE_INTERVAL_SECONDS);
-         * this.maxAdBatchTaskPerNode = map.get(MAX_BATCH_TASK_PER_NODE);
-         * this.deleteADResultWhenDeleteDetector = map.get(DELETE_AD_RESULT_WHEN_DELETE_DETECTOR);
-         * this.maxRunningEntitiesPerDetector = map.get(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS);
-         * this.maxPrimaryShards = map.get(MAX_PRIMARY_SHARDS);
-         */
+        this.maxOldAdTaskDocsPerDetector = MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(settings);
+        this.pieceIntervalSeconds = BATCH_TASK_PIECE_INTERVAL_SECONDS.get(settings);
+        this.deleteADResultWhenDeleteDetector = DELETE_AD_RESULT_WHEN_DELETE_DETECTOR.get(settings);
+        this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
+        this.maxRunningEntitiesPerDetector = MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.get(settings);
 
-        // TODO: Replace REQUEST_TIMEOUT.get(settings) with map.get(REQUEST_TIMEOUT)
         transportRequestOptions = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
@@ -332,8 +321,7 @@ public class ADTaskManager {
         settingUpdateConsumers.put(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS, maxRunningEntitiesPerDetectorConsumer);
         settingUpdateConsumers.put(REQUEST_TIMEOUT, requestTimeoutConsumer);
 
-        // TODO: sendAdConsumer request
-        // sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers)
+        extensionRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
 
         this.threadPool = threadPool;
         this.checkingTaskSlot = new Semaphore(1);
