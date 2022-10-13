@@ -80,25 +80,25 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
         WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH)
-                ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
-                : WriteRequest.RefreshPolicy.IMMEDIATE;
+            ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
+            : WriteRequest.RefreshPolicy.IMMEDIATE;
         RestRequest.Method method = request.getHttpRequest().method();
 
         IndexAnomalyDetectorRequest indexAnomalyDetectorRequest = new IndexAnomalyDetectorRequest(
-                detectorId,
-                seqNo,
-                primaryTerm,
-                refreshPolicy,
-                detector,
-                method,
-                requestTimeout,
-                maxSingleEntityDetectors,
-                maxMultiEntityDetectors,
-                maxAnomalyFeatures
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            detector,
+            method,
+            requestTimeout,
+            maxSingleEntityDetectors,
+            maxMultiEntityDetectors,
+            maxAnomalyFeatures
         );
 
         return channel -> client
-                .execute(IndexAnomalyDetectorAction.INSTANCE, indexAnomalyDetectorRequest, indexAnomalyDetectorResponse(channel, method));
+            .execute(IndexAnomalyDetectorAction.INSTANCE, indexAnomalyDetectorRequest, indexAnomalyDetectorResponse(channel, method));
     }
 
     @Override
@@ -109,27 +109,27 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     @Override
     public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList
-                .of(
-                        // Create
-                        new ReplacedRoute(
-                                RestRequest.Method.POST,
-                                AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
-                                RestRequest.Method.POST,
-                                AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI
-                        ),
-                        // Update
-                        new ReplacedRoute(
-                                RestRequest.Method.PUT,
-                                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                                RestRequest.Method.PUT,
-                                String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
-                        )
-                );
+            .of(
+                // Create
+                new ReplacedRoute(
+                    RestRequest.Method.POST,
+                    AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+                    RestRequest.Method.POST,
+                    AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI
+                ),
+                // Update
+                new ReplacedRoute(
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
+                )
+            );
     }
 
     private RestResponseListener<IndexAnomalyDetectorResponse> indexAnomalyDetectorResponse(
-            RestChannel channel,
-            RestRequest.Method method
+        RestChannel channel,
+        RestRequest.Method method
     ) {
         return new RestResponseListener<IndexAnomalyDetectorResponse>(channel) {
             @Override
@@ -139,8 +139,8 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
                     restStatus = RestStatus.OK;
                 }
                 BytesRestResponse bytesRestResponse = new BytesRestResponse(
-                        restStatus,
-                        response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS)
+                    restStatus,
+                    response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS)
                 );
                 if (restStatus == RestStatus.CREATED) {
                     String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_AD_BASE, response.getId());

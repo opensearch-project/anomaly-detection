@@ -52,4 +52,8 @@ public abstract class AbstractAnomalyDetectorAction extends BaseRestHandler {
             .addSettingsUpdateConsumer(MAX_MULTI_ENTITY_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
     }
+
+    public AbstractAnomalyDetectorAction() {
+
+    }
 }
