@@ -13,14 +13,14 @@ package org.opensearch.ad.transport;
 
 import java.io.IOException;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.transport.TransportRequest;
 
 /**
  *  ADStatsNodeRequest to get a nodes stat
  */
-public class ADStatsNodeRequest extends BaseNodeRequest {
+public class ADStatsNodeRequest extends TransportRequest {
     private ADStatsRequest request;
 
     /**

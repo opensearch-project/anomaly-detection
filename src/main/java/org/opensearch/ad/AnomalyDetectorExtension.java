@@ -1,10 +1,17 @@
 package org.opensearch.ad;
 
+import static java.util.Collections.unmodifiableList;
+
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.List;
+<<<<<<< HEAD
 import java.util.Random;
+=======
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+>>>>>>> feature/extensions
 
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
@@ -20,6 +27,7 @@ import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+<<<<<<< HEAD
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
@@ -32,6 +40,9 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
+=======
+import org.opensearch.common.settings.Setting;
+>>>>>>> feature/extensions
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
@@ -46,6 +57,8 @@ import com.amazon.randomcutforest.state.RandomCutForestMapper;
 
 import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
+
+import com.google.common.collect.ImmutableList;
 
 public class AnomalyDetectorExtension implements Extension {
 
@@ -529,6 +542,47 @@ public class AnomalyDetectorExtension implements Extension {
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List.of(new RestCreateDetectorAction());
+    }
+
+    @Override
+    public List<Setting<?>> getSettings() {
+        // Copied from AnomalyDetectorPlugin getSettings
+        List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
+        List<Setting<?>> systemSetting = ImmutableList
+            .of(
+                AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                AnomalyDetectorSettings.PAGE_SIZE,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
+                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
+                AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+                AnomalyDetectorSettings.BACKOFF_MINUTES,
+                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
+                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+                AnomalyDetectorSettings.COOLDOWN_MINUTES,
+                AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
+                AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
+                AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
+                AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
+                AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS,
+                AnomalyDetectorSettings.REQUEST_TIMEOUT,
+                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                AnomalyDetectorSettings.DETECTION_INTERVAL,
+                AnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
+                AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
+                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES
+            );
+        return unmodifiableList(
+            Stream
+                .of(enabledSetting.stream(), systemSetting.stream())
+                .reduce(Stream::concat)
+                .orElseGet(Stream::empty)
+                .collect(Collectors.toList())
+        );
     }
 
     private static ExtensionSettings initializeSettings() throws IOException {
