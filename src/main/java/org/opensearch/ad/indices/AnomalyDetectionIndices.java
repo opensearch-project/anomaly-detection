@@ -165,10 +165,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     /**
      * Constructor function
      *
-     * @param client         ES client supports administrative actions
-     * @param clusterService ES cluster service
-     * @param threadPool     ES thread pool
-     * @param settings       ES cluster setting
+     * @param client         OS client supports administrative actions
+     * @param clusterService OS cluster service
+     * @param threadPool     OS thread pool
+     * @param settings       OS cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
      */
@@ -221,9 +221,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     /**
      * Constructor function
      *
-     * @param client         ES client supports administrative actions
-     * @param clusterService ES cluster service
-     * @param threadPool     ES thread pool
+     * @param client         OS client supports administrative actions
+     * @param clusterService OS cluster service
+     * @param threadPool     OS thread pool
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
      */
