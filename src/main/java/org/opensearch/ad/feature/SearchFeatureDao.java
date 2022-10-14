@@ -209,6 +209,9 @@ public class SearchFeatureDao extends AbstractRetriever {
         Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
         Consumer<Integer> maxEntitiesForPreviewConsumer = it -> this.maxEntitiesForPreview = it;
         Consumer<Integer> pageSizeConsumer = it -> this.pageSize = it;
+        
+        settingUpdateConsumers.put(MAX_ENTITIES_FOR_PREVIEW, maxEntitiesForPreviewConsumer);
+        settingUpdateConsumers.put(PAGE_SIZE, pageSizeConsumer);
 
         extensionRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
         
