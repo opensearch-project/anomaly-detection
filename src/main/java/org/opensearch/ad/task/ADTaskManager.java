@@ -281,7 +281,6 @@ public class ADTaskManager {
         ExtensionRunner extensionRunner
     ) {
         this.client = client;
-        this.xContentRegistry = xContentRegistry;
         this.detectionIndices = detectionIndices;
         this.nodeFilter = nodeFilter;
         this.clusterService = clusterService;

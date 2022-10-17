@@ -124,7 +124,6 @@ public class AnomalyDetectorExtension implements Extension {
      */
     public Collection<Object> createComponents(
         SDKClient client,
-        TransportService transportService,
         ClusterService clusterService,
         ThreadPool threadPool
     ) {
@@ -134,6 +133,7 @@ public class AnomalyDetectorExtension implements Extension {
         this.client = client;
         this.threadPool = threadPool;
         */
+        TransportService transportService = extensionRunner.extensionTransportService;
         Settings settings = extensionRunner.sendEnvironmentSettingsRequest(transportService);
         /* @anomaly-detection.create-detector
         Throttler throttler = new Throttler(getClock());
