@@ -5,17 +5,20 @@ import static java.util.Collections.unmodifiableList;
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.time.Clock;
 import java.util.List;
-<<<<<<< HEAD
 import java.util.Random;
-=======
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
->>>>>>> feature/extensions
 
+import org.apache.logging.log4j.core.lookup.Interpolator;
+import org.opensearch.SpecialPermission;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
+import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
+import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -27,7 +30,6 @@ import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
-<<<<<<< HEAD
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
@@ -40,9 +42,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
-=======
 import org.opensearch.common.settings.Setting;
->>>>>>> feature/extensions
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
@@ -59,6 +59,8 @@ import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
 
 import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class AnomalyDetectorExtension implements Extension {
 
@@ -79,6 +81,18 @@ public class AnomalyDetectorExtension implements Extension {
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
     private ExtensionRunner extensionRunner;
+    private static Gson gson;
+
+    GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
+
+    public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
+
+    static {
+        SpecialPermission.check();
+        // gson intialization requires "java.lang.RuntimePermission" "accessDeclaredMembers" to
+        // initialize ConstructorConstructor
+        AccessController.doPrivileged((PrivilegedAction<Void>) AnomalyDetectorExtension::initGson);
+    }
 
     public AnomalyDetectorExtension() {
         try {
@@ -91,6 +105,11 @@ public class AnomalyDetectorExtension implements Extension {
     @Override
     public ExtensionSettings getExtensionSettings() {
         return this.settings;
+    }
+
+    private static Void initGson() {
+        gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
+        return null;
     }
 
     /**
@@ -169,7 +188,7 @@ public class AnomalyDetectorExtension implements Extension {
 
         NodeStateManager stateManager = new NodeStateManager(
             client,
-            xContentRegistry,
+            null,
             settings,
             clientUtil,
             getClock(),
@@ -221,7 +240,7 @@ public class AnomalyDetectorExtension implements Extension {
             client,
             clientUtil,
             CommonName.CHECKPOINT_INDEX_NAME,
-            gszon,
+            gson,
             mapper,
             converter,
             new ThresholdedRandomCutForestMapper(),
@@ -591,6 +610,15 @@ public class AnomalyDetectorExtension implements Extension {
             throw new IOException("Failed to initialize Extension settings. No port bound.");
         }
         return settings;
+    }
+
+    /**
+     * createComponents doesn't work for Clock as ES process cannot start
+     * complaining it cannot find Clock instances for transport actions constructors.
+     * @return a UTC clock
+     */
+    protected Clock getClock() {
+        return Clock.systemUTC();
     }
 
     public static void main(String[] args) throws IOException {
