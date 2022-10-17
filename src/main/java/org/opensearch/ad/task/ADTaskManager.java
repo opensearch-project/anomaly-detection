@@ -159,7 +159,7 @@ import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.UpdateByQueryAction;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
-import org.opensearch.sdk.ExtensionRunner;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 import org.opensearch.search.SearchHit;
@@ -279,7 +279,7 @@ public class ADTaskManager {
         ADTaskCacheManager adTaskCacheManager,
         ThreadPool threadPool,
         Settings settings,
-        ExtensionRunner extensionRunner
+        ExtensionsRunner extensionsRunner
     ) {
         this.client = client;
         this.detectionIndices = detectionIndices;
@@ -321,7 +321,7 @@ public class ADTaskManager {
         settingUpdateConsumers.put(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS, maxRunningEntitiesPerDetectorConsumer);
         settingUpdateConsumers.put(REQUEST_TIMEOUT, requestTimeoutConsumer);
 
-        extensionRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
 
         this.threadPool = threadPool;
         this.checkingTaskSlot = new Semaphore(1);

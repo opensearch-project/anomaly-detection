@@ -58,7 +58,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.sdk.ExtensionRunner;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -170,7 +170,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         Settings settings,
         ClusterService clusterService,
         int minimumDocCount,
-        ExtensionRunner extensionRunner
+        ExtensionsRunner extensionsRunner
     ) {
         this(
             client,
@@ -184,7 +184,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             MAX_ENTITIES_FOR_PREVIEW.get(settings),
             PAGE_SIZE.get(settings),
             PREVIEW_TIMEOUT_IN_MILLIS,
-            extensionRunner
+            extensionsRunner
         );
     }
 
@@ -200,7 +200,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         int maxEntitiesForPreview,
         int pageSize,
         long previewTimeoutInMilliseconds,
-        ExtensionRunner extensionRunner
+        ExtensionsRunner extensionsRunner
     ) {
         this.client = client;
         this.interpolator = interpolator;
@@ -214,7 +214,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         settingUpdateConsumers.put(MAX_ENTITIES_FOR_PREVIEW, maxEntitiesForPreviewConsumer);
         settingUpdateConsumers.put(PAGE_SIZE, pageSizeConsumer);
 
-        extensionRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
         
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;

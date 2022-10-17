@@ -86,7 +86,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParser.Token;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.sdk.ExtensionRunner;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
@@ -236,7 +236,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
         int maxUpdateRunningTimes,
-        ExtensionRunner extensionRunner
+        ExtensionsRunner extensionsRunner
     ) {
         this.client = client;
         this.adminClient = client.admin();
@@ -272,7 +272,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         settingUpdateConsumers.put(AD_RESULT_HISTORY_RETENTION_PERIOD, historyRetentionPeriodConsumer);
         settingUpdateConsumers.put(MAX_PRIMARY_SHARDS, maxPrimaryShardsConsumer);
 
-        extensionRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
 
         this.settings = Settings.builder().put("index.hidden", true).build();
 
