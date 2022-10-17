@@ -11,12 +11,13 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.logging.log4j.core.lookup.Interpolator;
+import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.opensearch.SpecialPermission;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
+import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
@@ -55,6 +56,7 @@ import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestS
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 
+import io.protostuff.LinkedBuffer;
 import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
 
