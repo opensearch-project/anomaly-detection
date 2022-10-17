@@ -164,17 +164,17 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     public SearchFeatureDao(
         Client client,
-        NamedXContentRegistry xContent,
+        TransportService transportService,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
         ClusterService clusterService,
         int minimumDocCount,
         ExtensionsRunner extensionsRunner
-    ) {
+    ) throws Exception {
         this(
             client,
-            xContent,
+            transportService,
             interpolator,
             clientUtil,
             settings,
@@ -201,9 +201,10 @@ public class SearchFeatureDao extends AbstractRetriever {
         int pageSize,
         long previewTimeoutInMilliseconds,
         ExtensionsRunner extensionsRunner
-    ) {
+    ) throws Exception {
         this.client = client;
         this.interpolator = interpolator;
+        this.xContent = null;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview; 
         this.pageSize = pageSize;

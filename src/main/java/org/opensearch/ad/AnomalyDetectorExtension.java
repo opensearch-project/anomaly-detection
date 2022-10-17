@@ -125,7 +125,7 @@ public class AnomalyDetectorExtension implements Extension {
      * @param environment the environment for path and setting configurations
      */
     public Collection<Object> createComponents(
-        SDKClient client,
+        SDKClient sdkClient,
         ClusterService clusterService,
         ThreadPool threadPool
     ) {
@@ -135,6 +135,7 @@ public class AnomalyDetectorExtension implements Extension {
         this.client = client;
         this.threadPool = threadPool;
         */
+        Client client = sdkClient.initializeClient(this.getExtensionSettings().getHostAddress(), Integer.parseInt(this.getExtensionSettings().getHostPort()));
         TransportService transportService = extensionsRunner.extensionTransportService;
         Settings settings = extensionsRunner.sendEnvironmentSettingsRequest(transportService);
         /* @anomaly-detection.create-detector

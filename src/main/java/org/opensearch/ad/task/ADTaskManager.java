@@ -280,9 +280,10 @@ public class ADTaskManager {
         ThreadPool threadPool,
         Settings settings,
         ExtensionsRunner extensionsRunner
-    ) {
+    ) throws Exception {
         this.client = client;
         this.detectionIndices = detectionIndices;
+        this.xContentRegistry = null;
         this.nodeFilter = nodeFilter;
         this.clusterService = clusterService;
         this.adTaskCacheManager = adTaskCacheManager;

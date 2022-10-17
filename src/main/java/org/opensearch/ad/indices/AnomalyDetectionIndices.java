@@ -237,7 +237,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         DiscoveryNodeFilterer nodeFilter,
         int maxUpdateRunningTimes,
         ExtensionsRunner extensionsRunner
-    ) {
+    ) throws Exception {
         this.client = client;
         this.adminClient = client.admin();
         this.clusterService = clusterService;
