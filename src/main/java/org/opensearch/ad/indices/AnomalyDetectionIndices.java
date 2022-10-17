@@ -242,7 +242,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.clusterService = clusterService;
         this.threadPool = threadPool;
 
-        //TODO: Ask Dan what this is
         this.clusterService.addLocalNodeMasterListener(this);
 
         this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
