@@ -48,7 +48,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
-import org.opensearch.sdk.ExtensionRunner;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
@@ -84,7 +84,7 @@ public class AnomalyDetectorExtension implements Extension {
     private ADTaskCacheManager adTaskCacheManager;
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
-    private ExtensionRunner extensionRunner;
+    private ExtensionsRunner extensionsRunner;
     private static Gson gson;
 
     GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
@@ -135,8 +135,8 @@ public class AnomalyDetectorExtension implements Extension {
         this.client = client;
         this.threadPool = threadPool;
         */
-        TransportService transportService = extensionRunner.extensionTransportService;
-        Settings settings = extensionRunner.sendEnvironmentSettingsRequest(transportService);
+        TransportService transportService = extensionsRunner.extensionTransportService;
+        Settings settings = extensionsRunner.sendEnvironmentSettingsRequest(transportService);
         /* @anomaly-detection.create-detector
         Throttler throttler = new Throttler(getClock());
         this.clientUtil = new ClientUtil(settings, client, throttler);
@@ -152,7 +152,7 @@ public class AnomalyDetectorExtension implements Extension {
             settings,
             nodeFilter,
             AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES,
-            extensionRunner
+            extensionsRunner
         );
         this.clusterService = clusterService;
 
@@ -168,7 +168,7 @@ public class AnomalyDetectorExtension implements Extension {
             settings,
             clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            extensionRunner
+            extensionsRunner
         );
 
         JvmService jvmService = new JvmService(settings);
