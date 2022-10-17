@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
+import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -47,7 +48,8 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
-import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.ExtensionRunner;
+import org.opensearch.sdk.SDKClient;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
