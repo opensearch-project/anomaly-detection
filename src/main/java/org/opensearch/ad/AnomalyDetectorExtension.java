@@ -494,7 +494,9 @@ public class AnomalyDetectorExtension implements Extension {
             nodeFilter,
             hashRing,
             adTaskCacheManager,
-            threadPool
+            threadPool,
+            settings,
+            extensionsRunner
         );
         /* @anomaly-detection.create-detector
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
