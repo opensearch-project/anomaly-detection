@@ -237,7 +237,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         DiscoveryNodeFilterer nodeFilter,
         int maxUpdateRunningTimes,
         ExtensionsRunner extensionsRunner
-    ) throws Exception {
+    )
+        throws Exception {
         this.client = client;
         this.adminClient = client.admin();
         this.clusterService = clusterService;
@@ -259,13 +260,13 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.updateRunning = new AtomicBoolean(false);
 
         Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
-        Consumer<Long> historyMaxDocsConsumer = it -> historyMaxDocs = it;
+        Consumer<Long> historyMaxDocsConsumer = it -> this.historyMaxDocs = it;
         Consumer<TimeValue> historyRolloverPeriodConsumer = it -> {
-            historyRolloverPeriod = it;
+            this.historyRolloverPeriod = it;
             rescheduleRollover();
         };
-        Consumer<TimeValue> historyRetentionPeriodConsumer = it -> { historyRetentionPeriod = it; };
-        Consumer<Integer> maxPrimaryShardsConsumer = it -> maxPrimaryShards = it;
+        Consumer<TimeValue> historyRetentionPeriodConsumer = it -> { this.historyRetentionPeriod = it; };
+        Consumer<Integer> maxPrimaryShardsConsumer = it -> this.maxPrimaryShards = it;
 
         settingUpdateConsumers.put(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, historyMaxDocsConsumer);
         settingUpdateConsumers.put(AD_RESULT_HISTORY_ROLLOVER_PERIOD, historyRolloverPeriodConsumer);

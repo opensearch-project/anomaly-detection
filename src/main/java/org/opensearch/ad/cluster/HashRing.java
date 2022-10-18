@@ -18,6 +18,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTE
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,10 +51,13 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.routing.Murmur3HashFunction;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.PluginInfo;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
 
@@ -116,6 +120,39 @@ public class HashRing {
         this.lastUpdateForRealtimeAD = 0;
         this.client = client;
         this.clusterService = clusterService;
+        // this.dataMigrator = dataMigrator;
+        this.nodeAdVersions = new ConcurrentHashMap<>();
+        this.circles = new TreeMap<>();
+        this.circlesForRealtimeAD = new TreeMap<>();
+        this.hashRingInited = new AtomicBoolean(false);
+        this.nodeChangeEvents = new ConcurrentLinkedQueue<>();
+        this.modelManager = modelManager;
+    }
+
+    public HashRing(
+        DiscoveryNodeFilterer nodeFilter,
+        Clock clock,
+        Settings settings,
+        Client client,
+        // ADDataMigrator dataMigrator,
+        ModelManager modelManager,
+        TransportService transportService,
+        ExtensionsRunner extensionsRunner
+    )
+        throws Exception {
+        this.nodeFilter = nodeFilter;
+        this.buildHashRingSemaphore = new Semaphore(1);
+        this.clock = clock;
+        this.coolDownPeriodForRealtimeAD = COOLDOWN_MINUTES.get(settings);
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<TimeValue> coolDownMinutesConsumer = it -> this.coolDownPeriodForRealtimeAD = it;
+        settingUpdateConsumers.put(COOLDOWN_MINUTES, coolDownMinutesConsumer);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
+
+        this.lastUpdateForRealtimeAD = 0;
+        this.client = client;
+        this.clusterService = null; // TODO : remove and replace calls for localNode with transport request api
         // this.dataMigrator = dataMigrator;
         this.nodeAdVersions = new ConcurrentHashMap<>();
         this.circles = new TreeMap<>();

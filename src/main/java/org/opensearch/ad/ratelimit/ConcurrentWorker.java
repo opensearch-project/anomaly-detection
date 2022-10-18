@@ -14,8 +14,11 @@ package org.opensearch.ad.ratelimit;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,7 +28,9 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 
 /**
  * A queue to run concurrent requests (either batch or single request).
@@ -108,6 +113,59 @@ public abstract class ConcurrentWorker<RequestType extends QueuedRequest> extend
 
         this.permits = new Semaphore(concurrencySetting.get(settings));
         clusterService.getClusterSettings().addSettingsUpdateConsumer(concurrencySetting, it -> permits = new Semaphore(it));
+
+        this.lastExecuteTime = clock.instant();
+        this.executionTtl = executionTtl;
+    }
+
+    public ConcurrentWorker(
+        String queueName,
+        long heapSizeInBytes,
+        int singleRequestSizeInBytes,
+        Setting<Float> maxHeapPercentForQueueSetting,
+        Random random,
+        ADCircuitBreakerService adCircuitBreakerService,
+        ThreadPool threadPool,
+        Settings settings,
+        float maxQueuedTaskRatio,
+        Clock clock,
+        float mediumSegmentPruneRatio,
+        float lowSegmentPruneRatio,
+        int maintenanceFreqConstant,
+        Setting<Integer> concurrencySetting,
+        Duration executionTtl,
+        Duration stateTtl,
+        NodeStateManager nodeStateManager,
+        TransportService transportService,
+        ExtensionsRunner extensionsRunner
+    )
+        throws Exception {
+        super(
+            queueName,
+            heapSizeInBytes,
+            singleRequestSizeInBytes,
+            maxHeapPercentForQueueSetting,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            maxQueuedTaskRatio,
+            clock,
+            mediumSegmentPruneRatio,
+            lowSegmentPruneRatio,
+            maintenanceFreqConstant,
+            stateTtl,
+            nodeStateManager,
+            transportService,
+            extensionsRunner
+        );
+
+        this.permits = new Semaphore(concurrencySetting.get(settings));
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Integer> concurrencySettingConsumer = it -> this.permits = new Semaphore(it);
+        settingUpdateConsumers.put(concurrencySetting, concurrencySettingConsumer);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
 
         this.lastExecuteTime = clock.instant();
         this.executionTtl = executionTtl;

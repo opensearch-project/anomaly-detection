@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -40,12 +41,15 @@ import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.transport.TransportService;
 
 /**
  * NodeStateManager is used to manage states shared by transport and ml components
@@ -111,6 +115,59 @@ public class NodeStateManager implements MaintenanceState, CleanState {
                 entry.values().forEach(v -> v.setMutePeriod(it));
             }
         });
+    }
+
+    /**
+     * Constructor function
+     *
+     * @param client OS client 
+     * @param settings OS settings
+     * @param clientUtil AD Client utility
+     * @param clock A UTC clock
+     * @param stateTtl Max time to keep state in memory
+     * @param transportService The TransportService defining the connection to OpenSearch
+     * @param extensionsRunner Primary runner of this extension
+     */
+    public NodeStateManager(
+        Client client,
+        Settings settings,
+        ClientUtil clientUtil,
+        Clock clock,
+        Duration stateTtl,
+        TransportService transportService,
+        ExtensionsRunner extensionsRunner
+    )
+        throws Exception {
+        this.states = new ConcurrentHashMap<>();
+        this.client = client;
+        this.xContentRegistry = null;
+        this.clientUtil = clientUtil;
+        this.backpressureMuter = new ConcurrentHashMap<>();
+        this.clock = clock;
+        this.stateTtl = stateTtl;
+        this.maxRetryForUnresponsiveNode = MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings);
+        this.mutePeriod = BACKOFF_MINUTES.get(settings);
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Integer> maxRetryForUnresponsiveNodeConsumer = it -> {
+            this.maxRetryForUnresponsiveNode = it;
+            Iterator<Map<String, BackPressureRouting>> iter = backpressureMuter.values().iterator();
+            while (iter.hasNext()) {
+                Map<String, BackPressureRouting> entry = iter.next();
+                entry.values().forEach(v -> v.setMaxRetryForUnresponsiveNode(it));
+            }
+        };
+        Consumer<TimeValue> backOffMinutesConsumer = it -> {
+            this.mutePeriod = it;
+            Iterator<Map<String, BackPressureRouting>> iter = backpressureMuter.values().iterator();
+            while (iter.hasNext()) {
+                Map<String, BackPressureRouting> entry = iter.next();
+                entry.values().forEach(v -> v.setMutePeriod(it));
+            }
+        };
+        settingUpdateConsumers.put(MAX_RETRY_FOR_UNRESPONSIVE_NODE, maxRetryForUnresponsiveNodeConsumer);
+        settingUpdateConsumers.put(BACKOFF_MINUTES, backOffMinutesConsumer);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
     }
 
     /**

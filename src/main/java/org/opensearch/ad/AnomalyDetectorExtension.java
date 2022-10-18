@@ -40,11 +40,12 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.client.Client;
+import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
@@ -57,14 +58,13 @@ import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestM
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import io.protostuff.LinkedBuffer;
 import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
-
-import com.google.common.collect.ImmutableList;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 public class AnomalyDetectorExtension implements Extension {
 
@@ -124,18 +124,15 @@ public class AnomalyDetectorExtension implements Extension {
      * @param threadPool A service to allow retrieving an executor to run an async action
      * @param environment the environment for path and setting configurations
      */
-    public Collection<Object> createComponents(
-        SDKClient sdkClient,
-        ClusterService clusterService,
-        ThreadPool threadPool
-    ) {
+    public Collection<Object> createComponents(SDKClient sdkClient, ClusterService clusterService, ThreadPool threadPool) {
         EnabledSetting.getInstance().init(clusterService);
         /* @anomaly-detection.create-detector
         NumericSetting.getInstance().init(clusterService);
         this.client = client;
         this.threadPool = threadPool;
         */
-        Client client = sdkClient.initializeClient(this.getExtensionSettings().getHostAddress(), Integer.parseInt(this.getExtensionSettings().getHostPort()));
+        OpenSearchClient client = sdkClient
+            .initializeClient(this.getExtensionSettings().getHostAddress(), Integer.parseInt(this.getExtensionSettings().getHostPort()));
         TransportService transportService = extensionsRunner.extensionTransportService;
         Settings settings = extensionsRunner.sendEnvironmentSettingsRequest(transportService);
         /* @anomaly-detection.create-detector
@@ -193,12 +190,12 @@ public class AnomalyDetectorExtension implements Extension {
 
         NodeStateManager stateManager = new NodeStateManager(
             client,
-            null,
             settings,
             clientUtil,
             getClock(),
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
+            transportService,
+            extensionsRunner
         );
 
         FeatureManager featureManager = new FeatureManager(
@@ -268,7 +265,6 @@ public class AnomalyDetectorExtension implements Extension {
             heapSizeBytes,
             AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
             AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-            clusterService,
             random,
             adCircuitBreakerService,
             threadPool,
@@ -283,7 +279,9 @@ public class AnomalyDetectorExtension implements Extension {
             CommonName.CHECKPOINT_INDEX_NAME,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             stateManager,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            transportService,
+            extensionsRunner
         );
         /* @anomaly-detection.create-detector
         EntityCache cache = new PriorityCache(
@@ -438,7 +436,7 @@ public class AnomalyDetectorExtension implements Extension {
         */
         // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
         // ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
-        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, modelManager);
+        HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, modelManager, transportService, extensionsRunner);
         /* @anomaly-detection.create-detector
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
         

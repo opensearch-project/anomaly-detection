@@ -42,7 +42,9 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 
 public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, BulkRequest, BulkResponse> {
     private static final Logger LOG = LogManager.getLogger(CheckpointWriteWorker.class);
@@ -93,6 +95,56 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
             CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
             stateTtl,
             stateManager
+        );
+        this.checkpoint = checkpoint;
+        this.indexName = indexName;
+        this.checkpointInterval = checkpointInterval;
+    }
+
+    public CheckpointWriteWorker(
+        long heapSizeInBytes,
+        int singleRequestSizeInBytes,
+        Setting<Float> maxHeapPercentForQueueSetting,
+        Random random,
+        ADCircuitBreakerService adCircuitBreakerService,
+        ThreadPool threadPool,
+        Settings settings,
+        float maxQueuedTaskRatio,
+        Clock clock,
+        float mediumSegmentPruneRatio,
+        float lowSegmentPruneRatio,
+        int maintenanceFreqConstant,
+        Duration executionTtl,
+        CheckpointDao checkpoint,
+        String indexName,
+        Duration checkpointInterval,
+        NodeStateManager stateManager,
+        Duration stateTtl,
+        TransportService transportService,
+        ExtensionsRunner extensionsRunner
+    )
+        throws Exception {
+        super(
+            WORKER_NAME,
+            heapSizeInBytes,
+            singleRequestSizeInBytes,
+            maxHeapPercentForQueueSetting,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            maxQueuedTaskRatio,
+            clock,
+            mediumSegmentPruneRatio,
+            lowSegmentPruneRatio,
+            maintenanceFreqConstant,
+            CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
+            executionTtl,
+            CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+            stateTtl,
+            stateManager,
+            transportService,
+            extensionsRunner
         );
         this.checkpoint = checkpoint;
         this.indexName = indexName;

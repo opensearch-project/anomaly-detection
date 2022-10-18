@@ -159,9 +159,9 @@ import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.UpdateByQueryAction;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
-import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
@@ -272,7 +272,6 @@ public class ADTaskManager {
         TransportService transportService,
         ClusterService clusterService,
         Client client,
-        NamedXContentRegistry xContentRegistry,
         AnomalyDetectionIndices detectionIndices,
         DiscoveryNodeFilterer nodeFilter,
         HashRing hashRing,
@@ -280,7 +279,8 @@ public class ADTaskManager {
         ThreadPool threadPool,
         Settings settings,
         ExtensionsRunner extensionsRunner
-    ) throws Exception {
+    )
+        throws Exception {
         this.client = client;
         this.detectionIndices = detectionIndices;
         this.xContentRegistry = null;
@@ -302,13 +302,13 @@ public class ADTaskManager {
             .build();
 
         Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
-        Consumer<Integer> maxOldAdTaskDocsPerDetectorConsumer = it -> maxOldAdTaskDocsPerDetector = it;
-        Consumer<Integer> batchTaskPieceIntervalSecondsConsumer = it -> pieceIntervalSeconds = it;
-        Consumer<Boolean> deleteADResultWhenDeleteDetectorConsumer = it -> deleteADResultWhenDeleteDetector = it;
-        Consumer<Integer> maxAdBatchTaskPerNodeConsumer = it -> maxAdBatchTaskPerNode = it;
-        Consumer<Integer> maxRunningEntitiesPerDetectorConsumer = it -> maxRunningEntitiesPerDetector = it;
+        Consumer<Integer> maxOldAdTaskDocsPerDetectorConsumer = it -> this.maxOldAdTaskDocsPerDetector = it;
+        Consumer<Integer> batchTaskPieceIntervalSecondsConsumer = it -> this.pieceIntervalSeconds = it;
+        Consumer<Boolean> deleteADResultWhenDeleteDetectorConsumer = it -> this.deleteADResultWhenDeleteDetector = it;
+        Consumer<Integer> maxAdBatchTaskPerNodeConsumer = it -> this.maxAdBatchTaskPerNode = it;
+        Consumer<Integer> maxRunningEntitiesPerDetectorConsumer = it -> this.maxRunningEntitiesPerDetector = it;
         Consumer<TimeValue> requestTimeoutConsumer = it -> {
-            transportRequestOptions = TransportRequestOptions
+            this.transportRequestOptions = TransportRequestOptions
                 .builder()
                 .withType(TransportRequestOptions.Type.REG)
                 .withTimeout(it)

@@ -13,8 +13,11 @@ package org.opensearch.ad.ratelimit;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,7 +29,9 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 
 /**
  *
@@ -82,6 +87,58 @@ public abstract class BatchWorker<RequestType extends QueuedRequest, BatchReques
         );
         this.batchSize = batchSizeSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(batchSizeSetting, it -> batchSize = it);
+    }
+
+    public BatchWorker(
+        String queueName,
+        long heapSize,
+        int singleRequestSize,
+        Setting<Float> maxHeapPercentForQueueSetting,
+        Random random,
+        ADCircuitBreakerService adCircuitBreakerService,
+        ThreadPool threadPool,
+        Settings settings,
+        float maxQueuedTaskRatio,
+        Clock clock,
+        float mediumSegmentPruneRatio,
+        float lowSegmentPruneRatio,
+        int maintenanceFreqConstant,
+        Setting<Integer> concurrencySetting,
+        Duration executionTtl,
+        Setting<Integer> batchSizeSetting,
+        Duration stateTtl,
+        NodeStateManager nodeStateManager,
+        TransportService transportService,
+        ExtensionsRunner extensionsRunner
+    )
+        throws Exception {
+        super(
+            queueName,
+            heapSize,
+            singleRequestSize,
+            maxHeapPercentForQueueSetting,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            settings,
+            maxQueuedTaskRatio,
+            clock,
+            mediumSegmentPruneRatio,
+            lowSegmentPruneRatio,
+            maintenanceFreqConstant,
+            concurrencySetting,
+            executionTtl,
+            stateTtl,
+            nodeStateManager,
+            transportService,
+            extensionsRunner
+        );
+        this.batchSize = batchSizeSetting.get(settings);
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Integer> batchSizeSettingConsumer = it -> this.batchSize = it;
+        settingUpdateConsumers.put(batchSizeSetting, batchSizeSettingConsumer);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
     }
 
     /**

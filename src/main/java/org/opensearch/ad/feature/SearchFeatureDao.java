@@ -32,8 +32,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Consumer;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -171,7 +171,8 @@ public class SearchFeatureDao extends AbstractRetriever {
         ClusterService clusterService,
         int minimumDocCount,
         ExtensionsRunner extensionsRunner
-    ) throws Exception {
+    )
+        throws Exception {
         this(
             client,
             transportService,
@@ -201,22 +202,23 @@ public class SearchFeatureDao extends AbstractRetriever {
         int pageSize,
         long previewTimeoutInMilliseconds,
         ExtensionsRunner extensionsRunner
-    ) throws Exception {
+    )
+        throws Exception {
         this.client = client;
         this.interpolator = interpolator;
         this.xContent = null;
         this.clientUtil = clientUtil;
-        this.maxEntitiesForPreview = maxEntitiesForPreview; 
+        this.maxEntitiesForPreview = maxEntitiesForPreview;
         this.pageSize = pageSize;
         Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
         Consumer<Integer> maxEntitiesForPreviewConsumer = it -> this.maxEntitiesForPreview = it;
         Consumer<Integer> pageSizeConsumer = it -> this.pageSize = it;
-        
+
         settingUpdateConsumers.put(MAX_ENTITIES_FOR_PREVIEW, maxEntitiesForPreviewConsumer);
         settingUpdateConsumers.put(PAGE_SIZE, pageSizeConsumer);
 
         extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
-        
+
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
         this.clock = clock;

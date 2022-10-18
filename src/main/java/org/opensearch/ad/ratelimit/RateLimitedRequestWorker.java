@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -29,6 +30,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -43,8 +45,10 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
+import org.opensearch.transport.TransportService;
 
 /**
  * HCAD can bombard Opensearch with “thundering herd” traffic, in which many entities
@@ -215,6 +219,59 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
             this.queueSize = (int) (this.heapSize * maxHeapPercentForQueue / this.singleRequestSize);
             LOG.info(new ParameterizedMessage("Queue size changed from [{}] to [{}]", oldQueueSize, queueSize));
         });
+
+        this.workerName = workerName;
+        this.random = random;
+        this.adCircuitBreakerService = adCircuitBreakerService;
+        this.threadPool = threadPool;
+        this.maxQueuedTaskRatio = maxQueuedTaskRatio;
+        this.clock = clock;
+        this.mediumRequestQueuePruneRatio = mediumRequestQueuePruneRatio;
+        this.lowRequestQueuePruneRatio = lowRequestQueuePruneRatio;
+
+        this.lastSelectedRequestQueueId = null;
+        this.requestQueues = new ConcurrentSkipListMap<>();
+        this.cooldownStart = Instant.MIN;
+        this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
+        this.maintenanceFreqConstant = maintenanceFreqConstant;
+        this.stateTtl = stateTtl;
+        this.nodeStateManager = nodeStateManager;
+    }
+
+    public RateLimitedRequestWorker(
+        String workerName,
+        long heapSizeInBytes,
+        int singleRequestSizeInBytes,
+        Setting<Float> maxHeapPercentForQueueSetting,
+        Random random,
+        ADCircuitBreakerService adCircuitBreakerService,
+        ThreadPool threadPool,
+        Settings settings,
+        float maxQueuedTaskRatio,
+        Clock clock,
+        float mediumRequestQueuePruneRatio,
+        float lowRequestQueuePruneRatio,
+        int maintenanceFreqConstant,
+        Duration stateTtl,
+        NodeStateManager nodeStateManager,
+        TransportService transportService,
+        ExtensionsRunner extensionsRunner
+    )
+        throws Exception {
+        this.heapSize = heapSizeInBytes;
+        this.singleRequestSize = singleRequestSizeInBytes;
+        this.maxHeapPercentForQueue = maxHeapPercentForQueueSetting.get(settings);
+        this.queueSize = (int) (heapSizeInBytes * maxHeapPercentForQueue / singleRequestSizeInBytes);
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Float> maxHeapPercentForQueueSettingConsumer = it -> {
+            int oldQueueSize = queueSize;
+            this.maxHeapPercentForQueue = it;
+            this.queueSize = (int) (this.heapSize * maxHeapPercentForQueue / this.singleRequestSize);
+            LOG.info(new ParameterizedMessage("Queue size changed from [{}] to [{}]", oldQueueSize, queueSize));
+        };
+        settingUpdateConsumers.put(maxHeapPercentForQueueSetting, maxHeapPercentForQueueSettingConsumer);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
 
         this.workerName = workerName;
         this.random = random;
