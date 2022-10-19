@@ -22,9 +22,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.ToDoubleFunction;
 
-import org.apache.http.HttpHeaders;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTaskProfile;
@@ -62,7 +63,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return getAnomalyDetector(detectorId, header, false, returnTask, client);
     }
 
-    public ADTaskProfile getADTaskProfile(String detectorId) throws IOException {
+    public ADTaskProfile getADTaskProfile(String detectorId) throws IOException, ParseException {
         Response profileResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -99,7 +100,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         ToDoubleFunction<Integer> valueFunc,
         int ipSize,
         int categorySize
-    ) throws IOException {
+    ) throws IOException, ParseException {
         TestHelpers
             .makeRequest(
                 client(),
@@ -150,7 +151,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return bulkResponse;
     }
 
-    public ADTaskProfile parseADTaskProfile(Response profileResponse) throws IOException {
+    public ADTaskProfile parseADTaskProfile(Response profileResponse) throws IOException, ParseException {
         String profileResult = EntityUtils.toString(profileResponse.getEntity());
         XContentParser parser = TestHelpers.parser(profileResult);
         ADTaskProfile adTaskProfile = null;
@@ -166,7 +167,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return adTaskProfile;
     }
 
-    protected void ingestTestDataForHistoricalAnalysis(String indexName, int detectionIntervalInMinutes) throws IOException {
+    protected void ingestTestDataForHistoricalAnalysis(String indexName, int detectionIntervalInMinutes) throws IOException, ParseException {
         ingestSimpleMockLog(indexName, 10, 3000, detectionIntervalInMinutes, (i) -> {
             if (i % 500 == 0) {
                 return randomDoubleBetween(100, 1000, true);

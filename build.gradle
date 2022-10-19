@@ -136,7 +136,7 @@ configurations.all {
         force "joda-time:joda-time:${versions.joda}"
         force "com.fasterxml.jackson.core:jackson-core:2.13.4"
         force "commons-logging:commons-logging:${versions.commonslogging}"
-        force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
+        force "org.apache.httpcomponents:httpcore5:${versions.httpcore5}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
 
         force "org.mockito:mockito-core:2.25.0"
