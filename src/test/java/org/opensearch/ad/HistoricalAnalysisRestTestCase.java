@@ -24,8 +24,8 @@ import java.util.function.ToDoubleFunction;
 
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.ParseException;
-import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.message.BasicHeader;
 import org.junit.Before;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTaskProfile;
@@ -100,7 +100,8 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         ToDoubleFunction<Integer> valueFunc,
         int ipSize,
         int categorySize
-    ) throws IOException, ParseException {
+    ) throws IOException,
+        ParseException {
         TestHelpers
             .makeRequest(
                 client(),
@@ -167,7 +168,8 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return adTaskProfile;
     }
 
-    protected void ingestTestDataForHistoricalAnalysis(String indexName, int detectionIntervalInMinutes) throws IOException, ParseException {
+    protected void ingestTestDataForHistoricalAnalysis(String indexName, int detectionIntervalInMinutes) throws IOException,
+        ParseException {
         ingestSimpleMockLog(indexName, 10, 3000, detectionIntervalInMinutes, (i) -> {
             if (i % 500 == 0) {
                 return randomDoubleBetween(100, 1000, true);
