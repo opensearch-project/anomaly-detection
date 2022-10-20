@@ -372,7 +372,7 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
-String bwcVersion = "2.1.0.0"
+String bwcVersion = "2.4.0.0"
 String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
 String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
@@ -382,7 +382,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["2.1.0", opensearch_version]
+            versions = ["2.4.0", opensearch_version]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override
