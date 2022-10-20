@@ -14,15 +14,19 @@ package org.opensearch.ad;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE;
 
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -59,16 +63,19 @@ public class MemoryTracker {
      * @param jvmService Service providing jvm info
      * @param modelMaxSizePercentage Percentage of heap for the max size of a model
      * @param modelDesiredSizePercentage percentage of heap for the desired size of a model
-     * @param clusterService Cluster service object
      * @param adCircuitBreakerService Memory circuit breaker
+     * @param transportService The TransportService defining the connection to OpenSearch
+     * @param extensionsRunner Primary runner of this extension
      */
     public MemoryTracker(
         JvmService jvmService,
         double modelMaxSizePercentage,
         double modelDesiredSizePercentage,
-        ClusterService clusterService,
-        ADCircuitBreakerService adCircuitBreakerService
-    ) {
+        ADCircuitBreakerService adCircuitBreakerService,
+        TransportService transportService,
+        ExtensionsRunner extensionsRunner
+    )
+        throws Exception {
         this.totalMemoryBytes = 0;
         this.totalMemoryBytesByOrigin = new EnumMap<Origin, Long>(Origin.class);
         this.reservedMemoryBytes = 0;
@@ -76,9 +83,12 @@ public class MemoryTracker {
         this.heapSize = jvmService.info().getMem().getHeapMax().getBytes();
         this.heapLimitBytes = (long) (heapSize * modelMaxSizePercentage);
         this.desiredModelSize = (long) (heapSize * modelDesiredSizePercentage);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
+
+        Map<Setting<?>, Consumer<?>> settingUpdateConsumers = new HashMap<Setting<?>, Consumer<?>>();
+        Consumer<Double> modelMaxSizePercentageConsumer = it -> this.heapLimitBytes = (long) (heapSize * it);
+        settingUpdateConsumers.put(MODEL_MAX_SIZE_PERCENTAGE, modelMaxSizePercentageConsumer);
+        extensionsRunner.sendAddSettingsUpdateConsumerRequest(transportService, settingUpdateConsumers);
+
         this.thresholdModelBytes = 180_000;
         this.adCircuitBreakerService = adCircuitBreakerService;
     }

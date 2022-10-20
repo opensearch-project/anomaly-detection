@@ -68,10 +68,10 @@ import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.settings.Setting;
@@ -117,7 +117,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     static final String META = "_meta";
     private static final String SCHEMA_VERSION = "schema_version";
 
-    private ClusterService clusterService;
     private final Client client;
     private final AdminClient adminClient;
     private final ThreadPool threadPool;
@@ -148,6 +147,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     // result index mapping to valida custom index
     private Map<String, Object> AD_RESULT_FIELD_CONFIGS;
 
+    private TransportService transportService;
+    private ExtensionsRunner extensionsRunner;
+
     class IndexState {
         // keep track of whether the mapping version is up-to-date
         private Boolean mappingUpToDate;
@@ -167,84 +169,30 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * Constructor function
      *
      * @param client         OS client supports administrative actions
-     * @param clusterService OS cluster service
-     * @param threadPool     OS thread pool
-     * @param settings       OS cluster setting
-     * @param nodeFilter     Used to filter eligible nodes to host AD indices
-     * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
-     */
-    public AnomalyDetectionIndices(
-        Client client,
-        ClusterService clusterService,
-        ThreadPool threadPool,
-        Settings settings,
-        DiscoveryNodeFilterer nodeFilter,
-        int maxUpdateRunningTimes
-    ) {
-        this.client = client;
-        this.adminClient = client.admin();
-        this.clusterService = clusterService;
-        this.threadPool = threadPool;
-        this.clusterService.addLocalNodeMasterListener(this);
-        this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
-        this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings);
-        this.historyRetentionPeriod = AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings);
-        this.maxPrimaryShards = MAX_PRIMARY_SHARDS.get(settings);
-
-        this.nodeFilter = nodeFilter;
-
-        this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);
-
-        this.allMappingUpdated = false;
-        this.allSettingUpdated = false;
-        this.updateRunning = new AtomicBoolean(false);
-
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = it);
-
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
-            historyRolloverPeriod = it;
-            rescheduleRollover();
-        });
-        this.clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
-
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
-
-        this.settings = Settings.builder().put("index.hidden", true).build();
-
-        this.maxUpdateRunningTimes = maxUpdateRunningTimes;
-        this.updateRunningTimes = 0;
-
-        this.AD_RESULT_FIELD_CONFIGS = null;
-    }
-
-    /**
-     * Constructor function
-     *
-     * @param client         OS client supports administrative actions
-     * @param clusterService OS cluster service
      * @param threadPool     OS thread pool
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
+     * @param transportService The TransportService defining the connection to OpenSearch
+     * @param extensionsRunner Primary runner of this extension
      */
     public AnomalyDetectionIndices(
         Client client,
-        TransportService transportService,
-        ClusterService clusterService,
         ThreadPool threadPool,
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
         int maxUpdateRunningTimes,
+        TransportService transportService,
         ExtensionsRunner extensionsRunner
     )
         throws Exception {
         this.client = client;
         this.adminClient = client.admin();
-        this.clusterService = clusterService;
         this.threadPool = threadPool;
 
-        this.clusterService.addLocalNodeMasterListener(this);
+        this.transportService = transportService;
+        this.extensionsRunner = extensionsRunner;
+
+        // this.clusterService.addLocalNodeMasterListener(this);
 
         this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
         this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings);
@@ -281,6 +229,15 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.updateRunningTimes = 0;
 
         this.AD_RESULT_FIELD_CONFIGS = null;
+    }
+
+    /**
+     * Send a request to OpenSearch to retrieve the cluster state
+     *
+     * @return the cluster state of OpenSearch
+     */
+    private ClusterState getClusterState() {
+        return extensionsRunner.sendClusterStateRequest(transportService);
     }
 
     private void initResultMapping() throws IOException {
@@ -364,7 +321,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyDetectorIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        return getClusterState().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
     }
 
     /**
@@ -382,11 +339,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly result index exists
      */
     public boolean doesDefaultAnomalyResultIndexExist() {
-        return clusterService.state().metadata().hasAlias(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        return getClusterState().metadata().hasAlias(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
     }
 
     public boolean doesIndexExist(String indexName) {
-        return clusterService.state().metadata().hasIndex(indexName);
+        return getClusterState().metadata().hasIndex(indexName);
     }
 
     public <T> void initCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
@@ -489,7 +446,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 // failed to populate the field
                 return false;
             }
-            IndexMetadata indexMetadata = clusterService.state().metadata().index(resultIndex);
+            IndexMetadata indexMetadata = getClusterState().metadata().index(resultIndex);
             Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
             String propertyName = CommonName.PROPERTIES;
             if (!indexMapping.containsKey(propertyName) || !(indexMapping.get(propertyName) instanceof LinkedHashMap)) {
@@ -525,7 +482,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly state index exists
      */
     public boolean doesDetectorStateIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(CommonName.DETECTION_STATE_INDEX);
+        return getClusterState().getRoutingTable().hasIndex(CommonName.DETECTION_STATE_INDEX);
     }
 
     /**
@@ -534,27 +491,27 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if checkpoint index exists
      */
     public boolean doesCheckpointIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(CommonName.CHECKPOINT_INDEX_NAME);
+        return getClusterState().getRoutingTable().hasIndex(CommonName.CHECKPOINT_INDEX_NAME);
     }
 
     /**
      * Index exists or not
-     * @param clusterServiceAccessor Cluster service
+     * @param clusterState Cluster State
      * @param name Index name
      * @return true if the index exists
      */
-    public static boolean doesIndexExists(ClusterService clusterServiceAccessor, String name) {
-        return clusterServiceAccessor.state().getRoutingTable().hasIndex(name);
+    public static boolean doesIndexExists(ClusterState clusterState, String name) {
+        return clusterState.getRoutingTable().hasIndex(name);
     }
 
     /**
      * Alias exists or not
-     * @param clusterServiceAccessor Cluster service
+     * @param clusterState Cluster State
      * @param alias Alias name
      * @return true if the alias exists
      */
-    public static boolean doesAliasExists(ClusterService clusterServiceAccessor, String alias) {
-        return clusterServiceAccessor.state().metadata().hasAlias(alias);
+    public static boolean doesAliasExists(ClusterState clusterState, String alias) {
+        return clusterState.metadata().hasAlias(alias);
     }
 
     private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
@@ -761,7 +718,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     private void rescheduleRollover() {
-        if (clusterService.state().getNodes().isLocalNodeElectedMaster()) {
+        if (getClusterState().getNodes().isLocalNodeElectedMaster()) {
             if (scheduledRollover != null) {
                 scheduledRollover.cancel();
             }
@@ -1029,9 +986,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private void shouldUpdateIndex(ADIndex index, ActionListener<Boolean> thenDo) {
         boolean exists = false;
         if (index.isAlias()) {
-            exists = AnomalyDetectionIndices.doesAliasExists(clusterService, index.getIndexName());
+            exists = AnomalyDetectionIndices.doesAliasExists(getClusterState(), index.getIndexName());
         } else {
-            exists = AnomalyDetectionIndices.doesIndexExists(clusterService, index.getIndexName());
+            exists = AnomalyDetectionIndices.doesIndexExists(getClusterState(), index.getIndexName());
         }
         if (false == exists) {
             thenDo.onResponse(Boolean.FALSE);
@@ -1065,7 +1022,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     @SuppressWarnings("unchecked")
     private void shouldUpdateConcreteIndex(String concreteIndex, Integer newVersion, ActionListener<Boolean> thenDo) {
-        IndexMetadata indexMeataData = clusterService.state().getMetadata().indices().get(concreteIndex);
+        IndexMetadata indexMeataData = getClusterState().getMetadata().indices().get(concreteIndex);
         if (indexMeataData == null) {
             thenDo.onResponse(Boolean.FALSE);
             return;

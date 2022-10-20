@@ -39,7 +39,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.client.Client;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -74,7 +73,7 @@ public class AnomalyDetectorExtension implements Extension {
 
     private AnomalyDetectionIndices anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
-    private Client client;
+    private OpenSearchClient client;
     private ClusterService clusterService;
     private ThreadPool threadPool;
     private ADStats adStats;
@@ -131,9 +130,8 @@ public class AnomalyDetectorExtension implements Extension {
         this.client = client;
         this.threadPool = threadPool;
         */
-        OpenSearchClient client = sdkClient
-            .initializeClient(this.getExtensionSettings().getHostAddress(), Integer.parseInt(this.getExtensionSettings().getHostPort()));
-        TransportService transportService = extensionsRunner.extensionTransportService;
+        OpenSearchClient client = sdkClient.initializeClient("localhost", 9200);
+        TransportService transportService = extensionsRunner.getExtensionTransportService();
         Settings settings = extensionsRunner.sendEnvironmentSettingsRequest(transportService);
         /* @anomaly-detection.create-detector
         Throttler throttler = new Throttler(getClock());
@@ -144,12 +142,12 @@ public class AnomalyDetectorExtension implements Extension {
         // AnomalyDetectionIndices is Injected for IndexAnomalyDetectorTrasnportAction constructor
         this.anomalyDetectionIndices = new AnomalyDetectionIndices(
             client,
-            transportService,
             clusterService,
             threadPool,
             settings,
             nodeFilter,
             AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES,
+            transportService,
             extensionsRunner
         );
         this.clusterService = clusterService;
@@ -184,8 +182,9 @@ public class AnomalyDetectorExtension implements Extension {
             jvmService,
             modelMaxSizePercent,
             AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
-            clusterService,
-            adCircuitBreakerService
+            adCircuitBreakerService,
+            transportService,
+            extensionsRunner
         );
 
         NodeStateManager stateManager = new NodeStateManager(
