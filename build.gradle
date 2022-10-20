@@ -38,10 +38,10 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/2.4.0/20210930/linux/x64/builds/opensearch/plugins/' +
-                'opensearch-anomaly-detection-2.4.0.0.zip'
-        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/2.4.0/20210930/linux/x64/builds/opensearch/plugins/' +
-                'opensearch-job-scheduler-2.4.0.0.zip'
+        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/2.4.0/6240/linux/x64/tar/builds/' +
+                'opensearch/plugins/opensearch-anomaly-detection-2.4.0.0.zip'
+        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/2.4.0/6240/linux/x64/tar/builds/' +
+                'opensearch/plugins/opensearch-job-scheduler-2.4.0.0.zip'
 
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
