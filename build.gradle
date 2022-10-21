@@ -666,7 +666,7 @@ dependencies {
 
     // force Jackson version to avoid version conflict issue
     implementation "com.fasterxml.jackson.core:jackson-core:2.13.4"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.13.4"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.13.4.2"
     implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.4"
 
     // used for serializing/deserializing rcf models.
