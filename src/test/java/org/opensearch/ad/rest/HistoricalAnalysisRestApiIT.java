@@ -26,7 +26,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisRestTestCase;
@@ -279,7 +280,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         waitUntilTaskDone(detectorId);
     }
 
-    public void testSearchTasks() throws IOException, InterruptedException, IllegalAccessException {
+    public void testSearchTasks() throws IOException, InterruptedException, IllegalAccessException, ParseException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
         String detectorId = detector.getDetectorId();

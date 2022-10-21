@@ -13,11 +13,11 @@ package org.opensearch.ad.mock.transport;
 
 import java.io.IOException;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.transport.TransportRequest;
 
-public class MockADCancelTaskNodeRequest_1_0 extends BaseNodeRequest {
+public class MockADCancelTaskNodeRequest_1_0 extends TransportRequest {
     private String detectorId;
     private String userName;
 

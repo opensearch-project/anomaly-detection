@@ -29,10 +29,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.ToDoubleFunction;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHeaders;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.opensearch.ad.TestHelpers;
@@ -486,7 +487,7 @@ public class ADRestTestUtils {
         return adTaskProfile;
     }
 
-    public static ADTaskProfile getADTaskProfile(RestClient client, String detectorId) throws IOException {
+    public static ADTaskProfile getADTaskProfile(RestClient client, String detectorId) throws IOException, ParseException {
         Response profileResponse = TestHelpers
             .makeRequest(
                 client,
@@ -499,7 +500,7 @@ public class ADRestTestUtils {
         return parseADTaskProfile(profileResponse);
     }
 
-    public static ADTaskProfile parseADTaskProfile(Response profileResponse) throws IOException {
+    public static ADTaskProfile parseADTaskProfile(Response profileResponse) throws IOException, ParseException {
         String profileResult = EntityUtils.toString(profileResponse.getEntity());
         XContentParser parser = TestHelpers.parser(profileResult);
         ADTaskProfile adTaskProfile = null;

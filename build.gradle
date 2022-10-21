@@ -38,10 +38,15 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
-                'opensearch-anomaly-detection-1.1.0.0.zip'
-        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
-                'opensearch-job-scheduler-1.1.0.0.zip'
+        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/2.4.0/latest/linux/x64/tar/builds/' +
+                'opensearch/plugins/opensearch-anomaly-detection-2.4.0.0.zip'
+        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/2.4.0/latest/linux/x64/tar/builds/' +
+                'opensearch/plugins/opensearch-job-scheduler-2.4.0.0.zip'
+        bwcVersion = "2.4.0.0"
+        baseName = "adBwcCluster"
+        bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
+        bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
+        bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
 
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
@@ -136,7 +141,7 @@ configurations.all {
         force "joda-time:joda-time:${versions.joda}"
         force "com.fasterxml.jackson.core:jackson-core:2.13.4"
         force "commons-logging:commons-logging:${versions.commonslogging}"
-        force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
+        force "org.apache.httpcomponents:httpcore5:${versions.httpcore5}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
 
         force "org.mockito:mockito-core:2.25.0"
@@ -372,17 +377,11 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
-String bwcVersion = "1.1.0.0"
-String baseName = "adBwcCluster"
-String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
-String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
-String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
-
 2.times {i -> 
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
-            versions = ["1.1.0", opensearch_version]
+            versions = ["2.4.0", opensearch_version]
             numberOfNodes = 3
             plugin(provider(new Callable<RegularFile>(){
                 @Override

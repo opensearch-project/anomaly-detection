@@ -27,8 +27,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
@@ -448,7 +448,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     "GET",
                     TestHelpers.AD_BASE_DETECTORS_URI + "/_search",
                     ImmutableMap.of(),
-                    new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
+                    new StringEntity(search.toString(), ContentType.APPLICATION_JSON),
                     null
                 )
         );
@@ -462,7 +462,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/_search",
                 ImmutableMap.of(),
-                new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
+                new StringEntity(search.toString(), ContentType.APPLICATION_JSON),
                 null
             );
         assertEquals("Search anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(searchResponse));
@@ -640,7 +640,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     "POST",
                     TestHelpers.AD_BASE_RESULT_URI + "/_search",
                     ImmutableMap.of(),
-                    new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
+                    new StringEntity(search.toString(), ContentType.APPLICATION_JSON),
                     null
                 )
         );
@@ -654,7 +654,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "POST",
                 TestHelpers.AD_BASE_RESULT_URI + "/_search",
                 ImmutableMap.of(),
-                new NStringEntity(search.toString(), ContentType.APPLICATION_JSON),
+                new StringEntity(search.toString(), ContentType.APPLICATION_JSON),
                 null
             );
         assertEquals("Search anomaly result failed", RestStatus.OK, TestHelpers.restStatus(searchResponse));
@@ -666,7 +666,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 "POST",
                 TestHelpers.AD_BASE_RESULT_URI + "/_search",
                 ImmutableMap.of(),
-                new NStringEntity(searchAll.toString(), ContentType.APPLICATION_JSON),
+                new StringEntity(searchAll.toString(), ContentType.APPLICATION_JSON),
                 null
             );
         assertEquals("Search anomaly result failed", RestStatus.OK, TestHelpers.restStatus(searchAllResponse));
