@@ -42,6 +42,11 @@ buildscript {
                 'opensearch/plugins/opensearch-anomaly-detection-2.4.0.0.zip'
         bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/2.4.0/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-job-scheduler-2.4.0.0.zip'
+        bwcVersion = "2.4.0.0"
+        baseName = "adBwcCluster"
+        bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
+        bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
+        bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
 
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
@@ -371,12 +376,6 @@ task integTestRemote(type: RestIntegTestTask) {
         }
     }
 }
-
-String bwcVersion = "2.4.0.0"
-String baseName = "adBwcCluster"
-String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
-String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
-String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
 
 2.times {i -> 
     testClusters {
