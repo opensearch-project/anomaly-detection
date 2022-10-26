@@ -8,11 +8,42 @@ on:
       - "*"
 
 jobs:
+  windows-build:
+    strategy:
+      matrix:
+        java: [ 11, 17 ]
+
+    # Job name
+    name: Build and Test
+    # This job runs on Windows
+    runs-on: windows-latest
+
+    steps:
+      # This step uses the checkout Github action: https://github.com/actions/checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+      # This step uses the setup-java Github action: https://github.com/actions/setup-java
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+
+      - name: Build and Test
+        run: |
+          ./gradlew build -x integTest
+      - name: Publish to Maven Local
+        run: |
+          ./gradlew publishToMavenLocal
+
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
   Build-ad:
     strategy:
       matrix:
         java: [11,17]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin
@@ -30,7 +61,6 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
-          plugin_version=$(./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}')
           echo plugin_version $plugin_version
           ./gradlew assemble
           echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
