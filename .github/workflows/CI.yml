@@ -12,10 +12,11 @@ jobs:
     strategy:
       matrix:
         java: [11,17]
+        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Setup Java ${{ matrix.java }}
