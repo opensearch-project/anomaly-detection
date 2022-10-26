@@ -30,7 +30,7 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
-          plugin_version=`./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}'`
+          plugin_version=$(./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}')
           echo plugin_version $plugin_version
           ./gradlew assemble
           echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
