@@ -45,9 +45,8 @@ public class AnomalyDetectorExtension implements Extension {
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         List<ExtensionRestHandler> handler = null;
-        // Get the settings anc clusterService from createComponent
         try {
-            handler = List.of(new RestCreateDetectorAction(null, null));
+            handler = List.of(new RestCreateDetectorAction());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -110,7 +109,7 @@ public class AnomalyDetectorExtension implements Extension {
 
     public OpenSearchClient getClient() throws IOException {
         SDKClient sdkClient = new SDKClient();
-        OpenSearchClient client = sdkClient.initializeClient(settings.getHostAddress(), Integer.parseInt(settings.getHostPort()));
+        OpenSearchClient client = sdkClient.initializeClient("localhost", 9200);
         return client;
     }
 
