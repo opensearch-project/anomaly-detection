@@ -32,15 +32,19 @@ jobs:
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
+      - name: Multi Nodes Integration Testing
+        run: |
+          ./gradlew integTest -PnumNodes=3
 
   Build-ad-linux:
     strategy:
       matrix:
         java: [11,17]
+        os: [ubuntu-latest, macos-latest]
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Setup Java ${{ matrix.java }}
