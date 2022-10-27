@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -1010,7 +1011,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     // The checkpoint used for this test is from a single-stream detector
     public void testDeserializeRCFModelPreINIT() throws Exception {
         // Model in file 1_3_0_rcf_model_pre_init.json not passed initialization yet
-        String filePath = getClass().getResource("1_3_0_rcf_model_pre_init.json").getPath();
+        URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/1_3_0_rcf_model_pre_init.json").toURI();
+        String filePath = Paths.get(uri).toString();
         String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
         Map map = gson.fromJson(json, Map.class);
         String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
@@ -1023,7 +1025,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     // The checkpoint used for this test is from a single-stream detector
     public void testDeserializeRCFModelPostINIT() throws Exception {
         // Model in file rc1_model_single_running is from RCF-3.0-rc1
-        String filePath = getClass().getResource("rc1_model_single_running.json").getPath();
+        URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/rc1_model_single_running.json").toURI();
+        String filePath = Paths.get(uri).toString();
         String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
         Map map = gson.fromJson(json, Map.class);
         String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
@@ -1039,9 +1042,9 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     // The scores and grades in this method were produced from AD running with RCF3.0-rc1 dependency
     // and this test runs with the most recent RCF dependency that is being pulled by this project.
     public void testDeserializeTRCFModel() throws Exception {
-        // Model in file rc1_model_single_running is from RCF-3.0-rc1
-        String filePath = getClass().getResource("rc1_trcf_model_direct.json").getPath();
-        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
+        // Model in file rc1_trcf_model_direct is a checkpoint creatd by RCF-3.0-rc1
+        URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/rc1_trcf_model_direct.json").toURI();
+        String filePath = Paths.get(uri).toString();
         // For the parsing of .toTrcf to work I had to manually change "\u003d" in code back to =.
         // In the byte array it doesn't seem like this is an issue but whenever reading the byte array response into a file it
         // converts "=" to "\u003d" https://groups.google.com/g/google-gson/c/JDHUo9DWyyM?pli=1
