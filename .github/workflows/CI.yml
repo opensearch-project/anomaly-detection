@@ -53,7 +53,6 @@ jobs:
       # version = 2.4.0
       # plugin_version = 2.4.0.0
       # qualifier = SNAPSHOT
-
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
@@ -68,8 +67,6 @@ jobs:
           else
             docker_version=$version
           fi
-          # [[ -z $candidate_version ]] && candidate_version=$qualifier && qualifier=""
-
           echo plugin version plugin_version qualifier docker_version
           echo "($plugin) ($version) ($plugin_version) ($qualifier) ($docker_version)"
 
@@ -78,7 +75,7 @@ jobs:
           then
             echo "FROM opensearchstaging/opensearch:$docker_version" >> Dockerfile
             echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-anomaly-detection ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-anomaly-detection; fi" >> Dockerfile
-            echo "ADD anomaly-detection/build/distributions/$plugin /tmp/" >> Dockerfile
+            echo "ADD build/distributions/$plugin /tmp/" >> Dockerfile
             echo "RUN /usr/share/opensearch/bin/opensearch-plugin install --batch file:/tmp/$plugin" >> Dockerfile
             docker build -t opensearch-ad:test .
             echo "imagePresent=true" >> $GITHUB_ENV
