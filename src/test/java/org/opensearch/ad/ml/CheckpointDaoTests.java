@@ -1045,6 +1045,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         // Model in file rc1_trcf_model_direct is a checkpoint creatd by RCF-3.0-rc1
         URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/rc1_trcf_model_direct.json").toURI();
         String filePath = Paths.get(uri).toString();
+        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
         // For the parsing of .toTrcf to work I had to manually change "\u003d" in code back to =.
         // In the byte array it doesn't seem like this is an issue but whenever reading the byte array response into a file it
         // converts "=" to "\u003d" https://groups.google.com/g/google-gson/c/JDHUo9DWyyM?pli=1
