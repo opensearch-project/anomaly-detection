@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.auth.UserIdentity;
@@ -65,7 +67,7 @@ import com.google.common.collect.ImmutableList;
  *      in code rather than config it in anomaly-detection-state.json file.
  */
 public class AnomalyDetector implements Writeable, ToXContentObject {
-
+    private static final Logger logger = LogManager.getLogger(AnomalyDetector.class);
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
         AnomalyDetector.class,

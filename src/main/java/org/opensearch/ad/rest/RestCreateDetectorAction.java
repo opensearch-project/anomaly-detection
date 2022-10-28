@@ -1,6 +1,7 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTORS_INDEX_MAPPING_FILE;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.rest.RestRequest.Method.*;
 import static org.opensearch.rest.RestStatus.OK;
 
@@ -8,6 +9,7 @@ import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -16,13 +18,15 @@ import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
+import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.client.RequestOptions;
 import org.opensearch.client.json.JsonpMapper;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.TypeMapping;
+import org.opensearch.client.opensearch.core.IndexRequest;
+import org.opensearch.client.opensearch.core.IndexResponse;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.CreateIndexResponse;
 import org.opensearch.common.settings.Settings;
@@ -30,10 +34,19 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
-import org.opensearch.rest.RestHandler.Route;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.NestedQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestRequest.Method;
 import org.opensearch.sdk.ExtensionRestHandler;
+import org.opensearch.search.aggregations.BaseAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.filter.InternalFilter;
+import org.opensearch.search.aggregations.metrics.InternalSum;
+import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
@@ -68,28 +81,85 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
         return Resources.toString(url, Charsets.UTF_8);
     }
 
-    private void indexAnomalyDetector(String detectorId, AnomalyDetector anomalyDetector) throws IOException {
-//        AnomalyDetector detector = new AnomalyDetector(
-//                anomalyDetector.getDetectorId(),
-//                anomalyDetector.getVersion(),
-//                anomalyDetector.getName(),
-//                anomalyDetector.getDescription(),
-//                anomalyDetector.getTimeField(),
-//                anomalyDetector.getIndices(),
-//                anomalyDetector.getFeatureAttributes(),
-//                anomalyDetector.getFilterQuery(),
-//                anomalyDetector.getDetectionInterval(),
-//                anomalyDetector.getWindowDelay(),
-//                anomalyDetector.getShingleSize(),
-//                anomalyDetector.getUiMetadata(),
-//                anomalyDetector.getSchemaVersion(),
-//                Instant.now(),
-//                anomalyDetector.getCategoryField(),
-//                null,
-//                anomalyDetector.getResultIndex()
-//        );
+    private IndexResponse indexAnomalyDetector(AnomalyDetector anomalyDetector) throws IOException {
+        AnomalyDetector detector = new AnomalyDetector(
+            anomalyDetector.getName(),
+            anomalyDetector.getVersion(),
+            anomalyDetector.getName(),
+            anomalyDetector.getDescription(),
+            anomalyDetector.getTimeField(),
+            anomalyDetector.getIndices(),
+            anomalyDetector.getFeatureAttributes(),
+            anomalyDetector.getFilterQuery(),
+            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getWindowDelay(),
+            anomalyDetector.getShingleSize(),
+            anomalyDetector.getUiMetadata(),
+            anomalyDetector.getSchemaVersion(),
+            Instant.now(),
+            anomalyDetector.getCategoryField(),
+            null,
+            anomalyDetector.getResultIndex()
+        );
 
+        IndexRequest<AnomalyDetector> indexRequest = new IndexRequest.Builder<AnomalyDetector>()
+            .index(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+            .id("1")
+            .document(detector)
+            .build();
+        IndexResponse indexResponse = sdkClient.index(indexRequest);
+        return indexResponse;
 
+    }
+
+    public List<NamedXContentRegistry.Entry> getNamedXWriteables() {
+        List<NamedXContentRegistry.Entry> entries = new ArrayList<>();
+        entries.add(AnomalyDetector.XCONTENT_REGISTRY);
+        entries.add(AnomalyResult.XCONTENT_REGISTRY);
+        entries.add(DetectorInternalState.XCONTENT_REGISTRY);
+        entries
+            .add(
+                registerQuery(
+                    new SearchPlugin.QuerySpec<>(NestedQueryBuilder.NAME, NestedQueryBuilder::new, NestedQueryBuilder::fromXContent)
+                )
+            );
+        entries
+            .add(registerQuery(new SearchPlugin.QuerySpec<>(BoolQueryBuilder.NAME, BoolQueryBuilder::new, BoolQueryBuilder::fromXContent)));
+        entries
+            .add(
+                registerAggregation(
+                    new SearchPlugin.AggregationSpec(SumAggregationBuilder.NAME, SumAggregationBuilder::new, SumAggregationBuilder.PARSER)
+                        .addResultReader(InternalSum::new)
+                )
+            );
+
+        entries
+            .add(
+                registerAggregation(
+                    new SearchPlugin.AggregationSpec(
+                        FilterAggregationBuilder.NAME,
+                        FilterAggregationBuilder::new,
+                        FilterAggregationBuilder::parse
+                    ).addResultReader(InternalFilter::new)
+                )
+            );
+        entries
+            .add(
+                registerQuery(new SearchPlugin.QuerySpec<>(RangeQueryBuilder.NAME, RangeQueryBuilder::new, RangeQueryBuilder::fromXContent))
+            );
+        return entries;
+
+    }
+
+    private NamedXContentRegistry.Entry registerQuery(SearchPlugin.QuerySpec<?> spec) {
+        return new NamedXContentRegistry.Entry(QueryBuilder.class, spec.getName(), (p, c) -> spec.getParser().fromXContent(p));
+    }
+
+    private NamedXContentRegistry.Entry registerAggregation(SearchPlugin.AggregationSpec spec) {
+        return new NamedXContentRegistry.Entry(BaseAggregationBuilder.class, spec.getName(), (p, c) -> {
+            String name = (String) c;
+            return spec.getParser().parse(p, name);
+        });
     }
 
     private CreateIndexRequest initAnomalyDetectorIndex() throws FileNotFoundException {
@@ -123,7 +193,9 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
         }
         Method method = request.method();
 
-        NamedXContentRegistry xContentRegistry = NamedXContentRegistry.EMPTY;
+        NamedXContentRegistry xContentRegistryAD = new NamedXContentRegistry(getNamedXWriteables());
+        logger.info("XcontentResgistry {}", xContentRegistryAD);
+        NamedXContentRegistry xContentRegistry = xContentRegistryAD;
         XContentParser parser = null;
         try {
             parser = request.contentParser(xContentRegistry);
@@ -131,23 +203,16 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
             e.printStackTrace();
         }
 
-        String detectorId = null;
-        try {
-            detectorId = (String) parser.mapOrdered().get("name");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        logger.info("AnomalyDetector {} action for detectorId {}", method, detectorId);
         AnomalyDetector detector = null;
         try {
-            detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
-        } catch (IOException e) {
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+            detector = AnomalyDetector.parse(parser);
+            logger.info("Detector {}", detector.getName());
+        } catch (Exception e) {
             logger.info("Exception", e);
             e.printStackTrace();
         }
 
-        logger.info("DETECTOR PRINT {}", detector.getDetectorId());
         CreateIndexRequest createIndexRequest = null;
         try {
             createIndexRequest = initAnomalyDetectorIndex();
@@ -160,10 +225,11 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
         try {
             CreateIndexResponse createIndexResponse = sdkClient.indices().create(createIndexRequest);
             if (createIndexResponse.acknowledged()) {
-                indexAnomalyDetector(detectorId, detector);
+                IndexResponse indexResponse = indexAnomalyDetector(detector);
+                logger.info("CREATED DETECTOR FOR {}", indexResponse.index());
             }
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.info("Exception", e);
             e.printStackTrace();
         }
