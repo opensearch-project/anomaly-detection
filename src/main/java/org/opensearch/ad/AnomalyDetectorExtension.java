@@ -14,6 +14,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.*;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
@@ -45,8 +46,9 @@ public class AnomalyDetectorExtension implements Extension {
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         List<ExtensionRestHandler> handler = null;
+        Settings settings = Settings.builder().put("deprecated.foo", true).build();
         try {
-            handler = List.of(new RestCreateDetectorAction());
+            handler = List.of(new RestCreateDetectorAction(settings));
         } catch (IOException e) {
             e.printStackTrace();
         }
