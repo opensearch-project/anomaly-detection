@@ -76,5 +76,5 @@ jobs:
             echo "Security plugin is available"
             ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster" -Dhttps=true -Duser=admin -Dpassword=admin
           else
-            echo "Security plugin is NOT available"
+            echo "Security plugin is NOT available, skipping integration tests"
           fi
