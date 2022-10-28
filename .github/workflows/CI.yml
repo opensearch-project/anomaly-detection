@@ -8,38 +8,15 @@ on:
       - "*"
 
 jobs:
-  Build-ad-windows:
-    strategy:
-      matrix:
-        java: [ 11, 17 ]
-    name: Build and Test Anomaly Detection Plugin on Windows
-    runs-on: windows-latest
-    steps:
-      - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v1
-        with:
-          java-version: ${{ matrix.java }}
-      # checkout Anomaly Detection
-      - name: Checkout Anomaly Detection
-        uses: actions/checkout@v2
-
-      - name: Build and Run Tests
-        run: |
-          ./gradlew.bat build
-      - name: Publish to Maven Local
-        run: |
-          ./gradlew publishToMavenLocal
-      - name: Multi Nodes Integration Testing
-        run: |
-          ./gradlew integTest -PnumNodes=3
   Build-ad:
     strategy:
       matrix:
         java: [11,17]
+        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Setup Java ${{ matrix.java }}
