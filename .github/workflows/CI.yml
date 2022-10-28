@@ -29,7 +29,9 @@ jobs:
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
-
+      - name: Multi Nodes Integration Testing
+        run: |
+          ./gradlew integTest -PnumNodes=3
   Build-ad:
     strategy:
       matrix:
