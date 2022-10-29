@@ -773,9 +773,9 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
 
     // force Jackson version to avoid version conflict issue
-//    implementation "com.fasterxml.jackson.core:jackson-core:2.13.4"
-//    implementation "com.fasterxml.jackson.core:jackson-databind:2.13.4.2"
-//    implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.4"
+//    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+//    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
+//    implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.4"
 
     // used for serializing/deserializing rcf models.
