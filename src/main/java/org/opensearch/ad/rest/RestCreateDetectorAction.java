@@ -1,5 +1,6 @@
 package org.opensearch.ad.rest;
 
+import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTORS_INDEX_MAPPING_FILE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.rest.RestRequest.Method.*;
@@ -22,16 +23,17 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.json.JsonpMapper;
-import org.opensearch.client.node.NodeClient;
+import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.core.IndexRequest;
 import org.opensearch.client.opensearch.core.IndexResponse;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.CreateIndexResponse;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -39,8 +41,9 @@ import org.opensearch.index.query.NestedQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.plugins.SearchPlugin;
-import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestHandler.Route;
 import org.opensearch.rest.RestRequest.Method;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.search.aggregations.BaseAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
@@ -48,28 +51,17 @@ import org.opensearch.search.aggregations.bucket.filter.InternalFilter;
 import org.opensearch.search.aggregations.metrics.InternalSum;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import jakarta.json.stream.JsonParser;
 
-public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction implements ExtensionRestHandler {
+public class RestCreateDetectorAction implements ExtensionRestHandler {
     private final Logger logger = LogManager.getLogger(RestCreateDetectorAction.class);
     private AnomalyDetectorExtension anomalyDetectorExtension = new AnomalyDetectorExtension();
     private OpenSearchClient sdkClient = anomalyDetectorExtension.getClient();
 
-    public RestCreateDetectorAction(Settings settings) throws IOException {
-        super(settings, null);
-    }
-
-    @Override
-    public String getName() {
-        return null;
-    }
-
-    @Override
-    protected RestChannelConsumer prepareRequest(RestRequest restRequest, NodeClient nodeClient) throws IOException {
-        return null;
-    }
+    public RestCreateDetectorAction() throws IOException {}
 
     @Override
     public List<Route> routes() {
@@ -103,7 +95,7 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
         );
 
         IndexRequest<AnomalyDetector> indexRequest = new IndexRequest.Builder<AnomalyDetector>()
-            .index(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+            .index(ANOMALY_DETECTORS_INDEX)
             .id("1")
             .document(detector)
             .build();
@@ -164,6 +156,7 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
 
     private CreateIndexRequest initAnomalyDetectorIndex() throws FileNotFoundException {
         JsonpMapper mapper = sdkClient._transport().jsonpMapper();
+        ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
         JsonParser parser = null;
         try {
             parser = mapper
@@ -176,7 +169,7 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
         CreateIndexRequest request = null;
         try {
             request = new CreateIndexRequest.Builder()
-                .index(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+                .index(ANOMALY_DETECTORS_INDEX)
                 .mappings(TypeMapping._DESERIALIZER.deserialize(parser, mapper))
                 .build();
         } catch (Exception e) {
@@ -193,9 +186,7 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
         }
         Method method = request.method();
 
-        NamedXContentRegistry xContentRegistryAD = new NamedXContentRegistry(getNamedXWriteables());
-        logger.info("XcontentResgistry {}", xContentRegistryAD);
-        NamedXContentRegistry xContentRegistry = xContentRegistryAD;
+        NamedXContentRegistry xContentRegistry = new NamedXContentRegistry(getNamedXWriteables());
         XContentParser parser = null;
         try {
             parser = request.contentParser(xContentRegistry);
@@ -207,7 +198,6 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
         try {
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             detector = AnomalyDetector.parse(parser);
-            logger.info("Detector {}", detector.getName());
         } catch (Exception e) {
             logger.info("Exception", e);
             e.printStackTrace();
@@ -221,19 +211,31 @@ public class RestCreateDetectorAction extends AbstractAnomalyDetectorAction impl
             e.printStackTrace();
         }
 
-        // Call markMappingUpToDate after createComponent has anomalyDetectionIndices object
+        XContentBuilder builder = null;
         try {
             CreateIndexResponse createIndexResponse = sdkClient.indices().create(createIndexRequest);
             if (createIndexResponse.acknowledged()) {
                 IndexResponse indexResponse = indexAnomalyDetector(detector);
-                logger.info("CREATED DETECTOR FOR {}", indexResponse.index());
+                try {
+                    builder = XContentBuilder.builder(XContentType.JSON.xContent());
+                    builder.startObject();
+                    builder.field("id", indexResponse.id());
+                    builder.field("version", indexResponse.version());
+                    builder.field("seqNo", indexResponse.seqNo());
+                    builder.field("primaryTerm", indexResponse.primaryTerm());
+                    builder.field("detector", detector);
+                    builder.field("status", RestStatus.CREATED);
+                    builder.endObject();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
         } catch (Exception e) {
             logger.info("Exception", e);
             e.printStackTrace();
         }
-        return new ExtensionRestResponse(request, OK, "Created AD index " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        return new ExtensionRestResponse(request, OK, builder);
     }
 
 }
