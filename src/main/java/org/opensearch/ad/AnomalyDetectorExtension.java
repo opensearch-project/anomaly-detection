@@ -142,7 +142,6 @@ public class AnomalyDetectorExtension implements Extension {
         // AnomalyDetectionIndices is Injected for IndexAnomalyDetectorTrasnportAction constructor
         this.anomalyDetectionIndices = new AnomalyDetectionIndices(
             client,
-            clusterService,
             threadPool,
             settings,
             nodeFilter,

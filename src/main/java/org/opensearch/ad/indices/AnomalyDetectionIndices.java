@@ -50,12 +50,9 @@ import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
-import org.opensearch.action.delete.DeleteRequest;
-import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.common.exception.EndRunException;
@@ -67,7 +64,12 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
+import org.opensearch.client.opensearch._types.Result;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch.core.DeleteRequest;
+import org.opensearch.client.opensearch.core.DeleteResponse;
+import org.opensearch.client.opensearch.core.IndexRequest;
+import org.opensearch.client.opensearch.core.IndexResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
@@ -79,8 +81,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.ToXContent;
-import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParser.Token;
@@ -117,7 +117,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     static final String META = "_meta";
     private static final String SCHEMA_VERSION = "schema_version";
 
-    private final Client client;
+    private final OpenSearchClient client;
     private final AdminClient adminClient;
     private final ThreadPool threadPool;
 
@@ -176,7 +176,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param extensionsRunner Primary runner of this extension
      */
     public AnomalyDetectionIndices(
-        Client client,
+        OpenSearchClient client,
         ThreadPool threadPool,
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
@@ -380,32 +380,27 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         try {
             if (!isValidResultIndexMapping(resultIndex)) {
                 logger.warn("Can't create detector with custom result index {} as its mapping is invalid", resultIndex);
-                listener.onFailure(new IllegalArgumentException(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex));
+                throw new IllegalArgumentException(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex);
                 return;
             }
 
             AnomalyResult dummyResult = AnomalyResult.getDummyResult();
-            IndexRequest indexRequest = new IndexRequest(resultIndex)
+            IndexRequest<AnomalyResult> indexRequest = new IndexRequest.Builder<AnomalyResult>()
                 .id(DUMMY_AD_RESULT_ID)
-                .source(dummyResult.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), ToXContent.EMPTY_PARAMS));
+                .index(resultIndex)
+                .document(dummyResult)
+                .build();
+            // dummyResult.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), ToXContent.EMPTY_PARAMS)
             // User may have no write permission on custom result index. Talked with security plugin team, seems no easy way to verify
             // if user has write permission. So just tried to write and delete a dummy anomaly result to verify.
-            client.index(indexRequest, ActionListener.wrap(response -> {
-                logger.debug("Successfully wrote dummy AD result to result index {}", resultIndex);
-                client.delete(new DeleteRequest(resultIndex).id(DUMMY_AD_RESULT_ID), ActionListener.wrap(deleteResponse -> {
-                    logger.debug("Successfully deleted dummy AD result from result index {}", resultIndex);
-                    function.execute();
-                }, ex -> {
-                    logger.error("Failed to delete dummy AD result from result index " + resultIndex, ex);
-                    listener.onFailure(ex);
-                }));
-            }, exception -> {
-                logger.error("Failed to write dummy AD result to result index " + resultIndex, exception);
-                listener.onFailure(exception);
-            }));
+            IndexResponse indexResponse = client.index(indexRequest);
+            logger.debug("Successfully wrote dummy AD result to result index {}", resultIndex);
+            DeleteRequest deleteRequest = new DeleteRequest.Builder().index(resultIndex).build();
+            DeleteResponse deleteResponse = client.delete(deleteRequest);
+            logger.debug("Successfully deleted dummy AD result from result index {}", resultIndex);
         } catch (Exception e) {
             logger.error("Failed to create detector with custom result index " + resultIndex, e);
-            listener.onFailure(e);
+            throw e;
         }
     }
 
@@ -792,41 +787,17 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 // delete all indices except the last one because the last one may contain docs newer than the retention period
                 candidates.remove(latestToDelete);
                 String[] toDelete = candidates.toArray(Strings.EMPTY_ARRAY);
-                DeleteIndexRequest deleteIndexRequest = new DeleteIndexRequest(toDelete);
-                adminClient.indices().delete(deleteIndexRequest, ActionListener.wrap(deleteIndexResponse -> {
-                    if (!deleteIndexResponse.isAcknowledged()) {
-                        logger
-                            .error(
-                                "Could not delete one or more Anomaly result indices: {}. Retrying one by one.",
-                                Arrays.toString(toDelete)
-                            );
-                        deleteIndexIteration(toDelete);
+                for (String index : toDelete) {
+                    DeleteRequest deleteRequest = new DeleteRequest.Builder().index(index).build();
+                    DeleteResponse deleteResponse = client.delete(deleteRequest);
+                    if (deleteResponse.result().jsonValue().equals("deleted")) {
+                        logger.info("Succeeded in deleting expired anomaly result index: {}.", index);
                     } else {
-                        logger.info("Succeeded in deleting expired anomaly result indices: {}.", Arrays.toString(toDelete));
+                        logger.error("Deleting {} does not succeed.", index);
                     }
-                }, exception -> {
-                    logger.error("Failed to delete expired anomaly result indices: {}.", Arrays.toString(toDelete));
-                    deleteIndexIteration(toDelete);
-                }));
+                }
             }
         }, exception -> { logger.error("Fail to delete result indices", exception); }));
-    }
-
-    private void deleteIndexIteration(String[] toDelete) {
-        for (String index : toDelete) {
-            DeleteIndexRequest singleDeleteRequest = new DeleteIndexRequest(index);
-            adminClient.indices().delete(singleDeleteRequest, ActionListener.wrap(singleDeleteResponse -> {
-                if (!singleDeleteResponse.isAcknowledged()) {
-                    logger.error("Retrying deleting {} does not succeed.", index);
-                }
-            }, exception -> {
-                if (exception instanceof IndexNotFoundException) {
-                    logger.info("{} was already deleted.", index);
-                } else {
-                    logger.error(new ParameterizedMessage("Retrying deleting {} does not succeed.", index), exception);
-                }
-            }));
-        }
     }
 
     public void update() {

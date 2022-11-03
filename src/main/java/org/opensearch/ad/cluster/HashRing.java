@@ -44,13 +44,12 @@ import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
 import org.opensearch.client.ClusterAdminClient;
+import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.routing.Murmur3HashFunction;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
@@ -96,44 +95,17 @@ public class HashRing {
     private ConcurrentLinkedQueue<Boolean> nodeChangeEvents;
 
     private final DiscoveryNodeFilterer nodeFilter;
-    private final ClusterService clusterService;
     // private final ADDataMigrator dataMigrator;
     private final Clock clock;
-    private final Client client;
+    private final OpenSearchClient client;
     private final ModelManager modelManager;
+    private final ExtensionsRunner extensionsRunner;
 
     public HashRing(
         DiscoveryNodeFilterer nodeFilter,
         Clock clock,
         Settings settings,
-        Client client,
-        ClusterService clusterService,
-        // ADDataMigrator dataMigrator,
-        ModelManager modelManager
-    ) {
-        this.nodeFilter = nodeFilter;
-        this.buildHashRingSemaphore = new Semaphore(1);
-        this.clock = clock;
-        this.coolDownPeriodForRealtimeAD = COOLDOWN_MINUTES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownPeriodForRealtimeAD = it);
-
-        this.lastUpdateForRealtimeAD = 0;
-        this.client = client;
-        this.clusterService = clusterService;
-        // this.dataMigrator = dataMigrator;
-        this.nodeAdVersions = new ConcurrentHashMap<>();
-        this.circles = new TreeMap<>();
-        this.circlesForRealtimeAD = new TreeMap<>();
-        this.hashRingInited = new AtomicBoolean(false);
-        this.nodeChangeEvents = new ConcurrentLinkedQueue<>();
-        this.modelManager = modelManager;
-    }
-
-    public HashRing(
-        DiscoveryNodeFilterer nodeFilter,
-        Clock clock,
-        Settings settings,
-        Client client,
+        OpenSearchClient client,
         // ADDataMigrator dataMigrator,
         ModelManager modelManager,
         TransportService transportService,
@@ -152,7 +124,6 @@ public class HashRing {
 
         this.lastUpdateForRealtimeAD = 0;
         this.client = client;
-        this.clusterService = null; // TODO : remove and replace calls for localNode with transport request api
         // this.dataMigrator = dataMigrator;
         this.nodeAdVersions = new ConcurrentHashMap<>();
         this.circles = new TreeMap<>();
@@ -160,6 +131,7 @@ public class HashRing {
         this.hashRingInited = new AtomicBoolean(false);
         this.nodeChangeEvents = new ConcurrentLinkedQueue<>();
         this.modelManager = modelManager;
+        this.extensionsRunner = extensionsRunner;
     }
 
     public boolean isHashRingInited() {
@@ -260,7 +232,7 @@ public class HashRing {
             throw new AnomalyDetectionException("Must get update hash ring semaphore before building AD hash ring");
         }
         try {
-            DiscoveryNode localNode = clusterService.localNode();
+            DiscoveryNode localNode = extensionsRunner.getOpensearchNode();
             if (removedNodeIds != null && removedNodeIds.size() > 0) {
                 LOG.info("Node removed: {}", Arrays.toString(removedNodeIds.toArray(new String[0])));
                 for (String nodeId : removedNodeIds) {
@@ -386,7 +358,7 @@ public class HashRing {
             circlesForRealtimeAD = newCircles;
             lastUpdateForRealtimeAD = clock.millis();
             LOG.info("Build AD version hash ring successfully");
-            String localNodeId = clusterService.localNode().getId();
+            String localNodeId = extensionsRunner.getOpensearchNode().getId();
             Set<String> modelIds = modelManager.getAllModelIds();
             for (String modelId : modelIds) {
                 Optional<DiscoveryNode> node = getOwningNodeWithSameLocalAdVersionForRealtimeAD(modelId);
@@ -481,7 +453,7 @@ public class HashRing {
         ActionListener<T> listener
     ) {
         buildCircles(ActionListener.wrap(r -> {
-            DiscoveryNode localNode = clusterService.localNode();
+            DiscoveryNode localNode = extensionsRunner.getOpensearchNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
             Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersionDirectly(modelId, adVersion, false);
             function.accept(owningNode);
@@ -490,7 +462,7 @@ public class HashRing {
 
     public Optional<DiscoveryNode> getOwningNodeWithSameLocalAdVersionForRealtimeAD(String modelId) {
         try {
-            DiscoveryNode localNode = clusterService.localNode();
+            DiscoveryNode localNode = extensionsRunner.getOpensearchNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
             Optional<DiscoveryNode> owningNode = getOwningNodeWithSameAdVersionDirectly(modelId, adVersion, true);
             // rebuild hash ring
@@ -514,7 +486,7 @@ public class HashRing {
 
     public <T> void getNodesWithSameLocalAdVersion(Consumer<DiscoveryNode[]> function, ActionListener<T> listener) {
         buildCircles(ActionListener.wrap(updated -> {
-            DiscoveryNode localNode = clusterService.localNode();
+            DiscoveryNode localNode = extensionsRunner.getOpensearchNode();
             Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
             Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion, false);
             if (!nodeAdVersions.containsKey(localNode.getId())) {
@@ -526,7 +498,7 @@ public class HashRing {
     }
 
     public DiscoveryNode[] getNodesWithSameLocalAdVersion() {
-        DiscoveryNode localNode = clusterService.localNode();
+        DiscoveryNode localNode = extensionsRunner.getOpensearchNode();
         Version adVersion = nodeAdVersions.containsKey(localNode.getId()) ? getAdVersion(localNode.getId()) : Version.CURRENT;
         Set<DiscoveryNode> nodes = getNodesWithSameAdVersion(adVersion, false);
         // rebuild hash ring
@@ -572,7 +544,7 @@ public class HashRing {
     public Optional<DiscoveryNode> getNodeByAddress(TransportAddress address) {
         if (address == null) {
             // If remote address of transport request is null, that means remote node is local node.
-            return Optional.of(clusterService.localNode());
+            return Optional.of(extensionsRunner.getOpensearchNode());
         }
         String ipAddress = getIpAddress(address);
         DiscoveryNode[] allNodes = nodeFilter.getAllNodes();

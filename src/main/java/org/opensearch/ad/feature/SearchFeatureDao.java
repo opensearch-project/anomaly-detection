@@ -39,8 +39,6 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.Interpolator;
@@ -49,13 +47,14 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.query_dsl.QueryBuilders;
+import org.opensearch.client.opensearch.core.SearchRequest;
+import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -89,7 +88,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
     // Dependencies
-    private final Client client;
+    private final OpenSearchClient client;
     private final NamedXContentRegistry xContent;
     private final Interpolator interpolator;
     private final ClientUtil clientUtil;
@@ -101,74 +100,11 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     // used for testing as we can mock clock
     public SearchFeatureDao(
-        Client client,
-        NamedXContentRegistry xContent,
-        Interpolator interpolator,
-        ClientUtil clientUtil,
-        Settings settings,
-        ClusterService clusterService,
-        int minimumDocCount,
-        Clock clock,
-        int maxEntitiesForPreview,
-        int pageSize,
-        long previewTimeoutInMilliseconds
-    ) {
-        this.client = client;
-        this.xContent = xContent;
-        this.interpolator = interpolator;
-        this.clientUtil = clientUtil;
-        this.maxEntitiesForPreview = maxEntitiesForPreview;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
-        this.pageSize = pageSize;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
-        this.minimumDocCountForPreview = minimumDocCount;
-        this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
-        this.clock = clock;
-    }
-
-    /**
-     * Constructor injection.
-     *
-     * @param client ES client for queries
-     * @param xContent ES XContentRegistry
-     * @param interpolator interpolator for missing values
-     * @param clientUtil utility for ES client
-     * @param settings ES settings
-     * @param clusterService ES ClusterService
-     * @param minimumDocCount minimum doc count required for an entity; used to
-     *   make sure an entity has enough samples for preview
-     */
-    public SearchFeatureDao(
-        Client client,
-        NamedXContentRegistry xContent,
-        Interpolator interpolator,
-        ClientUtil clientUtil,
-        Settings settings,
-        ClusterService clusterService,
-        int minimumDocCount
-    ) {
-        this(
-            client,
-            xContent,
-            interpolator,
-            clientUtil,
-            settings,
-            clusterService,
-            minimumDocCount,
-            Clock.systemUTC(),
-            MAX_ENTITIES_FOR_PREVIEW.get(settings),
-            PAGE_SIZE.get(settings),
-            PREVIEW_TIMEOUT_IN_MILLIS
-        );
-    }
-
-    public SearchFeatureDao(
-        Client client,
+        OpenSearchClient client,
         TransportService transportService,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
-        ClusterService clusterService,
         int minimumDocCount,
         ExtensionsRunner extensionsRunner
     )
@@ -179,7 +115,6 @@ public class SearchFeatureDao extends AbstractRetriever {
             interpolator,
             clientUtil,
             settings,
-            clusterService,
             minimumDocCount,
             Clock.systemUTC(),
             MAX_ENTITIES_FOR_PREVIEW.get(settings),
@@ -190,12 +125,11 @@ public class SearchFeatureDao extends AbstractRetriever {
     }
 
     public SearchFeatureDao(
-        Client client,
+        OpenSearchClient client,
         TransportService transportService,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
-        ClusterService clusterService,
         int minimumDocCount,
         Clock clock,
         int maxEntitiesForPreview,
@@ -239,7 +173,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         return clientUtil
-            .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
+            .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, null)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
             .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME))
@@ -253,15 +187,21 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener onResponse is called with the epoch time of the latset data under the detector
      */
     public void getLatestDataTime(AnomalyDetector detector, ActionListener<Optional<Long>> listener) {
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
-            .size(0);
-        SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
-            .search(
-                searchRequest,
-                ActionListener.wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure)
-            );
+        // MatchAllQueryBuilder query = QueryBuilders.matchAllQuery();
+        // SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+        // .query(query)
+        // .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
+        // .size(0);
+        SearchRequest searchRequest = new SearchRequest.Builder()
+            .query(q -> q.matchAll(m -> m))
+            .index(detector.getIndices().get(0))
+            .build();
+        // SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new
+        // String[0])).source(searchSourceBuilder);
+        SearchResponse<AnomalyDetector> searchResponse = client.search(searchRequest, AnomalyDetector.class);
+        ParseUtils.getLatestDataTime((SearchResponse) searchResponse);
+        // ActionListener.wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure)
+        // );
     }
 
     /**
@@ -592,7 +532,7 @@ public class SearchFeatureDao extends AbstractRetriever {
 
         // send throttled request: this request will clear the negative cache if the request finished within timeout
         return clientUtil
-            .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, client::search, detector)
+            .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, null, detector)
             .flatMap(resp -> parseResponse(resp, detector.getEnabledFeatureIds()));
     }
 
