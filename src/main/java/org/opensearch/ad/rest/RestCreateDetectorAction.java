@@ -3,7 +3,9 @@ package org.opensearch.ad.rest;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTORS_INDEX_MAPPING_FILE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.rest.RestRequest.Method.*;
+import static org.opensearch.rest.RestRequest.Method.POST;
+import static org.opensearch.rest.RestStatus.BAD_REQUEST;
+import static org.opensearch.rest.RestStatus.NOT_FOUND;
 import static org.opensearch.rest.RestStatus.OK;
 
 import java.io.*;
@@ -23,7 +25,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.json.JsonpMapper;
-import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.core.IndexRequest;
@@ -51,7 +52,6 @@ import org.opensearch.search.aggregations.bucket.filter.InternalFilter;
 import org.opensearch.search.aggregations.metrics.InternalSum;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import jakarta.json.stream.JsonParser;
@@ -60,8 +60,6 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
     private final Logger logger = LogManager.getLogger(RestCreateDetectorAction.class);
     private AnomalyDetectorExtension anomalyDetectorExtension = new AnomalyDetectorExtension();
     private OpenSearchClient sdkClient = anomalyDetectorExtension.getClient();
-
-    public RestCreateDetectorAction() throws IOException {}
 
     @Override
     public List<Route> routes() {
@@ -156,7 +154,7 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
 
     private CreateIndexRequest initAnomalyDetectorIndex() throws FileNotFoundException {
         JsonpMapper mapper = sdkClient._transport().jsonpMapper();
-        ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
+        // ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
         JsonParser parser = null;
         try {
             parser = mapper
@@ -186,33 +184,24 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
         }
         Method method = request.method();
 
+        if (!Method.POST.equals(method)) {
+            return new ExtensionRestResponse(
+                request,
+                NOT_FOUND,
+                "Extension REST action improperly configured to handle " + request.toString()
+            );
+        }
+
         NamedXContentRegistry xContentRegistry = new NamedXContentRegistry(getNamedXWriteables());
-        XContentParser parser = null;
+        XContentParser parser;
+        AnomalyDetector detector;
+        XContentBuilder builder = null;
+        CreateIndexRequest createIndexRequest;
         try {
             parser = request.contentParser(xContentRegistry);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        AnomalyDetector detector = null;
-        try {
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             detector = AnomalyDetector.parse(parser);
-        } catch (Exception e) {
-            logger.info("Exception", e);
-            e.printStackTrace();
-        }
-
-        CreateIndexRequest createIndexRequest = null;
-        try {
             createIndexRequest = initAnomalyDetectorIndex();
-        } catch (FileNotFoundException e) {
-            logger.info("File Not Found", e);
-            e.printStackTrace();
-        }
-
-        XContentBuilder builder = null;
-        try {
             CreateIndexResponse createIndexResponse = sdkClient.indices().create(createIndexRequest);
             if (createIndexResponse.acknowledged()) {
                 IndexResponse indexResponse = indexAnomalyDetector(detector);
@@ -230,10 +219,8 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
                     e.printStackTrace();
                 }
             }
-
         } catch (Exception e) {
-            logger.info("Exception", e);
-            e.printStackTrace();
+            return new ExtensionRestResponse(request, BAD_REQUEST, builder);
         }
         return new ExtensionRestResponse(request, OK, builder);
     }

@@ -21,8 +21,8 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.http.HttpHeaders;
-import org.apache.http.message.BasicHeader;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.message.BasicHeader;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;

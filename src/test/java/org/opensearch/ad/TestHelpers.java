@@ -11,7 +11,6 @@
 
 package org.opensearch.ad;
 
-import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
@@ -38,11 +37,10 @@ import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.nio.entity.NStringEntity;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
@@ -169,7 +167,7 @@ public class TestHelpers {
         String jsonEntity,
         List<Header> headers
     ) throws IOException {
-        HttpEntity httpEntity = Strings.isBlank(jsonEntity) ? null : new NStringEntity(jsonEntity, ContentType.APPLICATION_JSON);
+        HttpEntity httpEntity = Strings.isBlank(jsonEntity) ? null : new StringEntity(jsonEntity, ContentType.APPLICATION_JSON);
         return makeRequest(client, method, endpoint, params, httpEntity, headers);
     }
 
@@ -1396,11 +1394,11 @@ public class TestHelpers {
     }
 
     public static HttpEntity toHttpEntity(ToXContentObject object) throws IOException {
-        return new StringEntity(toJsonString(object), APPLICATION_JSON);
+        return new StringEntity(toJsonString(object), ContentType.APPLICATION_JSON);
     }
 
     public static HttpEntity toHttpEntity(String jsonString) throws IOException {
-        return new StringEntity(jsonString, APPLICATION_JSON);
+        return new StringEntity(jsonString, ContentType.APPLICATION_JSON);
     }
 
     public static String toJsonString(ToXContentObject object) throws IOException {

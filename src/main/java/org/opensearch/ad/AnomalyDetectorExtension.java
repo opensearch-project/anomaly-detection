@@ -14,11 +14,11 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.sdk.*;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
@@ -44,13 +44,7 @@ public class AnomalyDetectorExtension implements Extension {
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        List<ExtensionRestHandler> handler = null;
-        try {
-            handler = List.of(new RestCreateDetectorAction());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return handler;
+        return List.of(new RestCreateDetectorAction());
     }
 
     @Override
@@ -107,7 +101,7 @@ public class AnomalyDetectorExtension implements Extension {
         return settings;
     }
 
-    public OpenSearchClient getClient() throws IOException {
+    public OpenSearchClient getClient() {
         SDKClient sdkClient = new SDKClient();
         OpenSearchClient client = sdkClient.initializeClient("localhost", 9200);
         return client;

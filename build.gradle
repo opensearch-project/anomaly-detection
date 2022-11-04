@@ -129,7 +129,7 @@ configurations.all {
     resolutionStrategy {
         force "joda-time:joda-time:2.10.13"
         force "commons-logging:commons-logging:1.2"
-        force "org.apache.httpcomponents:httpcore:4.4.15"
+        force "org.apache.httpcomponents:httpcore5:5.1.4"
         force "commons-codec:commons-codec:1.15"
 
         force "org.mockito:mockito-core:2.25.0"
