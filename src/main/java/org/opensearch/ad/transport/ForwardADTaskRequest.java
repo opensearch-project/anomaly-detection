@@ -20,7 +20,6 @@ import java.util.Objects;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.cluster.ADVersionUtil;
 import org.opensearch.ad.common.exception.ADVersionException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.ADTask;
@@ -64,11 +63,8 @@ public class ForwardADTaskRequest extends ActionRequest {
         Integer availableTaskSlots,
         Version remoteAdVersion
     ) {
-        if (!ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
-            throw new ADVersionException(
-                detector.getDetectorId(),
-                "Can't forward AD task request to node running AD version " + remoteAdVersion
-            );
+        if (remoteAdVersion == null) {
+            throw new ADVersionException(detector.getDetectorId(), "Can't forward AD task request to node running null AD version ");
         }
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;

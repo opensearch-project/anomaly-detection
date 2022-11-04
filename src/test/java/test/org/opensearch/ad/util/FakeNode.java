@@ -28,7 +28,6 @@ import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.lucene.util.SetOnce;
-import org.opensearch.BwcTests;
 import org.opensearch.Version;
 import org.opensearch.action.admin.cluster.node.tasks.cancel.TransportCancelTasksAction;
 import org.opensearch.action.admin.cluster.node.tasks.list.TransportListTasksAction;
@@ -75,7 +74,7 @@ public class FakeNode implements Releasable {
             Settings.EMPTY,
             new MockNioTransport(
                 Settings.EMPTY,
-                BwcTests.V_1_1_0,
+                Version.V_2_1_0,
                 threadPool,
                 new NetworkService(Collections.emptyList()),
                 PageCacheRecycler.NON_RECYCLING_INSTANCE,
