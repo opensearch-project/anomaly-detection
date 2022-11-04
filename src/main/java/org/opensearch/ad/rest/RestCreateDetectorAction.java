@@ -152,9 +152,8 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
         });
     }
 
-    private CreateIndexRequest initAnomalyDetectorIndex() throws FileNotFoundException {
+    private CreateIndexRequest initAnomalyDetectorIndex() {
         JsonpMapper mapper = sdkClient._transport().jsonpMapper();
-        // ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
         JsonParser parser = null;
         try {
             parser = mapper

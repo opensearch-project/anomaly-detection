@@ -756,8 +756,8 @@ dependencies {
 //  Removed Common Utils dependency from AD
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch:opensearch-sdk-java:1.0.0-SNAPSHOT"
-    implementation 'org.opensearch.client:opensearch-rest-client:2.0.0'
-    implementation 'org.opensearch.client:opensearch-java:2.0.0'
+    implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
+    implementation "org.opensearch.client:opensearch-java:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
     implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
@@ -776,7 +776,6 @@ dependencies {
 //    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
 //    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
 //    implementation "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
-    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.4"
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
