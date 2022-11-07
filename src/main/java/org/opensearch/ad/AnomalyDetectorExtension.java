@@ -3,6 +3,7 @@ package org.opensearch.ad;
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -10,11 +11,15 @@ import java.util.stream.Stream;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionSettings;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
 
@@ -83,12 +88,23 @@ public class AnomalyDetectorExtension implements Extension {
         );
     }
 
+    @Override
+    public Collection<Object> createComponents(SDKClient sdkClient, ClusterService clusterService, ThreadPool threadPool) {
+        return null;
+    }
+
     private static ExtensionSettings initializeSettings() throws IOException {
         ExtensionSettings settings = Extension.readSettingsFromYaml(EXTENSION_SETTINGS_PATH);
         if (settings == null || settings.getHostAddress() == null || settings.getHostPort() == null) {
             throw new IOException("Failed to initialize Extension settings. No port bound.");
         }
         return settings;
+    }
+
+    public OpenSearchClient getClient() {
+        SDKClient sdkClient = new SDKClient();
+        OpenSearchClient client = sdkClient.initializeClient("localhost", 9200);
+        return client;
     }
 
     public static void main(String[] args) throws IOException {

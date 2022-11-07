@@ -129,7 +129,7 @@ configurations.all {
     resolutionStrategy {
         force "joda-time:joda-time:2.10.13"
         force "commons-logging:commons-logging:1.2"
-        force "org.apache.httpcomponents:httpcore:4.4.15"
+        force "org.apache.httpcomponents:httpcore5:5.1.4"
         force "commons-codec:commons-codec:1.15"
 
         force "org.mockito:mockito-core:2.25.0"
@@ -756,6 +756,8 @@ dependencies {
 //  Removed Common Utils dependency from AD
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch:opensearch-sdk-java:1.0.0-SNAPSHOT"
+    implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
+    implementation "org.opensearch.client:opensearch-java:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
     implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
