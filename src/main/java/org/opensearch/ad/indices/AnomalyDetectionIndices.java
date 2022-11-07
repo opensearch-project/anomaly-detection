@@ -23,8 +23,10 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_PRIMARY_SHARDS;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,10 +48,7 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
-import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
@@ -64,12 +63,19 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
+import org.opensearch.client.json.JsonpMapper;
+import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch._types.Result;
+import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.core.DeleteRequest;
 import org.opensearch.client.opensearch.core.DeleteResponse;
 import org.opensearch.client.opensearch.core.IndexRequest;
 import org.opensearch.client.opensearch.core.IndexResponse;
+import org.opensearch.client.opensearch.indices.Alias;
+import org.opensearch.client.opensearch.indices.CreateIndexRequest;
+import org.opensearch.client.opensearch.indices.CreateIndexResponse;
+import org.opensearch.client.opensearch.indices.IndexSettings;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
@@ -91,10 +97,15 @@ import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
+
+
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
+
+import jakarta.json.stream.JsonParser;
 
 /**
  * This class provides utility methods for various anomaly detection indices.
@@ -381,7 +392,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             if (!isValidResultIndexMapping(resultIndex)) {
                 logger.warn("Can't create detector with custom result index {} as its mapping is invalid", resultIndex);
                 throw new IllegalArgumentException(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex);
-                return;
             }
 
             AnomalyResult dummyResult = AnomalyResult.getDummyResult();
@@ -393,14 +403,13 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             // dummyResult.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), ToXContent.EMPTY_PARAMS)
             // User may have no write permission on custom result index. Talked with security plugin team, seems no easy way to verify
             // if user has write permission. So just tried to write and delete a dummy anomaly result to verify.
-            IndexResponse indexResponse = client.index(indexRequest);
+            client.index(indexRequest);
             logger.debug("Successfully wrote dummy AD result to result index {}", resultIndex);
             DeleteRequest deleteRequest = new DeleteRequest.Builder().index(resultIndex).build();
-            DeleteResponse deleteResponse = client.delete(deleteRequest);
+            client.delete(deleteRequest);
             logger.debug("Successfully deleted dummy AD result from result index {}", resultIndex);
         } catch (Exception e) {
             logger.error("Failed to create detector with custom result index " + resultIndex, e);
-            throw e;
         }
     }
 
@@ -509,28 +518,29 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         return clusterState.metadata().hasAlias(alias);
     }
 
-    private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
-        return ActionListener.wrap(createdResponse -> {
-            if (createdResponse.isAcknowledged()) {
+    private void markMappingUpToDate(ADIndex index, CreateIndexResponse createdResponse) {
+        try {
+            if (createdResponse.acknowledged()) {
                 IndexState indexStatetate = indexStates.computeIfAbsent(index, IndexState::new);
                 if (Boolean.FALSE.equals(indexStatetate.mappingUpToDate)) {
                     indexStatetate.mappingUpToDate = Boolean.TRUE;
                     logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", index.getIndexName()));
                 }
             }
-            followingListener.onResponse(createdResponse);
-        }, exception -> followingListener.onFailure(exception));
+        } catch(Exception e) {
+            logger.error(e);
+            throw e;
+        }
     }
 
     /**
      * Create anomaly detector index if not exist.
      *
-     * @param actionListener action called after create index
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
-    public void initAnomalyDetectorIndexIfAbsent(ActionListener<CreateIndexResponse> actionListener) throws IOException {
+    public void initAnomalyDetectorIndexIfAbsent() throws IOException {
         if (!doesAnomalyDetectorIndexExist()) {
-            initAnomalyDetectorIndex(actionListener);
+            initAnomalyDetectorIndex();
         }
     }
 
@@ -540,22 +550,40 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param actionListener action called after create index
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
-    public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-            .mapping(getAnomalyDetectorMappings(), XContentType.JSON)
-            .settings(settings);
-        adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
+    public void initAnomalyDetectorIndex() throws IOException {
+        JsonpMapper mapper = client._transport().jsonpMapper();
+        ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
+        JsonParser parser = null;
+        try {
+            parser = mapper
+                .jsonProvider()
+                .createParser(new ByteArrayInputStream(getAnomalyDetectorMappings().getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        CreateIndexRequest request = null;
+        try {
+            request = new CreateIndexRequest.Builder()
+                .index(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+                .mappings(TypeMapping._DESERIALIZER.deserialize(parser, mapper))
+                .build();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        CreateIndexResponse createIndexResponse = client.indices().create(request);
+
+        markMappingUpToDate(ADIndex.CONFIG, createIndexResponse);
     }
 
     /**
      * Create anomaly result index if not exist.
      *
-     * @param actionListener action called after create index
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyResultMappings}
      */
-    public void initDefaultAnomalyResultIndexIfAbsent(ActionListener<CreateIndexResponse> actionListener) throws IOException {
+    public void initDefaultAnomalyResultIndexIfAbsent() throws IOException {
         if (!doesDefaultAnomalyResultIndexExist()) {
-            initDefaultAnomalyResultIndexDirectly(actionListener);
+            initDefaultAnomalyResultIndexDirectly();
         }
     }
 
@@ -563,20 +591,20 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * choose the number of primary shards for checkpoint, multientity result, and job scheduler based on the number of hot nodes. Max 10.
      * @param request The request to add the setting
      */
-    private void choosePrimaryShards(CreateIndexRequest request) {
-        choosePrimaryShards(request, true);
+    private CreateIndexRequest.Builder choosePrimaryShards(CreateIndexRequest.Builder builder) {
+        return choosePrimaryShards(builder, true);
     }
 
-    private void choosePrimaryShards(CreateIndexRequest request, boolean hiddenIndex) {
-        request
+    private CreateIndexRequest.Builder choosePrimaryShards(CreateIndexRequest.Builder builder, boolean hiddenIndex) {
+        return builder
             .settings(
-                Settings
-                    .builder()
+                new IndexSettings.Builder()
                     // put 1 primary shards per hot node if possible
-                    .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, getNumberOfPrimaryShards())
+                    .numberOfShards(String.valueOf(getNumberOfPrimaryShards()))
                     // 1 replica for better search performance and fail-over
-                    .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1)
-                    .put("index.hidden", hiddenIndex)
+                    .numberOfReplicas("1")
+                    .hidden(hiddenIndex)
+                    .build()
             );
     }
 
@@ -587,34 +615,49 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     /**
      * Create anomaly result index without checking exist or not.
      *
-     * @param actionListener action called after create index
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyResultMappings}
      */
     public void initDefaultAnomalyResultIndexDirectly(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        initAnomalyResultIndexDirectly(AD_RESULT_HISTORY_INDEX_PATTERN, CommonName.ANOMALY_RESULT_INDEX_ALIAS, true, actionListener);
+        initAnomalyResultIndexDirectly(AD_RESULT_HISTORY_INDEX_PATTERN, CommonName.ANOMALY_RESULT_INDEX_ALIAS, true);
     }
 
-    public void initCustomAnomalyResultIndexDirectly(String resultIndex, ActionListener<CreateIndexResponse> actionListener)
+    public void initCustomAnomalyResultIndexDirectly(String resultIndex)
         throws IOException {
-        initAnomalyResultIndexDirectly(resultIndex, null, false, actionListener);
+        initAnomalyResultIndexDirectly(resultIndex, null, false);
     }
 
     public void initAnomalyResultIndexDirectly(
         String resultIndex,
         String alias,
-        boolean hiddenIndex,
-        ActionListener<CreateIndexResponse> actionListener
+        boolean hiddenIndex
     ) throws IOException {
-        String mapping = getAnomalyResultMappings();
-        CreateIndexRequest request = new CreateIndexRequest(resultIndex).mapping(mapping, XContentType.JSON);
-        if (alias != null) {
-            request.alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
+        JsonpMapper mapper = client._transport().jsonpMapper();
+        ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
+        JsonParser parser = null;
+        try {
+            parser = mapper
+                .jsonProvider()
+                .createParser(new ByteArrayInputStream(getAnomalyDetectorMappings().getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        choosePrimaryShards(request, hiddenIndex);
+
+        CreateIndexRequest request = null;
+        try {
+            CreateIndexRequest.Builder builder = new CreateIndexRequest.Builder()
+                .index(resultIndex)
+                .mappings(TypeMapping._DESERIALIZER.deserialize(parser, mapper));
+            if (alias != null) {
+                builder = builder.aliases(alias, new Alias.Builder().indexRouting(CommonName.ANOMALY_RESULT_INDEX_ALIAS).build());
+            }
+            builder = choosePrimaryShards(builder, hiddenIndex);
+            request = builder.build();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        CreateIndexResponse createIndexResponse = client.indices().create(request);
         if (AD_RESULT_HISTORY_INDEX_PATTERN.equals(resultIndex)) {
-            adminClient.indices().create(request, markMappingUpToDate(ADIndex.RESULT, actionListener));
-        } else {
-            adminClient.indices().create(request, actionListener);
+            markMappingUpToDate(ADIndex.CONFIG, createIndexResponse);
         }
     }
 
@@ -654,18 +697,32 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     /**
      * Create the state index.
      *
-     * @param actionListener action called after create index
      */
-    public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
+    public void initDetectionStateIndex() {
+        JsonpMapper mapper = client._transport().jsonpMapper();
+        ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
+        JsonParser parser = null;
         try {
-            CreateIndexRequest request = new CreateIndexRequest(CommonName.DETECTION_STATE_INDEX)
-                .mapping(getDetectionStateMappings(), XContentType.JSON)
-                .settings(settings);
-            adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
-        } catch (IOException e) {
-            logger.error("Fail to init AD detection state index", e);
-            actionListener.onFailure(e);
+            parser = mapper
+                .jsonProvider()
+                .createParser(new ByteArrayInputStream(getDetectionStateMappings().getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
+        CreateIndexRequest request = null;
+        try {
+            request = new CreateIndexRequest.Builder()
+                .index(CommonName.DETECTION_STATE_INDEX)
+                .mappings(TypeMapping._DESERIALIZER.deserialize(parser, mapper))
+                .build();
+        } catch (Exception e) {
+            logger.error("Fail to init AD detection state index", e);
+            e.printStackTrace();
+        }
+        CreateIndexResponse createIndexResponse = client.indices().create(request);
+
+        markMappingUpToDate(ADIndex.STATE, createIndexResponse);
     }
 
     /**
@@ -674,16 +731,37 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param actionListener action called after create index
      * @throws EndRunException EndRunException due to failure to get mapping
      */
-    public void initCheckpointIndex(ActionListener<CreateIndexResponse> actionListener) {
+    public void initCheckpointIndex() {
+        JsonpMapper mapper = client._transport().jsonpMapper();
+        ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
+        JsonParser parser = null;
         String mapping;
         try {
             mapping = getCheckpointMappings();
         } catch (IOException e) {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
-        CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME).mapping(mapping, XContentType.JSON);
-        choosePrimaryShards(request);
-        adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
+        try {
+            parser = mapper
+                .jsonProvider()
+                .createParser(new ByteArrayInputStream(mapping.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        CreateIndexRequest request = null;
+        try {
+            CreateIndexRequest.Builder builder = new CreateIndexRequest.Builder()
+                .index(CommonName.CHECKPOINT_INDEX_NAME)
+                .mappings(TypeMapping._DESERIALIZER.deserialize(parser, mapper));
+                builder = choosePrimaryShards(builder);
+            request = builder.build();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        CreateIndexResponse createIndexResponse = client.indices().create(request);
+
+        markMappingUpToDate(ADIndex.CHECKPOINT, createIndexResponse);
     }
 
     @Override
