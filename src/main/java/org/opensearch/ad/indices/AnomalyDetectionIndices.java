@@ -836,18 +836,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     void deleteOldHistoryIndices() {
         Set<String> candidates = new HashSet<String>();
-
-        ClusterStateRequest clusterStateRequest = new ClusterStateRequest()
-            .clear()
-            .indices(AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN)
-            .metadata(true)
-            .local(true)
-            .indicesOptions(IndicesOptions.strictExpand());
-
-        adminClient.cluster().state(clusterStateRequest, ActionListener.wrap(clusterStateResponse -> {
+        try {
+            ClusterState clusterState = getClusterState();
             String latestToDelete = null;
             long latest = Long.MIN_VALUE;
-            for (ObjectCursor<IndexMetadata> cursor : clusterStateResponse.getState().metadata().indices().values()) {
+            for (ObjectCursor<IndexMetadata> cursor : clusterState.metadata().indices().values()) {
                 IndexMetadata indexMetaData = cursor.value;
                 long creationTime = indexMetaData.getCreationDate();
 
@@ -875,7 +868,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     }
                 }
             }
-        }, exception -> { logger.error("Fail to delete result indices", exception); }));
+        } catch (Exception e) {
+            logger.error("Fail to delete result indices", e);
+        }
     }
 
     public void update() {
