@@ -50,6 +50,8 @@ import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileResponse;
 import org.opensearch.client.Client;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
@@ -135,6 +137,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
         }).when(client).get(any(), any());
 
         entity = Entity.createSingleAttributeEntity(categoryField, entityValue);
+        modelId = entity.getModelId(detectorId).get();
     }
 
     @SuppressWarnings("unchecked")
@@ -294,6 +297,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
     public void testModel() throws InterruptedException {
         setUpExecuteEntityProfileAction(InittedEverResultStatus.INITTED);
         EntityProfile.Builder expectedProfile = new EntityProfile.Builder();
+
         ModelProfileOnNode modelProfile = new ModelProfileOnNode(nodeId, new ModelProfile(modelId, entity, modelSize));
         expectedProfile.modelProfile(modelProfile);
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -305,6 +309,18 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testEmptyModelProfile() throws IOException {
+        ModelProfile modelProfile = new ModelProfile(modelId, null, modelSize);
+        BytesStreamOutput output = new BytesStreamOutput();
+        modelProfile.writeTo(output);
+        StreamInput streamInput = output.bytes().streamInput();
+        ModelProfile readResponse = new ModelProfile(streamInput);
+        assertEquals("serialization has the wrong model id", modelId, readResponse.getModelId());
+        assertTrue("serialization has null entity", null == readResponse.getEntity());
+        assertEquals("serialization has the wrong model size", modelSize, readResponse.getModelSizeInBytes());
+
     }
 
     @SuppressWarnings("unchecked")

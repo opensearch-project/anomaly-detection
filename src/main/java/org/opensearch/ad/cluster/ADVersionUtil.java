@@ -42,8 +42,4 @@ public class ADVersionUtil {
         }
         return normalizedVersion.toString();
     }
-
-    public static boolean compatibleWithVersionOnOrAfter1_1(Version adVersion) {
-        return adVersion != null && adVersion.onOrAfter(Version.V_1_1_0);
-    }
 }

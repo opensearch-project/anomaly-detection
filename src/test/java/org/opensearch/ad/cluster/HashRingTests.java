@@ -142,10 +142,10 @@ public class HashRingTests extends ADUnitTestCase {
             assertEquals(
                 "Wrong hash ring size for historical analysis",
                 2,
-                hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, false).size()
+                hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, false).size()
             );
             // Circles for realtime AD will change as it's eligible to build for when its empty
-            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, true).size());
+            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, true).size());
         }, e -> {
             logger.error("building hash ring failed", e);
             assertFalse("Build hash ring failed", true);
@@ -161,10 +161,10 @@ public class HashRingTests extends ADUnitTestCase {
             assertEquals(
                 "Wrong hash ring size for historical analysis",
                 3,
-                hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, false).size()
+                hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, false).size()
             );
             // Circles for realtime AD will not change as it's eligible to rebuild
-            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, true).size());
+            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, true).size());
         }, e -> {
             logger.error("building hash ring failed", e);
 
@@ -182,9 +182,9 @@ public class HashRingTests extends ADUnitTestCase {
             assertEquals(
                 "Wrong hash ring size for historical analysis",
                 4,
-                hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, false).size()
+                hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, false).size()
             );
-            assertEquals("Wrong hash ring size for realtime AD", 4, hashRing.getNodesWithSameAdVersion(Version.V_1_1_0, true).size());
+            assertEquals("Wrong hash ring size for realtime AD", 4, hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, true).size());
         }, e -> {
             logger.error("building hash ring failed", e);
             assertFalse("Failed to build hash ring", true);
@@ -235,7 +235,7 @@ public class HashRingTests extends ADUnitTestCase {
             ActionListener<NodesInfoResponse> listener = invocation.getArgument(1);
             List<NodeInfo> nodeInfos = new ArrayList<>();
             for (DiscoveryNode node : nodes) {
-                nodeInfos.add(createNodeInfo(node, "1.1.0.0"));
+                nodeInfos.add(createNodeInfo(node, "2.1.0.0"));
             }
             NodesInfoResponse nodesInfoResponse = new NodesInfoResponse(ClusterName.DEFAULT, nodeInfos, ImmutableList.of());
             listener.onResponse(nodesInfoResponse);

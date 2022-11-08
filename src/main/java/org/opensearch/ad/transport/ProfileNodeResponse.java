@@ -18,7 +18,6 @@ import java.util.Map;
 import org.opensearch.action.support.nodes.BaseNodeResponse;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -51,7 +50,7 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         shingleSize = in.readInt();
         activeEntities = in.readVLong();
         totalUpdates = in.readVLong();
-        if (Bwc.supportMultiCategoryFields(in.getVersion()) && in.readBoolean()) {
+        if (in.readBoolean()) {
             // added after OpenSearch 1.0
             modelProfiles = in.readList(ModelProfile::new);
             modelCount = in.readVLong();
@@ -111,15 +110,13 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         out.writeInt(shingleSize);
         out.writeVLong(activeEntities);
         out.writeVLong(totalUpdates);
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-            // added after OpenSearch 1.0
-            if (modelProfiles != null) {
-                out.writeBoolean(true);
-                out.writeList(modelProfiles);
-                out.writeVLong(modelCount);
-            } else {
-                out.writeBoolean(false);
-            }
+        // added after OpenSearch 1.0
+        if (modelProfiles != null) {
+            out.writeBoolean(true);
+            out.writeList(modelProfiles);
+            out.writeVLong(modelCount);
+        } else {
+            out.writeBoolean(false);
         }
     }
 
