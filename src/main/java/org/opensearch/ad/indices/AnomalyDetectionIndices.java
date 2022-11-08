@@ -38,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -50,7 +51,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
-import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
@@ -63,8 +63,10 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
+import org.opensearch.client.json.JsonData;
 import org.opensearch.client.json.JsonpMapper;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
+import org.opensearch.client.opensearch._types.ExpandWildcard;
 import org.opensearch.client.opensearch._types.Result;
 import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -75,7 +77,13 @@ import org.opensearch.client.opensearch.core.IndexResponse;
 import org.opensearch.client.opensearch.indices.Alias;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.CreateIndexResponse;
+import org.opensearch.client.opensearch.indices.GetAliasRequest;
+import org.opensearch.client.opensearch.indices.GetAliasResponse;
+import org.opensearch.client.opensearch.indices.RolloverRequest;
+import org.opensearch.client.opensearch.indices.RolloverResponse;
 import org.opensearch.client.opensearch.indices.IndexSettings;
+import org.opensearch.client.opensearch.indices.get_alias.IndexAliases;
+import org.opensearch.client.opensearch.indices.rollover.IndexRolloverMapping;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
@@ -805,8 +813,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             return;
         }
 
-        // We have to pass null for newIndexName in order to get Elastic to increment the index count.
-        RolloverRequest rollOverRequest = new RolloverRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
         String adResultMapping = null;
         try {
             adResultMapping = getAnomalyResultMappings();
@@ -814,24 +820,47 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             logger.error("Fail to roll over AD result index, as can't get AD result index mapping");
             return;
         }
-        CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
-        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(adResultMapping, XContentType.JSON);
+        JsonpMapper mapper = client._transport().jsonpMapper();
+        ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
+        JsonParser parser = null;
+        String mapping;
+        try {
+            mapping = adResultMapping;
+        } catch (IOException e) {
+            throw new EndRunException("", "Cannot find checkpoint mapping file", true);
+        }
+        try {
+            parser = mapper
+                .jsonProvider()
+                .createParser(new ByteArrayInputStream(mapping.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-        choosePrimaryShards(createRequest);
+        RolloverRequest rolloverRequest = new RolloverRequest.Builder()
+            .alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS)
+            .newIndex(AD_RESULT_HISTORY_INDEX_PATTERN)
+            .mappings(IndexRolloverMapping._DESERIALIZER.deserialize(parser, mapper))
+            .settings("number_of_shards", JsonData.of(getNumberOfPrimaryShards()))
+            .settings("number_of_replicas", JsonData.of(1))
+            .settings("hidden", JsonData.of(true))
+            .build();
 
-        rollOverRequest.addMaxIndexDocsCondition(historyMaxDocs * getNumberOfPrimaryShards());
-        adminClient.indices().rolloverIndex(rollOverRequest, ActionListener.wrap(response -> {
-            if (!response.isRolledOver()) {
+        try {
+            RolloverResponse rolloverResponse = client.indices().rollover(rolloverRequest);
+            if (!rolloverResponse.rolledOver()) {
                 logger
-                    .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
+                    .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, rolloverResponse.conditions());
             } else {
                 IndexState indexStatetate = indexStates.computeIfAbsent(ADIndex.RESULT, IndexState::new);
                 indexStatetate.mappingUpToDate = true;
-                logger.info("{} rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
+                logger.info("{} rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, rolloverResponse.conditions());
                 deleteOldHistoryIndices();
             }
-        }, exception -> { logger.error("Fail to roll over result index", exception); }));
+        } catch (Exception e) {
+            logger.error("Fail to roll over result index", e);
+        }
     }
 
     void deleteOldHistoryIndices() {
@@ -1041,15 +1070,20 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
         Integer newVersion = indexStates.computeIfAbsent(index, IndexState::new).schemaVersion;
         if (index.isAlias()) {
-            GetAliasesRequest getAliasRequest = new GetAliasesRequest()
-                .aliases(index.getIndexName())
-                .indicesOptions(IndicesOptions.lenientExpandOpenHidden());
-            adminClient.indices().getAliases(getAliasRequest, ActionListener.wrap(getAliasResponse -> {
+            GetAliasRequest getAliasRequest = new GetAliasRequest.Builder()
+                .index(index.getIndexName())
+                .ignoreUnavailable(true)
+                .allowNoIndices(true)
+                .expandWildcards(ExpandWildcard.Open, ExpandWildcard.Hidden)
+                .build();
+            
+            try {
+                GetAliasResponse getAliasResponse = client.indices().getAlias(getAliasRequest);
                 String concreteIndex = null;
-                for (ObjectObjectCursor<String, List<AliasMetadata>> entry : getAliasResponse.getAliases()) {
-                    if (false == entry.value.isEmpty()) {
+                for (Entry<String, IndexAliases> entry : getAliasResponse.result().entrySet()) {
+                    if (false == entry.getValue().aliases().isEmpty()) {
                         // we assume the alias map to one concrete index, thus we can return after finding one
-                        concreteIndex = entry.key;
+                        concreteIndex = entry.getKey();
                         break;
                     }
                 }
@@ -1058,7 +1092,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     return;
                 }
                 shouldUpdateConcreteIndex(concreteIndex, newVersion, thenDo);
-            }, exception -> logger.error(new ParameterizedMessage("Fail to get [{}]'s alias", index.getIndexName()), exception)));
+            } catch (Exception e) {
+                logger.error(new ParameterizedMessage("Fail to get [{}]'s alias", index.getIndexName()), e);
+            }
         } else {
             shouldUpdateConcreteIndex(index.getIndexName(), newVersion, thenDo);
         }
