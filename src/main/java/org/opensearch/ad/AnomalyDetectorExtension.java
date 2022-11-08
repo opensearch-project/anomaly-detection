@@ -103,7 +103,7 @@ public class AnomalyDetectorExtension implements Extension {
 
     public OpenSearchClient getClient() {
         SDKClient sdkClient = new SDKClient();
-        OpenSearchClient client = sdkClient.initializeClient("localhost", 9200);
+        OpenSearchClient client = sdkClient.initializeClient(settings.getOpensearchAddress(), Integer.parseInt(settings.getOpensearchPort()));
         return client;
     }
 
