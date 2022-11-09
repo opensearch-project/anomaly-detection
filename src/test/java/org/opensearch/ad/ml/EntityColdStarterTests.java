@@ -104,10 +104,7 @@ public class EntityColdStarterTests extends AbstractADTest {
     FeatureManager featureManager;
     Settings settings;
     ThreadPool threadPool;
-    AtomicBoolean released;
     Runnable releaseSemaphore;
-    ActionListener<Void> listener;
-    CountDownLatch inProgressLatch;
     AnomalyDetector detector;
     long rcfSeed;
     ClientUtil clientUtil;
@@ -678,14 +675,6 @@ public class EntityColdStarterTests extends AbstractADTest {
                 clock,
                 priority
             );
-
-            released = new AtomicBoolean();
-
-            inProgressLatch = new CountDownLatch(1);
-            listener = ActionListener.wrap(() -> {
-                released.set(true);
-                inProgressLatch.countDown();
-            });
 
             entityColdStarter.trainModel(new ArrayDeque<>(), modelId, entityNamez, detector.getDetectorId(), modelState);
 
