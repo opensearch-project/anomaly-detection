@@ -58,8 +58,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class DetectionResultEvalutationIT extends ODFERestTestCase {
-    protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
+public class SingleStreamModelPerfIT extends ODFERestTestCase {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(SingleStreamModelPerfIT.class);
 
     public void testDataset() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled

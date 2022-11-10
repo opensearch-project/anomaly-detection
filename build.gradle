@@ -158,6 +158,12 @@ opensearch_tmp_dir.mkdirs()
 test {
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.ml.HCADModelPerfTests"
+        }
+    }
 }
 
 task integTest(type: RestIntegTestTask) {
@@ -187,6 +193,12 @@ integTest {
     if (System.getProperty("https") == null || System.getProperty("https") == "false") {
         filter {
             excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
+        }
+    }
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamModelPerfIT"
         }
     }
 
