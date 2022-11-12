@@ -8,7 +8,8 @@ import static org.opensearch.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.rest.RestStatus.NOT_FOUND;
 import static org.opensearch.rest.RestStatus.OK;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -46,6 +47,7 @@ import org.opensearch.rest.RestHandler.Route;
 import org.opensearch.rest.RestRequest.Method;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionRestHandler;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.search.aggregations.BaseAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.filter.InternalFilter;
@@ -57,9 +59,17 @@ import com.google.common.io.Resources;
 import jakarta.json.stream.JsonParser;
 
 public class RestCreateDetectorAction implements ExtensionRestHandler {
-    private final Logger logger = LogManager.getLogger(RestCreateDetectorAction.class);
-    private AnomalyDetectorExtension anomalyDetectorExtension = new AnomalyDetectorExtension();
-    private OpenSearchClient sdkClient = anomalyDetectorExtension.getClient();
+    private static final Logger logger = LogManager.getLogger(RestCreateDetectorAction.class);
+
+    private final AnomalyDetectorExtension anomalyDetectorExtension;
+    private final OpenSearchClient sdkClient;
+    private final ExtensionsRunner extensionsRunner;
+
+    public RestCreateDetectorAction(ExtensionsRunner runner, AnomalyDetectorExtension extension) {
+        this.extensionsRunner = runner;
+        this.anomalyDetectorExtension = extension;
+        this.sdkClient = extension.getClient();
+    }
 
     @Override
     public List<Route> routes() {

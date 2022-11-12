@@ -29,7 +29,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        return List.of(new RestCreateDetectorAction());
+        return List.of(new RestCreateDetectorAction(extensionsRunner, this));
     }
 
     @Override
