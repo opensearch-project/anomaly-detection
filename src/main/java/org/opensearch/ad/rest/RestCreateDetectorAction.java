@@ -1,3 +1,12 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ */
+
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
@@ -5,6 +14,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTO
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.rest.RestRequest.Method.POST;
 import static org.opensearch.rest.RestStatus.BAD_REQUEST;
+import static org.opensearch.rest.RestStatus.CREATED;
 import static org.opensearch.rest.RestStatus.NOT_FOUND;
 import static org.opensearch.rest.RestStatus.OK;
 
@@ -13,7 +23,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -22,8 +31,6 @@ import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.json.JsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -38,21 +45,10 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.NestedQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.RangeQueryBuilder;
-import org.opensearch.plugins.SearchPlugin;
 import org.opensearch.rest.RestHandler.Route;
 import org.opensearch.rest.RestRequest.Method;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.search.aggregations.BaseAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.filter.InternalFilter;
-import org.opensearch.search.aggregations.metrics.InternalSum;
-import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
@@ -61,13 +57,11 @@ import jakarta.json.stream.JsonParser;
 public class RestCreateDetectorAction implements ExtensionRestHandler {
     private static final Logger logger = LogManager.getLogger(RestCreateDetectorAction.class);
 
-    private final AnomalyDetectorExtension anomalyDetectorExtension;
     private final OpenSearchClient sdkClient;
-    private final ExtensionsRunner extensionsRunner;
+    private final NamedXContentRegistry xContentRegistry;
 
     public RestCreateDetectorAction(ExtensionsRunner runner, AnomalyDetectorExtension extension) {
-        this.extensionsRunner = runner;
-        this.anomalyDetectorExtension = extension;
+        this.xContentRegistry = runner.getNamedXContentRegistry().getRegistry();
         this.sdkClient = extension.getClient();
     }
 
@@ -112,56 +106,6 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
 
     }
 
-    public List<NamedXContentRegistry.Entry> getNamedXWriteables() {
-        List<NamedXContentRegistry.Entry> entries = new ArrayList<>();
-        entries.add(AnomalyDetector.XCONTENT_REGISTRY);
-        entries.add(AnomalyResult.XCONTENT_REGISTRY);
-        entries.add(DetectorInternalState.XCONTENT_REGISTRY);
-        entries
-            .add(
-                registerQuery(
-                    new SearchPlugin.QuerySpec<>(NestedQueryBuilder.NAME, NestedQueryBuilder::new, NestedQueryBuilder::fromXContent)
-                )
-            );
-        entries
-            .add(registerQuery(new SearchPlugin.QuerySpec<>(BoolQueryBuilder.NAME, BoolQueryBuilder::new, BoolQueryBuilder::fromXContent)));
-        entries
-            .add(
-                registerAggregation(
-                    new SearchPlugin.AggregationSpec(SumAggregationBuilder.NAME, SumAggregationBuilder::new, SumAggregationBuilder.PARSER)
-                        .addResultReader(InternalSum::new)
-                )
-            );
-
-        entries
-            .add(
-                registerAggregation(
-                    new SearchPlugin.AggregationSpec(
-                        FilterAggregationBuilder.NAME,
-                        FilterAggregationBuilder::new,
-                        FilterAggregationBuilder::parse
-                    ).addResultReader(InternalFilter::new)
-                )
-            );
-        entries
-            .add(
-                registerQuery(new SearchPlugin.QuerySpec<>(RangeQueryBuilder.NAME, RangeQueryBuilder::new, RangeQueryBuilder::fromXContent))
-            );
-        return entries;
-
-    }
-
-    private NamedXContentRegistry.Entry registerQuery(SearchPlugin.QuerySpec<?> spec) {
-        return new NamedXContentRegistry.Entry(QueryBuilder.class, spec.getName(), (p, c) -> spec.getParser().fromXContent(p));
-    }
-
-    private NamedXContentRegistry.Entry registerAggregation(SearchPlugin.AggregationSpec spec) {
-        return new NamedXContentRegistry.Entry(BaseAggregationBuilder.class, spec.getName(), (p, c) -> {
-            String name = (String) c;
-            return spec.getParser().parse(p, name);
-        });
-    }
-
     private CreateIndexRequest initAnomalyDetectorIndex() {
         JsonpMapper mapper = sdkClient._transport().jsonpMapper();
         JsonParser parser = null;
@@ -201,13 +145,12 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
             );
         }
 
-        NamedXContentRegistry xContentRegistry = new NamedXContentRegistry(getNamedXWriteables());
         XContentParser parser;
         AnomalyDetector detector;
         XContentBuilder builder = null;
         CreateIndexRequest createIndexRequest;
         try {
-            parser = request.contentParser(xContentRegistry);
+            parser = request.contentParser(this.xContentRegistry);
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             detector = AnomalyDetector.parse(parser);
             createIndexRequest = initAnomalyDetectorIndex();
@@ -222,7 +165,7 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
                     builder.field("seqNo", indexResponse.seqNo());
                     builder.field("primaryTerm", indexResponse.primaryTerm());
                     builder.field("detector", detector);
-                    builder.field("status", RestStatus.CREATED);
+                    builder.field("status", CREATED);
                     builder.endObject();
                 } catch (IOException e) {
                     e.printStackTrace();
