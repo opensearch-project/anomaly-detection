@@ -52,7 +52,6 @@ import org.junit.*;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
-import org.opensearch.BwcTests;
 import org.opensearch.OpenSearchTimeoutException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
@@ -95,7 +94,6 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -171,7 +169,6 @@ public class MultiEntityResultTests extends AbstractADTest {
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyResultTests.class.getSimpleName());
-        Bwc.DISABLE_BWC = false;
     }
 
     @AfterClass
@@ -335,7 +332,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         return new TransportResponseHandler<T>() {
             @Override
             public T read(StreamInput in) throws IOException {
-                in.setVersion(BwcTests.V_1_1_0);
                 return handler.read(in);
             }
 
@@ -361,7 +357,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         return new TransportResponseHandler<T>() {
             @Override
             public T read(StreamInput in) throws IOException {
-                in.setVersion(BwcTests.V_1_1_0);
                 return handler.read(in);
             }
 
@@ -667,7 +662,7 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         // we start support multi-category fields since 1.1
         // Set version to 1.1 will force the outbound/inbound message to use 1.1 version
-        setupTestNodes(entityResultInterceptor, 5, settings, BwcTests.V_1_1_0, MAX_ENTITIES_PER_QUERY, PAGE_SIZE);
+        setupTestNodes(entityResultInterceptor, 5, settings, Version.V_2_0_0, MAX_ENTITIES_PER_QUERY, PAGE_SIZE);
 
         TransportService realTransportService = testNodes[0].transportService;
         ClusterService realClusterService = testNodes[0].clusterService;
