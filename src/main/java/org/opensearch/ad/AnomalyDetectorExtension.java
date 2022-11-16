@@ -10,6 +10,7 @@ import java.util.stream.Stream;
 
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
+import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -45,7 +46,7 @@ public class AnomalyDetectorExtension implements Extension {
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        return List.of(new RestCreateDetectorAction(), new RestGetDetectorAction());
+        return List.of(new RestCreateDetectorAction(), new RestGetDetectorAction(), new RestValidateDetectorAction());
     }
 
     @Override
