@@ -49,8 +49,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class DetectionResultEvalutationIT extends ODFERestTestCase {
-    protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
+public class SingleStreamModelPerfIT extends ODFERestTestCase {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(SingleStreamModelPerfIT.class);
 
     // TODO: fix flaky test, sometimes this assert will fail "assertTrue(precision >= minPrecision);"
     public void testDataset() throws Exception {
@@ -108,6 +108,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         assertTrue(recall >= minRecall);
 
         assertTrue(errors <= maxError);
+        LOG.info("Precision: {}, Window recall: {}", precision, recall);
     }
 
     private int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
