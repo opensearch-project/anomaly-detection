@@ -97,6 +97,7 @@ public class EntityColdStarter {
     private final Cache<String, Instant> lastColdStartTime;
     private final CheckpointDao checkpointDao;
     private int coolDownMinutes;
+    private long rcfSeed;
 
     /**
      * Constructor
@@ -151,6 +152,60 @@ public class EntityColdStarter {
         CheckpointDao checkpointDao,
         Settings settings
     ) {
+        this(
+            clock,
+            threadPool,
+            nodeStateManager,
+            rcfSampleSize,
+            numberOfTrees,
+            rcfTimeDecay,
+            numMinSamples,
+            maxSampleStride,
+            maxTrainSamples,
+            interpolator,
+            searchFeatureDao,
+            shingleSize,
+            thresholdMinPvalue,
+            thresholdMaxRankError,
+            thresholdMaxScore,
+            thresholdNumLogNormalQuantiles,
+            thresholdDownsamples,
+            thresholdMaxSamples,
+            featureManager,
+            lastColdStartTimestampTtl,
+            maxCacheSize,
+            checkpointDao,
+            settings,
+            -1
+        );
+    }
+
+    public EntityColdStarter(
+        Clock clock,
+        ThreadPool threadPool,
+        NodeStateManager nodeStateManager,
+        int rcfSampleSize,
+        int numberOfTrees,
+        double rcfTimeDecay,
+        int numMinSamples,
+        int maxSampleStride,
+        int maxTrainSamples,
+        Interpolator interpolator,
+        SearchFeatureDao searchFeatureDao,
+        int shingleSize,
+        double thresholdMinPvalue,
+        double thresholdMaxRankError,
+        double thresholdMaxScore,
+        int thresholdNumLogNormalQuantiles,
+        int thresholdDownsamples,
+        long thresholdMaxSamples,
+        FeatureManager featureManager,
+        Duration lastColdStartTimestampTtl,
+        long maxCacheSize,
+        CheckpointDao checkpointDao,
+        Settings settings,
+        long rcfSeed
+    ) {
         this.clock = clock;
         this.lastThrottledColdStartTime = Instant.MIN;
         this.threadPool = threadPool;
@@ -180,6 +235,7 @@ public class EntityColdStarter {
             .build();
         this.checkpointDao = checkpointDao;
         this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
+        this.rcfSeed = rcfSeed;
     }
 
     /**
@@ -268,15 +324,19 @@ public class EntityColdStarter {
         }
 
         int rcfNumFeatures = dataPoints.get(0)[0].length;
-        RandomCutForest rcf = RandomCutForest
+        RandomCutForest.Builder rcfBuilder = RandomCutForest
             .builder()
             .dimensions(rcfNumFeatures)
             .sampleSize(rcfSampleSize)
             .numberOfTrees(numberOfTrees)
             .lambda(rcfTimeDecay)
             .outputAfter(numMinSamples)
-            .parallelExecutionEnabled(false)
-            .build();
+            .parallelExecutionEnabled(false);
+
+        if (rcfSeed != -1) {
+            rcfBuilder.randomSeed(rcfSeed);
+        }
+        RandomCutForest rcf = rcfBuilder.build();
         List<double[]> allScores = new ArrayList<>();
         int totalLength = 0;
         // get continuous data points and send for training
