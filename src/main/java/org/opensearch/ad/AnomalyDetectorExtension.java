@@ -1,52 +1,50 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ */
+
 package org.opensearch.ad;
 
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
 import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.sdk.Extension;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
-import org.opensearch.sdk.ExtensionSettings;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
-import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
 
-public class AnomalyDetectorExtension implements Extension {
+public class AnomalyDetectorExtension extends BaseExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
-    private ExtensionSettings settings;
-
     public AnomalyDetectorExtension() {
-        try {
-            this.settings = initializeSettings();
-        } catch (IOException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
-    @Override
-    public ExtensionSettings getExtensionSettings() {
-        return this.settings;
+        super(EXTENSION_SETTINGS_PATH);
     }
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        return List.of(new RestCreateDetectorAction(), new RestGetDetectorAction(), new RestValidateDetectorAction());
+        return List.of(new RestCreateDetectorAction(extensionsRunner, this), new RestGetDetectorAction(), new RestValidateDetectorAction());
     }
 
     @Override
@@ -91,22 +89,20 @@ public class AnomalyDetectorExtension implements Extension {
     }
 
     @Override
-    public Collection<Object> createComponents(SDKClient sdkClient, ClusterService clusterService, ThreadPool threadPool) {
-        return null;
+    public List<NamedXContentRegistry.Entry> getNamedXContent() {
+        // Copied from AnomalyDetectorPlugin getNamedXContent
+        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY, DetectorInternalState.XCONTENT_REGISTRY
+        // Pending Job Scheduler Integration
+        // AnomalyDetectorJob.XCONTENT_REGISTRY
+        );
     }
 
-    private static ExtensionSettings initializeSettings() throws IOException {
-        ExtensionSettings settings = Extension.readSettingsFromYaml(EXTENSION_SETTINGS_PATH);
-        if (settings == null || settings.getHostAddress() == null || settings.getHostPort() == null) {
-            throw new IOException("Failed to initialize Extension settings. No port bound.");
-        }
-        return settings;
-    }
-
+    // TODO: replace or override client object on BaseExtension
+    // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
     public OpenSearchClient getClient() {
         SDKClient sdkClient = new SDKClient();
         OpenSearchClient client = sdkClient
-            .initializeClient(settings.getOpensearchAddress(), Integer.parseInt(settings.getOpensearchPort()));
+            .initializeClient(getExtensionSettings().getOpensearchAddress(), Integer.parseInt(getExtensionSettings().getOpensearchPort()));
         return client;
     }
 
