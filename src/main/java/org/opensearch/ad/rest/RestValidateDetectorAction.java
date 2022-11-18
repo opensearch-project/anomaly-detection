@@ -1,7 +1,6 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.rest.RestRequest.Method.POST;
-import static org.opensearch.rest.RestRequest.Method.GET;
 import static org.opensearch.rest.RestStatus.NOT_FOUND;
 import static org.opensearch.rest.RestStatus.OK;
 
@@ -22,7 +21,7 @@ public class RestValidateDetectorAction implements ExtensionRestHandler {
 
     @Override
     public List<Route> routes() {
-        return List.of(new Route(POST, "/detectors"), new Route(GET, "/detectors"));
+        return List.of(new Route(POST, "/detectors"), new Route(POST, "/module"));
     }
 
     @Override
