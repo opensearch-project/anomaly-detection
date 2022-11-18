@@ -98,7 +98,6 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
 
         IndexRequest<AnomalyDetector> indexRequest = new IndexRequest.Builder<AnomalyDetector>()
             .index(ANOMALY_DETECTORS_INDEX)
-            .id("1")
             .document(detector)
             .build();
         IndexResponse indexResponse = sdkClient.index(indexRequest);

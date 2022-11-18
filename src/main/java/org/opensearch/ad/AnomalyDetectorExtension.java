@@ -20,6 +20,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
+import org.opensearch.ad.rest.RestGetDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -42,7 +43,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        return List.of(new RestCreateDetectorAction(extensionsRunner, this));
+        return List.of(new RestCreateDetectorAction(extensionsRunner, this), new RestGetDetectorAction());
     }
 
     @Override
@@ -99,7 +100,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
     // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
     public OpenSearchClient getClient() {
         SDKClient sdkClient = new SDKClient();
-        OpenSearchClient client = sdkClient.initializeClient("localhost", 9200);
+        OpenSearchClient client = sdkClient
+            .initializeClient(settings.getOpensearchAddress(), Integer.parseInt(settings.getOpensearchPort()));
         return client;
     }
 
