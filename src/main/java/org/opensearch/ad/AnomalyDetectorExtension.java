@@ -101,7 +101,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public OpenSearchClient getClient() {
         SDKClient sdkClient = new SDKClient();
         OpenSearchClient client = sdkClient
-            .initializeClient(settings.getOpensearchAddress(), Integer.parseInt(settings.getOpensearchPort()));
+            .initializeClient(getExtensionSettings().getOpensearchAddress(), Integer.parseInt(getExtensionSettings().getOpensearchPort()));
         return client;
     }
 
