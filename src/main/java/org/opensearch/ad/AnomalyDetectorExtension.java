@@ -21,6 +21,7 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
+import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -43,7 +44,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        return List.of(new RestCreateDetectorAction(extensionsRunner, this), new RestGetDetectorAction());
+        return List.of(new RestCreateDetectorAction(extensionsRunner, this), new RestGetDetectorAction(), new RestValidateDetectorAction());
     }
 
     @Override
