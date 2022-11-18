@@ -21,7 +21,7 @@ public class RestValidateDetectorAction implements ExtensionRestHandler {
 
     @Override
     public List<Route> routes() {
-        return List.of(new Route(POST, "/detectors"), new Route(POST, "/module"));
+        return List.of(new Route(POST, "/module"));
     }
 
     @Override
