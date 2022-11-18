@@ -15,7 +15,6 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import static org.opensearch.rest.RestRequest.Method.POST;
 import static org.opensearch.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.rest.RestStatus.CREATED;
-import static org.opensearch.rest.RestStatus.NOT_FOUND;
 import static org.opensearch.rest.RestStatus.OK;
 
 import java.io.ByteArrayInputStream;
@@ -25,8 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -45,17 +42,15 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
-import org.opensearch.rest.RestHandler.Route;
-import org.opensearch.rest.RestRequest.Method;
-import org.opensearch.sdk.ExtensionRestHandler;
+import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.RouteHandler;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import jakarta.json.stream.JsonParser;
 
-public class RestCreateDetectorAction implements ExtensionRestHandler {
-    private static final Logger logger = LogManager.getLogger(RestCreateDetectorAction.class);
+public class RestCreateDetectorAction extends BaseExtensionRestHandler {
 
     private final OpenSearchClient sdkClient;
     private final NamedXContentRegistry xContentRegistry;
@@ -66,8 +61,8 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
     }
 
     @Override
-    public List<Route> routes() {
-        return List.of(new Route(POST, "/detectors"));
+    protected List<RouteHandler> routeHandlers() {
+        return List.of(new RouteHandler(POST, "/detectors", (r) -> handlePostRequest(r)));
     }
 
     private String getAnomalyDetectorMappings() throws IOException {
@@ -129,19 +124,9 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
         return request;
     }
 
-    @Override
-    public ExtensionRestResponse handleRequest(ExtensionRestRequest request) {
+    private ExtensionRestResponse handlePostRequest(ExtensionRestRequest request) {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
-        }
-        Method method = request.method();
-
-        if (!Method.POST.equals(method)) {
-            return new ExtensionRestResponse(
-                request,
-                NOT_FOUND,
-                "Extension REST action improperly configured to handle " + request.toString()
-            );
         }
 
         XContentParser parser;
@@ -175,5 +160,4 @@ public class RestCreateDetectorAction implements ExtensionRestHandler {
         }
         return new ExtensionRestResponse(request, OK, builder);
     }
-
 }
