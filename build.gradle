@@ -134,7 +134,7 @@ configurations.all {
     if (it.state != Configuration.State.UNRESOLVED) return
     resolutionStrategy {
         force "joda-time:joda-time:${versions.joda}"
-        force "com.fasterxml.jackson.core:jackson-core:2.13.4"
+        force "com.fasterxml.jackson.core:jackson-core:2.14.0"
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
@@ -214,6 +214,12 @@ test {
     }
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.ml.HCADModelPerfTests"
+        }
+    }
 }
 
 task integTest(type: RestIntegTestTask) {
@@ -256,6 +262,12 @@ integTest {
     if (System.getProperty("tests.rest.bwcsuite") == null) {
         filter {
             excludeTestsMatching "org.opensearch.ad.bwc.*IT"
+        }
+    }
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamModelPerfIT"
         }
     }
 
@@ -665,9 +677,9 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
 
     // force Jackson version to avoid version conflict issue
-    implementation "com.fasterxml.jackson.core:jackson-core:2.13.4"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.13.4.2"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.13.4"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.14.0"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.0"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.0"
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
