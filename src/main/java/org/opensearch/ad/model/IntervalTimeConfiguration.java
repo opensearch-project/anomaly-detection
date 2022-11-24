@@ -33,6 +33,8 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
 
     private static final Set<ChronoUnit> SUPPORTED_UNITS = ImmutableSet.of(ChronoUnit.MINUTES, ChronoUnit.SECONDS);
 
+    private IntervalTimeConfiguration() {}
+
     /**
      * Constructor function.
      *
