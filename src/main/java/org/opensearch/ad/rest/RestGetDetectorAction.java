@@ -48,7 +48,12 @@ public class RestGetDetectorAction implements ExtensionRestHandler {
         }
 
 //        String detectorId = request.param("detectorId");
-
+        //TODO
+        //1. Get Detector id
+        //2. Find a way to query SearchRequest
+        //3. Else, match detectorId with the SearchRequest response
+        //4. Follow the steps on the issue
+        //5. Look for MultiGetRequest
 
         // Search without query
         SearchResponse<AnomalyDetector> searchResponse = null;
