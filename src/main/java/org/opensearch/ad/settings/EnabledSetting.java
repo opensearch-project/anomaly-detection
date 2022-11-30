@@ -39,8 +39,9 @@ public class EnabledSetting extends AbstractSetting {
 
     public static final String LEGACY_OPENDISTRO_AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
 
-    public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED =
-        "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";;
+    public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED = "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";
+
+    public static final String DOOR_KEEPER_IN_CACHE_ENABLED = "plugins.anomaly_detection.door_keeper_in_cache.enabled";;
 
     public static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
@@ -75,6 +76,13 @@ public class EnabledSetting extends AbstractSetting {
                 INTERPOLATION_IN_HCAD_COLD_START_ENABLED,
                 Setting.boolSetting(INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false, NodeScope, Dynamic)
             );
+
+            /**
+             * We have a bloom filter placed in front of inactive entity cache to
+             * filter out unpopular items that are not likely to appear more
+             * than once. Whether this bloom filter is enabled or not.
+             */
+            put(DOOR_KEEPER_IN_CACHE_ENABLED, Setting.boolSetting(DOOR_KEEPER_IN_CACHE_ENABLED, false, NodeScope, Dynamic));
         }
     });
 
@@ -111,5 +119,13 @@ public class EnabledSetting extends AbstractSetting {
      */
     public static boolean isInterpolationInColdStartEnabled() {
         return EnabledSetting.getInstance().getSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED);
+    }
+
+    /**
+     * If enabled, we filter out unpopular items that are not likely to appear more than once
+     * @return wWhether door keeper in cache is enabled or not.
+     */
+    public static boolean isDoorKeeperInCacheEnabled() {
+        return EnabledSetting.getInstance().getSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED);
     }
 }

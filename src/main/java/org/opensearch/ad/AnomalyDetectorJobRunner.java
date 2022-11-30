@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -60,6 +61,7 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -502,7 +504,12 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             // For a HCAD detector, we don't need to save on the detector level.
             // We return 0 or Double.NaN rcf score if there is no error.
             if ((response.getAnomalyScore() <= 0 || Double.isNaN(response.getAnomalyScore())) && response.getError() == null) {
-                updateRealtimeTask(response, detectorId);
+                threadPool
+                    .schedule(
+                        () -> { updateRealtimeTask(response, detectorId); },
+                        new TimeValue(60, TimeUnit.SECONDS),
+                        AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+                    );
                 return;
             }
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) jobParameter.getWindowDelay();
