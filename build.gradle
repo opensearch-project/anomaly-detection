@@ -372,20 +372,17 @@ testClusters.integTest {
         }
     }
     plugin(project.tasks.bundlePlugin.archiveFile)
-
-    configurations.zipArchive.asFileTree.each {
-        plugin(provider(new Callable<RegularFile>(){
-            @Override
-            RegularFile call() throws Exception {
-                return new RegularFile() {
-                    @Override
-                    File getAsFile() {
-                        return it
-                    }
+    plugin(provider(new Callable<RegularFile>(){
+        @Override
+        RegularFile call() throws Exception {
+            return new RegularFile() {
+                @Override
+                File getAsFile() {
+                    return configurations.zipArchive.asFileTree.getSingleFile()
                 }
             }
-        }))
-    }
+        }
+    }))
 
     // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
     // the opensearch-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
@@ -486,19 +483,17 @@ task integTestRemote(type: RestIntegTestTask) {
 }
 
 List<Provider<RegularFile>> plugins = [
-        configurations.zipArchive.asFileTree.each {
-            provider(new Callable<RegularFile>(){
-                @Override
-                RegularFile call() throws Exception {
-                    return new RegularFile() {
-                        @Override
-                        File getAsFile() {
-                            return it
-                        }
+        provider(new Callable<RegularFile>(){
+            @Override
+            RegularFile call() throws Exception {
+                return new RegularFile() {
+                    @Override
+                    File getAsFile() {
+                        return configurations.zipArchive.asFileTree.getSingleFile()
                     }
                 }
-            })
-        },
+            }
+        }),
         provider(new Callable<RegularFile>(){
             @Override
             RegularFile call() throws Exception {
