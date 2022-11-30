@@ -56,6 +56,7 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -650,21 +651,26 @@ public class PriorityCacheTests extends AbstractCacheTest {
     // test that detector interval is more than 1 hour that maintenance is called before
     // the next get method
     public void testLongDetectorInterval() {
-        when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
-        when(detector.getDetectionIntervalDuration()).thenReturn(Duration.ofHours(12));
-        String modelId = entity1.getModelId(detectorId).get();
-        // record last access time 1000
-        entityCache.get(modelId, detector);
-        assertEquals(-1, entityCache.getLastActiveMs(detectorId, modelId));
-        // 2 hour = 7200 seconds have passed
-        long currentTimeEpoch = 8200;
-        when(clock.instant()).thenReturn(Instant.ofEpochSecond(currentTimeEpoch));
-        // door keeper should not be expired since we reclaim space every 60 intervals
-        entityCache.maintenance();
-        // door keeper still has the record and won't blocks entity state being created
-        entityCache.get(modelId, detector);
-        // * 1000 to convert to milliseconds
-        assertEquals(currentTimeEpoch * 1000, entityCache.getLastActiveMs(detectorId, modelId));
+        try {
+            EnabledSetting.getInstance().setSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, true);
+            when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
+            when(detector.getDetectionIntervalDuration()).thenReturn(Duration.ofHours(12));
+            String modelId = entity1.getModelId(detectorId).get();
+            // record last access time 1000
+            assertTrue(null == entityCache.get(modelId, detector));
+            assertEquals(-1, entityCache.getLastActiveMs(detectorId, modelId));
+            // 2 hour = 7200 seconds have passed
+            long currentTimeEpoch = 8200;
+            when(clock.instant()).thenReturn(Instant.ofEpochSecond(currentTimeEpoch));
+            // door keeper should not be expired since we reclaim space every 60 intervals
+            entityCache.maintenance();
+            // door keeper still has the record and won't blocks entity state being created
+            entityCache.get(modelId, detector);
+            // * 1000 to convert to milliseconds
+            assertEquals(currentTimeEpoch * 1000, entityCache.getLastActiveMs(detectorId, modelId));
+        } finally {
+            EnabledSetting.getInstance().setSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, false);
+        }
     }
 
     public void testGetNoPriorityUpdate() {

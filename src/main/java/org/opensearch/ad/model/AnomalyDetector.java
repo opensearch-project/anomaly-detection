@@ -123,6 +123,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private DetectionDateRange detectionDateRange;
 
     public static final int MAX_RESULT_INDEX_NAME_SIZE = 255;
+    // OS doesn’t allow uppercase: https://tinyurl.com/yse2xdbx
     public static final String RESULT_INDEX_NAME_PATTERN = "[a-z0-9_-]+";
 
     /**

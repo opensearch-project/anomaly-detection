@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
@@ -51,6 +52,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     private volatile Boolean filterByEnabled;
     private final ADTaskManager adTaskManager;
     private final TransportService transportService;
+    private final ExecuteADResultResponseRecorder recorder;
 
     @Inject
     public AnomalyDetectorJobTransportAction(
@@ -61,7 +63,8 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        ExecuteADResultResponseRecorder recorder
     ) {
         super(AnomalyDetectorJobAction.NAME, transportService, actionFilters, AnomalyDetectorJobRequest::new);
         this.transportService = transportService;
@@ -73,6 +76,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         this.adTaskManager = adTaskManager;
         filterByEnabled = FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        this.recorder = recorder;
     }
 
     @Override
@@ -131,7 +135,6 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     ) {
         IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
             client,
-            listener,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -139,7 +142,8 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
             requestTimeout,
             xContentRegistry,
             transportService,
-            adTaskManager
+            adTaskManager,
+            recorder
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
             adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, context, listener);

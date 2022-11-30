@@ -16,8 +16,6 @@ import static org.opensearch.ad.TestHelpers.toHttpEntity;
 import java.text.SimpleDateFormat;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -45,7 +43,7 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
     protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
 
     /**
-     * Simulate starting the given HCAD detector.
+     * Wait for HCAD cold start to finish.
      * @param detectorId Detector Id
      * @param data Data in Json format
      * @param trainTestSplit Training data size
@@ -54,7 +52,7 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
      * @param client OpenSearch Client
      * @throws Exception when failing to query/indexing from/to OpenSearch
      */
-    private void simulateHCADStartDetector(
+    private void waitForHCADStartDetector(
         String detectorId,
         List<JsonObject> data,
         int trainTestSplit,
@@ -63,18 +61,6 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         RestClient client
     ) throws Exception {
 
-        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
-
-        Instant begin = null;
-        Instant end = null;
-        for (int i = 0; i < shingleSize; i++) {
-            begin = trainTime.minus(intervalMinutes * (shingleSize - 1 - i), ChronoUnit.MINUTES);
-            end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
-            try {
-                getDetectionResult(detectorId, begin, end, client);
-            } catch (Exception e) {}
-        }
-        // It takes time to wait for model initialization
         long startTime = System.currentTimeMillis();
         long duration = 0;
         do {
@@ -94,7 +80,7 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
                 break;
             }
             try {
-                getDetectionResult(detectorId, begin, end, client);
+                profileDetectorInitProgress(detectorId, client);
             } catch (Exception e) {}
             duration = System.currentTimeMillis() - startTime;
         } while (duration <= 60_000);
@@ -280,14 +266,15 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         String detectorId = createDetector(datasetName, intervalMinutes, client, categoricalField, 0);
         // cannot stop without actually starting detector because ad complains no ad job index
         startDetector(detectorId, client);
+        profileDetectorInitProgress(detectorId, client);
         // it would be long if we wait for the job actually run the work periodically; speed it up by using simulateHCADStartDetector
-        simulateHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        waitForHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
         String initProgress = profileDetectorInitProgress(detectorId, client);
         assertEquals("init progress is " + initProgress, "100%", initProgress);
         stopDetector(detectorId, client);
         // restart detector
         startDetector(detectorId, client);
-        simulateHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        waitForHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
         initProgress = profileDetectorInitProgress(detectorId, client);
         assertEquals("init progress is " + initProgress, "100%", initProgress);
     }

@@ -334,7 +334,7 @@ public class ADTaskManager {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             if (detectionDateRange == null) {
                 // start realtime job
-                handler.startAnomalyDetectorJob(detector.get());
+                handler.startAnomalyDetectorJob(detector.get(), listener);
             } else {
                 // start historical analysis task
                 forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
@@ -852,7 +852,7 @@ public class ADTaskManager {
                 );
             } else {
                 // stop realtime detector job
-                handler.stopAnomalyDetectorJob(detectorId);
+                handler.stopAnomalyDetectorJob(detectorId, listener);
             }
         }, listener);
     }
@@ -2818,6 +2818,13 @@ public class ADTaskManager {
             && realtimeTaskCache.getInitProgress() != null
             && realtimeTaskCache.getInitProgress().floatValue() == 1.0
             && Objects.equals(error, realtimeTaskCache.getError());
+    }
+
+    public boolean isHCRealtimeTaskStartInitializing(String detectorId) {
+        ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        return realtimeTaskCache != null
+            && realtimeTaskCache.getInitProgress() != null
+            && realtimeTaskCache.getInitProgress().floatValue() > 0;
     }
 
     public String convertEntityToString(ADTask adTask) {
