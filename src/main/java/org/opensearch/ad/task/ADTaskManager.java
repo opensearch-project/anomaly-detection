@@ -2057,7 +2057,7 @@ public class ADTaskManager {
         }
 
         error = Optional.ofNullable(error).orElse("");
-        if (!adTaskCacheManager.isRealtimeTaskChanged(detectorId, newState, initProgress, error)) {
+        if (!adTaskCacheManager.isRealtimeTaskChangeNeeded(detectorId, newState, initProgress, error)) {
             // If task not changed, no need to update, just return
             listener.onResponse(null);
             return;
@@ -3091,5 +3091,4 @@ public class ADTaskManager {
             }
         }
     }
-
 }
