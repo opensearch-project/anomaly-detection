@@ -24,17 +24,20 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
 import org.opensearch.Version;
@@ -79,8 +82,25 @@ public class AbstractADTest extends OpenSearchTestCase {
      *
      */
     protected class TestAppender extends AbstractAppender {
+        private static final String EXCEPTION_CLASS = "exception_class";
+        private static final String EXCEPTION_MSG = "exception_message";
+        private static final String EXCEPTION_STACK_TRACE = "stacktrace";
+
+        Map<Class<? extends Throwable>, Map<String, Object>> exceptions;
+        // whether record exception and its stack trace or not.
+        // If you log(msg, exception), by default we won't record exception and its stack trace.
+        boolean recordExceptions;
+
         protected TestAppender(String name) {
-            super(name, null, PatternLayout.createDefaultLayout(), true);
+            this(name, false);
+        }
+
+        protected TestAppender(String name, boolean recordExceptions) {
+            super(name, null, PatternLayout.createDefaultLayout(), true, Property.EMPTY_ARRAY);
+            this.recordExceptions = recordExceptions;
+            if (recordExceptions) {
+                exceptions = new HashMap<Class<? extends Throwable>, Map<String, Object>>();
+            }
         }
 
         public List<String> messages = new ArrayList<String>();
@@ -134,9 +154,47 @@ public class AbstractADTest extends OpenSearchTestCase {
             return countMessage(msg, false);
         }
 
+        public Boolean containExceptionClass(Class<? extends Throwable> throwable, String className) {
+            Map<String, Object> throwableInformation = exceptions.get(throwable);
+            return Optional.ofNullable(throwableInformation).map(m -> m.get(EXCEPTION_CLASS)).map(s -> s.equals(className)).orElse(false);
+        }
+
+        public Boolean containExceptionMsg(Class<? extends Throwable> throwable, String msg) {
+            Map<String, Object> throwableInformation = exceptions.get(throwable);
+            return Optional
+                .ofNullable(throwableInformation)
+                .map(m -> m.get(EXCEPTION_MSG))
+                .map(s -> ((String) s).contains(msg))
+                .orElse(false);
+        }
+
+        public Boolean containExceptionTrace(Class<? extends Throwable> throwable, String traceElement) {
+            Map<String, Object> throwableInformation = exceptions.get(throwable);
+            return Optional
+                .ofNullable(throwableInformation)
+                .map(m -> m.get(EXCEPTION_STACK_TRACE))
+                .map(s -> ((String) s).contains(traceElement))
+                .orElse(false);
+        }
+
         @Override
         public void append(LogEvent event) {
             messages.add(event.getMessage().getFormattedMessage());
+            if (recordExceptions && event.getThrown() != null) {
+                Map<String, Object> throwableInformation = new HashMap<String, Object>();
+                final Throwable throwable = event.getThrown();
+                if (throwable.getClass().getCanonicalName() != null) {
+                    throwableInformation.put(EXCEPTION_CLASS, throwable.getClass().getCanonicalName());
+                }
+                if (throwable.getMessage() != null) {
+                    throwableInformation.put(EXCEPTION_MSG, throwable.getMessage());
+                }
+                if (throwable.getMessage() != null) {
+                    StringBuilder stackTrace = new StringBuilder(ExceptionUtils.getStackTrace(throwable));
+                    throwableInformation.put(EXCEPTION_STACK_TRACE, stackTrace.toString());
+                }
+                exceptions.put(throwable.getClass(), throwableInformation);
+            }
         }
 
         /**
@@ -160,13 +218,17 @@ public class AbstractADTest extends OpenSearchTestCase {
     /**
      * Set up test with junit that a warning was logged with log4j
      */
-    protected void setUpLog4jForJUnit(Class<?> cls) {
+    protected void setUpLog4jForJUnit(Class<?> cls, boolean recordExceptions) {
         String loggerName = toLoggerName(callerClass(cls));
         logger = (Logger) LogManager.getLogger(loggerName);
         Loggers.setLevel(logger, Level.DEBUG);
-        testAppender = new TestAppender(loggerName);
+        testAppender = new TestAppender(loggerName, recordExceptions);
         testAppender.start();
         logger.addAppender(testAppender);
+    }
+
+    protected void setUpLog4jForJUnit(Class<?> cls) {
+        setUpLog4jForJUnit(cls, false);
     }
 
     private static String toLoggerName(final Class<?> cls) {

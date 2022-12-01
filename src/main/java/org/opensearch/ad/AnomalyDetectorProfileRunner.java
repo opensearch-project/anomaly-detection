@@ -40,7 +40,6 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
@@ -64,8 +63,6 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -451,14 +448,15 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             if (profileResponse.getTotalUpdates() < requiredSamples) {
                 // need to double check since what ProfileResponse returns is the highest priority entity currently in memory, but
                 // another entity might have already been initialized and sit somewhere else (in memory or on disk).
-                confirmMultiEntityDetectorInitStatus(
-                    detector,
-                    job.getEnabledTime().toEpochMilli(),
-                    profileBuilder,
-                    profilesToCollect,
-                    profileResponse.getTotalUpdates(),
-                    listener
-                );
+                long enabledTime = job.getEnabledTime().toEpochMilli();
+                long totalUpdates = profileResponse.getTotalUpdates();
+                ProfileUtil
+                    .confirmDetectorRealtimeInitStatus(
+                        detector,
+                        enabledTime,
+                        client,
+                        onInittedEver(enabledTime, profileBuilder, profilesToCollect, detector, totalUpdates, listener)
+                    );
             } else {
                 createRunningStateAndInitProgress(profilesToCollect, profileBuilder);
                 listener.onResponse(profileBuilder.build());
@@ -469,18 +467,6 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             }
             listener.onResponse(profileBuilder.build());
         }
-    }
-
-    private void confirmMultiEntityDetectorInitStatus(
-        AnomalyDetector detector,
-        long enabledTime,
-        DetectorProfile.Builder profile,
-        Set<DetectorProfileName> profilesToCollect,
-        long totalUpdates,
-        MultiResponsesDelegateActionListener<DetectorProfile> listener
-    ) {
-        SearchRequest searchLatestResult = createInittedEverRequest(detector.getDetectorId(), enabledTime, detector.getResultIndex());
-        client.search(searchLatestResult, onInittedEver(enabledTime, profile, profilesToCollect, detector, totalUpdates, listener));
     }
 
     private ActionListener<SearchResponse> onInittedEver(
@@ -601,27 +587,5 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         }
 
         listener.onResponse(builder.build());
-    }
-
-    /**
-     * Create search request to check if we have at least 1 anomaly score larger than 0 after AD job enabled time
-     * @param detectorId detector id
-     * @param enabledTime the time when AD job is enabled in milliseconds
-     * @return the search request
-     */
-    private SearchRequest createInittedEverRequest(String detectorId, long enabledTime, String resultIndex) {
-        BoolQueryBuilder filterQuery = new BoolQueryBuilder();
-        filterQuery.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
-        filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.EXECUTION_END_TIME_FIELD).gte(enabledTime));
-        filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_SCORE_FIELD).gt(0));
-
-        SearchSourceBuilder source = new SearchSourceBuilder().query(filterQuery).size(1);
-
-        SearchRequest request = new SearchRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        request.source(source);
-        if (resultIndex != null) {
-            request.indices(resultIndex);
-        }
-        return request;
     }
 }

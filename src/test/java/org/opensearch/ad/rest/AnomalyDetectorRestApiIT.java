@@ -1670,7 +1670,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         // Delete any existing result index
         if (indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+            // need to provide concrete indices to delete. Otherwise, will get exceptions from OpenSearch core.
+            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALL);
         }
         Response response = searchTopAnomalyResults(
             detector.getDetectorId(),
@@ -1709,7 +1710,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         // Clear any existing result index, create an empty one
         if (indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+            // need to provide concrete indices to delete. Otherwise, will get exceptions from OpenSearch core.
+            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALL);
         }
         TestHelpers.createEmptyAnomalyResultIndex(adminClient());
         Response response = searchTopAnomalyResults(
