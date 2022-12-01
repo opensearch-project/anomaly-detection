@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.update.UpdateResponse;
+import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -32,6 +34,7 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.ProfileAction;
@@ -40,10 +43,12 @@ import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.search.SearchHits;
 import org.opensearch.threadpool.ThreadPool;
 
 public class ExecuteADResultResponseRecorder {
@@ -55,6 +60,9 @@ public class ExecuteADResultResponseRecorder {
     private DiscoveryNodeFilterer nodeFilter;
     private ThreadPool threadPool;
     private Client client;
+    private NodeStateManager nodeStateManager;
+    private ADTaskCacheManager adTaskCacheManager;
+    private int rcfMinSamples;
 
     public ExecuteADResultResponseRecorder(
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -62,7 +70,10 @@ public class ExecuteADResultResponseRecorder {
         ADTaskManager adTaskManager,
         DiscoveryNodeFilterer nodeFilter,
         ThreadPool threadPool,
-        Client client
+        Client client,
+        NodeStateManager nodeStateManager,
+        ADTaskCacheManager adTaskCacheManager,
+        int rcfMinSamples
     ) {
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.anomalyResultHandler = anomalyResultHandler;
@@ -70,6 +81,9 @@ public class ExecuteADResultResponseRecorder {
         this.nodeFilter = nodeFilter;
         this.threadPool = threadPool;
         this.client = client;
+        this.nodeStateManager = nodeStateManager;
+        this.adTaskCacheManager = adTaskCacheManager;
+        this.rcfMinSamples = rcfMinSamples;
     }
 
     public void indexAnomalyResult(
@@ -185,27 +199,66 @@ public class ExecuteADResultResponseRecorder {
         String error
     ) {
         // Don't need info as this will be printed repeatedly in each interval
-        adTaskManager
-            .updateLatestRealtimeTaskOnCoordinatingNode(
+        ActionListener<UpdateResponse> listener = ActionListener.wrap(r -> {
+            if (r != null) {
+                log.debug("Updated latest realtime task successfully for detector {}, taskState: {}", detectorId, taskState);
+            }
+        }, e -> {
+            if ((e instanceof ResourceNotFoundException) && e.getMessage().contains(CAN_NOT_FIND_LATEST_TASK)) {
+                // Clear realtime task cache, will recreate AD task in next run, check AnomalyResultTransportAction.
+                log.error("Can't find latest realtime task of detector " + detectorId);
+                adTaskManager.removeRealtimeTaskCache(detectorId);
+            } else {
+                log.error("Failed to update latest realtime task for detector " + detectorId, e);
+            }
+        });
+
+        // rcfTotalUpdates is null when we save exception messages
+        if (!adTaskCacheManager.hasQueriedResultIndex(detectorId) && rcfTotalUpdates != null && rcfTotalUpdates < rcfMinSamples) {
+            // confirm the total updates number since it is possible that we have already had results after job enabling time
+            // If yes, total updates should be at least rcfMinSamples so that the init progress reaches 100%.
+            confirmTotalRCFUpdatesFound(
                 detectorId,
                 taskState,
                 rcfTotalUpdates,
                 detectorIntervalInMinutes,
                 error,
-                ActionListener.wrap(r -> {
-                    if (r != null) {
-                        log.debug("Updated latest realtime task successfully for detector {}, taskState: {}", detectorId, taskState);
-                    }
-                }, e -> {
-                    if ((e instanceof ResourceNotFoundException) && e.getMessage().contains(CAN_NOT_FIND_LATEST_TASK)) {
-                        // Clear realtime task cache, will recreate AD task in next run, check AnomalyResultTransportAction.
-                        log.error("Can't find latest realtime task of detector " + detectorId);
-                        adTaskManager.removeRealtimeTaskCache(detectorId);
-                    } else {
-                        log.error("Failed to update latest realtime task for detector " + detectorId, e);
-                    }
-                })
+                ActionListener
+                    .wrap(
+                        r -> adTaskManager
+                            .updateLatestRealtimeTaskOnCoordinatingNode(
+                                detectorId,
+                                taskState,
+                                r,
+                                detectorIntervalInMinutes,
+                                error,
+                                listener
+                            ),
+                        e -> {
+                            log.error("Fail to confirm rcf update", e);
+                            adTaskManager
+                                .updateLatestRealtimeTaskOnCoordinatingNode(
+                                    detectorId,
+                                    taskState,
+                                    rcfTotalUpdates,
+                                    detectorIntervalInMinutes,
+                                    error,
+                                    listener
+                                );
+                        }
+                    )
             );
+        } else {
+            adTaskManager
+                .updateLatestRealtimeTaskOnCoordinatingNode(
+                    detectorId,
+                    taskState,
+                    rcfTotalUpdates,
+                    detectorIntervalInMinutes,
+                    error,
+                    listener
+                );
+        }
     }
 
     /**
@@ -285,4 +338,53 @@ public class ExecuteADResultResponseRecorder {
         }
     }
 
+    private void confirmTotalRCFUpdatesFound(
+        String detectorId,
+        String taskState,
+        Long rcfTotalUpdates,
+        Long detectorIntervalInMinutes,
+        String error,
+        ActionListener<Long> listener
+    ) {
+        nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+            if (!detectorOptional.isPresent()) {
+                listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get detector"));
+                return;
+            }
+            nodeStateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(jobOptional -> {
+                if (!jobOptional.isPresent()) {
+                    listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get job"));
+                    return;
+                }
+
+                ProfileUtil
+                    .confirmDetectorRealtimeInitStatus(
+                        detectorOptional.get(),
+                        jobOptional.get().getEnabledTime().toEpochMilli(),
+                        client,
+                        ActionListener.wrap(searchResponse -> {
+                            ActionListener.completeWith(listener, () -> {
+                                SearchHits hits = searchResponse.getHits();
+                                Long correctedTotalUpdates = rcfTotalUpdates;
+                                if (hits.getTotalHits().value > 0L) {
+                                    // correct the number if we have already had results after job enabling time
+                                    // so that the detector won't stay initialized
+                                    correctedTotalUpdates = Long.valueOf(rcfMinSamples);
+                                }
+                                adTaskCacheManager.markResultIndexQueried(detectorId);
+                                return correctedTotalUpdates;
+                            });
+                        }, exception -> {
+                            if (ExceptionUtil.isIndexNotAvailable(exception)) {
+                                // anomaly result index is not created yet
+                                adTaskCacheManager.markResultIndexQueried(detectorId);
+                                listener.onResponse(0L);
+                            } else {
+                                listener.onFailure(exception);
+                            }
+                        })
+                    );
+            }, e -> listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get job"))));
+        }, e -> listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get detector"))));
+    }
 }

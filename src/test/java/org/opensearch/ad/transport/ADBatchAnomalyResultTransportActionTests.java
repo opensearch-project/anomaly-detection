@@ -136,15 +136,19 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
     }
 
     public void testDisableADPlugin() throws IOException {
-        updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, false));
-
-        ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(new DetectionDateRange(startTime, endTime));
-        RuntimeException exception = expectThrowsAnyOf(
-            ImmutableList.of(NotSerializableExceptionWrapper.class, EndRunException.class),
-            () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(10000)
-        );
-        assertTrue(exception.getMessage().contains("AD plugin is disabled"));
-        updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, true));
+        try {
+            updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, false));
+            ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(new DetectionDateRange(startTime, endTime));
+            RuntimeException exception = expectThrowsAnyOf(
+                ImmutableList.of(NotSerializableExceptionWrapper.class, EndRunException.class),
+                () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(10000)
+            );
+            assertTrue(exception.getMessage(), exception.getMessage().contains("AD plugin is disabled"));
+            updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, false));
+        } finally {
+            // guarantee reset back to default
+            updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, true));
+        }
     }
 
     public void testMultipleTasks() throws IOException, InterruptedException {

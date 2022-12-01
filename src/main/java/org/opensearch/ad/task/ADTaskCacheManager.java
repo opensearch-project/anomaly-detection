@@ -1013,33 +1013,43 @@ public class ADTaskCacheManager {
     }
 
     /**
-     * Check if realtime task field value changed or not by comparing with cache.
-     * 1. If new field value is null, will consider this field as not changed.
-     * 2. If any field value changed, will consider the realtime task changed.
-     * 3. If realtime task cache not found, will consider the realtime task changed.
+     * Check if realtime task field value change needed or not by comparing with cache.
+     * 1. If new field value is null, will consider changed needed to this field.
+     * 2. will consider the real time task change needed if
+     * 1) init progress is larger or the old init progress is null, or
+     * 2) if the state is different, and it is not changing from running to init.
+     *  for other fields, as long as field values changed, will consider the realtime
+     *  task change needed. We did this so that the init progress or state won't go backwards.
+     * 3. If realtime task cache not found, will consider the realtime task change needed.
      *
      * @param detectorId detector id
      * @param newState new task state
      * @param newInitProgress new init progress
      * @param newError new error
-     * @return true if realtime task changed comparing with realtime task cache.
+     * @return true if realtime task change needed.
      */
-    public boolean isRealtimeTaskChanged(String detectorId, String newState, Float newInitProgress, String newError) {
+    public boolean isRealtimeTaskChangeNeeded(String detectorId, String newState, Float newInitProgress, String newError) {
         if (realtimeTaskCaches.containsKey(detectorId)) {
             ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
-            boolean stateChanged = false;
-            if (newState != null && !newState.equals(realtimeTaskCache.getState())) {
-                stateChanged = true;
+            boolean stateChangeNeeded = false;
+            String oldState = realtimeTaskCache.getState();
+            if (newState != null
+                && !newState.equals(oldState)
+                && !(ADTaskState.INIT.name().equals(newState) && ADTaskState.RUNNING.name().equals(oldState))) {
+                stateChangeNeeded = true;
             }
-            boolean initProgressChanged = false;
-            if (newInitProgress != null && !newInitProgress.equals(realtimeTaskCache.getInitProgress())) {
-                initProgressChanged = true;
+            boolean initProgressChangeNeeded = false;
+            Float existingProgress = realtimeTaskCache.getInitProgress();
+            if (newInitProgress != null
+                && !newInitProgress.equals(existingProgress)
+                && (existingProgress == null || newInitProgress > existingProgress)) {
+                initProgressChangeNeeded = true;
             }
             boolean errorChanged = false;
             if (newError != null && !newError.equals(realtimeTaskCache.getError())) {
                 errorChanged = true;
             }
-            if (stateChanged || initProgressChanged || errorChanged) {
+            if (stateChangeNeeded || initProgressChangeNeeded || errorChanged) {
                 return true;
             }
             return false;
@@ -1350,5 +1360,34 @@ public class ADTaskCacheManager {
         } finally {
             cleanExpiredHCBatchTaskRunStatesSemaphore.release();
         }
+    }
+
+    /**
+     * We query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
+     * To avoid repeated query when there is no data, record whether we have done that or not.
+     * @param id detector id
+     */
+    public void markResultIndexQueried(String id) {
+        ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(id);
+        // we initialize a real time cache at the beginning of AnomalyResultTransportAction if it
+        // cannot be found. If the cache is empty, we will return early and wait it for it to be
+        // initialized.
+        if (realtimeTaskCache != null) {
+            realtimeTaskCache.setQueriedResultIndex(true);
+        }
+    }
+
+    /**
+     * We query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
+     *
+     * @param id detector id
+     * @return whether we have queried result index or not.
+     */
+    public boolean hasQueriedResultIndex(String id) {
+        ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(id);
+        if (realtimeTaskCache != null) {
+            return realtimeTaskCache.hasQueriedResultIndex();
+        }
+        return false;
     }
 }
