@@ -3,8 +3,12 @@ package org.opensearch.ad.rest;
 import static org.opensearch.rest.RestRequest.Method.POST;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.Collections;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -29,6 +33,7 @@ import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestHandler.Route;
 import org.opensearch.rest.RestRequest.Method;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -36,7 +41,6 @@ import org.opensearch.sdk.ExtensionsRunner;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
-import static org.opensearch.rest.RestStatus.*;
 
 public class RestValidateDetectorAction implements ExtensionRestHandler {
     private final Logger logger = LogManager.getLogger(RestValidateDetectorAction.class);
@@ -48,6 +52,7 @@ public class RestValidateDetectorAction implements ExtensionRestHandler {
             .stream()
             .map(aspect -> aspect.getName())
             .collect(Collectors.toSet());
+
     public RestValidateDetectorAction(ExtensionsRunner runner, AnomalyDetectorExtension extension){
         this.xContentRegistry = runner.getNamedXContentRegistry().getRegistry();
         this.sdkClient = extension.getClient();
@@ -59,6 +64,15 @@ public class RestValidateDetectorAction implements ExtensionRestHandler {
 
     @Override
     public ExtensionRestResponse handleRequest(ExtensionRestRequest request){
+        Method method = request.method();
+
+        if (!Method.POST.equals(method)) {
+            return new ExtensionRestResponse(
+                    request,
+                    RestStatus.NOT_FOUND,
+                    "Extension REST action improperly configured to handle " + request.toString()
+            );
+        }
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -105,9 +119,9 @@ public class RestValidateDetectorAction implements ExtensionRestHandler {
 
 
         }catch (Exception e){
-            return new ExtensionRestResponse(request, BAD_REQUEST, builder);
+            return new ExtensionRestResponse(request, RestStatus.BAD_REQUEST, builder);
         }
-        return new ExtensionRestResponse(request, OK, builder);
+        return new ExtensionRestResponse(request, RestStatus.OK, "placeholder");
     }
 
     private Boolean validationTypesAreAccepted(String validationType) {
