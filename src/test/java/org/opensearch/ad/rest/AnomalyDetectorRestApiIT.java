@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
@@ -1185,7 +1186,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             new DetectionDateRange(now.minus(10, ChronoUnit.DAYS), now),
             client()
         );
-        Assert.assertEquals(response.getStatusLine().toString(), "HTTP/1.1 200 OK");
+        Assert.assertThat(response.getStatusLine().toString(), CoreMatchers.containsString("200 OK"));
 
         // Deleting detector should fail while its running
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getDetectorId(), client()); });
