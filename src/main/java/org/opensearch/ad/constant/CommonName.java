@@ -25,6 +25,8 @@ public class CommonName {
 
     // The alias of the index in which to write AD result history
     public static final String ANOMALY_RESULT_INDEX_ALIAS = ".opendistro-anomaly-results";
+    // index pattern matching to all ad result indices
+    public static final String ANOMALY_RESULT_INDEX_ALL = ".opendistro-anomaly-results-history*";
 
     // ======================================
     // Format name
