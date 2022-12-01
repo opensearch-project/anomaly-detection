@@ -1,44 +1,130 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.rest.RestRequest.Method.POST;
-import static org.opensearch.rest.RestStatus.NOT_FOUND;
-import static org.opensearch.rest.RestStatus.OK;
 
-import java.util.List;
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ad.AnomalyDetectorExtension;
+import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.DetectorValidationIssue;
+import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestHandler.Route;
 import org.opensearch.rest.RestRequest.Method;
+import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.sdk.ExtensionRestHandler;
+import org.opensearch.sdk.ExtensionsRunner;
+
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
+import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
+import static org.opensearch.rest.RestStatus.*;
 
 public class RestValidateDetectorAction implements ExtensionRestHandler {
     private final Logger logger = LogManager.getLogger(RestValidateDetectorAction.class);
+    private final OpenSearchClient sdkClient;
+    private final NamedXContentRegistry xContentRegistry;
 
+    public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
+            .asList(ValidationAspect.values())
+            .stream()
+            .map(aspect -> aspect.getName())
+            .collect(Collectors.toSet());
+    public RestValidateDetectorAction(ExtensionsRunner runner, AnomalyDetectorExtension extension){
+        this.xContentRegistry = runner.getNamedXContentRegistry().getRegistry();
+        this.sdkClient = extension.getClient();
+    }
     @Override
     public List<Route> routes() {
         return List.of(new Route(POST, "/detectors/_validate"), new Route(POST, "/detectors/_validate/{type}"));
     }
 
     @Override
-    public ExtensionRestResponse handleRequest(ExtensionRestRequest request) {
+    public ExtensionRestResponse handleRequest(ExtensionRestRequest request){
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
-        Method method = request.method();
+        AnomalyDetector detector;
+        XContentParser parser;
+        XContentBuilder builder = null;
+        ValidateAnomalyDetectorRequest validateAnomalyDetectorRequest;
+        try {
+            parser= request.contentParser(this.xContentRegistry);
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+            String typesStr = validateTypeString(request);
+            DetectorValidationIssue issue=null;
+            try{
+                detector= AnomalyDetector.parse(parser);
+                //TODO Dependent on https://github.com/opensearch-project/opensearch-sdk-java/issues/211
+//                validateAnomalyDetectorRequest= new ValidateAnomalyDetectorRequest(
+//                        detector,
+//                        typesStr,
+//                        extension,
+//                        maxMultiEntityDetectors,
+//                        maxAnomalyFeatures,
+//                        requestTimeout
+//                );
+            }catch (Exception e){
+                if(e instanceof ADValidationException){
+                    ADValidationException ADException = (ADValidationException) e;
+                    issue = new DetectorValidationIssue(
+                            ADException.getAspect(),
+                            ADException.getType(),
+                            ADException.getMessage()
+                    );
+                }
+            }
 
-        if (!Method.POST.equals(method)) {
-            return new ExtensionRestResponse(
-                request,
-                NOT_FOUND,
-                "Extension REST action improperly configured to handle " + request.toString()
-            );
+            try {
+                builder = XContentBuilder.builder(XContentType.JSON.xContent());
+                builder.startObject();
+                builder.field("issue", issue);
+                builder.endObject();
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+
+
+
+        }catch (Exception e){
+            return new ExtensionRestResponse(request, BAD_REQUEST, builder);
         }
-        // do things with request
-        return new ExtensionRestResponse(request, OK, "placeholder");
+        return new ExtensionRestResponse(request, OK, builder);
     }
+
+    private Boolean validationTypesAreAccepted(String validationType) {
+        Set<String> typesInRequest = new HashSet<>(Arrays.asList(validationType.split(",")));
+        return (!Collections.disjoint(typesInRequest, ALL_VALIDATION_ASPECTS_STRS));
+    }
+
+    private String validateTypeString(ExtensionRestRequest request){
+        String typesStr = request.param(TYPE);
+
+        // if type param isn't blank and isn't a part of possible validation types throws exception
+        if (!StringUtils.isBlank(typesStr)) {
+            if (!validationTypesAreAccepted(typesStr)) {
+                throw new IllegalStateException(CommonErrorMessages.NOT_EXISTENT_VALIDATION_TYPE);
+            }
+        }
+        return typesStr;
+    }
+
 }
