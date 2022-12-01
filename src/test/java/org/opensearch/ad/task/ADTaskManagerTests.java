@@ -720,7 +720,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         String error = randomAlphaOfLength(5);
         ActionListener<UpdateResponse> actionListener = mock(ActionListener.class);
         doReturn(node1).when(clusterService).localNode();
-        when(adTaskCacheManager.isRealtimeTaskChanged(anyString(), anyString(), anyFloat(), anyString())).thenReturn(true);
+        when(adTaskCacheManager.isRealtimeTaskChangeNeeded(anyString(), anyString(), anyFloat(), anyString())).thenReturn(true);
         doAnswer(invocation -> {
             ActionListener<UpdateResponse> listener = invocation.getArgument(3);
             listener.onResponse(new UpdateResponse(ShardId.fromString("[test][1]"), "1", 0L, 1L, 1L, DocWriteResponse.Result.UPDATED));

@@ -762,7 +762,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             adTaskManager,
             nodeFilter,
             threadPool,
-            client
+            client,
+            stateManager,
+            adTaskCacheManager,
+            AnomalyDetectorSettings.NUM_MIN_SAMPLES
         );
 
         // return objects used by Guice to inject dependencies for e.g.,
