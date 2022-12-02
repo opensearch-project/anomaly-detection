@@ -35,14 +35,16 @@ import org.opensearch.rest.RestHandler.Route;
 import org.opensearch.rest.RestRequest.Method;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.RouteHandler;
 
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
 
-public class RestValidateDetectorAction implements ExtensionRestHandler {
+public class RestValidateDetectorAction extends BaseExtensionRestHandler {
     private final Logger logger = LogManager.getLogger(RestValidateDetectorAction.class);
     private final OpenSearchClient sdkClient;
     private final NamedXContentRegistry xContentRegistry;
@@ -57,22 +59,15 @@ public class RestValidateDetectorAction implements ExtensionRestHandler {
         this.xContentRegistry = runner.getNamedXContentRegistry().getRegistry();
         this.sdkClient = extension.getClient();
     }
+
     @Override
-    public List<Route> routes() {
-        return List.of(new Route(POST, "/detectors/_validate"), new Route(POST, "/detectors/_validate/{type}"));
+    protected List<RouteHandler> routeHandlers() {
+        //return List.of(new Route(POST, "/detectors/_validate"), new Route(POST, "/detectors/_validate/{type}"));
+        return List.of(new RouteHandler(POST, "/detectors/_validate",(r)->handleRequest(r)));
     }
 
     @Override
     public ExtensionRestResponse handleRequest(ExtensionRestRequest request){
-        Method method = request.method();
-
-        if (!Method.POST.equals(method)) {
-            return new ExtensionRestResponse(
-                    request,
-                    RestStatus.NOT_FOUND,
-                    "Extension REST action improperly configured to handle " + request.toString()
-            );
-        }
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -87,7 +82,6 @@ public class RestValidateDetectorAction implements ExtensionRestHandler {
             DetectorValidationIssue issue=null;
             try{
                 detector= AnomalyDetector.parse(parser);
-                //TODO Dependent on https://github.com/opensearch-project/opensearch-sdk-java/issues/211
 //                validateAnomalyDetectorRequest= new ValidateAnomalyDetectorRequest(
 //                        detector,
 //                        typesStr,
