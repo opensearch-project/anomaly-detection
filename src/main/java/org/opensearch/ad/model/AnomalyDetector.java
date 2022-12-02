@@ -30,10 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.auth.UserIdentity;
@@ -68,7 +64,6 @@ import com.google.common.collect.ImmutableList;
  * TODO: Will replace detector config mapping in AD task with detector config setting directly \
  *      in code rather than config it in anomaly-detection-state.json file.
  */
-@JsonIgnoreProperties({"fragment"})
 public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
@@ -129,8 +124,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final int MAX_RESULT_INDEX_NAME_SIZE = 255;
     public static final String RESULT_INDEX_NAME_PATTERN = "[a-z0-9_-]+";
 
-    private AnomalyDetector() {
-    }
+    private AnomalyDetector() {}
 
     /**
      * Constructor function.
@@ -264,44 +258,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         return null;
     }
-
-//    @JsonIgnoreProperties(ignoreUnknown = true)
-//    public AnomalyDetector(
-//        @JsonProperty("detectorId") String detectorId,
-//        @JsonProperty("version") Long version,
-//        @JsonProperty("name") String name,
-//        @JsonProperty("description") String description,
-//        @JsonProperty("timeField") String timeField,
-//        @JsonProperty("indices") List<String> indices,
-//        @JsonProperty("features") List<Feature> features,
-//        @JsonProperty("filterQuery") QueryBuilder filterQuery,
-//        @JsonProperty("detectionInterval") TimeConfiguration detectionInterval,
-//        @JsonProperty("windowDelay") TimeConfiguration windowDelay,
-//        @JsonProperty("shingleSize") Integer shingleSize,
-//        @JsonProperty("uiMetadata") Map<String, Object> uiMetadata,
-//        @JsonProperty("schemaVersion") Integer schemaVersion,
-//        @JsonProperty("lastUpdateTime") Instant lastUpdateTime,
-//        @JsonProperty("categoryFields") List<String> categoryFields,
-//        @JsonProperty("user") UserIdentity user
-//    ) {
-//        this.detectorId = detectorId;
-//        this.version = version;
-//        this.name = name;
-//        this.description = description;
-//        this.timeField = timeField;
-//        this.indices = indices;
-//        this.featureAttributes = features == null ? ImmutableList.of() : ImmutableList.copyOf(features);
-//        this.filterQuery = filterQuery;
-//        this.detectionInterval = detectionInterval;
-//        this.windowDelay = windowDelay;
-//        this.shingleSize = getShingleSize(shingleSize);
-//        this.uiMetadata = uiMetadata;
-//        this.schemaVersion = schemaVersion;
-//        this.lastUpdateTime = lastUpdateTime;
-//        this.categoryFields = categoryFields;
-//        this.user = user;
-//        this.detectorType = isMultientityDetector(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
-//    }
 
     public AnomalyDetector(StreamInput input) throws IOException {
         detectorId = input.readOptionalString();
@@ -691,12 +647,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return indices;
     }
 
-    @JsonProperty("featureAttributes")
     public List<Feature> getFeatureAttributes() {
         return featureAttributes;
     }
 
-    @JsonProperty("filterQuery")
     public QueryBuilder getFilterQuery() {
         return filterQuery;
     }
@@ -706,22 +660,18 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      *
      * @return a list of filtered feature ids.
      */
-    @JsonProperty("enabledFeatureIds")
     public List<String> getEnabledFeatureIds() {
         return featureAttributes.stream().filter(Feature::getEnabled).map(Feature::getId).collect(Collectors.toList());
     }
 
-    @JsonProperty("enabledFeatureNames")
     public List<String> getEnabledFeatureNames() {
         return featureAttributes.stream().filter(Feature::getEnabled).map(Feature::getName).collect(Collectors.toList());
     }
 
-    @JsonProperty("detectionInterval")
     public TimeConfiguration getDetectionInterval() {
         return detectionInterval;
     }
 
-    @JsonProperty("windowDelay")
     public TimeConfiguration getWindowDelay() {
         return windowDelay;
     }
@@ -760,22 +710,18 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return this.categoryFields;
     }
 
-    @JsonIgnore
     public long getDetectorIntervalInMilliseconds() {
         return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration().toMillis();
     }
 
-    @JsonIgnore
     public long getDetectorIntervalInSeconds() {
         return getDetectorIntervalInMilliseconds() / 1000;
     }
 
-    @JsonIgnore
     public long getDetectorIntervalInMinutes() {
         return getDetectorIntervalInMilliseconds() / 1000 / 60;
     }
 
-    @JsonIgnore
     public Duration getDetectionIntervalDuration() {
         return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration();
     }
@@ -804,17 +750,14 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return resultIndex;
     }
 
-    @JsonIgnore
     public boolean isMultientityDetector() {
         return AnomalyDetector.isMultientityDetector(getCategoryField());
     }
 
-    @JsonIgnore
     public boolean isMultiCategoryDetector() {
         return categoryFields != null && categoryFields.size() > 1;
     }
 
-    @JsonIgnore
     private static boolean isMultientityDetector(List<String> categoryFields) {
         return categoryFields != null && categoryFields.size() > 0;
     }

@@ -72,7 +72,7 @@ public class RestCreateDetectorAction extends BaseExtensionRestHandler {
 
     private IndexResponse indexAnomalyDetector(AnomalyDetector anomalyDetector) throws IOException {
         AnomalyDetector detector = new AnomalyDetector(
-            anomalyDetector.getName(),
+            anomalyDetector.getDetectorId(),
             anomalyDetector.getVersion(),
             anomalyDetector.getName(),
             anomalyDetector.getDescription(),

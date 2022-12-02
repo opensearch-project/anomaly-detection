@@ -15,9 +15,6 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 
 import java.io.IOException;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.util.ParseUtils;
@@ -35,7 +32,6 @@ import com.google.common.base.Objects;
 /**
  * Anomaly detector feature
  */
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class Feature implements Writeable, ToXContentObject {
 
     private static final String FEATURE_ID_FIELD = "feature_id";
@@ -48,8 +44,7 @@ public class Feature implements Writeable, ToXContentObject {
     private Boolean enabled;
     private AggregationBuilder aggregation;
 
-    private Feature() {
-    }
+    private Feature() {}
 
     /**
      * Constructor function.
@@ -171,7 +166,6 @@ public class Feature implements Writeable, ToXContentObject {
         return enabled;
     }
 
-    @JsonProperty("aggregation")
     public AggregationBuilder getAggregation() {
         return aggregation;
     }
