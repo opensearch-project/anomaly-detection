@@ -82,7 +82,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-        searchSourceBuilder.fetchSource(getSourceContext(request));
+        searchSourceBuilder.fetchSource(getSourceContext(request, searchSourceBuilder));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
         return channel -> client.execute(actionType, searchRequest, search(channel));
@@ -113,6 +113,8 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                     return new BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString());
                 }
 
+                System.out.println("response before: " + response);
+
                 if (clazz == AnomalyDetector.class) {
                     for (SearchHit hit : response.getHits()) {
                         XContentParser parser = XContentType.JSON
@@ -130,6 +132,9 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                         hit.sourceRef(BytesReference.bytes(builder));
                     }
                 }
+
+                System.out.println("response after: " + response);
+
 
                 return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));
             }

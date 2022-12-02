@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
@@ -43,6 +44,7 @@ import org.opensearch.indices.InvalidIndexNameException;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 
 import com.google.common.base.Throwables;
@@ -90,11 +92,22 @@ public final class RestHandlerUtils {
      * If the request came from the client then we exclude the UI Metadata from the search result.
      *
      * @param request rest request
+     * @param searchSourceBuilder an instance of the searchSourceBuolder to fetch _source field
      * @return instance of {@link org.opensearch.search.fetch.subphase.FetchSourceContext}
      */
-    public static FetchSourceContext getSourceContext(RestRequest request) {
+    public static FetchSourceContext getSourceContext(RestRequest request, SearchSourceBuilder searchSourceBuilder) {
         String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));
-        if (!userAgent.contains(OPENSEARCH_DASHBOARDS_USER_AGENT)) {
+
+        // if excludes is empty, just add include
+        // if excludes isn't empty and opensearch_Dashboard_user agent false then uiMetadata to exclude
+        if (searchSourceBuilder.fetchSource() != null) {
+            if (userAgent.contains(OPENSEARCH_DASHBOARDS_USER_AGENT)) {
+                return new FetchSourceContext(true, searchSourceBuilder.fetchSource().includes(), searchSourceBuilder.fetchSource().excludes());
+            } else {
+                String[] newArray = (String[]) ArrayUtils.addAll(searchSourceBuilder.fetchSource().excludes(), UI_METADATA_EXCLUDE);
+                return new FetchSourceContext(true, searchSourceBuilder.fetchSource().includes(), newArray);
+            }
+        } else if (!userAgent.contains(OPENSEARCH_DASHBOARDS_USER_AGENT)) {
             return new FetchSourceContext(true, Strings.EMPTY_ARRAY, UI_METADATA_EXCLUDE);
         } else {
             return null;
