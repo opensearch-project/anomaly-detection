@@ -94,6 +94,7 @@ repositories {
 }
 configurations {
     zipArchive
+    //hamcrest-core needs to be ignored since it causes jar hell exception due to a conflict during testing
     testImplementation {
         exclude group: 'org.hamcrest', module: 'hamcrest-core'
     }
