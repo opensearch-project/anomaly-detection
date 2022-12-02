@@ -19,30 +19,22 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.ValidationAspect;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
-import org.opensearch.rest.RestHandler.Route;
-import org.opensearch.rest.RestRequest.Method;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.sdk.BaseExtensionRestHandler;
-import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
-import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
 
 public class RestValidateDetectorAction extends BaseExtensionRestHandler {
     private final Logger logger = LogManager.getLogger(RestValidateDetectorAction.class);
@@ -62,7 +54,6 @@ public class RestValidateDetectorAction extends BaseExtensionRestHandler {
 
     @Override
     protected List<RouteHandler> routeHandlers() {
-        //return List.of(new Route(POST, "/detectors/_validate"), new Route(POST, "/detectors/_validate/{type}"));
         return List.of(new RouteHandler(POST, "/detectors/_validate",(r)->handleRequest(r)));
     }
 
