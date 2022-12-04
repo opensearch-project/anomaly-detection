@@ -78,13 +78,15 @@ public class ModelProfile implements Writeable, ToXContentObject {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(CommonName.MODEL_ID_KEY, modelId);
+        builder.startObject();
+        builder.field(CommonName.MODEL_ID_KEY, "vscduiskcnl");
         if (entity != null) {
             builder.field(CommonName.ENTITY_KEY, entity);
         }
         if (modelSizeInBytes > 0) {
             builder.field(CommonName.MODEL_SIZE_IN_BYTES, modelSizeInBytes);
         }
+        builder.endObject();
         return builder;
     }
 
