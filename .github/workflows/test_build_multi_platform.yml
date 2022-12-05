@@ -37,7 +37,7 @@ jobs:
     strategy:
       matrix:
         java: [8, 11, 14]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin on multipule platforms
