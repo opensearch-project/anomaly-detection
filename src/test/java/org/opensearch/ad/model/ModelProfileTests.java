@@ -21,7 +21,9 @@ public class ModelProfileTests extends AbstractADTest {
             0
         );
         XContentBuilder builder = jsonBuilder();
+        builder.startObject();
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
+        builder.endObject();
         String json = Strings.toString(builder);
         assertTrue(JsonDeserializer.hasChildNode(json, CommonName.ENTITY_KEY));
         assertFalse(JsonDeserializer.hasChildNode(json, CommonName.MODEL_SIZE_IN_BYTES));
@@ -29,7 +31,9 @@ public class ModelProfileTests extends AbstractADTest {
         ModelProfile profile2 = new ModelProfile(randomAlphaOfLength(5), null, 1);
 
         builder = jsonBuilder();
+        builder.startObject();
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
+        builder.endObject();
         json = Strings.toString(builder);
 
         assertFalse(JsonDeserializer.hasChildNode(json, CommonName.ENTITY_KEY));

@@ -78,7 +78,6 @@ public class ModelProfile implements Writeable, ToXContentObject {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject();
         builder.field(CommonName.MODEL_ID_KEY, modelId);
         if (entity != null) {
             builder.field(CommonName.ENTITY_KEY, entity);
@@ -86,7 +85,6 @@ public class ModelProfile implements Writeable, ToXContentObject {
         if (modelSizeInBytes > 0) {
             builder.field(CommonName.MODEL_SIZE_IN_BYTES, modelSizeInBytes);
         }
-        builder.endObject();
         return builder;
     }
 
