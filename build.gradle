@@ -34,10 +34,6 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
-                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
-        anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
-                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/2.4.0/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-anomaly-detection-2.4.0.0.zip'
         bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/2.4.0/latest/linux/x64/tar/builds/' +
@@ -96,6 +92,70 @@ repositories {
     maven { url "https://plugins.gradle.org/m2/" }
     maven { url "https://d1nvenhzbhpy0q.cloudfront.net/snapshots/lucene/" }
 }
+configurations {
+    zipArchive
+    //hamcrest-core needs to be ignored since it causes jar hell exception due to a conflict during testing
+    testImplementation {
+        exclude group: 'org.hamcrest', module: 'hamcrest-core'
+    }
+}
+
+dependencies {
+    zipArchive group: 'org.opensearch.plugin', name:'opensearch-job-scheduler', version: "${opensearch_build}"
+    implementation "org.opensearch:opensearch:${opensearch_version}"
+    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
+    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
+    implementation "org.opensearch:common-utils:${common_utils_version}"
+    implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
+    implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
+    implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
+    implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
+    implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
+    implementation group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
+    implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
+    implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
+    implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.0-rc3'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.0-rc3'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
+
+    // we inherit jackson-core from opensearch core
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.1"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.1"
+
+    // used for serializing/deserializing rcf models.
+    implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
+    implementation group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
+    implementation group: 'io.protostuff', name: 'protostuff-api', version: '1.8.0'
+    implementation group: 'io.protostuff', name: 'protostuff-collectionschema', version: '1.8.0'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
+
+    implementation "org.jacoco:org.jacoco.agent:0.8.5"
+    implementation ("org.jacoco:org.jacoco.ant:0.8.5") {
+        exclude group: 'org.ow2.asm', module: 'asm-commons'
+        exclude group: 'org.ow2.asm', module: 'asm'
+        exclude group: 'org.ow2.asm', module: 'asm-tree'
+    }
+
+    testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.25.0'
+    testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-core', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
+    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.2'
+    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
+    testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
+    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.7.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
+    testCompileOnly 'junit:junit:4.13.2'
+}
 
 apply plugin: 'java'
 apply plugin: 'idea'
@@ -152,11 +212,6 @@ configurations.all {
     }
 }
 
-configurations {
-    testImplementation {
-        exclude group: 'org.hamcrest', module: 'hamcrest-core'
-    }
-}
 
 publishing {
     publications {
@@ -318,21 +373,13 @@ testClusters.integTest {
         }
     }
     plugin(project.tasks.bundlePlugin.archiveFile)
-
     plugin(provider(new Callable<RegularFile>(){
         @Override
         RegularFile call() throws Exception {
             return new RegularFile() {
                 @Override
                 File getAsFile() {
-                    if (new File("$project.rootDir/$js_resource_folder").exists()) {
-                        project.delete(files("$project.rootDir/$js_resource_folder"))
-                    }
-                    project.mkdir js_resource_folder
-                    ant.get(src: job_scheduler_build_download,
-                            dest: js_resource_folder,
-                            httpusecaches: false)
-                    return fileTree(js_resource_folder).getSingleFile()
+                    return configurations.zipArchive.asFileTree.getSingleFile()
                 }
             }
         }
@@ -443,14 +490,7 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        if (new File("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build").exists()) {
-                            project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build"))
-                        }
-                        project.mkdir bwcJobSchedulerPath + opensearch_build
-                        ant.get(src: job_scheduler_build_download,
-                                dest: bwcJobSchedulerPath + opensearch_build,
-                                httpusecaches: false)
-                        return fileTree(bwcJobSchedulerPath + opensearch_build).getSingleFile()
+                        return configurations.zipArchive.asFileTree.getSingleFile()
                     }
                 }
             }
@@ -654,63 +694,6 @@ jacocoTestReport {
 
 check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
-
-dependencies {
-    implementation "org.opensearch:opensearch:${opensearch_version}"
-    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
-    implementation "org.opensearch:common-utils:${common_utils_version}"
-    implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
-    implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
-    implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
-    implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
-    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
-    implementation group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
-    implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
-    implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.0-rc3'
-    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.0-rc3'
-    implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
-
-    // force Jackson version to avoid version conflict issue
-    // we inherit jackson-core from opensearch core
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.0"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.0"
-
-    // used for serializing/deserializing rcf models.
-    implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
-    implementation group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
-    implementation group: 'io.protostuff', name: 'protostuff-api', version: '1.8.0'
-    implementation group: 'io.protostuff', name: 'protostuff-collectionschema', version: '1.8.0'
-    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
-
-    implementation "org.jacoco:org.jacoco.agent:0.8.5"
-    implementation ("org.jacoco:org.jacoco.ant:0.8.5") {
-        exclude group: 'org.ow2.asm', module: 'asm-commons'
-        exclude group: 'org.ow2.asm', module: 'asm'
-        exclude group: 'org.ow2.asm', module: 'asm-tree'
-    }
-
-    testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.25.0'
-    testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-core', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.2'
-    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
-    testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.7.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
-    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
-    testCompileOnly 'junit:junit:4.13.2'
-}
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
 
