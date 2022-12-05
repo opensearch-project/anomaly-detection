@@ -53,11 +53,10 @@ public class RestValidateDetectorAction extends BaseExtensionRestHandler {
 
     @Override
     protected List<RouteHandler> routeHandlers() {
-        return List.of(new RouteHandler(POST, "/detectors/_validate", (r) -> handleRequest(r)));
+        return List.of(new RouteHandler(POST, "/detectors/_validate", (r) -> handleValidateDetectorRequest(r)));
     }
 
-    @Override
-    public ExtensionRestResponse handleRequest(ExtensionRestRequest request) {
+    private ExtensionRestResponse handleValidateDetectorRequest(ExtensionRestRequest request) {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
