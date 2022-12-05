@@ -12,6 +12,7 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
+import static org.opensearch.ad.util.RestHandlerUtils.getSourceContextWithSearchSource;
 import static org.opensearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -28,11 +29,9 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -82,19 +81,18 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-        searchSourceBuilder.fetchSource(getSourceContext(request, searchSourceBuilder));
+        // Currently, if we are searching for detectors we don't consider the given _source because
+        // we want to keep the same current order of response which is something we have decided too
+        // in our initial release when excluding UI_Metadata if request didn't originate from OpenSearch-Dashboards
+        // ref-link: https://github.com/elastic/elasticsearch/issues/17639
+        if (clazz != AnomalyDetector.class) {
+            searchSourceBuilder.fetchSource(getSourceContextWithSearchSource(request, searchSourceBuilder));
+        } else {
+            searchSourceBuilder.fetchSource(getSourceContext(request));
+        }
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
         return channel -> client.execute(actionType, searchRequest, search(channel));
-    }
-
-    protected void executeWithAdmin(NodeClient client, AnomalyDetectorFunction function, RestChannel channel) {
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            function.execute();
-        } catch (Exception e) {
-            logger.error("Failed to execute with admin", e);
-            onFailure(channel, e);
-        }
     }
 
     protected void onFailure(RestChannel channel, Exception e) {
@@ -113,8 +111,6 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                     return new BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString());
                 }
 
-                System.out.println("response before: " + response);
-
                 if (clazz == AnomalyDetector.class) {
                     for (SearchHit hit : response.getHits()) {
                         XContentParser parser = XContentType.JSON
@@ -127,14 +123,12 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
 
                         // write back id and version to anomaly detector object
+                        // re-orders Anomaly Detector response JSON to original order after excluding UI_metadata
                         ToXContentObject xContentObject = AnomalyDetector.parse(parser, hit.getId(), hit.getVersion());
                         XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
                         hit.sourceRef(BytesReference.bytes(builder));
                     }
                 }
-
-                System.out.println("response after: " + response);
-
 
                 return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));
             }
