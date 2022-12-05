@@ -676,8 +676,8 @@ dependencies {
 
     // force Jackson version to avoid version conflict issue
     // we inherit jackson-core from opensearch core
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.0"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.0"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.1"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.1"
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
