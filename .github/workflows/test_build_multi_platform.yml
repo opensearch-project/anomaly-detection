@@ -40,7 +40,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
       fail-fast: false
 
-    name: Build and Test Anomaly detection Plugin on multipule platforms
+    name: Build and Test Anomaly detection Plugin on multiple platforms
     runs-on: ${{ matrix.os }}
 
     steps:
