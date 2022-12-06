@@ -12,7 +12,6 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
-import static org.opensearch.ad.util.RestHandlerUtils.getSourceContextWithSearchSource;
 import static org.opensearch.common.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -81,15 +80,10 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-        // Currently, if we are searching for detectors we don't consider the given _source because
-        // we want to keep the same current order of response which is something we have decided too
-        // in our initial release when excluding UI_Metadata if request didn't originate from OpenSearch-Dashboards
+        // order of response will be re-arranged everytime we use `_source`, we sometimes do this
+        // even if user doesn't give this field as we exclude ui_metadata if request isn't from OSD
         // ref-link: https://github.com/elastic/elasticsearch/issues/17639
-        if (clazz != AnomalyDetector.class) {
-            searchSourceBuilder.fetchSource(getSourceContextWithSearchSource(request, searchSourceBuilder));
-        } else {
-            searchSourceBuilder.fetchSource(getSourceContext(request));
-        }
+        searchSourceBuilder.fetchSource(getSourceContext(request, searchSourceBuilder));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
         return channel -> client.execute(actionType, searchRequest, search(channel));
@@ -110,26 +104,6 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                 if (response.isTimedOut()) {
                     return new BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString());
                 }
-
-                if (clazz == AnomalyDetector.class) {
-                    for (SearchHit hit : response.getHits()) {
-                        XContentParser parser = XContentType.JSON
-                            .xContent()
-                            .createParser(
-                                channel.request().getXContentRegistry(),
-                                LoggingDeprecationHandler.INSTANCE,
-                                hit.getSourceAsString()
-                            );
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-
-                        // write back id and version to anomaly detector object
-                        // re-orders Anomaly Detector response JSON to original order after excluding UI_metadata
-                        ToXContentObject xContentObject = AnomalyDetector.parse(parser, hit.getId(), hit.getVersion());
-                        XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
-                        hit.sourceRef(BytesReference.bytes(builder));
-                    }
-                }
-
                 return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));
             }
         };

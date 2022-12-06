@@ -13,7 +13,7 @@ package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.util.RestHandlerUtils.RESULT_INDEX;
-import static org.opensearch.ad.util.RestHandlerUtils.getSourceContextWithSearchSource;
+import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -70,7 +70,7 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-        searchSourceBuilder.fetchSource(getSourceContextWithSearchSource(request, searchSourceBuilder));
+        searchSourceBuilder.fetchSource(getSourceContext(request, searchSourceBuilder));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
 

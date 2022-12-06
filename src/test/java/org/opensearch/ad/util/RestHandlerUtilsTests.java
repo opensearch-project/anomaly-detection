@@ -37,51 +37,38 @@ import com.google.common.collect.ImmutableMap;
 
 public class RestHandlerUtilsTests extends OpenSearchTestCase {
 
-    public void testGetSourceContext() {
-        RestRequest request = new FakeRestRequest();
-        FetchSourceContext context = RestHandlerUtils.getSourceContext(request);
-        assertArrayEquals(UI_METADATA_EXCLUDE, context.excludes());
-    }
-
-    public void testGetSourceContextFromOpenSearchDashboards() {
-        FakeRestRequest.Builder builder = new FakeRestRequest.Builder(NamedXContentRegistry.EMPTY);
-        builder.withHeaders(ImmutableMap.of("User-Agent", ImmutableList.of(OPENSEARCH_DASHBOARDS_USER_AGENT, randomAlphaOfLength(10))));
-        FetchSourceContext context = RestHandlerUtils.getSourceContext(builder.build());
-        assertNull(context);
-    }
-
-    public void testGetSourceContextWithSearchSourceFromOpenSearchDashboardEmptyExcludes() {
+    public void testGetSourceContextFromOpenSearchDashboardEmptyExcludes() {
         FakeRestRequest.Builder builder = new FakeRestRequest.Builder(NamedXContentRegistry.EMPTY);
         builder.withHeaders(ImmutableMap.of("User-Agent", ImmutableList.of(OPENSEARCH_DASHBOARDS_USER_AGENT, randomAlphaOfLength(10))));
         SearchSourceBuilder testSearchSourceBuilder = new SearchSourceBuilder();
         testSearchSourceBuilder.fetchSource(new String[] { "a" }, new String[0]);
-        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContextWithSearchSource(builder.build(), testSearchSourceBuilder);
+        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContext(builder.build(), testSearchSourceBuilder);
         assertArrayEquals(new String[] { "a" }, sourceContext.includes());
         assertEquals(0, sourceContext.excludes().length);
         assertEquals(1, sourceContext.includes().length);
     }
 
-    public void testGetSourceContextWithSearchSourceFromClientWithExcludes() {
+    public void testGetSourceContextFromClientWithExcludes() {
         FakeRestRequest.Builder builder = new FakeRestRequest.Builder(NamedXContentRegistry.EMPTY);
         SearchSourceBuilder testSearchSourceBuilder = new SearchSourceBuilder();
         testSearchSourceBuilder.fetchSource(new String[] { "a" }, new String[] { "b" });
-        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContextWithSearchSource(builder.build(), testSearchSourceBuilder);
+        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContext(builder.build(), testSearchSourceBuilder);
         assertEquals(sourceContext.excludes().length, 2);
     }
 
-    public void testGetSourceContextWithSearchSourceFromClientWithoutSource() {
+    public void testGetSourceContextFromClientWithoutSource() {
         FakeRestRequest.Builder builder = new FakeRestRequest.Builder(NamedXContentRegistry.EMPTY);
         SearchSourceBuilder testSearchSourceBuilder = new SearchSourceBuilder();
-        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContextWithSearchSource(builder.build(), testSearchSourceBuilder);
+        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContext(builder.build(), testSearchSourceBuilder);
         assertEquals(sourceContext.excludes().length, 1);
         assertEquals(sourceContext.includes().length, 0);
     }
 
-    public void testGetSourceContextWithSearchSourceOpenSearchDashboardWithoutSources() {
+    public void testGetSourceContextOpenSearchDashboardWithoutSources() {
         FakeRestRequest.Builder builder = new FakeRestRequest.Builder(NamedXContentRegistry.EMPTY);
         builder.withHeaders(ImmutableMap.of("User-Agent", ImmutableList.of(OPENSEARCH_DASHBOARDS_USER_AGENT, randomAlphaOfLength(10))));
         SearchSourceBuilder testSearchSourceBuilder = new SearchSourceBuilder();
-        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContextWithSearchSource(builder.build(), testSearchSourceBuilder);
+        FetchSourceContext sourceContext = RestHandlerUtils.getSourceContext(builder.build(), testSearchSourceBuilder);
         assertNull(sourceContext);
     }
 

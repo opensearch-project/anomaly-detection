@@ -90,28 +90,12 @@ public final class RestHandlerUtils {
     /**
      * Checks to see if the request came from OpenSearch-Dashboards, if so we want to return the UI Metadata from the document.
      * If the request came from the client then we exclude the UI Metadata from the search result.
-     * We don't take into account the given _source field in this case
-     * @param request rest request
-     * @return instance of {@link org.opensearch.search.fetch.subphase.FetchSourceContext}
-     */
-    public static FetchSourceContext getSourceContext(RestRequest request) {
-        String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));
-        if (!userAgent.contains(OPENSEARCH_DASHBOARDS_USER_AGENT)) {
-            return new FetchSourceContext(true, Strings.EMPTY_ARRAY, UI_METADATA_EXCLUDE);
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * Checks to see if the request came from OpenSearch-Dashboards, if so we want to return the UI Metadata from the document.
-     * If the request came from the client then we exclude the UI Metadata from the search result.
      * We also take into account the given `_source` field and respect the correct fields to be returned.
      * @param request rest request
      * @param searchSourceBuilder an instance of the searchSourceBuilder to fetch _source field
      * @return instance of {@link org.opensearch.search.fetch.subphase.FetchSourceContext}
      */
-    public static FetchSourceContext getSourceContextWithSearchSource(RestRequest request, SearchSourceBuilder searchSourceBuilder) {
+    public static FetchSourceContext getSourceContext(RestRequest request, SearchSourceBuilder searchSourceBuilder) {
         String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));
 
         // If there is a _source given in request than we either add UI_Metadata to exclude or not depending on if request
@@ -119,9 +103,9 @@ public final class RestHandlerUtils {
         if (searchSourceBuilder.fetchSource() != null) {
             if (userAgent.contains(OPENSEARCH_DASHBOARDS_USER_AGENT)) {
                 return new FetchSourceContext(
-                    true,
-                    searchSourceBuilder.fetchSource().includes(),
-                    searchSourceBuilder.fetchSource().excludes()
+                        true,
+                        searchSourceBuilder.fetchSource().includes(),
+                        searchSourceBuilder.fetchSource().excludes()
                 );
             } else {
                 String[] newArray = (String[]) ArrayUtils.addAll(searchSourceBuilder.fetchSource().excludes(), UI_METADATA_EXCLUDE);
