@@ -27,9 +27,9 @@ public class ModelProfileTests extends AbstractADTest {
 
     public void testToXContent() throws IOException {
         ModelProfile profile1 = new ModelProfile(
-                randomAlphaOfLength(5),
-                Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)),
-                0
+            randomAlphaOfLength(5),
+            Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)),
+            0
         );
         XContentBuilder builder = getBuilder(profile1);
         String json = Strings.toString(builder);
@@ -49,7 +49,7 @@ public class ModelProfileTests extends AbstractADTest {
     private XContentBuilder getBuilder(ModelProfile profile) throws IOException {
         XContentBuilder builder = jsonBuilder();
         builder.startObject();
-        profile.toXContent(builder,ToXContent.EMPTY_PARAMS);
+        profile.toXContent(builder, ToXContent.EMPTY_PARAMS);
         builder.endObject();
         return builder;
     }
