@@ -14,7 +14,6 @@ package org.opensearch.ad.util;
 import static org.opensearch.ad.TestHelpers.builder;
 import static org.opensearch.ad.TestHelpers.randomFeature;
 import static org.opensearch.ad.util.RestHandlerUtils.OPENSEARCH_DASHBOARDS_USER_AGENT;
-import static org.opensearch.ad.util.RestHandlerUtils.UI_METADATA_EXCLUDE;
 
 import java.io.IOException;
 

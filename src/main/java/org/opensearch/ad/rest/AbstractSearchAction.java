@@ -13,8 +13,6 @@ package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
 import static org.opensearch.common.xcontent.ToXContent.EMPTY_PARAMS;
-import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -27,15 +25,9 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.ToXContentObject;
-import org.opensearch.common.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
@@ -43,7 +35,6 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestResponseListener;
-import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 /**

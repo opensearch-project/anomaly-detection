@@ -103,9 +103,9 @@ public final class RestHandlerUtils {
         if (searchSourceBuilder.fetchSource() != null) {
             if (userAgent.contains(OPENSEARCH_DASHBOARDS_USER_AGENT)) {
                 return new FetchSourceContext(
-                        true,
-                        searchSourceBuilder.fetchSource().includes(),
-                        searchSourceBuilder.fetchSource().excludes()
+                    true,
+                    searchSourceBuilder.fetchSource().includes(),
+                    searchSourceBuilder.fetchSource().excludes()
                 );
             } else {
                 String[] newArray = (String[]) ArrayUtils.addAll(searchSourceBuilder.fetchSource().excludes(), UI_METADATA_EXCLUDE);
