@@ -139,7 +139,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param detectionInterval detecting interval
      * @param windowDelay       max delay window for realtime data
      * @param shingleSize       number of the most recent time intervals to form a shingled data point
-     * @param uiMetadata        metadata used by Kibana
+     * @param uiMetadata        metadata used by OpenSearch-Dashboards
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
      * @param categoryFields    a list of partition fields
