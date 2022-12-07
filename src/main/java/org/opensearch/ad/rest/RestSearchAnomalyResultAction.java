@@ -70,7 +70,7 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-        searchSourceBuilder.fetchSource(getSourceContext(request));
+        searchSourceBuilder.fetchSource(getSourceContext(request, searchSourceBuilder));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
 
