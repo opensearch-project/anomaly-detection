@@ -15,7 +15,6 @@ import java.io.IOException;
 
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.ad.cluster.ADVersionUtil;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -168,7 +167,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         out.writeDouble(confidence);
         out.writeVInt(forestSize);
         out.writeDoubleArray(attribution);
-        if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
+        if (remoteAdVersion != null) {
             out.writeLong(totalUpdates);
             out.writeDouble(anomalyGrade);
             out.writeOptionalInt(relativeIndex);

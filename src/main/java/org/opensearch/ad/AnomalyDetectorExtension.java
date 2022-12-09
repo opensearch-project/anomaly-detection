@@ -1,3 +1,12 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ */
+
 package org.opensearch.ad;
 
 import static java.util.Collections.unmodifiableList;
@@ -29,7 +38,12 @@ import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
+import org.opensearch.ad.rest.RestGetDetectorAction;
+import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
@@ -46,8 +60,11 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.sdk.Extension;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
-import org.opensearch.sdk.ExtensionSettings;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
 import org.opensearch.threadpool.ThreadPool;
@@ -65,49 +82,12 @@ import io.protostuff.LinkedBuffer;
 import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
 
-public class AnomalyDetectorExtension implements Extension {
+public class AnomalyDetectorExtension extends BaseExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
-    private ExtensionSettings settings;
-
-    private AnomalyDetectionIndices anomalyDetectionIndices;
-    private AnomalyDetectorRunner anomalyDetectorRunner;
-    private OpenSearchClient client;
-    private ClusterService clusterService;
-    private ThreadPool threadPool;
-    private ADStats adStats;
-    private ClientUtil clientUtil;
-    private DiscoveryNodeFilterer nodeFilter;
-    private IndexUtils indexUtils;
-    private ADTaskCacheManager adTaskCacheManager;
-    private ADTaskManager adTaskManager;
-    private ADBatchTaskRunner adBatchTaskRunner;
-    private ExtensionsRunner extensionsRunner;
-    private static Gson gson;
-
-    GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
-
-    public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
-
-    static {
-        SpecialPermission.check();
-        // gson intialization requires "java.lang.RuntimePermission" "accessDeclaredMembers" to
-        // initialize ConstructorConstructor
-        AccessController.doPrivileged((PrivilegedAction<Void>) AnomalyDetectorExtension::initGson);
-    }
-
     public AnomalyDetectorExtension() {
-        try {
-            this.settings = initializeSettings();
-        } catch (IOException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
-    @Override
-    public ExtensionSettings getExtensionSettings() {
-        return this.settings;
+        super(EXTENSION_SETTINGS_PATH);
     }
 
     private static Void initGson() {
@@ -563,7 +543,12 @@ public class AnomalyDetectorExtension implements Extension {
 
     @Override
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
-        return List.of(new RestCreateDetectorAction());
+        return List
+            .of(
+                new RestCreateDetectorAction(extensionsRunner, this),
+                new RestGetDetectorAction(),
+                new RestValidateDetectorAction(extensionsRunner, this)
+            );
     }
 
     @Override
@@ -607,12 +592,22 @@ public class AnomalyDetectorExtension implements Extension {
         );
     }
 
-    private static ExtensionSettings initializeSettings() throws IOException {
-        ExtensionSettings settings = Extension.readSettingsFromYaml(EXTENSION_SETTINGS_PATH);
-        if (settings == null || settings.getHostAddress() == null || settings.getHostPort() == null) {
-            throw new IOException("Failed to initialize Extension settings. No port bound.");
-        }
-        return settings;
+    @Override
+    public List<NamedXContentRegistry.Entry> getNamedXContent() {
+        // Copied from AnomalyDetectorPlugin getNamedXContent
+        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY, DetectorInternalState.XCONTENT_REGISTRY
+        // Pending Job Scheduler Integration
+        // AnomalyDetectorJob.XCONTENT_REGISTRY
+        );
+    }
+
+    // TODO: replace or override client object on BaseExtension
+    // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
+    public OpenSearchClient getClient() {
+        SDKClient sdkClient = new SDKClient();
+        OpenSearchClient client = sdkClient
+            .initializeClient(getExtensionSettings().getOpensearchAddress(), Integer.parseInt(getExtensionSettings().getOpensearchPort()));
+        return client;
     }
 
     /**

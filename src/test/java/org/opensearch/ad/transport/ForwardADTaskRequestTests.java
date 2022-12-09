@@ -54,9 +54,9 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
         return getInstanceFromNode(NamedWriteableRegistry.class);
     }
 
-    public void testUnsupportedVersion() throws IOException {
+    public void testNullVersion() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of());
-        expectThrows(ADVersionException.class, () -> new ForwardADTaskRequest(detector, null, null, null, null, Version.V_1_0_0));
+        expectThrows(ADVersionException.class, () -> new ForwardADTaskRequest(detector, null, null, null, null, null));
     }
 
     public void testNullDetectorIdAndTaskAction() throws IOException {
@@ -79,7 +79,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             randomUser(),
             null
         );
-        ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_1_1_0);
+        ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_2_1_0);
         ActionRequestValidationException validate = request.validate();
         assertEquals("Validation Failed: 1: AD ID is missing;2: AD task action is missing;", validate.getMessage());
     }

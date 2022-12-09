@@ -14,7 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
@@ -110,7 +111,7 @@ final public class UserIdentity implements Writeable, ToXContent {
      * @param response  The security plugin response.
      * @throws IOException  If there was an error receiving the response.
      */
-    public UserIdentity(final Response response) throws IOException {
+    public UserIdentity(final Response response) throws IOException, ParseException {
         this(EntityUtils.toString(response.getEntity()));
     }
 

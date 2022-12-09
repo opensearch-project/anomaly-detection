@@ -17,7 +17,6 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -43,42 +42,26 @@ public class ModelProfile implements Writeable, ToXContentObject {
 
     public ModelProfile(StreamInput in) throws IOException {
         this.modelId = in.readString();
-        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
-            if (in.readBoolean()) {
-                this.entity = new Entity(in);
-            } else {
-                this.entity = null;
-            }
+        if (in.readBoolean()) {
+            this.entity = new Entity(in);
         } else {
             this.entity = null;
         }
+
         this.modelSizeInBytes = in.readLong();
-        if (!Bwc.supportMultiCategoryFields(in.getVersion())) {
-            // removed nodeId since Opensearch 1.1
-            // read it and do no assignment
-            in.readString();
-        }
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(modelId);
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-            if (entity != null) {
-                out.writeBoolean(true);
-                entity.writeTo(out);
-            } else {
-                out.writeBoolean(false);
-            }
+        if (entity != null) {
+            out.writeBoolean(true);
+            entity.writeTo(out);
+        } else {
+            out.writeBoolean(false);
         }
 
         out.writeLong(modelSizeInBytes);
-        // removed nodeId since Opensearch 1.1
-        if (!Bwc.supportMultiCategoryFields(out.getVersion())) {
-            // write empty string for node id as we don't have it
-            // otherwise, we will get EOFException
-            out.writeString(CommonName.EMPTY_FIELD);
-        }
     }
 
     public String getModelId() {

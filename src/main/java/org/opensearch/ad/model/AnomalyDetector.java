@@ -65,7 +65,6 @@ import com.google.common.collect.ImmutableList;
  *      in code rather than config it in anomaly-detection-state.json file.
  */
 public class AnomalyDetector implements Writeable, ToXContentObject {
-
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
         AnomalyDetector.class,
@@ -73,7 +72,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         it -> parse(it)
     );
     public static final String NO_ID = "";
-    public static final String ANOMALY_DETECTORS_INDEX = ".opendistro-anomaly-detectors";
+    public static final String ANOMALY_DETECTORS_INDEX = "opendistro-anomaly-detectors";
     public static final String TYPE = "_doc";
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";
