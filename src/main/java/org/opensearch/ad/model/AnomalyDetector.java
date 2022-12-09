@@ -79,7 +79,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String GENERAL_SETTINGS = "general_settings";
 
     public static final String NAME_FIELD = "name";
-    private static final String DESCRIPTION_FIELD = "description";
+    public static final String DESCRIPTION_FIELD = "description";
     public static final String TIMEFIELD_FIELD = "time_field";
     public static final String INDICES_FIELD = "indices";
     public static final String FILTER_QUERY_FIELD = "filter_query";
