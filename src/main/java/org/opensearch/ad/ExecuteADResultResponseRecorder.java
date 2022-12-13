@@ -120,6 +120,16 @@ public class ExecuteADResultResponseRecorder {
         }
     }
 
+    /**
+     * Update real time task (one document per detector in state index). If the real-time task has no changes compared with local cache,
+     * the task won't update. Task only updates when the state changed, or any error happened, or AD job stopped. Task is mainly consumed
+     * by the front-end to track detector status. For single-stream detectors, we embed model total updates in AnomalyResultResponse and
+     * update state accordingly. For HCAD, we won't wait for model finishing updating before returning a response to the job scheduler
+     * since it might be long before all entities finish execution. So we don't embed model total updates in AnomalyResultResponse.
+     * Instead, we issue a profile request to poll each model node and get the maximum total updates among all models.
+     * @param response response returned from executing AnomalyResultAction
+     * @param detectorId Detector Id
+     */
     private void updateRealtimeTask(AnomalyResultResponse response, String detectorId) {
         if (response.isHCDetector() != null && response.isHCDetector()) {
             if (adTaskManager.skipUpdateHCRealtimeTask(detectorId, response.getError())) {
