@@ -2,13 +2,10 @@
 
 Compatible with OpenSearch 2.4.1
 
-### Enhancements
-
-* AD model performance benchmark ([#729](https://github.com/opensearch-project/anomaly-detection/pull/729))
-
 ### Infrastructure
 
 * windows CI for AD ([#703](https://github.com/opensearch-project/anomaly-detection/pull/703))
+* AD model performance benchmark ([#729](https://github.com/opensearch-project/anomaly-detection/pull/729))
 
 ### Maintenance
 
