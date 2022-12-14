@@ -29,7 +29,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,8 +36,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -48,12 +47,8 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
-import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.support.GroupedActionListener;
-import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
@@ -66,27 +61,27 @@ import org.opensearch.client.AdminClient;
 import org.opensearch.client.json.JsonData;
 import org.opensearch.client.json.JsonpMapper;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
-import org.opensearch.client.opensearch._types.ExpandWildcard;
-import org.opensearch.client.opensearch._types.Result;
-import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.ExpandWildcard;
+import org.opensearch.client.opensearch._types.mapping.SourceField;
+import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.core.DeleteRequest;
 import org.opensearch.client.opensearch.core.DeleteResponse;
 import org.opensearch.client.opensearch.core.IndexRequest;
-import org.opensearch.client.opensearch.core.IndexResponse;
 import org.opensearch.client.opensearch.indices.Alias;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.CreateIndexResponse;
 import org.opensearch.client.opensearch.indices.GetAliasRequest;
 import org.opensearch.client.opensearch.indices.GetAliasResponse;
+import org.opensearch.client.opensearch.indices.IndexSettings;
+import org.opensearch.client.opensearch.indices.PutMappingRequest;
+import org.opensearch.client.opensearch.indices.PutMappingResponse;
 import org.opensearch.client.opensearch.indices.RolloverRequest;
 import org.opensearch.client.opensearch.indices.RolloverResponse;
-import org.opensearch.client.opensearch.indices.IndexSettings;
 import org.opensearch.client.opensearch.indices.get_alias.IndexAliases;
 import org.opensearch.client.opensearch.indices.rollover.IndexRolloverMapping;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.LocalNodeMasterListener;
-import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesArray;
@@ -99,20 +94,15 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParser.Token;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
-
-
 import com.carrotsearch.hppc.cursors.ObjectCursor;
-import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-
 import jakarta.json.stream.JsonParser;
 
 /**
@@ -535,7 +525,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", index.getIndexName()));
                 }
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             logger.error(e);
             throw e;
         }
@@ -629,16 +619,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         initAnomalyResultIndexDirectly(AD_RESULT_HISTORY_INDEX_PATTERN, CommonName.ANOMALY_RESULT_INDEX_ALIAS, true);
     }
 
-    public void initCustomAnomalyResultIndexDirectly(String resultIndex)
-        throws IOException {
+    public void initCustomAnomalyResultIndexDirectly(String resultIndex) throws IOException {
         initAnomalyResultIndexDirectly(resultIndex, null, false);
     }
 
-    public void initAnomalyResultIndexDirectly(
-        String resultIndex,
-        String alias,
-        boolean hiddenIndex
-    ) throws IOException {
+    public void initAnomalyResultIndexDirectly(String resultIndex, String alias, boolean hiddenIndex) throws IOException {
         JsonpMapper mapper = client._transport().jsonpMapper();
         ((JacksonJsonpMapper) mapper).objectMapper().registerModule(new JavaTimeModule());
         JsonParser parser = null;
@@ -750,9 +735,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
         try {
-            parser = mapper
-                .jsonProvider()
-                .createParser(new ByteArrayInputStream(mapping.getBytes(StandardCharsets.UTF_8)));
+            parser = mapper.jsonProvider().createParser(new ByteArrayInputStream(mapping.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -762,7 +745,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             CreateIndexRequest.Builder builder = new CreateIndexRequest.Builder()
                 .index(CommonName.CHECKPOINT_INDEX_NAME)
                 .mappings(TypeMapping._DESERIALIZER.deserialize(parser, mapper));
-                builder = choosePrimaryShards(builder);
+            builder = choosePrimaryShards(builder);
             request = builder.build();
         } catch (Exception e) {
             e.printStackTrace();
@@ -831,9 +814,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
         try {
-            parser = mapper
-                .jsonProvider()
-                .createParser(new ByteArrayInputStream(mapping.getBytes(StandardCharsets.UTF_8)));
+            parser = mapper.jsonProvider().createParser(new ByteArrayInputStream(mapping.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1004,6 +985,12 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             logger.info(new ParameterizedMessage("Check [{}]'s mapping", adIndex.getIndexName()));
             shouldUpdateIndex(adIndex, ActionListener.wrap(shouldUpdate -> {
                 if (shouldUpdate) {
+
+                    PutMappingRequest putMappingRequest = new PutMappingRequest.Builder()
+                                                                            .index(adIndex.getIndexName())
+                                                                            .source(new SourceField.Builder().includes(adIndex.getMapping()).build())
+                                                                            .build();
+
                     adminClient
                         .indices()
                         .putMapping(
@@ -1076,7 +1063,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 .allowNoIndices(true)
                 .expandWildcards(ExpandWildcard.Open, ExpandWildcard.Hidden)
                 .build();
-            
+
             try {
                 GetAliasResponse getAliasResponse = client.indices().getAlias(getAliasRequest);
                 String concreteIndex = null;
