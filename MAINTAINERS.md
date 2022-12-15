@@ -9,7 +9,7 @@
 | Kaituo Li               | [kaituo](https://github.com/kaituo)                     | Amazon      |
 | Lai Jiang               | [wnbts](https://github.com/wnbts)                       | Amazon      |
 | Sarat Vemulapalli       | [saratvemulapalli](https://github.com/saratvemulapalli) | Amazon      |
-| Tyler Ohlsen            | [ohtyler](https://github.com/ohltyler)                  | Amazon      |
+| Tyler Ohlsen            | [ohltyler](https://github.com/ohltyler)                 | Amazon      |
 | Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                   | Amazon      |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)                 | Amazon      |
 | Yaliang Wu              | [ylwu-amzn](https://github.com/ylwu-amzn)               | Amazon      |
