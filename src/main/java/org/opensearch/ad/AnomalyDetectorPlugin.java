@@ -234,11 +234,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
-    private ADTaskCacheManager adTaskCacheManager;
     private ADTaskManager adTaskManager;
     private ADBatchTaskRunner adBatchTaskRunner;
     // package private for testing
     GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
+    private NodeStateManager stateManager;
+    private ExecuteADResultResponseRecorder adResultResponseRecorder;
 
     static {
         SpecialPermission.check();
@@ -259,25 +260,14 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         IndexNameExpressionResolver indexNameExpressionResolver,
         Supplier<DiscoveryNodes> nodesInCluster
     ) {
-        AnomalyIndexHandler<AnomalyResult> anomalyResultHandler = new AnomalyIndexHandler<AnomalyResult>(
-            client,
-            settings,
-            threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            anomalyDetectionIndices,
-            this.clientUtil,
-            this.indexUtils,
-            clusterService
-        );
-
         AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
         jobRunner.setClient(client);
         jobRunner.setThreadPool(threadPool);
-        jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setSettings(settings);
         jobRunner.setAnomalyDetectionIndices(anomalyDetectionIndices);
-        jobRunner.setNodeFilter(nodeFilter);
         jobRunner.setAdTaskManager(adTaskManager);
+        jobRunner.setNodeStateManager(stateManager);
+        jobRunner.setExecuteADResultResponseRecorder(adResultResponseRecorder);
 
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
@@ -383,7 +373,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             adCircuitBreakerService
         );
 
-        NodeStateManager stateManager = new NodeStateManager(
+        stateManager = new NodeStateManager(
             client,
             xContentRegistry,
             settings,
@@ -568,7 +558,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             entityColdStarter,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            stateManager
+            stateManager,
+            cacheProvider
         );
 
         ModelManager modelManager = new ModelManager(
@@ -714,7 +705,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
 
-        adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
+        ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
         adTaskManager = new ADTaskManager(
             settings,
             clusterService,
@@ -753,6 +744,26 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
 
         ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client);
+
+        AnomalyIndexHandler<AnomalyResult> anomalyResultHandler = new AnomalyIndexHandler<AnomalyResult>(
+            client,
+            settings,
+            threadPool,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            this.clientUtil,
+            this.indexUtils,
+            clusterService
+        );
+
+        adResultResponseRecorder = new ExecuteADResultResponseRecorder(
+            anomalyDetectionIndices,
+            anomalyResultHandler,
+            adTaskManager,
+            nodeFilter,
+            threadPool,
+            client
+        );
 
         // return objects used by Guice to inject dependencies for e.g.,
         // transport action handler constructors
@@ -795,7 +806,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 checkpointWriteQueue,
                 coldEntityQueue,
                 entityColdStarter,
-                adTaskCacheManager
+                adTaskCacheManager,
+                adResultResponseRecorder
             );
     }
 

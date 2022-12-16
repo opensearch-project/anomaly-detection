@@ -22,13 +22,16 @@ import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -49,6 +52,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
     public static final String WORKER_NAME = "cold-start";
 
     private final EntityColdStarter entityColdStarter;
+    private final CacheProvider cacheProvider;
 
     public EntityColdStartWorker(
         long heapSizeInBytes,
@@ -67,7 +71,8 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
         Duration executionTtl,
         EntityColdStarter entityColdStarter,
         Duration stateTtl,
-        NodeStateManager nodeStateManager
+        NodeStateManager nodeStateManager,
+        CacheProvider cacheProvider
     ) {
         super(
             WORKER_NAME,
@@ -90,6 +95,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
             nodeStateManager
         );
         this.entityColdStarter = entityColdStarter;
+        this.cacheProvider = cacheProvider;
     }
 
     @Override
@@ -114,15 +120,42 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
             0
         );
 
-        ActionListener<Void> failureListener = ActionListener.delegateResponse(listener, (delegateListener, e) -> {
-            if (ExceptionUtil.isOverloaded(e)) {
-                LOG.error("OpenSearch is overloaded");
-                setCoolDownStart();
+        ActionListener<Void> coldStartListener = ActionListener.wrap(r -> {
+            nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+                try {
+                    if (!detectorOptional.isPresent()) {
+                        LOG
+                            .error(
+                                new ParameterizedMessage(
+                                    "fail to load trained model [{}] to cache due to the detector not being found.",
+                                    modelState.getModelId()
+                                )
+                            );
+                        return;
+                    }
+                    AnomalyDetector detector = detectorOptional.get();
+                    EntityModel model = modelState.getModel();
+                    // load to cache if cold start succeeds
+                    if (model != null && model.getTrcf() != null) {
+                        cacheProvider.get().hostIfPossible(detector, modelState);
+                    }
+                } finally {
+                    listener.onResponse(null);
+                }
+            }, listener::onFailure));
+
+        }, e -> {
+            try {
+                if (ExceptionUtil.isOverloaded(e)) {
+                    LOG.error("OpenSearch is overloaded");
+                    setCoolDownStart();
+                }
+                nodeStateManager.setException(detectorId, e);
+            } finally {
+                listener.onFailure(e);
             }
-            nodeStateManager.setException(detectorId, e);
-            delegateListener.onFailure(e);
         });
 
-        entityColdStarter.trainModel(coldStartRequest.getEntity(), detectorId, modelState, failureListener);
+        entityColdStarter.trainModel(coldStartRequest.getEntity(), detectorId, modelState, coldStartListener);
     }
 }

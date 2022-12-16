@@ -20,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
@@ -52,6 +53,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
     private ThreadContext.StoredContext context;
     private final ADTaskManager adTaskManager;
     private final TransportService transportService;
+    private final ExecuteADResultResponseRecorder recorder;
 
     @Inject
     public MockAnomalyDetectorJobTransportActionWithUser(
@@ -62,7 +64,8 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        ExecuteADResultResponseRecorder recorder
     ) {
         super(MockAnomalyDetectorJobAction.NAME, transportService, actionFilters, AnomalyDetectorJobRequest::new);
         this.transportService = transportService;
@@ -77,6 +80,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
 
         ThreadContext threadContext = new ThreadContext(settings);
         context = threadContext.stashContext();
+        this.recorder = recorder;
     }
 
     @Override
@@ -131,7 +135,6 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
     ) {
         IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
             client,
-            listener,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -139,7 +142,8 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
             requestTimeout,
             xContentRegistry,
             transportService,
-            adTaskManager
+            adTaskManager,
+            recorder
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
             adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, context, listener);

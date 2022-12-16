@@ -55,6 +55,7 @@ import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
@@ -161,29 +162,31 @@ public class PriorityCache implements EntityCache {
 
         // during maintenance period, stop putting new entries
         if (!maintenanceLock.isLocked() && modelState == null) {
-            DoorKeeper doorKeeper = doorKeepers
-                .computeIfAbsent(
-                    detectorId,
-                    id -> {
-                        // reset every 60 intervals
-                        return new DoorKeeper(
-                            AnomalyDetectorSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
-                            AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
-                            detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
-                            clock
-                        );
-                    }
-                );
+            if (EnabledSetting.isDoorKeeperInCacheEnabled()) {
+                DoorKeeper doorKeeper = doorKeepers
+                    .computeIfAbsent(
+                        detectorId,
+                        id -> {
+                            // reset every 60 intervals
+                            return new DoorKeeper(
+                                AnomalyDetectorSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
+                                AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
+                                detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                                clock
+                            );
+                        }
+                    );
 
-            // first hit, ignore
-            // since door keeper may get reset during maintenance, it is possible
-            // the entity is still active even though door keeper has no record of
-            // this model Id. We have to call isActive method to make sure. Otherwise,
-            // the entity might miss an anomaly result every 60 intervals due to door keeper
-            // reset.
-            if (!doorKeeper.mightContain(modelId) && !isActive(detectorId, modelId)) {
-                doorKeeper.put(modelId);
-                return null;
+                // first hit, ignore
+                // since door keeper may get reset during maintenance, it is possible
+                // the entity is still active even though door keeper has no record of
+                // this model Id. We have to call isActive method to make sure. Otherwise,
+                // the entity might miss an anomaly result every 60 intervals due to door keeper
+                // reset.
+                if (!doorKeeper.mightContain(modelId) && !isActive(detectorId, modelId)) {
+                    doorKeeper.put(modelId);
+                    return null;
+                }
             }
 
             try {
