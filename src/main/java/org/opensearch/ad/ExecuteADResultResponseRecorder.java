@@ -208,6 +208,16 @@ public class ExecuteADResultResponseRecorder {
             );
     }
 
+    /**
+     * The function is not only indexing the result with the exception, but also updating the task state after
+     * 60s if the exception is related to cold start (index not found exceptions) for a single stream detector.
+     *
+     * @param detectionStartTime execution start time
+     * @param executionStartTime execution end time
+     * @param errorMessage Error message to record
+     * @param taskState AD task state (e.g., stopped)
+     * @param detector Detector config accessor
+     */
     public void indexAnomalyResultException(
         Instant detectionStartTime,
         Instant executionStartTime,
@@ -262,7 +272,7 @@ public class ExecuteADResultResponseRecorder {
                             totalUpdates > 0 ? "" : errorMessage
                         );
                     }, e -> {
-                        log.error("Fail to eecute RCFRollingAction", e);
+                        log.error("Fail to execute RCFRollingAction", e);
                         updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
                     }));
                 }, new TimeValue(60, TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);

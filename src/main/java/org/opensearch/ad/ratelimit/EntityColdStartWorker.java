@@ -124,7 +124,13 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
             nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
                 try {
                     if (!detectorOptional.isPresent()) {
-                        LOG.error(new ParameterizedMessage("fail to get detector [{}]", detectorId));
+                        LOG
+                            .error(
+                                new ParameterizedMessage(
+                                    "fail to load trained model [{}] to cache due to the detector not being found.",
+                                    modelState.getModelId()
+                                )
+                            );
                         return;
                     }
                     AnomalyDetector detector = detectorOptional.get();

@@ -121,6 +121,8 @@ public class IndexAnomalyDetectorJobActionHandler {
      * @param listener Listener to send responses
      */
     public void startAnomalyDetectorJob(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
+        // this start listener is created & injected throughout the job handler so that whenever the job response is received,
+        // there's the extra step of trying to index results and update detector state with a 60s delay.
         ActionListener<AnomalyDetectorJobResponse> startListener = ActionListener.wrap(r -> {
             try {
                 Instant executionEndTime = Instant.now();
