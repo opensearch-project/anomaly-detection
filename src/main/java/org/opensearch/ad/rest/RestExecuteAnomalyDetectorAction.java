@@ -70,7 +70,6 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         }
         AnomalyDetectorExecutionInput input = getAnomalyDetectorExecutionInput(request);
         return channel -> {
-            String rawPath = request.rawPath();
             String error = validateAdExecutionInput(input);
             if (StringUtils.isNotBlank(error)) {
                 channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
