@@ -30,7 +30,10 @@ import java.util.Random;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.EntityColdStarter;
+import org.opensearch.ad.ml.EntityModel;
+import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -38,10 +41,13 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.rest.RestStatus;
 
+import test.org.opensearch.ad.util.MLUtil;
+
 public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
     ClusterService clusterService;
     EntityColdStartWorker worker;
     EntityColdStarter entityColdStarter;
+    CacheProvider cacheProvider;
 
     @Override
     public void setUp() throws Exception {
@@ -64,6 +70,8 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
 
         entityColdStarter = mock(EntityColdStarter.class);
 
+        cacheProvider = mock(CacheProvider.class);
+
         // Integer.MAX_VALUE makes a huge heap
         worker = new EntityColdStartWorker(
             Integer.MAX_VALUE,
@@ -82,7 +90,8 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             entityColdStarter,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            nodeStateManager
+            nodeStateManager,
+            cacheProvider
         );
     }
 
@@ -134,5 +143,23 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
         worker.put(request);
         verify(entityColdStarter, times(2)).trainModel(any(), anyString(), any(), any());
         verify(nodeStateManager, times(2)).setException(eq(detectorId), any(OpenSearchStatusException.class));
+    }
+
+    public void testModelHosted() {
+        EntityRequest request = new EntityRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity);
+
+        doAnswer(invocation -> {
+            ActionListener<Void> listener = invocation.getArgument(3);
+
+            ModelState<EntityModel> state = invocation.getArgument(2);
+            state.setModel(MLUtil.createNonEmptyModel(detectorId));
+            listener.onResponse(null);
+
+            return null;
+        }).when(entityColdStarter).trainModel(any(), anyString(), any(), any());
+
+        worker.put(request);
+
+        verify(cacheProvider, times(1)).get();
     }
 }

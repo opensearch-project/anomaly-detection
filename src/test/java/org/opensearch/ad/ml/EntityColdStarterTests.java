@@ -114,7 +114,6 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
 
     public void testColdStart() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        double[] savedSample = samples.peek();
         EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
