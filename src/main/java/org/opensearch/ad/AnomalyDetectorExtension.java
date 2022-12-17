@@ -27,7 +27,6 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.extensions.JobDetails;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -112,10 +111,15 @@ public class AnomalyDetectorExtension extends BaseExtension {
         return client;
     }
 
-    // TODO: After AnomalyDetectorJob.java is uncommented, fetch jobIndex from AnomalyDetectorJob
     @Override
-    public JobDetails getJobDetails() {
-        return new JobDetails(AnomalyDetectorPlugin.AD_JOB_TYPE, ".opendistro-anomaly-detector-jobs");
+    public String getJobType() {
+        return AnomalyDetectorPlugin.AD_JOB_TYPE;
+    }
+
+    // TODO After circular dependency of JS is removed and AnomalyDetectorJob is uncommented, import JobIndex from AnomalyDetectorJob.java.
+    @Override
+    public String getJobIndex() {
+        return ".opendistro-anomaly-detector-jobs";
     }
 
     public static void main(String[] args) throws IOException {
