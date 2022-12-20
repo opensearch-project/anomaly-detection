@@ -97,7 +97,7 @@ public final class RestHandlerUtils {
      * @return instance of {@link org.opensearch.search.fetch.subphase.FetchSourceContext}
      */
     public static FetchSourceContext getSourceContext(RestRequest request, SearchSourceBuilder searchSourceBuilder) {
-        String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));
+        String userAgent = coalesceToEmpty(request.header("User-Agent"));
 
         // If there is a _source given in request than we either add UI_Metadata to exclude or not depending on if request
         // is from OpenSearch-Dashboards, if no _source field then we either exclude UI_metadata or return nothing at all.
