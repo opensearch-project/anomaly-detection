@@ -19,9 +19,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -31,7 +28,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -39,48 +35,29 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
-import org.opensearch.test.ClusterServiceUtils;
-import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.threadpool.ThreadPool;
 
 import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
 import test.org.opensearch.ad.util.MLUtil;
@@ -91,33 +68,7 @@ import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 
-public class EntityColdStarterTests extends AbstractADTest {
-    int numMinSamples;
-    String modelId;
-    String entityName;
-    String detectorId;
-    ModelState<EntityModel> modelState;
-    Clock clock;
-    float priority;
-    EntityColdStarter entityColdStarter;
-    NodeStateManager stateManager;
-    SearchFeatureDao searchFeatureDao;
-    Interpolator interpolator;
-    CheckpointDao checkpoint;
-    FeatureManager featureManager;
-    Settings settings;
-    ThreadPool threadPool;
-    AtomicBoolean released;
-    Runnable releaseSemaphore;
-    ActionListener<Void> listener;
-    CountDownLatch inProgressLatch;
-    CheckpointWriteWorker checkpointWriteQueue;
-    Entity entity;
-    AnomalyDetector detector;
-    long rcfSeed;
-    ModelManager modelManager;
-    ClientUtil clientUtil;
-    ClusterService clusterService;
+public class EntityColdStarterTests extends AbstractCosineDataTest {
 
     @BeforeClass
     public static void initOnce() {
@@ -136,156 +87,16 @@ public class EntityColdStarterTests extends AbstractADTest {
         EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        numMinSamples = AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-
-        clock = mock(Clock.class);
-        when(clock.instant()).thenReturn(Instant.now());
-
-        threadPool = mock(ThreadPool.class);
-        setUpADThreadPool(threadPool);
-
-        settings = Settings.EMPTY;
-
-        Client client = mock(Client.class);
-        clientUtil = mock(ClientUtil.class);
-
-        detector = TestHelpers.AnomalyDetectorBuilder
-            .newInstance()
-            .setDetectionInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES))
-            .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
-            .build();
-        when(clock.millis()).thenReturn(1602401500000L);
-        doAnswer(invocation -> {
-            ActionListener<GetResponse> listener = invocation.getArgument(2);
-
-            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-
-            return null;
-        }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
-
-        Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
-        nodestateSetting.add(BACKOFF_MINUTES);
-        nodestateSetting.add(CHECKPOINT_SAVING_FREQ);
-        ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
-
-        DiscoveryNode discoveryNode = new DiscoveryNode(
-            "node1",
-            OpenSearchTestCase.buildNewFakeTransportAddress(),
-            Collections.emptyMap(),
-            DiscoveryNodeRole.BUILT_IN_ROLES,
-            Version.CURRENT
-        );
-
-        clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
-
-        stateManager = new NodeStateManager(
-            client,
-            xContentRegistry(),
-            settings,
-            clientUtil,
-            clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
-        );
-
-        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
-            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
-        interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
-
-        searchFeatureDao = mock(SearchFeatureDao.class);
-        checkpoint = mock(CheckpointDao.class);
-
-        featureManager = new FeatureManager(
-            searchFeatureDao,
-            interpolator,
-            clock,
-            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
-            AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
-            AnomalyDetectorSettings.MIN_TRAIN_SAMPLES,
-            AnomalyDetectorSettings.MAX_SHINGLE_PROPORTION_MISSING,
-            AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
-            AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
-            AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            threadPool,
-            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
-        );
-
-        checkpointWriteQueue = mock(CheckpointWriteWorker.class);
-
-        rcfSeed = 2051L;
-        entityColdStarter = new EntityColdStarter(
-            clock,
-            threadPool,
-            stateManager,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.TIME_DECAY,
-            numMinSamples,
-            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
-            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-            interpolator,
-            searchFeatureDao,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            featureManager,
-            settings,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue,
-            rcfSeed,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
-        );
         EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
-
-        detectorId = "123";
-        modelId = "123_entity_abc";
-        entityName = "abc";
-        priority = 0.3f;
-        entity = Entity.createSingleAttributeEntity("field", entityName);
-
-        released = new AtomicBoolean();
-
-        inProgressLatch = new CountDownLatch(1);
-        releaseSemaphore = () -> {
-            released.set(true);
-            inProgressLatch.countDown();
-        };
-        listener = ActionListener.wrap(releaseSemaphore);
-
-        modelManager = new ModelManager(
-            mock(CheckpointDao.class),
-            mock(Clock.class),
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.TIME_DECAY,
-            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
-            AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
-            entityColdStarter,
-            mock(FeatureManager.class),
-            mock(MemoryTracker.class),
-            settings,
-            clusterService
-
-        );
     }
 
     @Override
     public void tearDown() throws Exception {
         EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.FALSE);
         super.tearDown();
-    }
-
-    private void checkSemaphoreRelease() throws InterruptedException {
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-        assertTrue(released.get());
     }
 
     // train using samples directly
@@ -303,7 +114,6 @@ public class EntityColdStarterTests extends AbstractADTest {
 
     public void testColdStart() throws InterruptedException, IOException {
         Queue<double[]> samples = MLUtil.createQueueSamples(1);
-        double[] savedSample = samples.peek();
         EntityModel model = new EntityModel(entity, samples, null);
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
@@ -757,7 +567,18 @@ public class EntityColdStarterTests extends AbstractADTest {
             LOG.info("seed = " + seed);
             // create labelled data
             MultiDimDataWithTime dataWithKeys = LabelledAnomalyGenerator
-                .getMultiDimData(dataSize + detector.getShingleSize() - 1, 50, 100, 5, seed, baseDimension, false, trainTestSplit, delta);
+                .getMultiDimData(
+                    dataSize + detector.getShingleSize() - 1,
+                    50,
+                    100,
+                    5,
+                    seed,
+                    baseDimension,
+                    false,
+                    trainTestSplit,
+                    delta,
+                    false
+                );
             long[] timestamps = dataWithKeys.timestampsMs;
             double[][] data = dataWithKeys.data;
             when(clock.millis()).thenReturn(timestamps[trainTestSplit - 1]);
@@ -858,21 +679,6 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         assertTrue("precision is " + prec, prec >= precisionThreshold);
         assertTrue("recall is " + recall, recall >= recallThreshold);
-        LOG.info("Interval {}, Precision: {}, recall: {}", detectorIntervalMins, prec, recall);
-    }
-
-    public int searchInsert(long[] timestamps, long target) {
-        int pivot, left = 0, right = timestamps.length - 1;
-        while (left <= right) {
-            pivot = left + (right - left) / 2;
-            if (timestamps[pivot] == target)
-                return pivot;
-            if (target < timestamps[pivot])
-                right = pivot - 1;
-            else
-                left = pivot + 1;
-        }
-        return left;
     }
 
     public void testAccuracyTenMinuteInterval() throws Exception {

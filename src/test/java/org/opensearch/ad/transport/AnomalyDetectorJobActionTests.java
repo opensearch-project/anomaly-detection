@@ -25,6 +25,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -76,7 +77,8 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
             xContentRegistry(),
-            mock(ADTaskManager.class)
+            mock(ADTaskManager.class),
+            mock(ExecuteADResultResponseRecorder.class)
         );
         task = mock(Task.class);
         request = new AnomalyDetectorJobRequest("1234", 4567, 7890, "_start");

@@ -123,6 +123,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     private DetectionDateRange detectionDateRange;
 
     public static final int MAX_RESULT_INDEX_NAME_SIZE = 255;
+    // OS doesn’t allow uppercase: https://tinyurl.com/yse2xdbx
     public static final String RESULT_INDEX_NAME_PATTERN = "[a-z0-9_-]+";
 
     /**
@@ -139,7 +140,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param detectionInterval detecting interval
      * @param windowDelay       max delay window for realtime data
      * @param shingleSize       number of the most recent time intervals to form a shingled data point
-     * @param uiMetadata        metadata used by Kibana
+     * @param uiMetadata        metadata used by OpenSearch-Dashboards
      * @param schemaVersion     anomaly detector index mapping version
      * @param lastUpdateTime    detector's last update time
      * @param categoryFields    a list of partition fields

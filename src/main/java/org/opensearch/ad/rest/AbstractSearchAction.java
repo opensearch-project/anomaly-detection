@@ -13,8 +13,6 @@ package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
 import static org.opensearch.common.xcontent.ToXContent.EMPTY_PARAMS;
-import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -27,17 +25,9 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.ToXContentObject;
-import org.opensearch.common.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
@@ -45,7 +35,6 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestResponseListener;
-import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 /**
@@ -82,19 +71,13 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());
-        searchSourceBuilder.fetchSource(getSourceContext(request));
+        // order of response will be re-arranged everytime we use `_source`, we sometimes do this
+        // even if user doesn't give this field as we exclude ui_metadata if request isn't from OSD
+        // ref-link: https://github.com/elastic/elasticsearch/issues/17639
+        searchSourceBuilder.fetchSource(getSourceContext(request, searchSourceBuilder));
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
         return channel -> client.execute(actionType, searchRequest, search(channel));
-    }
-
-    protected void executeWithAdmin(NodeClient client, AnomalyDetectorFunction function, RestChannel channel) {
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            function.execute();
-        } catch (Exception e) {
-            logger.error("Failed to execute with admin", e);
-            onFailure(channel, e);
-        }
     }
 
     protected void onFailure(RestChannel channel, Exception e) {
@@ -112,25 +95,6 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                 if (response.isTimedOut()) {
                     return new BytesRestResponse(RestStatus.REQUEST_TIMEOUT, response.toString());
                 }
-
-                if (clazz == AnomalyDetector.class) {
-                    for (SearchHit hit : response.getHits()) {
-                        XContentParser parser = XContentType.JSON
-                            .xContent()
-                            .createParser(
-                                channel.request().getXContentRegistry(),
-                                LoggingDeprecationHandler.INSTANCE,
-                                hit.getSourceAsString()
-                            );
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-
-                        // write back id and version to anomaly detector object
-                        ToXContentObject xContentObject = AnomalyDetector.parse(parser, hit.getId(), hit.getVersion());
-                        XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
-                        hit.sourceRef(BytesReference.bytes(builder));
-                    }
-                }
-
                 return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), EMPTY_PARAMS));
             }
         };
