@@ -17,8 +17,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.NO_PERMISSION_TO_AC
 import static org.opensearch.ad.constant.CommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.constant.CommonName.EPOCH_MILLIS_FORMAT;
 import static org.opensearch.ad.constant.CommonName.FEATURE_AGGS;
-import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
-import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
+import static org.opensearch.ad.model.AnomalyDetector.*;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PIECE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
@@ -26,17 +25,11 @@ import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_N
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -56,6 +49,9 @@ import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
+import org.opensearch.client.opensearch._types.aggregations.Aggregate;
+import org.opensearch.client.opensearch._types.aggregations.AggregateBuilders;
+import org.opensearch.client.opensearch._types.aggregations.AggregateVariant;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -120,6 +116,22 @@ public final class ParseUtils {
     public static AggregationBuilder toAggregationBuilder(XContentParser parser) throws IOException {
         AggregatorFactories.Builder parsed = AggregatorFactories.parseAggregators(parser);
         return parsed.getAggregatorFactories().iterator().next();
+    }
+
+    public static Aggregate toAggregare(XContentParser parser) throws IOException {
+        Map<String, Object> builder = new HashMap<>();
+
+
+        List<Map<String, Object>> parserList;
+        XContentParser.Token token = parser.nextToken();
+        if (token == XContentParser.Token.START_ARRAY) {
+            parserList = parser.listOrderedMap().stream().map(obj -> (Map<String, Object>) obj).collect(Collectors.toList());
+        } else {
+            parserList = Collections.singletonList(parser.mapOrdered());
+        }
+        builder.put(FEATURE_ATTRIBUTES_FIELD,parserList);
+        Aggregate aggregate = new Aggregate((AggregateVariant) builder);
+        return aggregate;
     }
 
     /**

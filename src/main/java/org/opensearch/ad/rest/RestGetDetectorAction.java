@@ -29,6 +29,8 @@ import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.rest.handler.IndexLoader;
+import org.opensearch.ad.rest.handler.JacksonDetector;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -89,7 +91,6 @@ public class RestGetDetectorAction extends BaseExtensionRestHandler {
         // 4. Follow the steps on the issue
         // 5. Look for MultiGetRequest
 
-        // Commented this code for SearchResponse
 //        SearchResponse<AnomalyDetector> searchResponse = null;
 //        try {
 //            searchResponse = sdkClient.search(s -> s.index(ANOMALY_DETECTORS_INDEX), AnomalyDetector.class);
@@ -110,44 +111,20 @@ public class RestGetDetectorAction extends BaseExtensionRestHandler {
         XContentBuilder builder = null;
         XContentParser parser;
         AnomalyDetector detector;
-        // Commented this code for SearchResponse
-//        try {
-//            for (int i = 0; i < searchResponse.hits().hits().size(); i++) {
-//                logger.info("Search query response: {}", searchResponse.hits().hits().size());
-//                if (searchResponse.hits().hits().get(i).id().equals(detectorId)) {
-//////                    parser = request.contentParser(this.xContentRegistry);
-////                    parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, (BytesReference) searchResponse.hits().hits().stream());
-////                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-////                    detector = AnomalyDetector.parse(parser);
-//                    builder = XContentBuilder.builder(XContentType.JSON.xContent());
-//                    builder.startObject();
-//                    builder.field("id", searchResponse.hits().hits().get(i).id());
-//                    builder.field("version", searchResponse.hits().hits().get(i).version());
-//                    builder.field("seqNo", searchResponse.hits().hits().get(i).seqNo());
-//                    builder.field("primaryTerm", searchResponse.hits().hits().get(i).primaryTerm());
-//                    builder.field("detector", searchResponse.hits().hits().get(i).source());
-//                    builder.field("status", RestStatus.CREATED);
-//                    builder.endObject();
-//                }
-//            }
-//        } catch (Exception e) {
-//            return new ExtensionRestResponse(request, BAD_REQUEST, builder);
-//        }
-
-//        XContentParser parser;
         BytesReference sources = null;
+        logger.info("GET RESPONSE: {}", getResponse.source());
         try {
             sources = BytesReference.bytes(XContentBuilder.builder(XContentType.JSON.xContent()).startObject()
-                    .field(NAME_FIELD, getResponse.source().getName())
-                    .field(DESCRIPTION_FIELD, getResponse.source().getDescription())
-                    .field(TIMEFIELD_FIELD, getResponse.source().getTimeField())
-                    .field(INDICES_FIELD, getResponse.source().getIndices())
-                    .field(FILTER_QUERY_FIELD, getResponse.source().getFilterQuery())
-                    .field(DETECTION_INTERVAL_FIELD, getResponse.source().getDetectionInterval())
-                    .field(WINDOW_DELAY_FIELD, getResponse.source().getWindowDelay())
-                    .field(SHINGLE_SIZE_FIELD, getResponse.source().getShingleSize())
-                    .field(CommonName.SCHEMA_VERSION_FIELD, getResponse.source().getSchemaVersion())
-                    .field(FEATURE_ATTRIBUTES_FIELD, getResponse.source().getFeatureAttributes())
+                    .field(NAME_FIELD, getResponse.source())
+                    .field(DESCRIPTION_FIELD, getResponse.source())
+                    .field(TIMEFIELD_FIELD, getResponse.source())
+                    .field(INDICES_FIELD, getResponse.source())
+                    .field(FILTER_QUERY_FIELD, getResponse.source())
+                    .field(DETECTION_INTERVAL_FIELD, getResponse.source())
+                    .field(WINDOW_DELAY_FIELD, getResponse.source())
+                    .field(SHINGLE_SIZE_FIELD, getResponse.source())
+                    .field(CommonName.SCHEMA_VERSION_FIELD, getResponse.source())
+                    .field(FEATURE_ATTRIBUTES_FIELD, getResponse.source())
                     .endObject());
 
         } catch(Exception e) {

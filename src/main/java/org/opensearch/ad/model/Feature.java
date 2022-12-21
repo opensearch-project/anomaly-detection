@@ -14,10 +14,12 @@ package org.opensearch.ad.model;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.client.opensearch._types.aggregations.Aggregate;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -107,6 +109,8 @@ public class Feature implements Writeable, ToXContentObject {
         String name = null;
         Boolean enabled = null;
         AggregationBuilder aggregation = null;
+        Aggregate aggregate = null;
+
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -126,6 +130,8 @@ public class Feature implements Writeable, ToXContentObject {
                 case AGGREGATION_QUERY:
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
                     aggregation = ParseUtils.toAggregationBuilder(parser);
+//                    aggregate = ParseUtils.toAggregare(parser);
+
                     break;
                 default:
                     break;

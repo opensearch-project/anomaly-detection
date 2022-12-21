@@ -87,7 +87,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     public static final String DETECTION_INTERVAL_FIELD = "detection_interval";
     public static final String WINDOW_DELAY_FIELD = "window_delay";
     public static final String SHINGLE_SIZE_FIELD = "shingle_size";
-    private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
+    public static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String UI_METADATA_FIELD = "ui_metadata";
     public static final String CATEGORY_FIELD = "category_field";
     public static final String USER_FIELD = "user";
@@ -372,6 +372,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             xContentBuilder.field(RESULT_INDEX_FIELD, resultIndex);
         }
         return xContentBuilder.endObject();
+
     }
 
     /**
