@@ -21,9 +21,11 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
+import org.opensearch.ad.rest.RestSDKCreateDetectorAction;
 import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -48,7 +50,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
             .of(
                 new RestCreateDetectorAction(extensionsRunner, this),
                 new RestGetDetectorAction(),
-                new RestValidateDetectorAction(extensionsRunner, this)
+                new RestValidateDetectorAction(extensionsRunner, this),
+                    new RestSDKCreateDetectorAction(extensionsRunner, this)
             );
     }
 
@@ -107,7 +110,13 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public OpenSearchClient getClient() {
         SDKClient sdkClient = new SDKClient();
         OpenSearchClient client = sdkClient
-            .initializeClient(getExtensionSettings().getOpensearchAddress(), Integer.parseInt(getExtensionSettings().getOpensearchPort()));
+            .initializeJavaClient(getExtensionSettings().getOpensearchAddress(), Integer.parseInt(getExtensionSettings().getOpensearchPort()));
+        return client;
+    }
+
+    public RestHighLevelClient getRestClient() {
+        SDKClient sdkhlrClient = new SDKClient();
+        RestHighLevelClient client = sdkhlrClient.initializeRestClient(getExtensionSettings().getOpensearchAddress(), Integer.parseInt(getExtensionSettings().getOpensearchPort()));
         return client;
     }
 
