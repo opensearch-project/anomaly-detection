@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Optional;
@@ -73,6 +74,7 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
@@ -139,6 +141,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
     @Mock
     private NodeStateManager nodeStateManager;
 
+    private AnomalyDetectionIndices anomalyDetectionIndices;
+
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyDetectorJobRunnerTests.class.getSimpleName());
@@ -175,7 +179,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
         runner.setSettings(settings);
 
-        AnomalyDetectionIndices anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
+        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
 
         runner.setAnomalyDetectionIndices(anomalyDetectionIndices);
 
@@ -704,13 +708,52 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             return null;
         }).when(client).search(any(), any(ActionListener.class));
 
+        // use a unmocked adTaskCacheManager to test the value of hasQueriedResultIndex has changed
+        Settings settings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.getKey(), 2)
+            .put(AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS.getKey(), 100)
+            .build();
+
+        clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays.asList(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE, AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS)
+                    )
+                )
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        MemoryTracker memoryTracker = mock(MemoryTracker.class);
+        adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
+
+        // init real time task cache for the detector. We will do this during AnomalyResultTransportAction.
+        // Since we mocked the execution by returning anomaly result directly, we need to init it explicitly.
+        adTaskCacheManager.initRealtimeTaskCache(detector.getDetectorId(), 0);
+
+        // recreate recorder since we need to use the unmocked adTaskCacheManager
+        recorder = new ExecuteADResultResponseRecorder(
+            anomalyDetectionIndices,
+            anomalyResultHandler,
+            adTaskManager,
+            nodeFilter,
+            threadPool,
+            client,
+            nodeStateManager,
+            adTaskCacheManager,
+            32
+        );
+
+        assertEquals(false, adTaskCacheManager.hasQueriedResultIndex(detector.getDetectorId()));
+
         LockModel lock = new LockModel(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
 
         runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusSeconds(60), executionStartTime, recorder, detector);
 
         verify(client, times(1)).execute(eq(AnomalyResultAction.INSTANCE), any(), any());
         verify(client, times(1)).search(any(), any());
-        verify(adTaskCacheManager, times(1)).hasQueriedResultIndex(anyString());
         verify(nodeStateManager, times(1)).getAnomalyDetector(any(String.class), any(ActionListener.class));
         verify(nodeStateManager, times(1)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
 
@@ -718,7 +761,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         verify(adTaskManager, times(1))
             .updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), totalUpdates.capture(), any(), any(), any());
         assertEquals(NUM_MIN_SAMPLES, totalUpdates.getValue().longValue());
-
-        verify(adTaskCacheManager, times(1)).markResultIndexQueried(anyString());
+        assertEquals(true, adTaskCacheManager.hasQueriedResultIndex(detector.getDetectorId()));
     }
 }
