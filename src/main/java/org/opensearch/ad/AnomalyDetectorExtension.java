@@ -16,21 +16,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
 import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 
 import com.google.common.collect.ImmutableList;
 
@@ -93,21 +91,23 @@ public class AnomalyDetectorExtension extends BaseExtension {
         );
     }
 
-    @Override
-    public List<NamedXContentRegistry.Entry> getNamedXContent() {
-        // Copied from AnomalyDetectorPlugin getNamedXContent
-        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY, DetectorInternalState.XCONTENT_REGISTRY
-        // Pending Job Scheduler Integration
-        // AnomalyDetectorJob.XCONTENT_REGISTRY
-        );
-    }
-
     // TODO: replace or override client object on BaseExtension
     // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
     public OpenSearchClient getClient() {
-        SDKClient sdkClient = new SDKClient();
-        OpenSearchClient client = sdkClient
+        @SuppressWarnings("resource")
+        OpenSearchClient client = new SDKClient()
             .initializeJavaClient(
+                getExtensionSettings().getOpensearchAddress(),
+                Integer.parseInt(getExtensionSettings().getOpensearchPort())
+            );
+        return client;
+    }
+
+    @Deprecated
+    public SDKRestClient getRestClient() {
+        @SuppressWarnings("resource")
+        SDKRestClient client = new SDKClient()
+            .initializeRestClient(
                 getExtensionSettings().getOpensearchAddress(),
                 Integer.parseInt(getExtensionSettings().getOpensearchPort())
             );
