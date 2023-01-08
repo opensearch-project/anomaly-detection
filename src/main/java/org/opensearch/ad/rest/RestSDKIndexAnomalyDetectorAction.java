@@ -20,6 +20,7 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,22 +30,22 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
-import org.opensearch.client.node.NodeClient;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.extensions.rest.ExtensionRestRequest;
+import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.BaseRestHandler.RestChannelConsumer;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
-import org.opensearch.rest.RestHandler.ReplacedRoute;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestResponseListener;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.RouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
@@ -53,20 +54,15 @@ import com.google.common.collect.ImmutableList;
  */
 public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetectorAction {
 
-    private static final String INDEX_ANOMALY_DETECTOR_ACTION = "index_anomaly_detector_action";
     private final Logger logger = LogManager.getLogger(RestSDKIndexAnomalyDetectorAction.class);
+    private NamedXContentRegistry namedXContentRegistry;
 
     public RestSDKIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner.getEnvironmentSettings());
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
     }
 
-    @Override
-    public String getName() {
-        return INDEX_ANOMALY_DETECTOR_ACTION;
-    }
-
-    @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -74,7 +70,7 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
         String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
         logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
 
-        XContentParser parser = request.contentParser();
+        XContentParser parser = request.contentParser(this.namedXContentRegistry);
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         // TODO: check detection interval < modelTTL
         AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
@@ -84,7 +80,7 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
         WriteRequest.RefreshPolicy refreshPolicy = request.hasParam(REFRESH)
             ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
             : WriteRequest.RefreshPolicy.IMMEDIATE;
-        RestRequest.Method method = request.getHttpRequest().method();
+        RestRequest.Method method = request.method();
 
         IndexAnomalyDetectorRequest indexAnomalyDetectorRequest = new IndexAnomalyDetectorRequest(
             detectorId,
@@ -99,35 +95,39 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
             maxAnomalyFeatures
         );
 
+        return unhandledRequest(request);
+        /*
         return channel -> client
             .execute(IndexAnomalyDetectorAction.INSTANCE, indexAnomalyDetectorRequest, indexAnomalyDetectorResponse(channel, method));
+        */
     }
 
     @Override
-    public List<Route> routes() {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public List<ReplacedRoute> replacedRoutes() {
+    public List<RouteHandler> routeHandlers() {
         return ImmutableList
             .of(
                 // Create
-                new ReplacedRoute(
+                new RouteHandler(
                     RestRequest.Method.POST,
                     AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
-                    RestRequest.Method.POST,
-                    AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI
+                    handleRequest
                 ),
                 // Update
-                new ReplacedRoute(
+                new RouteHandler(
                     RestRequest.Method.PUT,
                     String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
+                    handleRequest
                 )
             );
     }
+
+    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (IOException e) {
+            return exceptionalRequest(request, e);
+        }
+    };
 
     private RestResponseListener<IndexAnomalyDetectorResponse> indexAnomalyDetectorResponse(
         RestChannel channel,
