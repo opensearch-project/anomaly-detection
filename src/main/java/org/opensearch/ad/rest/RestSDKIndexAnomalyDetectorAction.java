@@ -20,30 +20,33 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
+import org.opensearch.ad.transport.IndexAnomalyDetectorSDKTransportAction;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.BytesRestResponse;
-import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.rest.action.RestResponseListener;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 
@@ -56,10 +59,12 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
 
     private final Logger logger = LogManager.getLogger(RestSDKIndexAnomalyDetectorAction.class);
     private NamedXContentRegistry namedXContentRegistry;
+    private Settings environmentSettings;
 
     public RestSDKIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner.getEnvironmentSettings());
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.environmentSettings = extensionsRunner.getEnvironmentSettings();
     }
 
     protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
@@ -95,11 +100,49 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
             maxAnomalyFeatures
         );
 
-        return unhandledRequest(request);
-        /*
-        return channel -> client
-            .execute(IndexAnomalyDetectorAction.INSTANCE, indexAnomalyDetectorRequest, indexAnomalyDetectorResponse(channel, method));
-        */
+        // Here we would call client.execute(action, request, responseListener)
+        // This delegates to transportAction(action).execute(request, responseListener)
+        // IndexAnomalyDetectorAction is the key to the getActions map
+        // IndexAnomalyDetectorTransportAction is the value, execute() calls doExecute()
+        // So here we call IndexAnomalyDetectorTransportAction.doExecute, SDK version
+        IndexAnomalyDetectorSDKTransportAction indexAction = new IndexAnomalyDetectorSDKTransportAction(
+            null, // TransportService transportService
+            null, // ActionFilters actionFilters
+            // Ignore this and substitute HLRC calls later
+            null, // Client client
+            // Disabled the settings update consumer that would cause NPE for this
+            null, // ClusterService clusterService
+            this.environmentSettings, // Settings settings
+            null, // AnomalyDetectionIndices anomalyDetectionIndices
+            this.namedXContentRegistry,
+            null, // ADTaskManager adTaskManager
+            null // SearchFeatureDao searchFeatureDao
+        );
+
+        CompletableFuture<IndexAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
+        indexAction.doExecute(null, indexAnomalyDetectorRequest, new ActionListener<IndexAnomalyDetectorResponse>() {
+
+            @Override
+            public void onResponse(IndexAnomalyDetectorResponse response) {
+                futureResponse.complete(response);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                futureResponse.completeExceptionally(e);
+            }
+
+        });
+
+        try {
+            IndexAnomalyDetectorResponse response = futureResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+                .join();
+            return indexAnomalyDetectorResponse(request, response);
+        } catch (Exception e) {
+            // TODO special handling for AD validation exceptions
+            return exceptionalRequest(request, e);
+        }
     }
 
     @Override
@@ -107,11 +150,7 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
         return ImmutableList
             .of(
                 // Create
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
-                    handleRequest
-                ),
+                new RouteHandler(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, handleRequest),
                 // Update
                 new RouteHandler(
                     RestRequest.Method.PUT,
@@ -124,32 +163,27 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
     private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
             return exceptionalRequest(request, e);
         }
     };
 
-    private RestResponseListener<IndexAnomalyDetectorResponse> indexAnomalyDetectorResponse(
-        RestChannel channel,
-        RestRequest.Method method
-    ) {
-        return new RestResponseListener<IndexAnomalyDetectorResponse>(channel) {
-            @Override
-            public RestResponse buildResponse(IndexAnomalyDetectorResponse response) throws Exception {
-                RestStatus restStatus = RestStatus.CREATED;
-                if (method == RestRequest.Method.PUT) {
-                    restStatus = RestStatus.OK;
-                }
-                BytesRestResponse bytesRestResponse = new BytesRestResponse(
-                    restStatus,
-                    response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS)
-                );
-                if (restStatus == RestStatus.CREATED) {
-                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_AD_BASE, response.getId());
-                    bytesRestResponse.addHeader("Location", location);
-                }
-                return bytesRestResponse;
-            }
-        };
+    private ExtensionRestResponse indexAnomalyDetectorResponse(ExtensionRestRequest request, IndexAnomalyDetectorResponse response)
+        throws IOException {
+        RestStatus restStatus = RestStatus.CREATED;
+        if (request.method() == RestRequest.Method.PUT) {
+            restStatus = RestStatus.OK;
+        }
+        ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
+            request,
+            restStatus,
+            response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        );
+        if (restStatus == RestStatus.CREATED) {
+            String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_AD_BASE, response.getId());
+            extensionRestResponse.addHeader("Location", location);
+        }
+        return extensionRestResponse;
     }
 }
