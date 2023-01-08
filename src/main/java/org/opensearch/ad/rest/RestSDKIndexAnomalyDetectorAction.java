@@ -91,7 +91,7 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
         }
     };
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws Exception {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -128,6 +128,8 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
         // This delegates to transportAction(action).execute(request, responseListener)
         // IndexAnomalyDetectorAction is the key to the getActions map
         // IndexAnomalyDetectorTransportAction is the value, execute() calls doExecute()
+        // TODO actually implement getActions which will take care of all this unused boilerplate
+
         // So here we call IndexAnomalyDetectorTransportAction.doExecute, SDK version
         IndexAnomalyDetectorSDKTransportAction indexAction = new IndexAnomalyDetectorSDKTransportAction(
             null, // TransportService transportService
@@ -158,15 +160,10 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
 
         });
 
-        try {
-            IndexAnomalyDetectorResponse response = futureResponse
-                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
-                .join();
-            return indexAnomalyDetectorResponse(request, response);
-        } catch (Exception e) {
-            // TODO special handling for AD validation exceptions
-            return exceptionalRequest(request, e);
-        }
+        IndexAnomalyDetectorResponse response = futureResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+        return indexAnomalyDetectorResponse(request, response);
     }
 
     private ExtensionRestResponse indexAnomalyDetectorResponse(ExtensionRestRequest request, IndexAnomalyDetectorResponse response)
