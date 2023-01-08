@@ -67,6 +67,30 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
     }
 
+    @Override
+    public List<RouteHandler> routeHandlers() {
+        return ImmutableList
+            .of(
+                // Create
+                new RouteHandler(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, handleRequest),
+                // Update
+                new RouteHandler(
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    handleRequest
+                )
+            );
+    }
+
+    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
+
     protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
@@ -144,30 +168,6 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
             return exceptionalRequest(request, e);
         }
     }
-
-    @Override
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // Create
-                new RouteHandler(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, handleRequest),
-                // Update
-                new RouteHandler(
-                    RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    handleRequest
-                )
-            );
-    }
-
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
-        try {
-            return prepareRequest(request);
-        } catch (Exception e) {
-            // TODO: handle the AD-specific exceptions separately
-            return exceptionalRequest(request, e);
-        }
-    };
 
     private ExtensionRestResponse indexAnomalyDetectorResponse(ExtensionRestRequest request, IndexAnomalyDetectorResponse response)
         throws IOException {

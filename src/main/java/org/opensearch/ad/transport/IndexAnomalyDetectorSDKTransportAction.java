@@ -48,7 +48,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-public class IndexAnomalyDetectorSDKTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
+public class IndexAnomalyDetectorSDKTransportAction extends
+    HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorSDKTransportAction.class);
     private final Client client;
     private final TransportService transportService;
