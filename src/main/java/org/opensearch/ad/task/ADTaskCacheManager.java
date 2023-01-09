@@ -1014,10 +1014,12 @@ public class ADTaskCacheManager {
 
     /**
      * Check if realtime task field value change needed or not by comparing with cache.
-     * 1. If new field value is null, will consider this field as not changed.
-     * 2. If init progress is larger or the old init progress is null, will consider the realtime task
-     *  change needed; for other fields, as long as field values changed, will consider the realtime
-     *  task changed. We did this so that the init progress won't go backwards.
+     * 1. If new field value is null, will consider changed needed to this field.
+     * 2. will consider the real time task change needed if
+     * 1) init progress is larger or the old init progress is null, or
+     * 2) if the state is different, and it is not changing from running to init.
+     *  for other fields, as long as field values changed, will consider the realtime
+     *  task change needed. We did this so that the init progress or state won't go backwards.
      * 3. If realtime task cache not found, will consider the realtime task change needed.
      *
      * @param detectorId detector id
@@ -1029,9 +1031,12 @@ public class ADTaskCacheManager {
     public boolean isRealtimeTaskChangeNeeded(String detectorId, String newState, Float newInitProgress, String newError) {
         if (realtimeTaskCaches.containsKey(detectorId)) {
             ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
-            boolean stateChanged = false;
-            if (newState != null && !newState.equals(realtimeTaskCache.getState())) {
-                stateChanged = true;
+            boolean stateChangeNeeded = false;
+            String oldState = realtimeTaskCache.getState();
+            if (newState != null
+                && !newState.equals(oldState)
+                && !(ADTaskState.INIT.name().equals(newState) && ADTaskState.RUNNING.name().equals(oldState))) {
+                stateChangeNeeded = true;
             }
             boolean initProgressChangeNeeded = false;
             Float existingProgress = realtimeTaskCache.getInitProgress();
@@ -1044,7 +1049,7 @@ public class ADTaskCacheManager {
             if (newError != null && !newError.equals(realtimeTaskCache.getError())) {
                 errorChanged = true;
             }
-            if (stateChanged || initProgressChangeNeeded || errorChanged) {
+            if (stateChangeNeeded || initProgressChangeNeeded || errorChanged) {
                 return true;
             }
             return false;

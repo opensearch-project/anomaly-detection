@@ -19,21 +19,28 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.client.Client;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 public class ProfileUtil {
     /**
-     * Create search request to check if we have at least 1 anomaly score larger than 0 after AD job enabled time
+     * Create search request to check if we have at least 1 anomaly score larger than 0 after AD job enabled time.
+     * Note this function is only meant to check for status of real time analysis.
+     *
      * @param detectorId detector id
      * @param enabledTime the time when AD job is enabled in milliseconds
      * @return the search request
      */
-    private static SearchRequest createInittedEverRequest(String detectorId, long enabledTime, String resultIndex) {
+    private static SearchRequest createRealtimeInittedEverRequest(String detectorId, long enabledTime, String resultIndex) {
         BoolQueryBuilder filterQuery = new BoolQueryBuilder();
         filterQuery.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
         filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.EXECUTION_END_TIME_FIELD).gte(enabledTime));
         filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_SCORE_FIELD).gt(0));
+        // Historical analysis result also stored in result index, which has non-null task_id.
+        // For realtime detection result, we should filter task_id == null
+        ExistsQueryBuilder taskIdExistsFilter = QueryBuilders.existsQuery(AnomalyResult.TASK_ID_FIELD);
+        filterQuery.mustNot(taskIdExistsFilter);
 
         SearchSourceBuilder source = new SearchSourceBuilder().query(filterQuery).size(1);
 
@@ -45,13 +52,17 @@ public class ProfileUtil {
         return request;
     }
 
-    public static void confirmDetectorInitStatus(
+    public static void confirmDetectorRealtimeInitStatus(
         AnomalyDetector detector,
         long enabledTime,
         Client client,
         ActionListener<SearchResponse> listener
     ) {
-        SearchRequest searchLatestResult = createInittedEverRequest(detector.getDetectorId(), enabledTime, detector.getResultIndex());
+        SearchRequest searchLatestResult = createRealtimeInittedEverRequest(
+            detector.getDetectorId(),
+            enabledTime,
+            detector.getResultIndex()
+        );
         client.search(searchLatestResult, listener);
     }
 }

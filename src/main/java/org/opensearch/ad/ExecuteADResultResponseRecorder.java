@@ -356,9 +356,9 @@ public class ExecuteADResultResponseRecorder {
                     listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get job"));
                     return;
                 }
-                adTaskCacheManager.markResultIndexQueried(detectorId);
+
                 ProfileUtil
-                    .confirmDetectorInitStatus(
+                    .confirmDetectorRealtimeInitStatus(
                         detectorOptional.get(),
                         jobOptional.get().getEnabledTime().toEpochMilli(),
                         client,
@@ -371,11 +371,13 @@ public class ExecuteADResultResponseRecorder {
                                     // so that the detector won't stay initialized
                                     correctedTotalUpdates = Long.valueOf(rcfMinSamples);
                                 }
+                                adTaskCacheManager.markResultIndexQueried(detectorId);
                                 return correctedTotalUpdates;
                             });
                         }, exception -> {
                             if (ExceptionUtil.isIndexNotAvailable(exception)) {
                                 // anomaly result index is not created yet
+                                adTaskCacheManager.markResultIndexQueried(detectorId);
                                 listener.onResponse(0L);
                             } else {
                                 listener.onFailure(exception);

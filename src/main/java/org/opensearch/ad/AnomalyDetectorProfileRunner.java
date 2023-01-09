@@ -451,7 +451,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 long enabledTime = job.getEnabledTime().toEpochMilli();
                 long totalUpdates = profileResponse.getTotalUpdates();
                 ProfileUtil
-                    .confirmDetectorInitStatus(
+                    .confirmDetectorRealtimeInitStatus(
                         detector,
                         enabledTime,
                         client,
