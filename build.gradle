@@ -389,6 +389,7 @@ String bwcBundleVersion = "1.3.2.0"
 Boolean bwcBundleTest = (project.findProperty('customDistributionDownloadType') != null &&
         project.properties['customDistributionDownloadType'] == "bundle");
 String bwcVersion = bwcBundleTest ? bwcBundleVersion : bwcMinVersion
+String currentBundleVersion = opensearch_version.replace("-SNAPSHOT","")
 String baseName = "adBwcCluster"
 String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
 String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
@@ -400,7 +401,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
             testDistribution = "ARCHIVE"
             numberOfNodes = 3
             if (bwcBundleTest) {
-                versions = ["1.3.2", "2.5.0"]
+                versions = ["1.3.2", currentBundleVersion]
                 nodes.each { node ->
                     node.extraConfigFile("kirk.pem", file("src/test/resources/security/kirk.pem"))
                     node.extraConfigFile("kirk-key.pem", file("src/test/resources/security/kirk-key.pem"))
