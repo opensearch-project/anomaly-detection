@@ -56,14 +56,14 @@ import com.google.common.collect.ImmutableList;
 /**
  * Rest handlers to create and update anomaly detector.
  */
-public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetectorAction {
+public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSDKAction {
 
-    private final Logger logger = LogManager.getLogger(RestSDKIndexAnomalyDetectorAction.class);
+    private final Logger logger = LogManager.getLogger(RestIndexAnomalyDetectorSDKAction.class);
     private NamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
     private RestHighLevelClient restClient;
 
-    public RestSDKIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+    public RestIndexAnomalyDetectorSDKAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner.getEnvironmentSettings());
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();

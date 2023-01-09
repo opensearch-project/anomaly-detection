@@ -22,7 +22,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.sdk.BaseExtensionRestHandler;
 
-public abstract class AbstractSDKAnomalyDetectorAction extends BaseExtensionRestHandler {
+public abstract class AbstractAnomalyDetectorSDKAction extends BaseExtensionRestHandler {
 
     protected volatile TimeValue requestTimeout;
     protected volatile TimeValue detectionInterval;
@@ -31,7 +31,7 @@ public abstract class AbstractSDKAnomalyDetectorAction extends BaseExtensionRest
     protected volatile Integer maxMultiEntityDetectors;
     protected volatile Integer maxAnomalyFeatures;
 
-    public AbstractSDKAnomalyDetectorAction(Settings settings) {
+    public AbstractAnomalyDetectorSDKAction(Settings settings) {
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         this.detectionInterval = DETECTION_INTERVAL.get(settings);
         this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
