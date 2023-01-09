@@ -56,6 +56,8 @@ import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -527,6 +529,56 @@ public final class ParseUtils {
             client
                 .get(
                     request,
+                    ActionListener
+                        .wrap(
+                            response -> onGetAdResponse(
+                                response,
+                                requestUser,
+                                detectorId,
+                                listener,
+                                function,
+                                xContentRegistry,
+                                filterByBackendRole
+                            ),
+                            exception -> {
+                                logger.error("Failed to get anomaly detector: " + detectorId, exception);
+                                listener.onFailure(exception);
+                            }
+                        )
+                );
+        } else {
+            listener.onFailure(new IndexNotFoundException(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+        }
+    }
+
+    /**
+     * If filterByEnabled is true, get detector and check if the user has permissions to access the detector,
+     * then execute function; otherwise, get detector and execute function
+     * @param requestUser user from request
+     * @param detectorId detector id
+     * @param listener action listener
+     * @param function consumer function
+     * @param client client
+     * @param clusterService cluster service
+     * @param xContentRegistry XContent registry
+     * @param filterByBackendRole filter by backend role or not
+     */
+    public static void getDetector(
+        UserIdentity requestUser,
+        String detectorId,
+        ActionListener listener,
+        Consumer<AnomalyDetector> function,
+        RestHighLevelClient client,
+        ClusterService clusterService,
+        NamedXContentRegistry xContentRegistry,
+        boolean filterByBackendRole
+    ) {
+        if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
+            GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+            client
+                .getAsync(
+                    request,
+                    RequestOptions.DEFAULT,
                     ActionListener
                         .wrap(
                             response -> onGetAdResponse(

@@ -33,10 +33,11 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
-import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
+import org.opensearch.ad.rest.handler.IndexAnomalyDetectorSDKActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -51,7 +52,7 @@ import org.opensearch.transport.TransportService;
 public class IndexAnomalyDetectorSDKTransportAction extends
     HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorSDKTransportAction.class);
-    private final Client client;
+    private final RestHighLevelClient client;
     private final TransportService transportService;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final ClusterService clusterService;
@@ -64,7 +65,7 @@ public class IndexAnomalyDetectorSDKTransportAction extends
     public IndexAnomalyDetectorSDKTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
-        Client client,
+        RestHighLevelClient restClient,
         ClusterService clusterService,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -73,7 +74,7 @@ public class IndexAnomalyDetectorSDKTransportAction extends
         SearchFeatureDao searchFeatureDao
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
-        this.client = client;
+        this.client = restClient;
         this.transportService = transportService;
         this.clusterService = clusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -152,7 +153,7 @@ public class IndexAnomalyDetectorSDKTransportAction extends
             // Don't replace detector's user when update detector
             // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
             UserIdentity detectorUser = currentDetector == null ? user : currentDetector.getUser();
-            IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
+            IndexAnomalyDetectorSDKActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorSDKActionHandler(
                 clusterService,
                 client,
                 transportService,
@@ -185,7 +186,7 @@ public class IndexAnomalyDetectorSDKTransportAction extends
         SearchRequest searchRequest = new SearchRequest()
             .indices(indices.toArray(new String[0]))
             .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
-        client.search(searchRequest, ActionListener.wrap(r -> { function.execute(); }, e -> {
+        client.searchAsync(searchRequest, RequestOptions.DEFAULT, ActionListener.wrap(r -> { function.execute(); }, e -> {
             // Due to below issue with security plugin, we get security_exception when invalid index name is mentioned.
             // https://github.com/opendistro-for-elasticsearch/security/issues/718
             LOG.error(e);

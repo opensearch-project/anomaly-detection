@@ -37,6 +37,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.IndexAnomalyDetectorSDKTransportAction;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
@@ -60,11 +61,13 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
     private final Logger logger = LogManager.getLogger(RestSDKIndexAnomalyDetectorAction.class);
     private NamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
+    private RestHighLevelClient restClient;
 
     public RestSDKIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner.getEnvironmentSettings());
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
+        this.restClient = anomalyDetectorExtension.getRestClient();
     }
 
     @Override
@@ -135,7 +138,7 @@ public class RestSDKIndexAnomalyDetectorAction extends AbstractSDKAnomalyDetecto
             null, // TransportService transportService
             null, // ActionFilters actionFilters
             // Ignore this and substitute HLRC calls later
-            null, // Client client
+            restClient, // Client client
             // Disabled the settings update consumer that would cause NPE for this
             null, // ClusterService clusterService
             this.environmentSettings, // Settings settings
