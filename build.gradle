@@ -34,7 +34,7 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        bwcVersionShort = "2.5.0"
+        bwcVersionShort = "2.6.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-anomaly-detection-' + bwcVersion + '.zip'
@@ -108,8 +108,8 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
-    implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
+    compileOnly group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
+    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
