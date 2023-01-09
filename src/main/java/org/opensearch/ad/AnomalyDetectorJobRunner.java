@@ -560,14 +560,12 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                         }, exception -> { log.error("JobRunner failed to update AD job as disabled for " + detectorId, exception); }));
                     } else {
                         log.info("AD Job was disabled for " + detectorId);
-                        // function.execute();
                     }
                 } catch (IOException e) {
                     log.error("JobRunner failed to stop detector job " + detectorId, e);
                 }
             } else {
                 log.info("AD Job was not found for " + detectorId);
-                // function.execute();
             }
         }, exception -> log.error("JobRunner failed to get detector job " + detectorId, exception));
 

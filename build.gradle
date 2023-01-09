@@ -108,8 +108,8 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
-    implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
+    compileOnly group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
+    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
@@ -120,10 +120,6 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.0-rc3'
     implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.0-rc3'
     implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
-
-    // we inherit jackson-core from opensearch core
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.1"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.1"
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'

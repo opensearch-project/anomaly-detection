@@ -35,6 +35,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -44,6 +45,7 @@ import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.Feature;
+import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyResultAction;
@@ -83,6 +85,8 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
     private Client client;
     private IndexAnomalyDetectorJobActionHandler handler;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
+    private NodeStateManager nodeStateManager;
+    private ADTaskCacheManager adTaskCacheManager;
 
     @BeforeClass
     public static void setOnce() throws IOException {
@@ -153,13 +157,21 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
 
         anomalyResultHandler = mock(AnomalyIndexHandler.class);
 
+        nodeStateManager = mock(NodeStateManager.class);
+
+        adTaskCacheManager = mock(ADTaskCacheManager.class);
+        when(adTaskCacheManager.hasQueriedResultIndex(anyString())).thenReturn(true);
+
         recorder = new ExecuteADResultResponseRecorder(
             anomalyDetectionIndices,
             anomalyResultHandler,
             adTaskManager,
             nodeFilter,
             threadPool,
-            client
+            client,
+            nodeStateManager,
+            adTaskCacheManager,
+            32
         );
 
         handler = new IndexAnomalyDetectorJobActionHandler(
@@ -318,6 +330,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
         verify(adTaskManager, times(1)).isHCRealtimeTaskStartInitializing(anyString());
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         verify(adTaskManager, never()).removeRealtimeTaskCache(anyString());
+        verify(adTaskManager, times(1)).skipUpdateHCRealtimeTask(anyString(), anyString());
         verify(threadPool, never()).schedule(any(), any(), any());
         verify(listener, times(1)).onResponse(any());
     }
