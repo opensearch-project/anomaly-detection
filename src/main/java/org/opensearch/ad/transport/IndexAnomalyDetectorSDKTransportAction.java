@@ -26,7 +26,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -49,8 +48,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-public class IndexAnomalyDetectorSDKTransportAction extends
-    HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
+public class IndexAnomalyDetectorSDKTransportAction { // extends
+    // HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorSDKTransportAction.class);
     private final RestHighLevelClient client;
     private final TransportService transportService;
@@ -73,7 +72,7 @@ public class IndexAnomalyDetectorSDKTransportAction extends
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao
     ) {
-        super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
+        // super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = restClient;
         this.transportService = transportService;
         this.clusterService = clusterService;
@@ -85,7 +84,7 @@ public class IndexAnomalyDetectorSDKTransportAction extends
         // clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
-    @Override
+    // @Override
     public void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
