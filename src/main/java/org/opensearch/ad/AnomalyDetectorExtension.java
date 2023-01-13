@@ -13,9 +13,13 @@ import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionResponse;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -24,6 +28,8 @@ import org.opensearch.ad.rest.RestGetDetectorAction;
 import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.ADJobParameterAction;
+import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -100,6 +106,12 @@ public class AnomalyDetectorExtension extends BaseExtension {
         // Pending Job Scheduler Integration
         // AnomalyDetectorJob.XCONTENT_REGISTRY
         );
+    }
+
+    public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActions() {
+       return Map.of(
+              ADJobParameterAction.NAME, ADJobParameterTransportAction.class
+       );
     }
 
     // TODO: replace or override client object on BaseExtension
