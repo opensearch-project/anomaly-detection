@@ -12,6 +12,7 @@ package org.opensearch.ad;
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,6 +31,8 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
+import org.opensearch.ad.transport.ADJobRunnerAction;
+import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -108,10 +111,12 @@ public class AnomalyDetectorExtension extends BaseExtension {
         );
     }
 
+    @Override
     public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActions() {
-       return Map.of(
-              ADJobParameterAction.NAME, ADJobParameterTransportAction.class
-       );
+        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>>  map= new HashMap<>();
+        map.put(ADJobParameterAction.NAME,ADJobParameterTransportAction.class);
+        map.put(ADJobRunnerAction.NAME,ADJobRunnerTransportAction.class);
+        return map;
     }
 
     // TODO: replace or override client object on BaseExtension
