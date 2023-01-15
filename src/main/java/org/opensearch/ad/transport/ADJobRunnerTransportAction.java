@@ -8,7 +8,12 @@ import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
 public class ADJobRunnerTransportAction extends HandledTransportAction<ADJobRunnerRequest, ADJobRunnerResponse> {
-    protected ADJobRunnerTransportAction(String actionName, TransportService transportService, ActionFilters actionFilters, Writeable.Reader<ADJobRunnerRequest> adJobRunnerRequestReader) {
+    protected ADJobRunnerTransportAction(
+        String actionName,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        Writeable.Reader<ADJobRunnerRequest> adJobRunnerRequestReader
+    ) {
         super(actionName, transportService, actionFilters, adJobRunnerRequestReader);
     }
 

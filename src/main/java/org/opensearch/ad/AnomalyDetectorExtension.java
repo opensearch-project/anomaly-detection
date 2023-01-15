@@ -113,9 +113,9 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Override
     public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActions() {
-        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>>  map= new HashMap<>();
-        map.put(ADJobParameterAction.NAME,ADJobParameterTransportAction.class);
-        map.put(ADJobRunnerAction.NAME,ADJobRunnerTransportAction.class);
+        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map = new HashMap<>();
+        map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
+        map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
         return map;
     }
 
