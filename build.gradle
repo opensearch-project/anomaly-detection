@@ -35,7 +35,7 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        bwcVersionShort = "2.14.0"
+        bwcVersionShort = "2.15.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-anomaly-detection-' + bwcVersion + '.zip'
@@ -203,8 +203,8 @@ ext {
 }
 
 opensearchplugin {
-    name 'opensearch-time-series-analytics'
-    description 'OpenSearch time series analytics plugin'
+    name 'opensearch-anomaly-detection'
+    description 'OpenSearch anomaly detector plugin'
     classname 'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin'
     extendedPlugins = ['lang-painless', 'opensearch-job-scheduler']
 }
@@ -357,6 +357,7 @@ integTest {
     if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
         filter {
             excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamModelPerfIT"
+            excludeTestsMatching "org.opensearch.ad.e2e.RuleModelPerfIT"
         }
     }
 
@@ -692,6 +693,10 @@ List<String> jacocoExclusions = [
         // https://github.com/opensearch-project/anomaly-detection/issues/241
         'org.opensearch.ad.task.ADBatchTaskRunner',
         'org.opensearch.ad.task.ADTaskManager',
+        // TODO: add forecast test coverage before release
+        'org.opensearch.forecast.*',
+        'org.opensearch.timeseries.*',
+        'org.opensearch.ad.*',
 ]
 
 
@@ -827,5 +832,15 @@ task updateVersion {
         // String tokenization to support -SNAPSHOT
         // Include the required files that needs to be updated with new Version
         ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
+    }
+}
+
+// https://github.com/opensearch-project/flow-framework/pull/226
+tasks.withType(AbstractPublishToMaven) {
+    def predicate = provider {
+        publication.name == "pluginZip"
+    }
+    onlyIf("Publishing only ZIP distributions") {
+        predicate.get()
     }
 }

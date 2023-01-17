@@ -18,7 +18,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,13 +47,9 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.ad.transport.ProfileAction;
-import org.opensearch.ad.transport.ProfileNodeResponse;
-import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.ad.util.*;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
@@ -66,7 +61,12 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.ConfigProfile;
+import org.opensearch.timeseries.model.ConfigState;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.ProfileName;
+import org.opensearch.timeseries.transport.ProfileNodeResponse;
+import org.opensearch.timeseries.transport.ProfileResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
@@ -79,7 +79,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private int requiredSamples;
     private AnomalyDetector detector;
     private String detectorId;
-    private Set<DetectorProfileName> stateNError;
+    private Set<ProfileName> stateNError;
     private DetectorInternalState.Builder result;
     private String node1;
     private String nodeName1;
@@ -97,6 +97,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private Job job;
     private TransportService transportService;
     private ADTaskManager adTaskManager;
+    private ADTaskProfileRunner taskProfileRunner;
 
     enum InittedEverResultStatus {
         INITTED,
@@ -119,7 +120,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     public void setUp() throws Exception {
         super.setUp();
         client = mock(Client.class);
-        Clock clock = mock(Clock.class);
+        taskProfileRunner = mock(ADTaskProfileRunner.class);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         nodeFilter = mock(DiscoveryNodeFilterer.class);
@@ -137,7 +138,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
             function.accept(Optional.of(TestHelpers.randomAdTask()));
             return null;
-        }).when(adTaskManager).getAndExecuteOnLatestDetectorLevelTask(any(), any(), any(), any(), anyBoolean(), any());
+        }).when(adTaskManager).getAndExecuteOnLatestConfigLevelTask(any(), any(), any(), any(), anyBoolean(), any());
         runner = new AnomalyDetectorProfileRunner(
             client,
             clientUtil,
@@ -145,7 +146,8 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             nodeFilter,
             requiredSamples,
             transportService,
-            adTaskManager
+            adTaskManager,
+            taskProfileRunner
         );
 
         doAnswer(invocation -> {
@@ -165,9 +167,9 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).get(any(), any());
 
-        stateNError = new HashSet<DetectorProfileName>();
-        stateNError.add(DetectorProfileName.ERROR);
-        stateNError.add(DetectorProfileName.STATE);
+        stateNError = new HashSet<ProfileName>();
+        stateNError.add(ProfileName.ERROR);
+        stateNError.add(ProfileName.STATE);
     }
 
     @SuppressWarnings("unchecked")
@@ -226,20 +228,20 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(
                 discoveryNode1,
                 modelSizeMap1,
-                shingleSize,
                 1L,
                 updates,
                 new ArrayList<>(),
-                modelSizeMap1.size()
+                modelSizeMap1.size(),
+                false
             );
             ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
                 discoveryNode2,
                 modelSizeMap2,
-                shingleSize,
                 1L,
                 updates,
                 new ArrayList<>(),
-                modelSizeMap2.size()
+                modelSizeMap2.size(),
+                false
             );
             List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
             List<FailedNodeException> failures = Collections.emptyList();
@@ -248,7 +250,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             listener.onResponse(profileResponse);
 
             return null;
-        }).when(client).execute(any(ProfileAction.class), any(), any());
+        }).when(client).execute(any(ADProfileAction.class), any(), any());
 
     }
 
@@ -285,7 +287,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.INIT).build();
+        ConfigProfile expectedProfile = new DetectorProfile.Builder().state(ConfigState.INIT).build();
         runner.profile(detectorId, ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
@@ -302,7 +304,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.RUNNING).build();
+        ConfigProfile expectedProfile = new DetectorProfile.Builder().state(ConfigState.RUNNING).build();
         runner.profile(detectorId, ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
@@ -323,7 +325,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.RUNNING).build();
+        ConfigProfile expectedProfile = new DetectorProfile.Builder().state(ConfigState.RUNNING).build();
         runner.profile(detectorId, ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();

@@ -20,14 +20,14 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.Version;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.stats.StatNames;
@@ -36,7 +36,7 @@ import org.opensearch.transport.TransportService;
 public class RCFResultTransportAction extends HandledTransportAction<RCFResultRequest, RCFResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(RCFResultTransportAction.class);
-    private ModelManager manager;
+    private ADModelManager manager;
     private CircuitBreakerService adCircuitBreakerService;
     private HashRing hashRing;
     private ADStats adStats;
@@ -45,7 +45,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
     public RCFResultTransportAction(
         ActionFilters actionFilters,
         TransportService transportService,
-        ModelManager manager,
+        ADModelManager manager,
         CircuitBreakerService adCircuitBreakerService,
         HashRing hashRing,
         ADStats adStats
@@ -69,7 +69,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
             return;
         }
         String remoteNodeId = remoteNode.get().getId();
-        Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
+        Version remoteAdVersion = hashRing.getVersion(remoteNodeId);
 
         try {
             LOG.info("Serve rcf request for {}", request.getModelID());
@@ -101,7 +101,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
                                 if (exception instanceof IllegalArgumentException) {
                                     // fail to score likely due to model corruption. Re-cold start to recover.
                                     LOG.error(new ParameterizedMessage("Likely model corruption for [{}]", request.getAdID()), exception);
-                                    adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).increment();
+                                    adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).increment();
                                     manager
                                         .clear(
                                             request.getAdID(),

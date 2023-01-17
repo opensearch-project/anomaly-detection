@@ -33,9 +33,7 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
-import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
@@ -47,7 +45,9 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.ConfigState;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.transport.GetConfigRequest;
 
 import com.google.common.collect.ImmutableList;
 
@@ -149,16 +149,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
 
-        GetAnomalyDetectorRequest profileRequest = new GetAnomalyDetectorRequest(
-            "foo",
-            Versions.MATCH_ANY,
-            true,
-            false,
-            "",
-            "",
-            false,
-            null
-        );
+        GetConfigRequest profileRequest = new GetConfigRequest("foo", Versions.MATCH_ANY, true, false, "", "", false, null);
 
         OpenSearchStatusException exception = expectThrows(
             OpenSearchStatusException.class,
@@ -191,7 +182,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
             // Setting up mock profile to test that the state is returned correctly in the client response
             DetectorProfile mockProfile = mock(DetectorProfile.class);
-            when(mockProfile.getState()).thenReturn(DetectorState.DISABLED);
+            when(mockProfile.getState()).thenReturn(ConfigState.DISABLED);
 
             GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
                 1234,
@@ -214,16 +205,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
             return null;
         }).when(clientSpy).execute(any(GetAnomalyDetectorAction.class), any(), any());
 
-        GetAnomalyDetectorRequest profileRequest = new GetAnomalyDetectorRequest(
-            detectorId,
-            Versions.MATCH_ANY,
-            true,
-            false,
-            "",
-            "",
-            false,
-            null
-        );
+        GetConfigRequest profileRequest = new GetConfigRequest(detectorId, Versions.MATCH_ANY, true, false, "", "", false, null);
 
         GetAnomalyDetectorResponse response = adClient.getDetectorProfile(profileRequest).actionGet(10000);
 
@@ -231,7 +213,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         assertNotEquals(null, response.getDetectorProfile());
         assertEquals(null, response.getAdJob());
         assertEquals(detector.getName(), response.getDetector().getName());
-        assertEquals(DetectorState.DISABLED, response.getDetectorProfile().getState());
+        assertEquals(ConfigState.DISABLED, response.getDetectorProfile().getState());
         verify(clientSpy, times(1)).execute(any(GetAnomalyDetectorAction.class), any(), any());
     }
 

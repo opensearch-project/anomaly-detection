@@ -111,7 +111,7 @@ public class ADCircuitBreakerServiceTests {
     public void testIsOpen1() {
         when(jvmService.stats()).thenReturn(jvmStats);
         when(jvmStats.getMem()).thenReturn(mem);
-        when(mem.getHeapUsedPercent()).thenReturn((short) 90);
+        when(mem.getHeapUsedPercent()).thenReturn((short) 96);
 
         adCircuitBreakerService.registerBreaker(BreakerName.MEM.getName(), new MemoryCircuitBreaker(jvmService));
         assertThat(adCircuitBreakerService.isOpen(), equalTo(true));

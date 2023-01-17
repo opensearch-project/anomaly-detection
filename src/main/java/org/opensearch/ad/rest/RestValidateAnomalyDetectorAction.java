@@ -16,35 +16,25 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
-import org.opensearch.rest.BytesRestResponse;
-import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.ValidationException;
-import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ConfigValidationIssue;
+import org.opensearch.timeseries.rest.RestValidateAction;
+import org.opensearch.timeseries.transport.ValidateConfigRequest;
 
 import com.google.common.collect.ImmutableList;
 
@@ -54,14 +44,18 @@ import com.google.common.collect.ImmutableList;
 public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
     private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
 
-    public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
-        .asList(ValidationAspect.values())
-        .stream()
-        .map(aspect -> aspect.getName())
-        .collect(Collectors.toSet());
+    private RestValidateAction validateAction;
 
     public RestValidateAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
         super(settings, clusterService);
+        this.validateAction = new RestValidateAction(
+            AnalysisType.AD,
+            maxSingleEntityDetectors,
+            maxMultiEntityDetectors,
+            maxAnomalyFeatures,
+            maxCategoricalFields,
+            requestTimeout
+        );
     }
 
     @Override
@@ -84,66 +78,35 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             );
     }
 
-    protected void sendAnomalyDetectorValidationParseResponse(DetectorValidationIssue issue, RestChannel channel) throws IOException {
-        try {
-            BytesRestResponse restResponse = new BytesRestResponse(
-                RestStatus.OK,
-                new ValidateAnomalyDetectorResponse(issue).toXContent(channel.newBuilder())
-            );
-            channel.sendResponse(restResponse);
-        } catch (Exception e) {
-            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, e.getMessage()));
-        }
-    }
-
-    private Boolean validationTypesAreAccepted(String validationType) {
-        Set<String> typesInRequest = new HashSet<>(Arrays.asList(validationType.split(",")));
-        return (!Collections.disjoint(typesInRequest, ALL_VALIDATION_ASPECTS_STRS));
-    }
-
     @Override
     protected BaseRestHandler.RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
+
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+        // we have to get the param from a subclass of BaseRestHandler. Otherwise, we cannot parse the type out of request params
         String typesStr = request.param(TYPE);
 
-        // if type param isn't blank and isn't a part of possible validation types throws exception
-        if (!StringUtils.isBlank(typesStr)) {
-            if (!validationTypesAreAccepted(typesStr)) {
-                throw new IllegalStateException(ADCommonMessages.NOT_EXISTENT_VALIDATION_TYPE);
-            }
-        }
-
         return channel -> {
-            AnomalyDetector detector;
             try {
-                detector = AnomalyDetector.parse(parser);
+                ValidateConfigRequest validateAnomalyDetectorRequest = validateAction.prepareRequest(request, client, typesStr);
+                client
+                    .execute(ValidateAnomalyDetectorAction.INSTANCE, validateAnomalyDetectorRequest, new RestToXContentListener<>(channel));
             } catch (Exception ex) {
                 if (ex instanceof ValidationException) {
-                    ValidationException ADException = (ValidationException) ex;
-                    DetectorValidationIssue issue = new DetectorValidationIssue(
-                        ADException.getAspect(),
-                        ADException.getType(),
-                        ADException.getMessage()
+                    ValidationException adException = (ValidationException) ex;
+                    ConfigValidationIssue issue = new ConfigValidationIssue(
+                        adException.getAspect(),
+                        adException.getType(),
+                        adException.getMessage()
                     );
-                    sendAnomalyDetectorValidationParseResponse(issue, channel);
-                    return;
+                    validateAction.sendValidationParseResponse(issue, channel);
                 } else {
                     throw ex;
                 }
             }
-            ValidateAnomalyDetectorRequest validateAnomalyDetectorRequest = new ValidateAnomalyDetectorRequest(
-                detector,
-                typesStr,
-                maxSingleEntityDetectors,
-                maxMultiEntityDetectors,
-                maxAnomalyFeatures,
-                requestTimeout
-            );
-            client.execute(ValidateAnomalyDetectorAction.INSTANCE, validateAnomalyDetectorRequest, new RestToXContentListener<>(channel));
         };
     }
 }

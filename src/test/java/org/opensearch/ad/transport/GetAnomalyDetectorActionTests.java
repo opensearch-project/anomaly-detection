@@ -31,6 +31,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.transport.GetConfigRequest;
 
 import com.google.common.collect.ImmutableList;
 
@@ -53,11 +54,11 @@ public class GetAnomalyDetectorActionTests extends OpenSearchSingleNodeTestCase 
 
     public void testGetRequest() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
-        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, false, false, "nonempty", "", false, null);
+        GetConfigRequest request = new GetConfigRequest("1234", 4321, false, false, "nonempty", "", false, null);
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
-        GetAnomalyDetectorRequest newRequest = new GetAnomalyDetectorRequest(input);
-        Assert.assertEquals(request.getDetectorID(), newRequest.getDetectorID());
+        GetConfigRequest newRequest = new GetConfigRequest(input);
+        Assert.assertEquals(request.getConfigID(), newRequest.getConfigID());
 
     }
 

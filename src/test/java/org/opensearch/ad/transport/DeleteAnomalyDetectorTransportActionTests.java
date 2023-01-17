@@ -22,13 +22,13 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.transport.DeleteConfigRequest;
 
 import com.google.common.collect.ImmutableList;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 2)
 public class DeleteAnomalyDetectorTransportActionTests extends HistoricalAnalysisIntegTestCase {
     private Instant startTime;
-    private Instant endTime;
     private String type = "error";
 
     @Override
@@ -36,7 +36,6 @@ public class DeleteAnomalyDetectorTransportActionTests extends HistoricalAnalysi
     public void setUp() throws Exception {
         super.setUp();
         startTime = Instant.now().minus(10, ChronoUnit.DAYS);
-        endTime = Instant.now();
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, 2000);
         createDetectorIndex();
     }
@@ -60,7 +59,7 @@ public class DeleteAnomalyDetectorTransportActionTests extends HistoricalAnalysi
 
     private void testDeleteDetector(AnomalyDetector detector) throws IOException {
         String detectorId = createDetector(detector);
-        DeleteAnomalyDetectorRequest request = new DeleteAnomalyDetectorRequest(detectorId);
+        DeleteConfigRequest request = new DeleteConfigRequest(detectorId);
         DeleteResponse deleteResponse = client().execute(DeleteAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
         assertEquals("deleted", deleteResponse.getResult().getLowercase());
     }

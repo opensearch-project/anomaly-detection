@@ -78,7 +78,8 @@ public class ClientUtilTests extends OpenSearchTestCase {
             new double[] { randomDouble(), randomDouble() },
             new double[][] { new double[] { randomDouble(), randomDouble() } },
             new double[] { randomDouble() },
-            randomDoubleBetween(1.1, 10.0, true)
+            randomDoubleBetween(1.1, 10.0, true),
+            null
         );
         BiConsumer<AnomalyResultRequest, ActionListener<AnomalyResultResponse>> consumer = (request, actionListener) -> {
             // simulate successful operation
@@ -122,7 +123,8 @@ public class ClientUtilTests extends OpenSearchTestCase {
             new double[] { randomDouble(), randomDouble() },
             new double[][] { new double[] { randomDouble(), randomDouble() } },
             new double[] { randomDouble() },
-            randomDoubleBetween(1.1, 10.0, true)
+            randomDoubleBetween(1.1, 10.0, true),
+            null
         );
         doAnswer(invocationOnMock -> {
             ((ActionListener<AnomalyResultResponse>) invocationOnMock.getArguments()[2]).onResponse(expected);

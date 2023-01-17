@@ -34,6 +34,7 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.google.common.collect.ImmutableList;
@@ -81,13 +82,11 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         assertTrue(exception.getMessage().contains("Detector can't be null"));
     }
 
-    public void testHistoricalAnalysisWithFutureDateRange() throws IOException, InterruptedException {
+    public void testHistoricalAnalysisWithInvalidDateRange() throws IOException, InterruptedException {
         DateRange dateRange = new DateRange(endTime, endTime.plus(10, ChronoUnit.DAYS));
         testInvalidDetectionDateRange(dateRange);
-    }
 
-    public void testHistoricalAnalysisWithInvalidHistoricalDateRange() throws IOException, InterruptedException {
-        DateRange dateRange = new DateRange(startTime.minus(10, ChronoUnit.DAYS), startTime);
+        dateRange = new DateRange(startTime.minus(10, ChronoUnit.DAYS), startTime);
         testInvalidDetectionDateRange(dateRange);
     }
 
@@ -102,7 +101,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(20000);
         GetResponse doc = getDoc(ADCommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
-        assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(ADTask.STATE_FIELD)));
+        assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(TimeSeriesTask.STATE_FIELD)));
     }
 
     public void testHistoricalAnalysisWithNonExistingIndex() throws IOException {
@@ -162,7 +161,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(25000);
         GetResponse doc = getDoc(ADCommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
-        assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(ADTask.STATE_FIELD)));
+        assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(TimeSeriesTask.STATE_FIELD)));
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
     }
 
@@ -187,6 +186,6 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(5000);
         GetResponse doc = getDoc(ADCommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
-        assertEquals(error, doc.getSourceAsMap().get(ADTask.ERROR_FIELD));
+        assertEquals(error, doc.getSourceAsMap().get(TimeSeriesTask.ERROR_FIELD));
     }
 }

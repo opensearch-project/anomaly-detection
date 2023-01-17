@@ -16,7 +16,6 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_UPDATE_DETECTO
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.timeseries.util.ParseUtils.getConfig;
-import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.List;
@@ -46,8 +45,10 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
@@ -93,7 +94,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
     @Override
     protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
-        User user = getUserContext(client);
+        User user = ParseUtils.getUserContext(client);
         String detectorId = request.getDetectorID();
         RestRequest.Method method = request.getMethod();
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_DETECTOR : FAIL_TO_CREATE_DETECTOR;
@@ -116,8 +117,12 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         try {
             // Check if user has backend roles
             // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
-            if (filterByEnabled && !checkFilterByBackendRoles(requestedUser, listener)) {
-                return;
+            if (filterByEnabled) {
+                String error = checkFilterByBackendRoles(requestedUser);
+                if (error != null) {
+                    listener.onFailure(new TimeSeriesException(error));
+                    return;
+                }
             }
             if (method == RestRequest.Method.PUT) {
                 // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
@@ -164,6 +169,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxSingleEntityAnomalyDetectors = request.getMaxSingleEntityAnomalyDetectors();
         Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
+        Integer maxCategoricalFields = request.getMaxCategoricalFields();
 
         storedContext.restore();
         checkIndicesAndExecute(detector.getIndices(), () -> {
@@ -175,7 +181,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                 client,
                 clientUtil,
                 transportService,
-                listener,
                 anomalyDetectionIndices,
                 detectorId,
                 seqNo,
@@ -186,6 +191,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                 maxSingleEntityAnomalyDetectors,
                 maxMultiEntityAnomalyDetectors,
                 maxAnomalyFeatures,
+                maxCategoricalFields,
                 method,
                 xContentRegistry,
                 detectorUser,
@@ -193,7 +199,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                 searchFeatureDao,
                 settings
             );
-            indexAnomalyDetectorActionHandler.start();
+            indexAnomalyDetectorActionHandler.start(listener);
         }, listener);
     }
 

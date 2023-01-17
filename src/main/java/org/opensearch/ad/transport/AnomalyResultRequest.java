@@ -26,56 +26,24 @@ import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.transport.ResultRequest;
 
-public class AnomalyResultRequest extends ActionRequest implements ToXContentObject {
-    private String adID;
-    // time range start and end. Unit: epoch milliseconds
-    private long start;
-    private long end;
-
+public class AnomalyResultRequest extends ResultRequest {
     public AnomalyResultRequest(StreamInput in) throws IOException {
         super(in);
-        adID = in.readString();
-        start = in.readLong();
-        end = in.readLong();
     }
 
     public AnomalyResultRequest(String adID, long start, long end) {
-        super();
-        this.adID = adID;
-        this.start = start;
-        this.end = end;
-    }
-
-    public long getStart() {
-        return start;
-    }
-
-    public long getEnd() {
-        return end;
-    }
-
-    public String getAdID() {
-        return adID;
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-        out.writeString(adID);
-        out.writeLong(start);
-        out.writeLong(end);
+        super(adID, start, end);
     }
 
     @Override
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
-        if (Strings.isEmpty(adID)) {
+        if (Strings.isEmpty(configId)) {
             validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         if (start <= 0 || end <= 0 || start > end) {
@@ -90,7 +58,7 @@ public class AnomalyResultRequest extends ActionRequest implements ToXContentObj
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(ADCommonName.ID_JSON_KEY, adID);
+        builder.field(ADCommonName.ID_JSON_KEY, configId);
         builder.field(CommonName.START_JSON_KEY, start);
         builder.field(CommonName.END_JSON_KEY, end);
         builder.endObject();

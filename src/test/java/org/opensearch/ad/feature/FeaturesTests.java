@@ -20,6 +20,7 @@ import java.util.Map.Entry;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.opensearch.timeseries.feature.Features;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -29,26 +30,23 @@ public class FeaturesTests {
 
     private List<Entry<Long, Long>> ranges = Arrays.asList(new SimpleEntry<>(0L, 1L));
     private double[][] unprocessed = new double[][] { { 1, 2 } };
-    private double[][] processed = new double[][] { { 3, 4 } };
 
-    private Features features = new Features(ranges, unprocessed, processed);
+    private Features features = new Features(ranges, unprocessed);
 
     @Test
     public void getters_returnExcepted() {
         assertEquals(ranges, features.getTimeRanges());
         assertEquals(unprocessed, features.getUnprocessedFeatures());
-        assertEquals(processed, features.getProcessedFeatures());
     }
 
     private Object[] equalsData() {
         return new Object[] {
             new Object[] { features, features, true },
-            new Object[] { features, new Features(ranges, unprocessed, processed), true },
+            new Object[] { features, new Features(ranges, unprocessed), true },
             new Object[] { features, null, false },
             new Object[] { features, "testString", false },
-            new Object[] { features, new Features(null, unprocessed, processed), false },
-            new Object[] { features, new Features(ranges, null, processed), false },
-            new Object[] { features, new Features(ranges, unprocessed, null), false }, };
+            new Object[] { features, new Features(null, unprocessed), false },
+            new Object[] { features, new Features(ranges, null), false }, };
     }
 
     @Test
@@ -58,12 +56,11 @@ public class FeaturesTests {
     }
 
     private Object[] hashCodeData() {
-        Features features = new Features(ranges, unprocessed, processed);
+        Features features = new Features(ranges, unprocessed);
         return new Object[] {
-            new Object[] { features, new Features(ranges, unprocessed, processed), true },
-            new Object[] { features, new Features(null, unprocessed, processed), false },
-            new Object[] { features, new Features(ranges, null, processed), false },
-            new Object[] { features, new Features(ranges, unprocessed, null), false }, };
+            new Object[] { features, new Features(ranges, unprocessed), true },
+            new Object[] { features, new Features(null, unprocessed), false },
+            new Object[] { features, new Features(ranges, null), false }, };
     }
 
     @Test

@@ -25,45 +25,33 @@ import com.google.common.collect.ImmutableList;
  * to single-stream forecasting, and two tasks for HC, one at the forecaster level and another at the entity level.
  *
  * Real-time forecasting:
- * - FORECAST_REALTIME_SINGLE_STREAM: Represents a task type for single-stream forecasting. Ideal for scenarios where a single
+ * - REALTIME_FORECAST_SINGLE_STREAM: Represents a task type for single-stream forecasting. Ideal for scenarios where a single
  *  time series is processed in real-time.
- * - FORECAST_REALTIME_HC_FORECASTER: Represents a task type for high cardinality (HC) forecasting. Used when dealing with a
+ * - REALTIME_FORECAST_HC_FORECASTER: Represents a task type for high cardinality (HC) forecasting. Used when dealing with a
  *  large number of distinct entities in real-time.
  *
- * Historical forecasting:
- * - FORECAST_HISTORICAL_SINGLE_STREAM: Represents a forecaster-level task for single-stream historical forecasting.
- * Suitable for analyzing a single time series in a sequential manner.
- * - FORECAST_HISTORICAL_HC_FORECASTER: A forecaster-level task to track overall state, initialization progress, errors, etc.,
- * for HC forecasting. Central to managing multiple historical time series with high cardinality.
- * - FORECAST_HISTORICAL_HC_ENTITY: An entity-level task to track the state, initialization progress, errors, etc., of a
- * specific entity within HC historical forecasting. Allows for fine-grained information recording at the entity level.
+ * Run once forecasting:
+ * - RUN_ONCE_FORECAST_SINGLE_STREAM: forecast once in single-stream scenario.
+ * - RUN_ONCE_FORECAST_HC_FORECASTER: forecast once in HC scenario.
+ *
+ * enum names need to start with REALTIME or HISTORICAL we use prefix in TaskManager to check if a task is of certain type (e.g., historical)
  *
  */
 public enum ForecastTaskType implements TaskType {
-    FORECAST_REALTIME_SINGLE_STREAM,
-    FORECAST_REALTIME_HC_FORECASTER,
-    FORECAST_HISTORICAL_SINGLE_STREAM,
-    // forecaster level task to track overall state, init progress, error etc. for HC forecaster
-    FORECAST_HISTORICAL_HC_FORECASTER,
-    // entity level task to track just one specific entity's state, init progress, error etc.
-    FORECAST_HISTORICAL_HC_ENTITY;
+    REALTIME_FORECAST_SINGLE_STREAM,
+    REALTIME_FORECAST_HC_FORECASTER,
+    RUN_ONCE_FORECAST_SINGLE_STREAM,
+    RUN_ONCE_FORECAST_HC_FORECASTER;
 
-    public static List<ForecastTaskType> HISTORICAL_FORECASTER_TASK_TYPES = ImmutableList
-        .of(ForecastTaskType.FORECAST_HISTORICAL_HC_FORECASTER, ForecastTaskType.FORECAST_HISTORICAL_SINGLE_STREAM);
-    public static List<ForecastTaskType> ALL_HISTORICAL_TASK_TYPES = ImmutableList
-        .of(
-            ForecastTaskType.FORECAST_HISTORICAL_HC_FORECASTER,
-            ForecastTaskType.FORECAST_HISTORICAL_SINGLE_STREAM,
-            ForecastTaskType.FORECAST_HISTORICAL_HC_ENTITY
-        );
     public static List<ForecastTaskType> REALTIME_TASK_TYPES = ImmutableList
-        .of(ForecastTaskType.FORECAST_REALTIME_SINGLE_STREAM, ForecastTaskType.FORECAST_REALTIME_HC_FORECASTER);
+        .of(ForecastTaskType.REALTIME_FORECAST_SINGLE_STREAM, ForecastTaskType.REALTIME_FORECAST_HC_FORECASTER);
     public static List<ForecastTaskType> ALL_FORECAST_TASK_TYPES = ImmutableList
         .of(
-            ForecastTaskType.FORECAST_REALTIME_SINGLE_STREAM,
-            ForecastTaskType.FORECAST_REALTIME_HC_FORECASTER,
-            ForecastTaskType.FORECAST_HISTORICAL_SINGLE_STREAM,
-            ForecastTaskType.FORECAST_HISTORICAL_HC_FORECASTER,
-            ForecastTaskType.FORECAST_HISTORICAL_HC_ENTITY
+            REALTIME_FORECAST_SINGLE_STREAM,
+            REALTIME_FORECAST_HC_FORECASTER,
+            RUN_ONCE_FORECAST_SINGLE_STREAM,
+            RUN_ONCE_FORECAST_HC_FORECASTER
         );
+    public static List<ForecastTaskType> RUN_ONCE_TASK_TYPES = ImmutableList
+        .of(ForecastTaskType.RUN_ONCE_FORECAST_SINGLE_STREAM, ForecastTaskType.RUN_ONCE_FORECAST_HC_FORECASTER);
 }

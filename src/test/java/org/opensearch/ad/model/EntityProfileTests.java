@@ -16,10 +16,12 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import java.io.IOException;
 
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.EntityProfile;
+import org.opensearch.timeseries.model.EntityState;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
@@ -39,7 +41,7 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
         String json = builder.toString();
 
-        assertEquals("INIT", JsonDeserializer.getTextValue(json, ADCommonName.STATE));
+        assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
 
         EntityProfile profile2 = new EntityProfile(null, -1, -1, null, null, EntityState.UNKNOWN);
 
@@ -47,7 +49,7 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
         json = builder.toString();
 
-        assertTrue(false == JsonDeserializer.hasChildNode(json, ADCommonName.STATE));
+        assertTrue(false == JsonDeserializer.hasChildNode(json, CommonName.STATE));
     }
 
     public void testToXContentTimeStampAboveZero() throws IOException, JsonPathNotFoundException {
@@ -57,7 +59,7 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
         String json = builder.toString();
 
-        assertEquals("INIT", JsonDeserializer.getTextValue(json, ADCommonName.STATE));
+        assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
 
         EntityProfile profile2 = new EntityProfile(null, 1, 1, null, null, EntityState.UNKNOWN);
 
@@ -65,6 +67,6 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
         json = builder.toString();
 
-        assertTrue(false == JsonDeserializer.hasChildNode(json, ADCommonName.STATE));
+        assertTrue(false == JsonDeserializer.hasChildNode(json, CommonName.STATE));
     }
 }

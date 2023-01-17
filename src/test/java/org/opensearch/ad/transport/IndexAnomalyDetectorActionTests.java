@@ -34,6 +34,7 @@ import org.opensearch.timeseries.util.RestHandlerUtils;
 import com.google.common.collect.ImmutableMap;
 
 public class IndexAnomalyDetectorActionTests extends OpenSearchSingleNodeTestCase {
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -58,7 +59,8 @@ public class IndexAnomalyDetectorActionTests extends OpenSearchSingleNodeTestCas
             TimeValue.timeValueSeconds(60),
             1000,
             10,
-            5
+            5,
+            10
         );
         request.writeTo(out);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());

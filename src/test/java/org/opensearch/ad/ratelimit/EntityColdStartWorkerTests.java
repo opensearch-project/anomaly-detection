@@ -24,14 +24,12 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Random;
 
 import org.opensearch.OpenSearchStatusException;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.ml.EntityColdStarter;
-import org.opensearch.ad.ml.EntityModel;
-import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.caching.ADPriorityCache;
+import org.opensearch.ad.ml.ADColdStart;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -40,15 +38,20 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ratelimit.FeatureRequest;
+import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 import test.org.opensearch.ad.util.MLUtil;
 
 public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
     ClusterService clusterService;
-    EntityColdStartWorker worker;
-    EntityColdStarter entityColdStarter;
-    CacheProvider cacheProvider;
+    ADColdStartWorker worker;
+    ADColdStart entityColdStarter;
+    ADPriorityCache cacheProvider;
 
     @Override
     public void setUp() throws Exception {
@@ -69,14 +72,14 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        entityColdStarter = mock(EntityColdStarter.class);
+        entityColdStarter = mock(ADColdStart.class);
 
-        cacheProvider = mock(CacheProvider.class);
+        cacheProvider = mock(ADPriorityCache.class);
 
         // Integer.MAX_VALUE makes a huge heap
-        worker = new EntityColdStartWorker(
+        worker = new ADColdStartWorker(
             Integer.MAX_VALUE,
-            AnomalyDetectorSettings.ENTITY_REQUEST_SIZE_IN_BYTES,
+            TimeSeriesSettings.FEATURE_REQUEST_SIZE_IN_BYTES,
             AnomalyDetectorSettings.AD_ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
@@ -92,21 +95,31 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
             entityColdStarter,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             nodeStateManager,
-            cacheProvider
+            cacheProvider,
+            mock(ADModelManager.class),
+            mock(ADSaveResultStrategy.class)
         );
     }
 
     public void testEmptyModelId() {
-        EntityRequest request = mock(EntityRequest.class);
+        FeatureRequest request = mock(FeatureRequest.class);
         when(request.getPriority()).thenReturn(RequestPriority.LOW);
-        when(request.getModelId()).thenReturn(Optional.empty());
+        when(request.getModelId()).thenReturn(null);
         worker.put(request);
         verify(entityColdStarter, never()).trainModel(any(), anyString(), any(), any());
         verify(request, times(1)).getModelId();
     }
 
     public void testOverloaded() {
-        EntityRequest request = new EntityRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity);
+        FeatureRequest request = new FeatureRequest(
+            Integer.MAX_VALUE,
+            detectorId,
+            RequestPriority.MEDIUM,
+            new double[] { 0 },
+            0,
+            entity,
+            null
+        );
 
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(3);
@@ -126,7 +139,15 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
     }
 
     public void testException() {
-        EntityRequest request = new EntityRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity);
+        FeatureRequest request = new FeatureRequest(
+            Integer.MAX_VALUE,
+            detectorId,
+            RequestPriority.MEDIUM,
+            new double[] { 0 },
+            0,
+            entity,
+            null
+        );
 
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(3);
@@ -147,13 +168,21 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
     }
 
     public void testModelHosted() {
-        EntityRequest request = new EntityRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, entity);
+        FeatureRequest request = new FeatureRequest(
+            Integer.MAX_VALUE,
+            detectorId,
+            RequestPriority.MEDIUM,
+            new double[] { 0 },
+            0,
+            entity,
+            null
+        );
 
         doAnswer(invocation -> {
             ActionListener<Void> listener = invocation.getArgument(3);
 
-            ModelState<EntityModel> state = invocation.getArgument(2);
-            state.setModel(MLUtil.createNonEmptyModel(detectorId));
+            ModelState<ThresholdedRandomCutForest> state = invocation.getArgument(2);
+            state.setModel(MLUtil.createNonEmptyModel(detectorId).getLeft());
             listener.onResponse(null);
 
             return null;
@@ -161,6 +190,6 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
 
         worker.put(request);
 
-        verify(cacheProvider, times(1)).get();
+        verify(cacheProvider, times(1)).hostIfPossible(any(), any());
     }
 }

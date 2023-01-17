@@ -77,7 +77,7 @@ public final class ForecastSettings {
     public static final int MAX_FORECAST_FEATURES = 1;
 
     // ======================================
-    // AD Index setting
+    // Index setting
     // ======================================
     public static int FORECAST_MAX_UPDATE_RETRY_TIMES = 10_000;
 
@@ -386,4 +386,8 @@ public final class ForecastSettings {
     public static final Setting<Integer> FORECAST_MAX_MODEL_SIZE_PER_NODE = Setting
         .intSetting("plugins.forecast.max_model_size_per_node", 100, 1, 10_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
+    // ======================================
+    // ML
+    // ======================================
+    public static final int MINIMUM_SHINLE_SIZE = 4;
 }

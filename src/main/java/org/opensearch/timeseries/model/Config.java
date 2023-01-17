@@ -10,10 +10,15 @@ import static org.opensearch.timeseries.constant.CommonMessages.INVALID_CHAR_IN_
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
@@ -32,14 +37,10 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
-import org.opensearch.timeseries.dataprocessor.FixedValueImputer;
 import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
-import org.opensearch.timeseries.dataprocessor.Imputer;
-import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
-import org.opensearch.timeseries.dataprocessor.PreviousValueImputer;
-import org.opensearch.timeseries.dataprocessor.ZeroImputer;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.owasp.encoder.Encode;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -71,11 +72,9 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String USER_FIELD = "user";
     public static final String RESULT_INDEX_FIELD = "result_index";
     public static final String IMPUTATION_OPTION_FIELD = "imputation_option";
-
-    private static final Imputer zeroImputer;
-    private static final Imputer previousImputer;
-    private static final Imputer linearImputer;
-    private static final Imputer linearImputerIntegerSensitive;
+    public static final String SEASONALITY_FIELD = "suggested_seasonality";
+    public static final String RECENCY_EMPHASIS_FIELD = "recency_emphasis";
+    public static final String HISTORY_INTERVAL_FIELD = "history";
 
     protected String id;
     protected Long version;
@@ -95,23 +94,27 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected List<String> categoryFields;
     protected User user;
     protected ImputationOption imputationOption;
+    // Aggregation period to smooth the emphasis on the most recent data. Aggregation period to smooth
+    // the emphasis of the most recent data. Useful for determining short/long term trends. Can be used
+    // similar to moving average computation https://en.wikipedia.org/wiki/Moving_average
+    // Recency emphasis is the average number of steps that a point will be included in the sample.
+    // Call the number of steps that a point is included in the sample the "lifetime" of the point
+    // (which may be 0). Over a finite time window, the distribution of the lifetime of a point is
+    // approximately exponential with parameter lambda. In an exponential distribution, the average
+    // is the reciprocal of the rate parameter (λ). Thus, 1 / timmeDecay is approximately the
+    // average number of steps that a point will be included in the sample.
+    protected Integer recencyEmphasis;
 
     // validation error
     protected String errorMessage;
     protected ValidationIssueType issueType;
 
-    protected Imputer imputer;
+    protected Integer seasonIntervals;
+    protected Integer historyIntervals;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
         + " characters";
-
-    static {
-        zeroImputer = new ZeroImputer();
-        previousImputer = new PreviousValueImputer();
-        linearImputer = new LinearUniformImputer(false);
-        linearImputerIntegerSensitive = new LinearUniformImputer(true);
-    }
 
     protected Config(
         String id,
@@ -131,7 +134,11 @@ public abstract class Config implements Writeable, ToXContentObject {
         User user,
         String resultIndex,
         TimeConfiguration interval,
-        ImputationOption imputationOption
+        ImputationOption imputationOption,
+        Integer recencyEmphasis,
+        Integer seasonIntervals,
+        ShingleGetter shingleGetter,
+        Integer historyIntervals
     ) {
         if (Strings.isBlank(name)) {
             errorMessage = CommonMessages.EMPTY_NAME;
@@ -158,17 +165,68 @@ public abstract class Config implements Writeable, ToXContentObject {
             return;
         }
 
+        if (invalidSeasonality(seasonIntervals)) {
+            errorMessage = "Suggested seasonality must be a positive integer no larger than "
+                + TimeSeriesSettings.MAX_SHINGLE_SIZE * 2
+                + ". Got "
+                + seasonIntervals;
+            issueType = ValidationIssueType.SUGGESTED_SEASONALITY_FIELD;
+            return;
+        }
+
         errorMessage = validateCustomResultIndex(resultIndex);
         if (errorMessage != null) {
             issueType = ValidationIssueType.RESULT_INDEX;
             return;
         }
 
-        if (imputationOption != null
-            && imputationOption.getMethod() == ImputationMethod.FIXED_VALUES
-            && imputationOption.getDefaultFill().isEmpty()) {
-            issueType = ValidationIssueType.IMPUTATION;
-            errorMessage = "No given values for fixed value interpolation";
+        if (imputationOption != null && imputationOption.getMethod() == ImputationMethod.FIXED_VALUES) {
+            Optional<double[]> defaultFill = imputationOption.getDefaultFill();
+            if (defaultFill.isEmpty()) {
+                issueType = ValidationIssueType.IMPUTATION;
+                errorMessage = "No given values for fixed value interpolation";
+                return;
+            }
+
+            // Calculate the number of enabled features
+            long expectedFeatures = features == null ? 0 : features.stream().filter(Feature::getEnabled).count();
+
+            // Check if the length of the defaultFill array matches the number of expected features
+            if (defaultFill.get().length != expectedFeatures) {
+                issueType = ValidationIssueType.IMPUTATION;
+                errorMessage = String
+                    .format(
+                        Locale.ROOT,
+                        "Incorrect number of values to fill. Got: %d. Expected: %d.",
+                        defaultFill.get().length,
+                        expectedFeatures
+                    );
+                return;
+            }
+        }
+
+        if (recencyEmphasis != null && (recencyEmphasis <= 0)) {
+            issueType = ValidationIssueType.RECENCY_EMPHASIS;
+            errorMessage = "recency emphasis has to be a positive integer";
+            return;
+        }
+
+        errorMessage = validateDescription(description);
+        if (errorMessage != null) {
+            issueType = ValidationIssueType.DESCRIPTION;
+            return;
+        }
+
+        if (historyIntervals != null && (historyIntervals <= 0 || historyIntervals > TimeSeriesSettings.MAX_HISTORY_INTERVALS)) {
+            issueType = ValidationIssueType.HISTORY;
+            errorMessage = "We cannot look back more than " + TimeSeriesSettings.MAX_HISTORY_INTERVALS + " intervals.";
+            return;
+        }
+
+        List<String> redundantNames = findRedundantNames(features);
+        if (redundantNames.size() > 0) {
+            issueType = ValidationIssueType.FEATURE_ATTRIBUTES;
+            errorMessage = redundantNames + " appears more than once. Feature name has to be unique";
             return;
         }
 
@@ -182,7 +240,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.filterQuery = filterQuery;
         this.interval = interval;
         this.windowDelay = windowDelay;
-        this.shingleSize = getShingleSize(shingleSize);
+        this.shingleSize = shingleGetter.getShingleSize(shingleSize);
         this.uiMetadata = uiMetadata;
         this.schemaVersion = schemaVersion;
         this.lastUpdateTime = lastUpdateTime;
@@ -190,9 +248,16 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.user = user;
         this.customResultIndex = Strings.trimToNull(resultIndex);
         this.imputationOption = imputationOption;
-        this.imputer = createImputer();
         this.issueType = null;
         this.errorMessage = null;
+        // If recencyEmphasis is null, use the default value from TimeSeriesSettings
+        this.recencyEmphasis = Optional.ofNullable(recencyEmphasis).orElse(TimeSeriesSettings.DEFAULT_RECENCY_EMPHASIS);
+        this.seasonIntervals = seasonIntervals;
+        this.historyIntervals = historyIntervals == null ? suggestHistory() : historyIntervals;
+    }
+
+    public int suggestHistory() {
+        return TimeSeriesSettings.NUM_MIN_SAMPLES + this.shingleSize;
     }
 
     public Config(StreamInput input) throws IOException {
@@ -226,7 +291,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             this.imputationOption = null;
         }
-        this.imputer = createImputer();
+        this.recencyEmphasis = input.readInt();
+        this.seasonIntervals = input.readInt();
+        this.historyIntervals = input.readInt();
     }
 
     /*
@@ -236,9 +303,7 @@ public abstract class Config implements Writeable, ToXContentObject {
      * "Implicit super constructor Config() is undefined.
      * Must explicitly invoke another constructor".
      */
-    public Config() {
-        this.imputer = null;
-    }
+    public Config() {}
 
     @Override
     public void writeTo(StreamOutput output) throws IOException {
@@ -275,21 +340,23 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             output.writeBoolean(false);
         }
-    }
-
-    /**
-     * If the given shingle size is null, return default;
-     * otherwise, return the given shingle size.
-     *
-     * @param customShingleSize Given shingle size
-     * @return Shingle size
-     */
-    protected static Integer getShingleSize(Integer customShingleSize) {
-        return customShingleSize == null ? TimeSeriesSettings.DEFAULT_SHINGLE_SIZE : customShingleSize;
+        output.writeInt(recencyEmphasis);
+        output.writeInt(seasonIntervals);
+        output.writeInt(historyIntervals);
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
         return shingleSizeToTest != null && (shingleSizeToTest < 1 || shingleSizeToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE);
+    }
+
+    public boolean invalidSeasonality(Integer seasonalityToTest) {
+        if (seasonalityToTest == null) {
+            return false;
+        }
+        // shingle size = suggested seasonality / 2
+        // given seasonality, we can reuse shingle size verification
+        // cannot be smaller than 1
+        return invalidShingleSizeRange(Math.max(1, seasonalityToTest / TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO));
     }
 
     /**
@@ -302,10 +369,12 @@ public abstract class Config implements Writeable, ToXContentObject {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         Config config = (Config) o;
         // a few fields not included:
         // 1)didn't include uiMetadata since toXContent/parse will produce a map of map
@@ -324,7 +393,10 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(categoryFields, config.categoryFields)
             && Objects.equal(user, config.user)
             && Objects.equal(customResultIndex, config.customResultIndex)
-            && Objects.equal(imputationOption, config.imputationOption);
+            && Objects.equal(imputationOption, config.imputationOption)
+            && Objects.equal(recencyEmphasis, config.recencyEmphasis)
+            && Objects.equal(seasonIntervals, config.seasonIntervals)
+            && Objects.equal(historyIntervals, config.historyIntervals);
     }
 
     @Generated
@@ -345,7 +417,10 @@ public abstract class Config implements Writeable, ToXContentObject {
                 schemaVersion,
                 user,
                 customResultIndex,
-                imputationOption
+                imputationOption,
+                recencyEmphasis,
+                seasonIntervals,
+                historyIntervals
             );
     }
 
@@ -353,14 +428,16 @@ public abstract class Config implements Writeable, ToXContentObject {
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder
             .field(NAME_FIELD, name)
-            .field(DESCRIPTION_FIELD, description)
+            .field(DESCRIPTION_FIELD, Encode.forHtml(description))
             .field(TIMEFIELD_FIELD, timeField)
             .field(INDICES_FIELD, indices.toArray())
             .field(FILTER_QUERY_FIELD, filterQuery)
             .field(WINDOW_DELAY_FIELD, windowDelay)
             .field(SHINGLE_SIZE_FIELD, shingleSize)
             .field(CommonName.SCHEMA_VERSION_FIELD, schemaVersion)
-            .field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray());
+            .field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray())
+            .field(RECENCY_EMPHASIS_FIELD, recencyEmphasis)
+            .field(HISTORY_INTERVAL_FIELD, historyIntervals);
 
         if (uiMetadata != null && !uiMetadata.isEmpty()) {
             builder.field(UI_METADATA_FIELD, uiMetadata);
@@ -379,6 +456,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (imputationOption != null) {
             builder.field(IMPUTATION_OPTION_FIELD, imputationOption);
+        }
+        if (seasonIntervals != null) {
+            builder.field(SEASONALITY_FIELD, seasonIntervals);
         }
         return builder;
     }
@@ -505,6 +585,16 @@ public abstract class Config implements Writeable, ToXContentObject {
         return null;
     }
 
+    public String validateDescription(String description) {
+        if (Strings.isEmpty(description)) {
+            return null;
+        }
+        if (description.length() > TimeSeriesSettings.MAX_DESCRIPTION_LENGTH) {
+            return CommonMessages.DESCRIPTION_LENGTH_TOO_LONG;
+        }
+        return null;
+    }
+
     public static boolean isHC(List<String> categoryFields) {
         return categoryFields != null && categoryFields.size() > 0;
     }
@@ -513,46 +603,19 @@ public abstract class Config implements Writeable, ToXContentObject {
         return imputationOption;
     }
 
-    public Imputer getImputer() {
-        if (imputer != null) {
-            return imputer;
-        }
-        imputer = createImputer();
-        return imputer;
-    }
-
-    protected Imputer createImputer() {
-        Imputer imputer = null;
-
-        // default interpolator is using last known value
-        if (imputationOption == null) {
-            return previousImputer;
-        }
-
-        switch (imputationOption.getMethod()) {
-            case ZERO:
-                imputer = zeroImputer;
-                break;
-            case FIXED_VALUES:
-                // we did validate default fill is not empty in the constructor
-                imputer = new FixedValueImputer(imputationOption.getDefaultFill().get());
-                break;
-            case PREVIOUS:
-                imputer = previousImputer;
-                break;
-            case LINEAR:
-                if (imputationOption.isIntegerSentive()) {
-                    imputer = linearImputerIntegerSensitive;
-                } else {
-                    imputer = linearImputer;
-                }
-                break;
-            default:
-                logger.error("unsupported method: " + imputationOption.getMethod());
-                imputer = new PreviousValueImputer();
-                break;
-        }
-        return imputer;
+    /**
+     * Retrieves the transform decay value.
+     *
+     * This method implements an inverse relationship between the recency emphasis and the transform decay value,
+     * such that the transform decay is set to 1 / recency emphasis. For example, a transform decay of 0.02
+     * implies a recency emphasis of 50 observations (1/0.02).
+     *
+     * The transform decay value is crucial in determining the rate at which older data loses its influence in the model.
+     *
+     * @return The current transform decay value, dictating the rate of exponential decay in the model.
+     */
+    public Double getTimeDecay() {
+        return 1.0 / recencyEmphasis;
     }
 
     protected void checkAndThrowValidationErrors(ValidationAspect validationAspect) {
@@ -571,5 +634,71 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             throw new IllegalArgumentException("Unsupported config type. Supported config types are [AnomalyDetector, Forecaster]");
         }
+    }
+
+    public Integer getSeasonIntervals() {
+        return seasonIntervals;
+    }
+
+    public Integer getRecencyEmphasis() {
+        return recencyEmphasis;
+    }
+
+    public Integer getHistoryIntervals() {
+        return historyIntervals;
+    }
+
+    /**
+     * Identifies redundant feature names.
+     *
+     * @param features the list of features to check
+     * @return a list of redundant feature names
+     */
+    public static List<String> findRedundantNames(List<Feature> features) {
+        if (features == null || features.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Group features by name and count occurrences
+        Map<String, Long> nameCounts = features
+            .stream()
+            .map(Feature::getName)
+            .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+        // Filter names that appear more than once and collect them into a list
+        List<String> redundantNames = nameCounts
+            .entrySet()
+            .stream()
+            .filter(entry -> entry.getValue() > 1)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+
+        return redundantNames;
+    }
+
+    @Generated
+    @Override
+    public String toString() {
+        return super.toString()
+            + ", "
+            + new ToStringBuilder(this)
+                .append("name", name)
+                .append("description", description)
+                .append("timeField", timeField)
+                .append("indices", indices)
+                .append("featureAttributes", featureAttributes)
+                .append("filterQuery", filterQuery)
+                .append("interval", interval)
+                .append("windowDelay", windowDelay)
+                .append("shingleSize", shingleSize)
+                .append("categoryFields", categoryFields)
+                .append("schemaVersion", schemaVersion)
+                .append("user", user)
+                .append("customResultIndex", customResultIndex)
+                .append("imputationOption", imputationOption)
+                .append("recencyEmphasis", recencyEmphasis)
+                .append("seasonIntervals", seasonIntervals)
+                .append("historyIntervals", historyIntervals)
+                .toString();
     }
 }

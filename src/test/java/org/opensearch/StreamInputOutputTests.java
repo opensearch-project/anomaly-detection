@@ -26,15 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.opensearch.action.FailedNodeException;
-import org.opensearch.ad.model.EntityProfileName;
-import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.ad.model.ModelProfileOnNode;
-import org.opensearch.ad.transport.EntityProfileAction;
-import org.opensearch.ad.transport.EntityProfileRequest;
-import org.opensearch.ad.transport.EntityProfileResponse;
-import org.opensearch.ad.transport.EntityResultRequest;
-import org.opensearch.ad.transport.ProfileNodeResponse;
-import org.opensearch.ad.transport.ProfileResponse;
+import org.opensearch.ad.transport.ADEntityProfileAction;
 import org.opensearch.ad.transport.RCFResultResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -42,7 +34,16 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.EntityProfileName;
+import org.opensearch.timeseries.model.ModelProfile;
+import org.opensearch.timeseries.model.ModelProfileOnNode;
+import org.opensearch.timeseries.transport.EntityProfileRequest;
+import org.opensearch.timeseries.transport.EntityProfileResponse;
+import org.opensearch.timeseries.transport.EntityResultRequest;
+import org.opensearch.timeseries.transport.ProfileNodeResponse;
+import org.opensearch.timeseries.transport.ProfileResponse;
 
 /**
  * Put in core package so that we can using Version's package private constructor
@@ -98,7 +99,7 @@ public class StreamInputOutputTests extends AbstractTimeSeriesTest {
         entities.put(entity, feature);
         start = 10L;
         end = 20L;
-        entityResultRequest = new EntityResultRequest(detectorId, entities, start, end);
+        entityResultRequest = new EntityResultRequest(detectorId, entities, start, end, AnalysisType.AD, null);
     }
 
     /**
@@ -111,7 +112,7 @@ public class StreamInputOutputTests extends AbstractTimeSeriesTest {
 
         StreamInput streamInput = output.bytes().streamInput();
         EntityResultRequest readRequest = new EntityResultRequest(streamInput);
-        assertThat(readRequest.getId(), equalTo(detectorId));
+        assertThat(readRequest.getConfigId(), equalTo(detectorId));
         assertThat(readRequest.getStart(), equalTo(start));
         assertThat(readRequest.getEnd(), equalTo(end));
         assertTrue(areEqualWithArrayValue(readRequest.getEntities(), entities));
@@ -133,7 +134,7 @@ public class StreamInputOutputTests extends AbstractTimeSeriesTest {
 
         StreamInput streamInput = output.bytes().streamInput();
         EntityProfileRequest readRequest = new EntityProfileRequest(streamInput);
-        assertThat(readRequest.getAdID(), equalTo(detectorId));
+        assertThat(readRequest.getConfigID(), equalTo(detectorId));
         assertThat(readRequest.getEntityValue(), equalTo(entity));
         assertThat(readRequest.getProfilesToCollect(), equalTo(profilesToCollect));
     }
@@ -157,7 +158,7 @@ public class StreamInputOutputTests extends AbstractTimeSeriesTest {
         entityProfileResponse.writeTo(output);
 
         StreamInput streamInput = output.bytes().streamInput();
-        EntityProfileResponse readResponse = EntityProfileAction.INSTANCE.getResponseReader().read(streamInput);
+        EntityProfileResponse readResponse = ADEntityProfileAction.INSTANCE.getResponseReader().read(streamInput);
         assertThat(readResponse.getModelProfile(), equalTo(entityProfileResponse.getModelProfile()));
         assertThat(readResponse.getLastActiveMs(), equalTo(entityProfileResponse.getLastActiveMs()));
         assertThat(readResponse.getTotalUpdates(), equalTo(entityProfileResponse.getTotalUpdates()));
@@ -206,30 +207,30 @@ public class StreamInputOutputTests extends AbstractTimeSeriesTest {
         ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(
             discoveryNode1_1,
             modelSizeMap1,
-            shingleSize,
             0,
             0,
             Arrays.asList(modelProfile, modelProfile2),
-            modelSizeMap1.size()
+            modelSizeMap1.size(),
+            false
         );
         ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
             discoveryNode2,
             modelSizeMap2,
-            -1,
             0,
             0,
             new ArrayList<>(),
-            modelSizeMap2.size()
+            modelSizeMap2.size(),
+            false
         );
         ProfileNodeResponse profileNodeResponse3 = new ProfileNodeResponse(
             discoveryNode2,
             null,
-            -1,
             0,
             0,
             // null model size. Test if we can handle this case
             null,
-            modelSizeMap2.size()
+            modelSizeMap2.size(),
+            false
         );
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2, profileNodeResponse3);
         List<FailedNodeException> failures = Collections.emptyList();
@@ -249,7 +250,6 @@ public class StreamInputOutputTests extends AbstractTimeSeriesTest {
         StreamInput streamInput = output.bytes().streamInput();
         ProfileResponse readResponse = new ProfileResponse(streamInput);
         assertThat(readResponse.getModelProfile(), equalTo(profileResponse.getModelProfile()));
-        assertThat(readResponse.getShingleSize(), equalTo(profileResponse.getShingleSize()));
         assertThat(readResponse.getActiveEntities(), equalTo(profileResponse.getActiveEntities()));
         assertThat(readResponse.getTotalUpdates(), equalTo(profileResponse.getTotalUpdates()));
         assertThat(readResponse.getCoordinatingNode(), equalTo(profileResponse.getCoordinatingNode()));
