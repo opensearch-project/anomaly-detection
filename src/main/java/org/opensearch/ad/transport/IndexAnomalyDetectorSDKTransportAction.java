@@ -29,7 +29,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.AnomalyDetectionSDKIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorSDKActionHandler;
@@ -53,7 +53,7 @@ public class IndexAnomalyDetectorSDKTransportAction { // extends
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorSDKTransportAction.class);
     private final RestHighLevelClient client;
     private final TransportService transportService;
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
+    private final AnomalyDetectionSDKIndices anomalyDetectionIndices;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
@@ -67,7 +67,7 @@ public class IndexAnomalyDetectorSDKTransportAction { // extends
         RestHighLevelClient restClient,
         ClusterService clusterService,
         Settings settings,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        AnomalyDetectionSDKIndices anomalyDetectionSDKIndices,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao
@@ -76,7 +76,7 @@ public class IndexAnomalyDetectorSDKTransportAction { // extends
         this.client = restClient;
         this.transportService = transportService;
         this.clusterService = clusterService;
-        this.anomalyDetectionIndices = anomalyDetectionIndices;
+        this.anomalyDetectionIndices = anomalyDetectionSDKIndices;
         this.xContentRegistry = xContentRegistry;
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;

@@ -15,7 +15,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.AnomalyDetectionSDKIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
@@ -61,7 +61,7 @@ public class IndexAnomalyDetectorSDKActionHandler extends AbstractAnomalyDetecto
         RestHighLevelClient client,
         TransportService transportService,
         ActionListener<IndexAnomalyDetectorResponse> listener,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        AnomalyDetectionSDKIndices anomalyDetectionIndices,
         String detectorId,
         Long seqNo,
         Long primaryTerm,

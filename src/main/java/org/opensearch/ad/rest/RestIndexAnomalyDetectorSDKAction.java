@@ -31,6 +31,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.indices.AnomalyDetectionSDKIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
@@ -142,7 +143,14 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
             // Disabled the settings update consumer that would cause NPE for this
             null, // ClusterService clusterService
             this.environmentSettings, // Settings settings
-            null, // AnomalyDetectionIndices anomalyDetectionIndices
+            new AnomalyDetectionSDKIndices(
+                restClient, // client,
+                null, // clusterService,
+                null, // threadPool,
+                this.environmentSettings, // settings,
+                null, // nodeFilter,
+                AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            ), // AnomalyDetectionIndices anomalyDetectionIndices
             this.namedXContentRegistry,
             null, // ADTaskManager adTaskManager
             null // SearchFeatureDao searchFeatureDao
