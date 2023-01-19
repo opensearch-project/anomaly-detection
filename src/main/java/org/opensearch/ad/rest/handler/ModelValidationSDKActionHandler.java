@@ -51,7 +51,6 @@ import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -59,6 +58,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
@@ -88,7 +88,7 @@ public class ModelValidationSDKActionHandler {
     protected static final String AGG_NAME_TOP = "top_agg";
     protected static final String AGGREGATION = "agg";
     protected final AnomalyDetector anomalyDetector;
-    protected final ClusterService clusterService;
+    protected final SDKClusterService clusterService;
     protected final Logger logger = LogManager.getLogger(AbstractAnomalyDetectorActionHandler.class);
     protected final TimeValue requestTimeout;
     protected final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
@@ -113,7 +113,7 @@ public class ModelValidationSDKActionHandler {
      * @param clock                           clock object to know when to timeout
      */
     public ModelValidationSDKActionHandler(
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         RestHighLevelClient client,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         AnomalyDetector anomalyDetector,

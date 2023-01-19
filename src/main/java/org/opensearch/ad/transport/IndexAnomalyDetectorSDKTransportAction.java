@@ -13,6 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_CREATE_DETECTOR;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_UPDATE_DETECTOR;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.ad.util.ParseUtils.getDetector;
 import static org.opensearch.ad.util.ParseUtils.getNullUser;
@@ -33,17 +34,16 @@ import org.opensearch.ad.indices.AnomalyDetectionSDKIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorSDKActionHandler;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -54,7 +54,7 @@ public class IndexAnomalyDetectorSDKTransportAction { // extends
     private final RestHighLevelClient client;
     private final TransportService transportService;
     private final AnomalyDetectionSDKIndices anomalyDetectionIndices;
-    private final ClusterService clusterService;
+    private final SDKClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
@@ -65,7 +65,7 @@ public class IndexAnomalyDetectorSDKTransportAction { // extends
         TransportService transportService,
         ActionFilters actionFilters,
         RestHighLevelClient restClient,
-        ClusterService clusterService,
+        SDKClusterService sdkClusterService,
         Settings settings,
         AnomalyDetectionSDKIndices anomalyDetectionSDKIndices,
         NamedXContentRegistry xContentRegistry,
@@ -75,13 +75,17 @@ public class IndexAnomalyDetectorSDKTransportAction { // extends
         // super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = restClient;
         this.transportService = transportService;
-        this.clusterService = clusterService;
+        this.clusterService = sdkClusterService;
         this.anomalyDetectionIndices = anomalyDetectionSDKIndices;
         this.xContentRegistry = xContentRegistry;
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;
-        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        // clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        filterByEnabled = FILTER_BY_BACKEND_ROLES.get(settings);
+        try {
+            clusterService.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        } catch (Exception e) {
+            // FIXME handle this
+        }
     }
 
     // @Override

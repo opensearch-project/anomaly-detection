@@ -51,6 +51,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
+import org.opensearch.sdk.SDKClusterService;
 
 import com.google.common.collect.ImmutableList;
 
@@ -63,12 +64,14 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
     private NamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
     private RestHighLevelClient restClient;
+    private SDKClusterService sdkClusterService;
 
     public RestIndexAnomalyDetectorSDKAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
-        super(extensionsRunner.getEnvironmentSettings());
+        super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.restClient = anomalyDetectorExtension.getRestClient();
+        this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 
     @Override
@@ -138,14 +141,12 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         IndexAnomalyDetectorSDKTransportAction indexAction = new IndexAnomalyDetectorSDKTransportAction(
             null, // TransportService transportService
             null, // ActionFilters actionFilters
-            // Ignore this and substitute HLRC calls later
             restClient, // Client client
-            // Disabled the settings update consumer that would cause NPE for this
-            null, // ClusterService clusterService
+            sdkClusterService, // ClusterService clusterService,
             this.environmentSettings, // Settings settings
             new AnomalyDetectionSDKIndices(
                 restClient, // client,
-                null, // clusterService,
+                sdkClusterService, // clusterService,
                 null, // threadPool,
                 this.environmentSettings, // settings,
                 null, // nodeFilter,

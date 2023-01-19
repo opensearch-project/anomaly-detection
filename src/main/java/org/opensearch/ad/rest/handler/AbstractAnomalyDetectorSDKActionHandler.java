@@ -72,7 +72,6 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.CreateIndexResponse;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -82,6 +81,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.transport.TransportService;
@@ -132,7 +132,7 @@ public abstract class AbstractAnomalyDetectorSDKActionHandler<T extends ActionRe
     protected final Long primaryTerm;
     protected final WriteRequest.RefreshPolicy refreshPolicy;
     protected final AnomalyDetector anomalyDetector;
-    protected final ClusterService clusterService;
+    protected final SDKClusterService clusterService;
 
     protected final Logger logger = LogManager.getLogger(AbstractAnomalyDetectorSDKActionHandler.class);
     protected final TimeValue requestTimeout;
@@ -155,31 +155,32 @@ public abstract class AbstractAnomalyDetectorSDKActionHandler<T extends ActionRe
     /**
      * Constructor function.
      *
-     * @param clusterService          ClusterService
-     * @param client                  ES node client that executes actions on the local node
-     * @param transportService        ES transport service
-     * @param listener                ES channel used to construct bytes / builder based outputs, and send responses
-     * @param anomalyDetectionIndices2 anomaly detector index manager
-     * @param detectorId              detector identifier
-     * @param seqNo                   sequence number of last modification
-     * @param primaryTerm             primary term of last modification
-     * @param refreshPolicy           refresh policy
-     * @param anomalyDetector         anomaly detector instance
-     * @param requestTimeout          request time out configuration
-     * @param maxSingleEntityAnomalyDetectors     max single-entity anomaly detectors allowed
-     * @param maxMultiEntityAnomalyDetectors      max multi-entity detectors allowed
-     * @param maxAnomalyFeatures      max features allowed per detector
-     * @param method                  Rest Method type
-     * @param xContentRegistry        Registry which is used for XContentParser
-     * @param user                    User context
-     * @param adTaskManager           AD Task manager
-     * @param searchFeatureDao        Search feature dao
-     * @param isDryRun                Whether handler is dryrun or not
-     * @param validationType          Whether validation is for detector or model
-     * @param clock                   clock object to know when to timeout
+     * @param clusterService2                 ClusterService
+     * @param client                          ES node client that executes actions on the local node
+     * @param transportService                ES transport service
+     * @param listener                        ES channel used to construct bytes / builder based outputs, and send
+     *                                        responses
+     * @param anomalyDetectionIndices2        anomaly detector index manager
+     * @param detectorId                      detector identifier
+     * @param seqNo                           sequence number of last modification
+     * @param primaryTerm                     primary term of last modification
+     * @param refreshPolicy                   refresh policy
+     * @param anomalyDetector                 anomaly detector instance
+     * @param requestTimeout                  request time out configuration
+     * @param maxSingleEntityAnomalyDetectors max single-entity anomaly detectors allowed
+     * @param maxMultiEntityAnomalyDetectors  max multi-entity detectors allowed
+     * @param maxAnomalyFeatures              max features allowed per detector
+     * @param method                          Rest Method type
+     * @param xContentRegistry                Registry which is used for XContentParser
+     * @param user                            User context
+     * @param adTaskManager                   AD Task manager
+     * @param searchFeatureDao                Search feature dao
+     * @param isDryRun                        Whether handler is dryrun or not
+     * @param validationType                  Whether validation is for detector or model
+     * @param clock                           clock object to know when to timeout
      */
     public AbstractAnomalyDetectorSDKActionHandler(
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         RestHighLevelClient client,
         TransportService transportService,
         ActionListener<T> listener,

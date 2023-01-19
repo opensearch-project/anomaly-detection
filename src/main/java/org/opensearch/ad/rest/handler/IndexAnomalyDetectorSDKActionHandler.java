@@ -20,10 +20,10 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.transport.TransportService;
 
 /**
@@ -57,7 +57,7 @@ public class IndexAnomalyDetectorSDKActionHandler extends AbstractAnomalyDetecto
      * @param searchFeatureDao        Search feature dao
      */
     public IndexAnomalyDetectorSDKActionHandler(
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         RestHighLevelClient client,
         TransportService transportService,
         ActionListener<IndexAnomalyDetectorResponse> listener,

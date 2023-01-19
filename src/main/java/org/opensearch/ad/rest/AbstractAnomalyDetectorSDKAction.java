@@ -18,9 +18,13 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MULTI_ENTIT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
+import java.util.Map;
+
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.sdk.BaseExtensionRestHandler;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
 
 public abstract class AbstractAnomalyDetectorSDKAction extends BaseExtensionRestHandler {
 
@@ -31,13 +35,38 @@ public abstract class AbstractAnomalyDetectorSDKAction extends BaseExtensionRest
     protected volatile Integer maxMultiEntityDetectors;
     protected volatile Integer maxAnomalyFeatures;
 
-    public AbstractAnomalyDetectorSDKAction(Settings settings) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        this.detectionInterval = DETECTION_INTERVAL.get(settings);
-        this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
-        this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
-        this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings);
-        this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
-        // TODO: Cluster Settings Consumers
+    public AbstractAnomalyDetectorSDKAction(ExtensionsRunner extensionsRunner) {
+        Settings environmentSettings = extensionsRunner.getEnvironmentSettings();
+        this.requestTimeout = REQUEST_TIMEOUT.get(environmentSettings);
+        this.detectionInterval = DETECTION_INTERVAL.get(environmentSettings);
+        this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(environmentSettings);
+        this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(environmentSettings);
+        this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(environmentSettings);
+        this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(environmentSettings);
+        // TODO: will add more cluster setting consumer later
+        // TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
+        SDKClusterService clusterService = new SDKClusterService(extensionsRunner);
+        try {
+            clusterService
+                .addSettingsUpdateConsumer(
+                    Map
+                        .of(
+                            REQUEST_TIMEOUT,
+                            it -> requestTimeout = (TimeValue) it,
+                            DETECTION_INTERVAL,
+                            it -> detectionInterval = (TimeValue) it,
+                            DETECTION_WINDOW_DELAY,
+                            it -> detectionWindowDelay = (TimeValue) it,
+                            MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                            it -> maxSingleEntityDetectors = (Integer) it,
+                            MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
+                            it -> maxMultiEntityDetectors = (Integer) it,
+                            MAX_ANOMALY_FEATURES,
+                            it -> maxAnomalyFeatures = (Integer) it
+                        )
+                );
+        } catch (Exception e) {
+            // FIXME handle this
+        }
     }
 }

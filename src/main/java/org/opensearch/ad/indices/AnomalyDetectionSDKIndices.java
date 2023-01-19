@@ -66,7 +66,6 @@ import org.opensearch.client.indices.rollover.RolloverRequest;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -79,6 +78,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParser.Token;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -109,7 +109,7 @@ public class AnomalyDetectionSDKIndices implements LocalNodeMasterListener {
     static final String META = "_meta";
     private static final String SCHEMA_VERSION = "schema_version";
 
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
     private final RestHighLevelClient client;
     private final RestHighLevelClient adminClient;
     private final ThreadPool threadPool;
@@ -159,7 +159,7 @@ public class AnomalyDetectionSDKIndices implements LocalNodeMasterListener {
      * Constructor function
      *
      * @param restClient         ES client supports administrative actions
-     * @param clusterService ES cluster service
+     * @param sdkClusterService ES cluster service
      * @param threadPool     ES thread pool
      * @param settings       ES cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
@@ -167,7 +167,7 @@ public class AnomalyDetectionSDKIndices implements LocalNodeMasterListener {
      */
     public AnomalyDetectionSDKIndices(
         RestHighLevelClient restClient,
-        ClusterService clusterService,
+        SDKClusterService sdkClusterService,
         ThreadPool threadPool,
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
@@ -175,7 +175,7 @@ public class AnomalyDetectionSDKIndices implements LocalNodeMasterListener {
     ) {
         this.client = restClient;
         this.adminClient = restClient;
-        this.clusterService = clusterService;
+        this.clusterService = sdkClusterService;
         this.threadPool = threadPool;
         // FIXME this is null but do we need an action listener?
         // this.clusterService.addLocalNodeMasterListener(this);
@@ -192,19 +192,27 @@ public class AnomalyDetectionSDKIndices implements LocalNodeMasterListener {
         this.allSettingUpdated = false;
         this.updateRunning = new AtomicBoolean(false);
 
-        // FIXME this is null
-        // this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs =
-        // it);
-
-        // this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
-        // historyRolloverPeriod = it;
-        // rescheduleRollover();
-        // });
-        // this.clusterService
-        // .getClusterSettings()
-        // .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
-
-        // this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
+        try {
+            this.clusterService
+                .addSettingsUpdateConsumer(
+                    Map
+                        .of(
+                            AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
+                            it -> historyMaxDocs = (Long) it,
+                            AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                            it -> {
+                                historyRolloverPeriod = (TimeValue) it;
+                                rescheduleRollover();
+                            },
+                            AD_RESULT_HISTORY_RETENTION_PERIOD,
+                            it -> historyRetentionPeriod = (TimeValue) it,
+                            MAX_PRIMARY_SHARDS,
+                            it -> maxPrimaryShards = (int) it
+                        )
+                );
+        } catch (Exception e) {
+            // FIXME handle this
+        }
 
         this.settings = Settings.builder().put("index.hidden", true).build();
 
@@ -485,26 +493,22 @@ public class AnomalyDetectionSDKIndices implements LocalNodeMasterListener {
 
     /**
      * Index exists or not
-     * @param clusterServiceAccessor Cluster service
+     * @param clusterService Cluster service
      * @param name Index name
      * @return true if the index exists
      */
-    public static boolean doesIndexExists(ClusterService clusterServiceAccessor, String name) {
-        // FIXME
-        // return clusterServiceAccessor.state().getRoutingTable().hasIndex(name);
-        return false;
+    public static boolean doesIndexExists(SDKClusterService clusterService, String name) {
+        return clusterService.state().getRoutingTable().hasIndex(name);
     }
 
     /**
      * Alias exists or not
-     * @param clusterServiceAccessor Cluster service
+     * @param clusterService Cluster service
      * @param alias Alias name
      * @return true if the alias exists
      */
-    public static boolean doesAliasExists(ClusterService clusterServiceAccessor, String alias) {
-        // FIXME
-        // return clusterServiceAccessor.state().metadata().hasAlias(alias);
-        return false;
+    public static boolean doesAliasExists(SDKClusterService clusterService, String alias) {
+        return clusterService.state().metadata().hasAlias(alias);
     }
 
     private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {

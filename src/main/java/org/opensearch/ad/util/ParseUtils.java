@@ -72,6 +72,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.BaseAggregationBuilder;
@@ -485,8 +486,8 @@ public final class ParseUtils {
         boolean filterByEnabled,
         ActionListener listener,
         Consumer<AnomalyDetector> function,
-        Client client,
-        ClusterService clusterService,
+        RestHighLevelClient client,
+        SDKClusterService clusterService,
         NamedXContentRegistry xContentRegistry
     ) {
         try {
@@ -519,16 +520,17 @@ public final class ParseUtils {
         String detectorId,
         ActionListener listener,
         Consumer<AnomalyDetector> function,
-        Client client,
-        ClusterService clusterService,
+        RestHighLevelClient client,
+        SDKClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole
     ) {
         if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client
-                .get(
+                .getAsync(
                     request,
+                    RequestOptions.DEFAULT,
                     ActionListener
                         .wrap(
                             response -> onGetAdResponse(
