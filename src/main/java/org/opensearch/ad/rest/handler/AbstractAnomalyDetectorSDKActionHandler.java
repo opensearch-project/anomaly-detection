@@ -694,9 +694,7 @@ public abstract class AbstractAnomalyDetectorSDKActionHandler<T extends ActionRe
     }
 
     protected void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId, boolean indexingDryRun) throws IOException {
-        // FIXME
-        // if (response.getHits().getTotalHits().value == 0) {
-        if (response.getHits().getTotalHits().value == 9999) {
+        if (response.getHits().getTotalHits().value == 0) {
             String errorMsg = NO_DOCS_IN_USER_INDEX_MSG + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
             if (indexingDryRun) {
@@ -894,10 +892,6 @@ public abstract class AbstractAnomalyDetectorSDKActionHandler<T extends ActionRe
     // TODO: move this method to util class so that it can be re-usable for more use cases
     // https://github.com/opensearch-project/anomaly-detection/issues/39
     protected void validateAnomalyDetectorFeatures(String detectorId, boolean indexingDryRun) throws IOException {
-        // FIXME
-        if (searchFeatureDao == null) {
-            return;
-        }
         if (anomalyDetector != null
             && (anomalyDetector.getFeatureAttributes() == null || anomalyDetector.getFeatureAttributes().isEmpty())) {
             checkADNameExists(detectorId, indexingDryRun);
@@ -912,6 +906,12 @@ public abstract class AbstractAnomalyDetectorSDKActionHandler<T extends ActionRe
                 return;
             }
             listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
+            return;
+        }
+        // FIXME
+        if (searchFeatureDao == null) {
+            // This would be called on response to the next step that we can't do without DAO
+            checkADNameExists(detectorId, indexingDryRun);
             return;
         }
         // checking runtime error from feature query
