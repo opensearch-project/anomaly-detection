@@ -117,6 +117,7 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
             ? WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
             : WriteRequest.RefreshPolicy.IMMEDIATE;
         RestRequest.Method method = request.method();
+        logger.info("XXXXXX GENERATING REQUEST");
 
         IndexAnomalyDetectorRequest indexAnomalyDetectorRequest = new IndexAnomalyDetectorRequest(
             detectorId,
@@ -138,6 +139,7 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         // TODO actually implement getActions which will take care of all this unused boilerplate
 
         // So here we call IndexAnomalyDetectorTransportAction.doExecute, SDK version
+        logger.info("XXXXXX Generating Action");
         IndexAnomalyDetectorSDKTransportAction indexAction = new IndexAnomalyDetectorSDKTransportAction(
             null, // TransportService transportService
             null, // ActionFilters actionFilters
@@ -158,41 +160,50 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         );
 
         CompletableFuture<IndexAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
+        logger.info("XXXXXX Executing Action");
         indexAction.doExecute(null, indexAnomalyDetectorRequest, new ActionListener<IndexAnomalyDetectorResponse>() {
 
             @Override
             public void onResponse(IndexAnomalyDetectorResponse response) {
+                logger.info("XXXXXX INDEX Complete");
                 futureResponse.complete(response);
             }
 
             @Override
             public void onFailure(Exception e) {
+                logger.info("XXXXXX INDEX Exception");
                 futureResponse.completeExceptionally(e);
             }
 
         });
 
+        logger.info("XXXXXX WAITING FOR RESPONSE");
         IndexAnomalyDetectorResponse response = futureResponse
             .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
             .join();
+        logger.info("XXXXXX RESPONSE: {}", response);
         return indexAnomalyDetectorResponse(request, response);
     }
 
     private ExtensionRestResponse indexAnomalyDetectorResponse(ExtensionRestRequest request, IndexAnomalyDetectorResponse response)
         throws IOException {
+        logger.info("XXXXXX A");
         RestStatus restStatus = RestStatus.CREATED;
         if (request.method() == RestRequest.Method.PUT) {
             restStatus = RestStatus.OK;
         }
+        logger.info("XXXXXX B");
         ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
             request,
             restStatus,
             response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
         );
+        logger.info("XXXXXX C");
         if (restStatus == RestStatus.CREATED) {
             String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_AD_BASE, response.getId());
             extensionRestResponse.addHeader("Location", location);
         }
+        logger.info("XXXXXX D");
         return extensionRestResponse;
     }
 }

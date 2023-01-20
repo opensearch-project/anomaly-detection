@@ -503,6 +503,18 @@ public final class ParseUtils {
         }
     }
 
+    // temporary to get avoid compilation errors
+    public static void resolveUserAndExecute(
+        UserIdentity requestedUser,
+        String detectorId,
+        boolean filterByEnabled,
+        ActionListener listener,
+        Consumer<AnomalyDetector> function,
+        Client client,
+        ClusterService clusterService,
+        NamedXContentRegistry xContentRegistry
+    ) {}
+
     /**
      * If filterByEnabled is true, get detector and check if the user has permissions to access the detector,
      * then execute function; otherwise, get detector and execute function
@@ -553,55 +565,17 @@ public final class ParseUtils {
         }
     }
 
-    /**
-     * If filterByEnabled is true, get detector and check if the user has permissions to access the detector,
-     * then execute function; otherwise, get detector and execute function
-     * @param requestUser user from request
-     * @param detectorId detector id
-     * @param listener action listener
-     * @param function consumer function
-     * @param client client
-     * @param clusterService cluster service
-     * @param xContentRegistry XContent registry
-     * @param filterByBackendRole filter by backend role or not
-     */
+    // Temporary to compile
     public static void getDetector(
         UserIdentity requestUser,
         String detectorId,
         ActionListener listener,
         Consumer<AnomalyDetector> function,
-        RestHighLevelClient client,
+        Client client,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole
-    ) {
-        if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
-            GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
-            client
-                .getAsync(
-                    request,
-                    RequestOptions.DEFAULT,
-                    ActionListener
-                        .wrap(
-                            response -> onGetAdResponse(
-                                response,
-                                requestUser,
-                                detectorId,
-                                listener,
-                                function,
-                                xContentRegistry,
-                                filterByBackendRole
-                            ),
-                            exception -> {
-                                logger.error("Failed to get anomaly detector: " + detectorId, exception);
-                                listener.onFailure(exception);
-                            }
-                        )
-                );
-        } else {
-            listener.onFailure(new IndexNotFoundException(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-        }
-    }
+    ) {}
 
     public static void onGetAdResponse(
         GetResponse response,

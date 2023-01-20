@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -67,6 +69,7 @@ import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -192,24 +195,12 @@ public class AnomalyDetectionSDKIndices implements LocalNodeMasterListener {
         this.allSettingUpdated = false;
         this.updateRunning = new AtomicBoolean(false);
 
+        Map<Setting<?>, Consumer<?>> settingToConsumerMap = new HashMap<>();
+        settingToConsumerMap.put(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = (Long) it);
+        settingToConsumerMap.put(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> historyRetentionPeriod = (TimeValue) it);
+        settingToConsumerMap.put(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = (int) it);
         try {
-            this.clusterService
-                .addSettingsUpdateConsumer(
-                    Map
-                        .of(
-                            AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
-                            it -> historyMaxDocs = (Long) it,
-                            AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-                            it -> {
-                                historyRolloverPeriod = (TimeValue) it;
-                                rescheduleRollover();
-                            },
-                            AD_RESULT_HISTORY_RETENTION_PERIOD,
-                            it -> historyRetentionPeriod = (TimeValue) it,
-                            MAX_PRIMARY_SHARDS,
-                            it -> maxPrimaryShards = (int) it
-                        )
-                );
+            this.clusterService.addSettingsUpdateConsumer(settingToConsumerMap);
         } catch (Exception e) {
             // FIXME handle this
         }
