@@ -22,7 +22,6 @@ import org.opensearch.ad.rest.RestIndexAnomalyDetectorSDKAction;
 import org.opensearch.ad.rest.RestValidateDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.sdk.BaseExtension;

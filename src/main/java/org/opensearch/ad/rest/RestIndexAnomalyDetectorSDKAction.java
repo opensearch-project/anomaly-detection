@@ -31,14 +31,13 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.indices.AnomalyDetectionSDKIndices;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
-import org.opensearch.ad.transport.IndexAnomalyDetectorSDKTransportAction;
-import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.ToXContent;
@@ -51,6 +50,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 
 import com.google.common.collect.ImmutableList;
@@ -63,7 +63,7 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
     private final Logger logger = LogManager.getLogger(RestIndexAnomalyDetectorSDKAction.class);
     private NamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
-    private RestHighLevelClient restClient;
+    private SDKRestClient restClient;
     private SDKClusterService sdkClusterService;
 
     public RestIndexAnomalyDetectorSDKAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
@@ -138,13 +138,13 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         // TODO actually implement getActions which will take care of all this unused boilerplate
 
         // So here we call IndexAnomalyDetectorTransportAction.doExecute, SDK version
-        IndexAnomalyDetectorSDKTransportAction indexAction = new IndexAnomalyDetectorSDKTransportAction(
+        IndexAnomalyDetectorTransportAction indexAction = new IndexAnomalyDetectorTransportAction(
             null, // TransportService transportService
             null, // ActionFilters actionFilters
             restClient, // Client client
             sdkClusterService, // ClusterService clusterService,
             this.environmentSettings, // Settings settings
-            new AnomalyDetectionSDKIndices(
+            new AnomalyDetectionIndices(
                 restClient, // client,
                 sdkClusterService, // clusterService,
                 null, // threadPool,

@@ -25,17 +25,18 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_PRIMARY_SHA
 
 import java.io.IOException;
 import java.net.URL;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -46,11 +47,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
-import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
@@ -64,14 +61,15 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
+import org.opensearch.client.indices.CreateIndexRequest;
+import org.opensearch.client.indices.CreateIndexResponse;
+import org.opensearch.client.indices.PutMappingRequest;
+import org.opensearch.client.indices.rollover.RolloverRequest;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -83,11 +81,11 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentParser.Token;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 
-import com.carrotsearch.hppc.cursors.ObjectCursor;
-import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
@@ -112,9 +110,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     static final String META = "_meta";
     private static final String SCHEMA_VERSION = "schema_version";
 
-    private ClusterService clusterService;
-    private final Client client;
-    private final AdminClient adminClient;
+    private SDKClusterService clusterService;
+    private final SDKRestClient client;
+    private final SDKRestClient adminClient;
     private final ThreadPool threadPool;
 
     private volatile TimeValue historyRolloverPeriod;
@@ -161,26 +159,26 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     /**
      * Constructor function
      *
-     * @param client         ES client supports administrative actions
-     * @param clusterService ES cluster service
+     * @param restClient         ES client supports administrative actions
+     * @param sdkClusterService ES cluster service
      * @param threadPool     ES thread pool
      * @param settings       ES cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
      */
     public AnomalyDetectionIndices(
-        Client client,
-        ClusterService clusterService,
+        SDKRestClient restClient,
+        SDKClusterService sdkClusterService,
         ThreadPool threadPool,
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
         int maxUpdateRunningTimes
     ) {
-        this.client = client;
-        this.adminClient = client.admin();
-        this.clusterService = clusterService;
+        this.client = restClient;
+        this.adminClient = restClient;
+        this.clusterService = sdkClusterService;
         this.threadPool = threadPool;
-        this.clusterService.addLocalNodeMasterListener(this);
+        // this.clusterService.addLocalNodeMasterListener(this);
         this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
         this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings);
         this.historyRetentionPeriod = AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings);
@@ -194,17 +192,19 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.allSettingUpdated = false;
         this.updateRunning = new AtomicBoolean(false);
 
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = it);
-
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
-            historyRolloverPeriod = it;
+        Map<Setting<?>, Consumer<?>> settingToConsumerMap = new HashMap<>();
+        settingToConsumerMap.put(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = (Long) it);
+        settingToConsumerMap.put(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
+            historyRolloverPeriod = (TimeValue) it;
             rescheduleRollover();
         });
-        this.clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
-
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
+        settingToConsumerMap.put(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> historyRetentionPeriod = (TimeValue) it);
+        settingToConsumerMap.put(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = (int) it);
+        try {
+            this.clusterService.addSettingsUpdateConsumer(settingToConsumerMap);
+        } catch (Exception e) {
+            // TODO Handle this
+        }
 
         this.settings = Settings.builder().put("index.hidden", true).build();
 
@@ -474,8 +474,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param name Index name
      * @return true if the index exists
      */
-    public static boolean doesIndexExists(ClusterService clusterServiceAccessor, String name) {
-        return clusterServiceAccessor.state().getRoutingTable().hasIndex(name);
+    public static boolean doesIndexExists(SDKClusterService clusterService, String name) {
+        return clusterService.state().getRoutingTable().hasIndex(name);
     }
 
     /**
@@ -484,8 +484,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param alias Alias name
      * @return true if the alias exists
      */
-    public static boolean doesAliasExists(ClusterService clusterServiceAccessor, String alias) {
-        return clusterServiceAccessor.state().metadata().hasAlias(alias);
+    public static boolean doesAliasExists(SDKClusterService clusterService, String alias) {
+        return clusterService.state().metadata().hasAlias(alias);
     }
 
     private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
@@ -715,9 +715,12 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             logger.error("Fail to roll over AD result index, as can't get AD result index mapping");
             return;
         }
+        // This creates with a name _na_ which cannot be changed
         CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
-
-        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(adResultMapping, XContentType.JSON);
+        // So we ignore the name change here
+        // createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(adResultMapping, XContentType.JSON);
+        // TODO: see if the pattern is used anywhere?
+        createRequest.mapping(adResultMapping, XContentType.JSON);
 
         choosePrimaryShards(createRequest);
 
@@ -744,14 +747,16 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             .metadata(true)
             .local(true)
             .indicesOptions(IndicesOptions.strictExpand());
-
+        /*-
+         * FIXME the SDK ClusterClient has not implemented a state that takes a request as an arugment.
+         * https://github.com/opensearch-project/opensearch-sdk-java/issues/354
         adminClient.cluster().state(clusterStateRequest, ActionListener.wrap(clusterStateResponse -> {
             String latestToDelete = null;
             long latest = Long.MIN_VALUE;
             for (ObjectCursor<IndexMetadata> cursor : clusterStateResponse.getState().metadata().indices().values()) {
                 IndexMetadata indexMetaData = cursor.value;
                 long creationTime = indexMetaData.getCreationDate();
-
+        
                 if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis()) {
                     String indexName = indexMetaData.getIndex().getName();
                     candidates.add(indexName);
@@ -761,7 +766,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     }
                 }
             }
-
+        
             if (candidates.size() > 1) {
                 // delete all indices except the last one because the last one may contain docs newer than the retention period
                 candidates.remove(latestToDelete);
@@ -784,6 +789,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 }));
             }
         }, exception -> { logger.error("Fail to delete result indices", exception); }));
+        */
     }
 
     private void deleteIndexIteration(String[] toDelete) {
@@ -908,7 +914,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                     adminClient
                         .indices()
                         .putMapping(
-                            new PutMappingRequest().indices(adIndex.getIndexName()).source(adIndex.getMapping(), XContentType.JSON),
+                            new PutMappingRequest(adIndex.getIndexName()).source(adIndex.getMapping(), XContentType.JSON),
                             ActionListener.wrap(putMappingResponse -> {
                                 if (putMappingResponse.isAcknowledged()) {
                                     logger.info(new ParameterizedMessage("Succeeded in updating [{}]'s mapping", adIndex.getIndexName()));
@@ -976,10 +982,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 .indicesOptions(IndicesOptions.lenientExpandOpenHidden());
             adminClient.indices().getAliases(getAliasRequest, ActionListener.wrap(getAliasResponse -> {
                 String concreteIndex = null;
-                for (ObjectObjectCursor<String, List<AliasMetadata>> entry : getAliasResponse.getAliases()) {
-                    if (false == entry.value.isEmpty()) {
+                for (Entry<String, Set<AliasMetadata>> entry : getAliasResponse.getAliases().entrySet()) {
+                    if (false == entry.getValue().isEmpty()) {
                         // we assume the alias map to one concrete index, thus we can return after finding one
-                        concreteIndex = entry.key;
+                        concreteIndex = entry.getKey();
                         break;
                     }
                 }

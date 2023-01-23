@@ -37,24 +37,24 @@ import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
-    private final Client client;
+    private final SDKRestClient client;
     private final TransportService transportService;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
-    private final ClusterService clusterService;
+    private final SDKClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
@@ -64,8 +64,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     public IndexAnomalyDetectorTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
-        Client client,
-        ClusterService clusterService,
+        SDKRestClient restClient,
+        SDKClusterService sdkClusterService,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
@@ -73,19 +73,19 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         SearchFeatureDao searchFeatureDao
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
-        this.client = client;
+        this.client = restClient;
         this.transportService = transportService;
-        this.clusterService = clusterService;
+        this.clusterService = sdkClusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        sdkClusterService.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
     @Override
-    protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
+    public void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
         String detectorId = request.getDetectorID();
