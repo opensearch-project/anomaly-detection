@@ -40,14 +40,14 @@ import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -56,8 +56,8 @@ public class ValidateAnomalyDetectorTransportAction extends
     HandledTransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
     private static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
 
-    private final Client client;
-    private final ClusterService clusterService;
+    private final SDKRestClient client;
+    private final SDKClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final SearchFeatureDao searchFeatureDao;
@@ -66,8 +66,8 @@ public class ValidateAnomalyDetectorTransportAction extends
 
     @Inject
     public ValidateAnomalyDetectorTransportAction(
-        Client client,
-        ClusterService clusterService,
+        SDKRestClient client,
+        SDKClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -81,7 +81,11 @@ public class ValidateAnomalyDetectorTransportAction extends
         this.xContentRegistry = xContentRegistry;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        try {
+            clusterService.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        } catch (Exception e) {
+            // TODO Handle this
+        }
         this.searchFeatureDao = searchFeatureDao;
         this.clock = Clock.systemUTC();
     }

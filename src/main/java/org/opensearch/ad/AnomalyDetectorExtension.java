@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorSDKAction;
 import org.opensearch.ad.rest.RestValidateDetectorAction;
@@ -47,7 +46,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
         return List
             .of(
                 new RestIndexAnomalyDetectorSDKAction(extensionsRunner, this),
-                new RestCreateDetectorAction(extensionsRunner, this),
+                // FIXME delete this
+                // new RestCreateDetectorAction(extensionsRunner, this),
                 new RestGetDetectorAction(),
                 new RestValidateDetectorAction(extensionsRunner, this)
             );

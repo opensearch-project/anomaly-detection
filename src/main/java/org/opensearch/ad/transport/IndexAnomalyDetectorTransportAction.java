@@ -27,7 +27,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -49,7 +48,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
+public class IndexAnomalyDetectorTransportAction {
+    // extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse>
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
     private final SDKRestClient client;
     private final TransportService transportService;
@@ -72,7 +72,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao
     ) {
-        super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
+        // super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = restClient;
         this.transportService = transportService;
         this.clusterService = sdkClusterService;
@@ -81,10 +81,15 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        sdkClusterService.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        try {
+            sdkClusterService.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        } catch (Exception e) {
+            // TODO Handle this
+        }
     }
 
-    @Override
+    // FIXME Investigate whether we should inherit from TransportAction
+    // @Override
     public void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();

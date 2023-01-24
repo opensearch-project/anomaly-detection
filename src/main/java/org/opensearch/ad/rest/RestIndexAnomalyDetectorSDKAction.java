@@ -52,6 +52,7 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
@@ -63,6 +64,7 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
     private final Logger logger = LogManager.getLogger(RestIndexAnomalyDetectorSDKAction.class);
     private NamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
+    private TransportService transportService;
     private SDKRestClient restClient;
     private SDKClusterService sdkClusterService;
 
@@ -70,6 +72,7 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
+        this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = anomalyDetectorExtension.getRestClient();
         this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
@@ -136,8 +139,9 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         // IndexAnomalyDetectorAction is the key to the getActions map
         // IndexAnomalyDetectorTransportAction is the value, execute() calls doExecute()
 
+        logger.info("Initializing action.");
         IndexAnomalyDetectorTransportAction indexAction = new IndexAnomalyDetectorTransportAction(
-            null, // TransportService transportService
+            transportService,
             null, // ActionFilters actionFilters
             restClient, // Client client
             sdkClusterService, // ClusterService clusterService,
@@ -154,6 +158,7 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
             null, // ADTaskManager adTaskManager
             null // SearchFeatureDao searchFeatureDao
         );
+        logger.info("Initialized action.");
 
         CompletableFuture<IndexAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
         indexAction.doExecute(null, indexAnomalyDetectorRequest, new ActionListener<IndexAnomalyDetectorResponse>() {
