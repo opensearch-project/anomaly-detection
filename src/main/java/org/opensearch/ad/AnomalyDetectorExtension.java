@@ -36,6 +36,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
+    public static final String AD_BASE_DETECTORS_URI = "/detectors";
+
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
     }

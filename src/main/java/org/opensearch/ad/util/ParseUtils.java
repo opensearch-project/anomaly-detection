@@ -56,8 +56,6 @@ import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
-import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -72,6 +70,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
@@ -486,8 +485,8 @@ public final class ParseUtils {
         boolean filterByEnabled,
         ActionListener listener,
         Consumer<AnomalyDetector> function,
-        RestHighLevelClient client,
-        SDKClusterService clusterService,
+        Client client,
+        ClusterService clusterService,
         NamedXContentRegistry xContentRegistry
     ) {
         try {
@@ -502,18 +501,6 @@ public final class ParseUtils {
             listener.onFailure(e);
         }
     }
-
-    // temporary to get avoid compilation errors
-    public static void resolveUserAndExecute(
-        UserIdentity requestedUser,
-        String detectorId,
-        boolean filterByEnabled,
-        ActionListener listener,
-        Consumer<AnomalyDetector> function,
-        Client client,
-        ClusterService clusterService,
-        NamedXContentRegistry xContentRegistry
-    ) {}
 
     /**
      * If filterByEnabled is true, get detector and check if the user has permissions to access the detector,
@@ -532,7 +519,7 @@ public final class ParseUtils {
         String detectorId,
         ActionListener listener,
         Consumer<AnomalyDetector> function,
-        RestHighLevelClient client,
+        SDKRestClient client,
         SDKClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole
@@ -540,9 +527,8 @@ public final class ParseUtils {
         if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client
-                .getAsync(
+                .get(
                     request,
-                    RequestOptions.DEFAULT,
                     ActionListener
                         .wrap(
                             response -> onGetAdResponse(
@@ -565,7 +551,7 @@ public final class ParseUtils {
         }
     }
 
-    // Temporary to compile
+    // Temprorary to avoid breaking compilation until all callers are migrated.
     public static void getDetector(
         UserIdentity requestUser,
         String detectorId,

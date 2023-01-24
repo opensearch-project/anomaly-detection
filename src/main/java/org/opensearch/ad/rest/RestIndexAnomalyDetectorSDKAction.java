@@ -79,11 +79,11 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         return ImmutableList
             .of(
                 // Create
-                new RouteHandler(RestRequest.Method.POST, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, handleRequest),
+                new RouteHandler(RestRequest.Method.POST, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, handleRequest),
                 // Update
                 new RouteHandler(
                     RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
                     handleRequest
                 )
             );
@@ -135,9 +135,7 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
         // This delegates to transportAction(action).execute(request, responseListener)
         // IndexAnomalyDetectorAction is the key to the getActions map
         // IndexAnomalyDetectorTransportAction is the value, execute() calls doExecute()
-        // TODO actually implement getActions which will take care of all this unused boilerplate
 
-        // So here we call IndexAnomalyDetectorTransportAction.doExecute, SDK version
         IndexAnomalyDetectorTransportAction indexAction = new IndexAnomalyDetectorTransportAction(
             null, // TransportService transportService
             null, // ActionFilters actionFilters
