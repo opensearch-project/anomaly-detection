@@ -18,12 +18,18 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MULTI_ENTIT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
-import org.opensearch.cluster.service.ClusterService;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
+
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.sdk.BaseExtensionRestHandler;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
 
-public abstract class AbstractAnomalyDetectorAction extends BaseRestHandler {
+public abstract class AbstractAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     protected volatile TimeValue requestTimeout;
     protected volatile TimeValue detectionInterval;
@@ -32,24 +38,28 @@ public abstract class AbstractAnomalyDetectorAction extends BaseRestHandler {
     protected volatile Integer maxMultiEntityDetectors;
     protected volatile Integer maxAnomalyFeatures;
 
-    public AbstractAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        this.detectionInterval = DETECTION_INTERVAL.get(settings);
-        this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
-        this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
-        this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings);
-        this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
+    public AbstractAnomalyDetectorAction(ExtensionsRunner extensionsRunner) {
+        Settings environmentSettings = extensionsRunner.getEnvironmentSettings();
+        this.requestTimeout = REQUEST_TIMEOUT.get(environmentSettings);
+        this.detectionInterval = DETECTION_INTERVAL.get(environmentSettings);
+        this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(environmentSettings);
+        this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(environmentSettings);
+        this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(environmentSettings);
+        this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(environmentSettings);
         // TODO: will add more cluster setting consumer later
         // TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_INTERVAL, it -> detectionInterval = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_WINDOW_DELAY, it -> detectionWindowDelay = it);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, it -> maxSingleEntityDetectors = it);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(MAX_MULTI_ENTITY_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
+        Map<Setting<?>, Consumer<?>> settingToConsumerMap = new HashMap<>();
+        settingToConsumerMap.put(REQUEST_TIMEOUT, it -> requestTimeout = (TimeValue) it);
+        settingToConsumerMap.put(DETECTION_INTERVAL, it -> detectionInterval = (TimeValue) it);
+        settingToConsumerMap.put(DETECTION_WINDOW_DELAY, it -> detectionWindowDelay = (TimeValue) it);
+        settingToConsumerMap.put(MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, it -> maxSingleEntityDetectors = (Integer) it);
+        settingToConsumerMap.put(MAX_MULTI_ENTITY_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = (Integer) it);
+        settingToConsumerMap.put(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = (Integer) it);
+        SDKClusterService clusterService = new SDKClusterService(extensionsRunner);
+        try {
+            clusterService.addSettingsUpdateConsumer(settingToConsumerMap);
+        } catch (Exception e) {
+            // FIXME handle this
+        }
     }
 }

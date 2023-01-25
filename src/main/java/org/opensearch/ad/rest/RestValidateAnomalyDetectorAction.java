@@ -22,29 +22,42 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.action.ActionListener;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.feature.SearchFeatureDao;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
-import org.opensearch.client.node.NodeClient;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.extensions.rest.ExtensionRestRequest;
+import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.RouteHandler;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
@@ -53,6 +66,11 @@ import com.google.common.collect.ImmutableList;
  */
 public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
     private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
+    private NamedXContentRegistry namedXContentRegistry;
+    private Settings environmentSettings;
+    private TransportService transportService;
+    private SDKRestClient restClient;
+    private SDKClusterService sdkClusterService;
 
     public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
         .asList(ValidationAspect.values())
@@ -60,29 +78,45 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         .map(aspect -> aspect.getName())
         .collect(Collectors.toSet());
 
-    public RestValidateAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
-        super(settings, clusterService);
+    public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+        super(extensionsRunner);
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.environmentSettings = extensionsRunner.getEnvironmentSettings();
+        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.restClient = anomalyDetectorExtension.getRestClient();
+        this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 
-    @Override
+    // @Override
     public String getName() {
         return VALIDATE_ANOMALY_DETECTOR_ACTION;
     }
 
     @Override
-    public List<Route> routes() {
+    public List<RouteHandler> routeHandlers() {
         return ImmutableList
             .of(
-                new Route(
+                new RouteHandler(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE),
+                    handleRequest
                 ),
-                new Route(
+                new RouteHandler(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
+                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE, TYPE),
+                    handleRequest
                 )
             );
     }
+
+    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
 
     protected void sendAnomalyDetectorValidationParseResponse(DetectorValidationIssue issue, RestChannel channel) throws IOException {
         try {
@@ -101,12 +135,11 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         return (!Collections.disjoint(typesInRequest, ALL_VALIDATION_ASPECTS_STRS));
     }
 
-    @Override
-    protected BaseRestHandler.RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
-        XContentParser parser = request.contentParser();
+        XContentParser parser = request.contentParser(this.namedXContentRegistry);
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         String typesStr = request.param(TYPE);
 
@@ -117,33 +150,89 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             }
         }
 
-        return channel -> {
-            AnomalyDetector detector;
-            try {
-                detector = AnomalyDetector.parse(parser);
-            } catch (Exception ex) {
-                if (ex instanceof ADValidationException) {
-                    ADValidationException ADException = (ADValidationException) ex;
-                    DetectorValidationIssue issue = new DetectorValidationIssue(
-                        ADException.getAspect(),
-                        ADException.getType(),
-                        ADException.getMessage()
-                    );
-                    sendAnomalyDetectorValidationParseResponse(issue, channel);
-                    return;
-                } else {
-                    throw ex;
-                }
+        AnomalyDetector detector;
+        try {
+            detector = AnomalyDetector.parse(parser);
+        } catch (Exception ex) {
+            if (ex instanceof ADValidationException) {
+                ADValidationException ADException = (ADValidationException) ex;
+                DetectorValidationIssue issue = new DetectorValidationIssue(
+                    ADException.getAspect(),
+                    ADException.getType(),
+                    ADException.getMessage()
+                );
+                return new ExtensionRestResponse(
+                    request,
+                    RestStatus.OK,
+                    new ValidateAnomalyDetectorResponse(issue).toXContent(JsonXContent.contentBuilder())
+                );
+            } else {
+                throw ex;
             }
-            ValidateAnomalyDetectorRequest validateAnomalyDetectorRequest = new ValidateAnomalyDetectorRequest(
-                detector,
-                typesStr,
-                maxSingleEntityDetectors,
-                maxMultiEntityDetectors,
-                maxAnomalyFeatures,
-                requestTimeout
+        }
+        ValidateAnomalyDetectorRequest validateAnomalyDetectorRequest = new ValidateAnomalyDetectorRequest(
+            detector,
+            typesStr,
+            maxSingleEntityDetectors,
+            maxMultiEntityDetectors,
+            maxAnomalyFeatures,
+            requestTimeout
+        );
+
+        // Here we would call client.execute(action, request, responseListener)
+        // This delegates to transportAction(action).execute(request, responseListener)
+        // ValidateAnomalyDetectorAction is the key to the getActions map
+        // ValidateAnomalyDetectorTransportAction is the value, execute() calls doExecute()
+
+        ValidateAnomalyDetectorTransportAction validateAction = new ValidateAnomalyDetectorTransportAction(
+            restClient, // Client client
+            sdkClusterService, // ClusterService clusterService,
+            this.namedXContentRegistry,
+            this.environmentSettings, // Settings settings
+            new AnomalyDetectionIndices(
+                restClient, // client,
+                sdkClusterService, // clusterService,
+                null, // threadPool,
+                this.environmentSettings, // settings,
+                null, // nodeFilter,
+                AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            ), // AnomalyDetectionIndices anomalyDetectionIndices
+            null, // ActionFilters actionFilters
+            transportService,
+            new SearchFeatureDao(
+                restClient,
+                namedXContentRegistry,
+                null, // interpolator
+                null, // clientUtil,
+                environmentSettings,
+                sdkClusterService,
+                maxAnomalyFeatures
+            )
+        );
+
+        CompletableFuture<ValidateAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
+        validateAction
+            .doExecute(
+                null,
+                validateAnomalyDetectorRequest,
+                ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
             );
-            client.execute(ValidateAnomalyDetectorAction.INSTANCE, validateAnomalyDetectorRequest, new RestToXContentListener<>(channel));
-        };
+
+        ValidateAnomalyDetectorResponse response = futureResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+        // TODO handle exceptional response
+        return validateAnomalyDetectorResponse(request, response);
+    }
+
+    private ExtensionRestResponse validateAnomalyDetectorResponse(ExtensionRestRequest request, ValidateAnomalyDetectorResponse response)
+        throws IOException {
+        RestStatus restStatus = RestStatus.OK;
+        ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
+            request,
+            restStatus,
+            response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        );
+        return extensionRestResponse;
     }
 }

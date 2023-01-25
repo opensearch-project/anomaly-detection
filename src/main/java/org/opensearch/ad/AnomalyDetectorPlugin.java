@@ -45,7 +45,6 @@ import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
@@ -165,8 +164,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setAdTaskManager(adTaskManager);
         
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
-        */
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
+        */
         /* @anomaly-detection.create-detector
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
@@ -184,21 +183,21 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         return ImmutableList
             .of(
                 // restGetAnomalyDetectorAction,
-                restIndexAnomalyDetectorAction
-            /* @anomaly-detection.create-detector
-            searchAnomalyDetectorAction,
-            searchAnomalyResultAction,
-            searchADTasksAction,
-            deleteAnomalyDetectorAction,
-            executeAnomalyDetectorAction,
-            anomalyDetectorJobAction,
-            statsAnomalyDetectorAction,
-            searchAnomalyDetectorInfoAction,
-            previewAnomalyDetectorAction,
-            deleteAnomalyResultsAction,
-            searchTopAnomalyResultAction,
-            validateAnomalyDetectorAction
-             */
+                // restIndexAnomalyDetectorAction
+                /* @anomaly-detection.create-detector
+                searchAnomalyDetectorAction,
+                searchAnomalyResultAction,
+                searchADTasksAction,
+                deleteAnomalyDetectorAction,
+                executeAnomalyDetectorAction,
+                anomalyDetectorJobAction,
+                statsAnomalyDetectorAction,
+                searchAnomalyDetectorInfoAction,
+                previewAnomalyDetectorAction,
+                deleteAnomalyResultsAction,
+                searchTopAnomalyResultAction,
+                validateAnomalyDetectorAction
+                 */
             );
     }
 

@@ -26,7 +26,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -52,8 +51,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-public class ValidateAnomalyDetectorTransportAction extends
-    HandledTransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
+public class ValidateAnomalyDetectorTransportAction {
+    // extends HandledTransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
     private static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
 
     private final SDKRestClient client;
@@ -75,7 +74,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         TransportService transportService,
         SearchFeatureDao searchFeatureDao
     ) {
-        super(ValidateAnomalyDetectorAction.NAME, transportService, actionFilters, ValidateAnomalyDetectorRequest::new);
+        // super(ValidateAnomalyDetectorAction.NAME, transportService, actionFilters, ValidateAnomalyDetectorRequest::new);
         this.client = client;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
@@ -90,8 +89,9 @@ public class ValidateAnomalyDetectorTransportAction extends
         this.clock = Clock.systemUTC();
     }
 
-    @Override
-    protected void doExecute(Task task, ValidateAnomalyDetectorRequest request, ActionListener<ValidateAnomalyDetectorResponse> listener) {
+    // FIXME Investigate whether we should inherit from TransportAction
+    // @Override
+    public void doExecute(Task task, ValidateAnomalyDetectorRequest request, ActionListener<ValidateAnomalyDetectorResponse> listener) {
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
         AnomalyDetector anomalyDetector = request.getDetector();
