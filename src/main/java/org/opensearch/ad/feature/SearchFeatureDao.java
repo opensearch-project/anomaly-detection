@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -48,14 +49,15 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -85,7 +87,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
     // Dependencies
-    private final Client client;
+    private final SDKRestClient client;
     private final NamedXContentRegistry xContent;
     private final Interpolator interpolator;
     private final ClientUtil clientUtil;
@@ -97,12 +99,12 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     // used for testing as we can mock clock
     public SearchFeatureDao(
-        Client client,
+        SDKRestClient client,
         NamedXContentRegistry xContent,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         int minimumDocCount,
         Clock clock,
         int maxEntitiesForPreview,
@@ -114,9 +116,15 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.interpolator = interpolator;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
         this.pageSize = pageSize;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
+        try {
+            Map<Setting<?>, Consumer<?>> settingsUpdateConsumers = new HashMap<>();
+            settingsUpdateConsumers.put(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = (int) it);
+            settingsUpdateConsumers.put(PAGE_SIZE, it -> this.pageSize = (int) it);
+            clusterService.addSettingsUpdateConsumer(settingsUpdateConsumers);
+        } catch (Exception e) {
+            // TODO Handle this
+        }
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
         this.clock = clock;
@@ -135,12 +143,12 @@ public class SearchFeatureDao extends AbstractRetriever {
      *   make sure an entity has enough samples for preview
      */
     public SearchFeatureDao(
-        Client client,
+        SDKRestClient client,
         NamedXContentRegistry xContent,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         int minimumDocCount
     ) {
         this(

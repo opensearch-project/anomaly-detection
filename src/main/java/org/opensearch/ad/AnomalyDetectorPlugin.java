@@ -250,12 +250,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
         // SearchFeatureDao is Injected for IndexAnomalyDetectorTrasnportAction constructor
         SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
-            client,
+            null, // Client client,
             xContentRegistry,
             interpolator,
             clientUtil,
             settings,
-            clusterService,
+            null, // ClusterService clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
         );
 

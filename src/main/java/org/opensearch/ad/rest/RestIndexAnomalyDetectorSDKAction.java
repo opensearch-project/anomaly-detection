@@ -31,6 +31,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -156,7 +157,15 @@ public class RestIndexAnomalyDetectorSDKAction extends AbstractAnomalyDetectorSD
             ), // AnomalyDetectionIndices anomalyDetectionIndices
             this.namedXContentRegistry,
             null, // ADTaskManager adTaskManager
-            null // SearchFeatureDao searchFeatureDao
+            new SearchFeatureDao(
+                restClient,
+                namedXContentRegistry,
+                null, // interpolator
+                null, // clientUtil,
+                environmentSettings,
+                sdkClusterService,
+                maxAnomalyFeatures
+            )
         );
         logger.info("Initialized action.");
 
