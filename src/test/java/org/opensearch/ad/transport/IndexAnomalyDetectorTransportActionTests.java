@@ -35,12 +35,14 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -72,6 +74,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private ClusterSettings clusterSettings;
     private ADTaskManager adTaskManager;
     private Client client = mock(Client.class);
+    private SecurityClientUtil clientUtil;
     private SearchFeatureDao searchFeatureDao;
 
     @SuppressWarnings("unchecked")
@@ -104,10 +107,13 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
 
         adTaskManager = mock(ADTaskManager.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
             client(),
+            clientUtil,
             clusterService,
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
@@ -206,6 +212,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(TransportService.class),
             mock(ActionFilters.class),
             client,
+            clientUtil,
             clusterService,
             settings,
             mock(AnomalyDetectionIndices.class),
@@ -231,6 +238,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(TransportService.class),
             mock(ActionFilters.class),
             client,
+            clientUtil,
             clusterService,
             settings,
             mock(AnomalyDetectionIndices.class),

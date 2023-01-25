@@ -32,6 +32,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -67,6 +68,7 @@ public class CompositeRetriever extends AbstractRetriever {
     private final AnomalyDetector anomalyDetector;
     private final NamedXContentRegistry xContent;
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private int totalResults;
     // we can process at most maxEntities entities
     private int maxEntities;
@@ -82,6 +84,7 @@ public class CompositeRetriever extends AbstractRetriever {
         AnomalyDetector anomalyDetector,
         NamedXContentRegistry xContent,
         Client client,
+        SecurityClientUtil clientUtil,
         long expirationEpochMs,
         Clock clock,
         Settings settings,
@@ -95,6 +98,7 @@ public class CompositeRetriever extends AbstractRetriever {
         this.anomalyDetector = anomalyDetector;
         this.xContent = xContent;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.totalResults = 0;
         this.maxEntities = maxEntitiesPerInterval;
         this.pageSize = pageSize;
@@ -111,6 +115,7 @@ public class CompositeRetriever extends AbstractRetriever {
         AnomalyDetector anomalyDetector,
         NamedXContentRegistry xContent,
         Client client,
+        SecurityClientUtil clientUtil,
         long expirationEpochMs,
         Settings settings,
         int maxEntitiesPerInterval,
@@ -124,6 +129,7 @@ public class CompositeRetriever extends AbstractRetriever {
             anomalyDetector,
             xContent,
             client,
+            clientUtil,
             expirationEpochMs,
             Clock.systemUTC(),
             settings,
@@ -191,8 +197,11 @@ public class CompositeRetriever extends AbstractRetriever {
          */
         public void next(ActionListener<Page> listener) {
             iterations++;
+
+            // inject user role while searching.
+
             SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]), source);
-            client.search(searchRequest, new ActionListener<SearchResponse>() {
+            final ActionListener<SearchResponse> searchResponseListener = new ActionListener<SearchResponse>() {
                 @Override
                 public void onResponse(SearchResponse response) {
                     processResponse(response, () -> client.search(searchRequest, this), listener);
@@ -202,7 +211,17 @@ public class CompositeRetriever extends AbstractRetriever {
                 public void onFailure(Exception e) {
                     listener.onFailure(e);
                 }
-            });
+            };
+            // using the original context in listener as user roles have no permissions for internal operations like fetching a
+            // checkpoint
+            clientUtil
+                .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                    searchRequest,
+                    client::search,
+                    anomalyDetector.getDetectorId(),
+                    client,
+                    searchResponseListener
+                );
         }
 
         private void processResponse(SearchResponse response, Runnable retry, ActionListener<Page> listener) {

@@ -94,13 +94,16 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
         if (indexName == null) {
             detector = TestHelpers.randomAnomalyDetector(uiMetadata, null, featureEnabled);
+            TestHelpers.createIndexWithTimeField(client(), detector.getIndices().get(0), detector.getTimeField());
             TestHelpers
                 .makeRequest(
                     client,
                     "POST",
                     "/" + detector.getIndices().get(0) + "/_doc/" + randomAlphaOfLength(5) + "?refresh=true",
                     ImmutableMap.of(),
-                    TestHelpers.toHttpEntity("{\"name\": \"test\"}"),
+                    // avoid validation error as validation API will check at least 1 document and the timestamp field
+                    // exists in index mapping
+                    TestHelpers.toHttpEntity("{\"name\": \"test\", \"" + detector.getTimeField() + "\" : \"1661386754000\"}"),
                     null,
                     false
                 );
@@ -501,6 +504,54 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                             + "\"masked_fields\": [],\n"
                             + "\"allowed_actions\": [\n"
                             + "\"indices:data/read/search\"\n"
+                            + "]\n"
+                            + "}\n"
+                            + "],\n"
+                            + "\"tenant_permissions\": []\n"
+                            + "}"
+                    ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response createDlsRole(String role, String index) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/roles/" + role,
+                null,
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n"
+                            + "\"cluster_permissions\": [\n"
+                            + "unlimited\n"
+                            + "],\n"
+                            + "\"index_permissions\": [\n"
+                            + "{\n"
+                            + "\"index_patterns\": [\n"
+                            + "\""
+                            + index
+                            + "\"\n"
+                            + "],\n"
+                            + "\"dls\": \"\"\"{ \"bool\": { \"must\": { \"match\": { \"foo\": \"bar\" }}}}\"\"\",\n"
+                            + "\"fls\": [],\n"
+                            + "\"masked_fields\": [],\n"
+                            + "\"allowed_actions\": [\n"
+                            + "\"unlimited\"\n"
+                            + "]\n"
+                            + "},\n"
+                            + "{\n"
+                            + "\"index_patterns\": [\n"
+                            + "\""
+                            + "*"
+                            + "\"\n"
+                            + "],\n"
+                            + "\"dls\": \"\",\n"
+                            + "\"fls\": [],\n"
+                            + "\"masked_fields\": [],\n"
+                            + "\"allowed_actions\": [\n"
+                            + "\"unlimited\"\n"
                             + "]\n"
                             + "}\n"
                             + "],\n"
