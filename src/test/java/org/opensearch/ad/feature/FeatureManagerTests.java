@@ -13,7 +13,6 @@ package org.opensearch.ad.feature;
 
 import static java.util.Arrays.asList;
 import static java.util.Optional.empty;
-import static java.util.Optional.ofNullable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -23,7 +22,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -165,24 +163,6 @@ public class FeatureManagerTests {
             new Object[] { 1L, null, 1, null },
             new Object[] { null, new SimpleEntry<>(samples, 1), 1, null },
             new Object[] { null, null, 1, null }, };
-    }
-
-    @Test
-    @Parameters(method = "getColdStartDataTestData")
-    public void getColdStartData_returnExpected(Long latestTime, Entry<double[][], Integer> data, int interpolants, double[][] expected) {
-        when(searchFeatureDao.getLatestDataTime(detector)).thenReturn(ofNullable(latestTime));
-        if (latestTime != null) {
-            when(searchFeatureDao.getFeaturesForSampledPeriods(detector, maxTrainSamples, maxSampleStride, latestTime))
-                .thenReturn(ofNullable(data));
-        }
-        if (data != null) {
-            when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(data.getKey())), eq(interpolants))).thenReturn(data.getKey());
-            doReturn(data.getKey()).when(featureManager).batchShingle(argThat(new ArrayEqMatcher<>(data.getKey())), eq(shingleSize));
-        }
-
-        Optional<double[][]> results = featureManager.getColdStartData(detector);
-
-        assertTrue(Arrays.deepEquals(expected, results.orElse(null)));
     }
 
     private Object[] getTrainDataTestData() {

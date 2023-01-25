@@ -16,14 +16,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -44,7 +41,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiConsumer;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -54,7 +50,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionFuture;
@@ -68,7 +63,6 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
@@ -77,8 +71,8 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -106,7 +100,6 @@ import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.MaxAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
-import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation;
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -133,8 +126,7 @@ public class SearchFeatureDaoTests {
     private ScriptService scriptService;
     @Mock
     private NamedXContentRegistry xContent;
-    @Mock
-    private ClientUtil clientUtil;
+    private SecurityClientUtil clientUtil;
 
     @Mock
     private Factory factory;
@@ -196,6 +188,14 @@ public class SearchFeatureDaoTests {
 
         settings = Settings.EMPTY;
 
+        when(client.threadPool()).thenReturn(threadPool);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        clientUtil = new SecurityClientUtil(nodeStateManager, settings);
         searchFeatureDao = spy(
             new SearchFeatureDao(client, xContent, interpolator, clientUtil, settings, null, AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
         );
@@ -222,70 +222,28 @@ public class SearchFeatureDaoTests {
         SearchHits hits = new SearchHits(new SearchHit[0], new TotalHits(1L, TotalHits.Relation.EQUAL_TO), 1f);
         when(searchResponse.getHits()).thenReturn(hits);
 
-        doReturn(Optional.of(searchResponse))
-            .when(clientUtil)
-            .timedRequest(eq(searchRequest), anyObject(), Matchers.<BiConsumer<SearchRequest, ActionListener<SearchResponse>>>anyObject());
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(eq(searchRequest), any());
         when(searchResponse.getAggregations()).thenReturn(aggregations);
-
-        doReturn(Optional.of(searchResponse))
-            .when(clientUtil)
-            .throttledTimedRequest(
-                eq(searchRequest),
-                anyObject(),
-                Matchers.<BiConsumer<SearchRequest, ActionListener<SearchResponse>>>anyObject(),
-                anyObject()
-            );
 
         multiSearchRequest = new MultiSearchRequest();
         SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]));
         multiSearchRequest.add(request);
-        doReturn(Optional.of(multiSearchResponse))
-            .when(clientUtil)
-            .timedRequest(
-                eq(multiSearchRequest),
-                anyObject(),
-                Matchers.<BiConsumer<MultiSearchRequest, ActionListener<MultiSearchResponse>>>anyObject()
-            );
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<MultiSearchResponse> listener = (ActionListener<MultiSearchResponse>) args[1];
+            listener.onResponse(multiSearchResponse);
+            return null;
+        }).when(client).multiSearch(eq(multiSearchRequest), any());
         when(multiSearchResponse.getResponses()).thenReturn(new Item[] { multiSearchResponseItem });
         when(multiSearchResponseItem.getResponse()).thenReturn(searchResponse);
 
         gson = PowerMockito.mock(Gson.class);
-    }
-
-    @Test
-    public void test_getLatestDataTime_returnExpectedTime_givenData() {
-        // pre-conditions
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
-            .size(0);
-        searchRequest.source(searchSourceBuilder);
-
-        long epochTime = 100L;
-        aggsMap.put(CommonName.AGG_NAME_MAX_TIME, max);
-        when(max.getValue()).thenReturn((double) epochTime);
-
-        // test
-        Optional<Long> result = searchFeatureDao.getLatestDataTime(detector);
-
-        // verify
-        assertEquals(epochTime, result.get().longValue());
-    }
-
-    @Test
-    public void test_getLatestDataTime_returnEmpty_givenNoData() {
-        // pre-conditions
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
-            .size(0);
-        searchRequest.source(searchSourceBuilder);
-
-        when(searchResponse.getAggregations()).thenReturn(null);
-
-        // test
-        Optional<Long> result = searchFeatureDao.getLatestDataTime(detector);
-
-        // verify
-        assertFalse(result.isPresent());
     }
 
     @Test
@@ -360,26 +318,6 @@ public class SearchFeatureDaoTests {
             new Object[] { asList(max, percentiles, missing), asList(maxName, percentileName, missingName), null }, };
     }
 
-    @Test
-    @Parameters(method = "getFeaturesForPeriodData")
-    public void getFeaturesForPeriod_returnExpected_givenData(List<Aggregation> aggs, List<String> featureIds, double[] expected)
-        throws Exception {
-
-        long start = 100L;
-        long end = 200L;
-
-        // pre-conditions
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
-        when(searchResponse.getAggregations()).thenReturn(new Aggregations(aggs));
-        when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
-
-        // test
-        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end);
-
-        // verify
-        assertTrue(Arrays.equals(expected, result.orElse(null)));
-    }
-
     @SuppressWarnings("unchecked")
     private Object[] getFeaturesForPeriodThrowIllegalStateData() {
         String aggName = "aggName";
@@ -396,16 +334,6 @@ public class SearchFeatureDaoTests {
         return new Object[] {
             new Object[] { asList(empty), asList(aggName), null },
             new Object[] { asList(multiBucket), asList(aggName), null }, };
-    }
-
-    @Test(expected = EndRunException.class)
-    @Parameters(method = "getFeaturesForPeriodThrowIllegalStateData")
-    public void getFeaturesForPeriod_throwIllegalState_forUnknownAggregation(
-        List<Aggregation> aggs,
-        List<String> featureIds,
-        double[] expected
-    ) throws Exception {
-        getFeaturesForPeriod_returnExpected_givenData(aggs, featureIds, expected);
     }
 
     @Test
@@ -471,49 +399,6 @@ public class SearchFeatureDaoTests {
         searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
 
         verify(listener).onFailure(any(Exception.class));
-    }
-
-    @Test
-    public void test_getFeaturesForPeriod_returnEmpty_givenNoData() throws Exception {
-        long start = 100L;
-        long end = 200L;
-
-        // pre-conditions
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
-        when(searchResponse.getAggregations()).thenReturn(null);
-
-        // test
-        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end);
-
-        // verify
-        assertFalse(result.isPresent());
-    }
-
-    @Test
-    public void getFeaturesForPeriod_returnNonEmpty_givenDefaultValue() throws Exception {
-        long start = 100L;
-        long end = 200L;
-
-        // pre-conditions
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
-        when(searchResponse.getHits()).thenReturn(new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), 1f));
-
-        List<Aggregation> aggList = new ArrayList<>(1);
-
-        NumericMetricsAggregation.SingleValue agg = mock(NumericMetricsAggregation.SingleValue.class);
-        when(agg.getName()).thenReturn("deny_max");
-        when(agg.value()).thenReturn(0d);
-
-        aggList.add(agg);
-
-        Aggregations aggregations = new Aggregations(aggList);
-        when(searchResponse.getAggregations()).thenReturn(aggregations);
-
-        // test
-        Optional<double[]> result = searchFeatureDao.getFeaturesForPeriod(detector, start, end);
-
-        // verify
-        assertTrue(result.isPresent());
     }
 
     private Object[] getFeaturesForSampledPeriodsData() {
@@ -615,34 +500,6 @@ public class SearchFeatureDaoTests {
                 4,
                 10,
                 Optional.of(new SimpleEntry<>(new double[][] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 }, { 9, 10 } }, 1)) }, };
-    }
-
-    @Test
-    @Parameters(method = "getFeaturesForSampledPeriodsData")
-    public void getFeaturesForSampledPeriods_returnExpected(
-        Long[][] queryRanges,
-        double[][] queryResults,
-        long endTime,
-        int maxStride,
-        int maxSamples,
-        Optional<Entry<double[][], Integer>> expected
-    ) {
-
-        doReturn(Optional.empty()).when(searchFeatureDao).getFeaturesForPeriod(eq(detector), anyLong(), anyLong());
-        for (int i = 0; i < queryRanges.length; i++) {
-            doReturn(Optional.of(queryResults[i]))
-                .when(searchFeatureDao)
-                .getFeaturesForPeriod(detector, queryRanges[i][0], queryRanges[i][1]);
-        }
-
-        Optional<Entry<double[][], Integer>> result = searchFeatureDao
-            .getFeaturesForSampledPeriods(detector, maxSamples, maxStride, endTime);
-
-        assertEquals(expected.isPresent(), result.isPresent());
-        if (expected.isPresent()) {
-            assertTrue(Arrays.deepEquals(expected.get().getKey(), result.get().getKey()));
-            assertEquals(expected.get().getValue(), result.get().getValue());
-        }
     }
 
     @Test

@@ -43,6 +43,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.BytesRef;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
@@ -54,6 +56,7 @@ import org.opensearch.action.search.SearchResponse.Clusters;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
@@ -62,7 +65,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasables;
@@ -113,13 +116,23 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private Client client;
     private SearchFeatureDao searchFeatureDao;
     private LinearUniformInterpolator interpolator;
-    private ClientUtil clientUtil;
+    private SecurityClientUtil clientUtil;
     private Settings settings;
     private ClusterService clusterService;
     private Clock clock;
     private String serviceField, hostField;
     private String detectorId;
     private Map<String, Object> attrs1, attrs2;
+
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        setUpThreadPool(NoPowermockSearchFeatureDaoTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
+    }
 
     @Override
     public void setUp() throws Exception {
@@ -139,10 +152,9 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
 
         client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
 
         interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
-
-        clientUtil = mock(ClientUtil.class);
 
         settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
@@ -155,6 +167,13 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         clock = mock(Clock.class);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        clientUtil = new SecurityClientUtil(nodeStateManager, settings);
 
         searchFeatureDao = new SearchFeatureDao(
             client,
