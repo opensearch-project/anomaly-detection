@@ -56,7 +56,6 @@ import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -485,8 +484,8 @@ public final class ParseUtils {
         boolean filterByEnabled,
         ActionListener listener,
         Consumer<AnomalyDetector> function,
-        Client client,
-        ClusterService clusterService,
+        SDKRestClient client,
+        SDKClusterService clusterService,
         NamedXContentRegistry xContentRegistry
     ) {
         try {
@@ -550,18 +549,6 @@ public final class ParseUtils {
             listener.onFailure(new IndexNotFoundException(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
         }
     }
-
-    // Temprorary to avoid breaking compilation until all callers are migrated.
-    public static void getDetector(
-        UserIdentity requestUser,
-        String detectorId,
-        ActionListener listener,
-        Consumer<AnomalyDetector> function,
-        Client client,
-        ClusterService clusterService,
-        NamedXContentRegistry xContentRegistry,
-        boolean filterByBackendRole
-    ) {}
 
     public static void onGetAdResponse(
         GetResponse response,
