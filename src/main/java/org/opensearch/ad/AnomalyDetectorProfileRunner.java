@@ -57,6 +57,7 @@ import org.opensearch.ad.transport.RCFPollingResponse;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -78,6 +79,7 @@ import org.opensearch.transport.TransportService;
 public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorProfileRunner.class);
     private Client client;
+    private SecurityClientUtil clientUtil;
     private NamedXContentRegistry xContentRegistry;
     private DiscoveryNodeFilterer nodeFilter;
     private final TransportService transportService;
@@ -86,6 +88,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     public AnomalyDetectorProfileRunner(
         Client client,
+        SecurityClientUtil clientUtil,
         NamedXContentRegistry xContentRegistry,
         DiscoveryNodeFilterer nodeFilter,
         long requiredSamples,
@@ -94,6 +97,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     ) {
         super(requiredSamples);
         this.client = client;
+        this.clientUtil = clientUtil;
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
         if (requiredSamples <= 0) {
@@ -293,7 +297,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 searchSourceBuilder.aggregation(aggBuilder);
 
                 SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
-                client.search(request, ActionListener.wrap(searchResponse -> {
+                final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(searchResponse -> {
                     Map<String, Aggregation> aggMap = searchResponse.getAggregations().asMap();
                     InternalCardinality totalEntities = (InternalCardinality) aggMap.get(CommonName.TOTAL_ENTITIES);
                     long value = totalEntities.getValue();
@@ -303,7 +307,17 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 }, searchException -> {
                     logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
                     listener.onFailure(searchException);
-                }));
+                });
+                // using the original context in listener as user roles have no permissions for internal operations like fetching a
+                // checkpoint
+                clientUtil
+                    .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                        request,
+                        client::search,
+                        detector.getDetectorId(),
+                        client,
+                        searchResponseListener
+                    );
             } else {
                 // Run a composite query and count the number of buckets to decide cardinality of multiple category fields
                 AggregationBuilder bucketAggs = AggregationBuilders
@@ -316,7 +330,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 SearchRequest searchRequest = new SearchRequest()
                     .indices(detector.getIndices().toArray(new String[0]))
                     .source(searchSourceBuilder);
-                client.search(searchRequest, ActionListener.wrap(searchResponse -> {
+                final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(searchResponse -> {
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                     Aggregations aggs = searchResponse.getAggregations();
                     if (aggs == null) {
@@ -342,7 +356,17 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 }, searchException -> {
                     logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
                     listener.onFailure(searchException);
-                }));
+                });
+                // using the original context in listener as user roles have no permissions for internal operations like fetching a
+                // checkpoint
+                clientUtil
+                    .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                        searchRequest,
+                        client::search,
+                        detector.getDetectorId(),
+                        client,
+                        searchResponseListener
+                    );
             }
 
         }
