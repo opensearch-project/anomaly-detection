@@ -14,10 +14,7 @@ public class ADJobParameterResponse extends ActionResponse implements ToXContent
 
     private final ExtensionJobParameter extensionJobParameter;
 
-    public ADJobParameterResponse(StreamInput streamInput) {}
-
-    @Override
-    public void writeTo(StreamInput in) throws IOException {
+    public ADJobParameterResponse(StreamInput in) {
         super(in);
         extensionJobParameter = new ExtensionJobParameter(in);
     }
