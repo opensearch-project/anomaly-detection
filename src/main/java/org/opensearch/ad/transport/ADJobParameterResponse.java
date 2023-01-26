@@ -31,10 +31,6 @@ public class ADJobParameterResponse extends ActionResponse implements ToXContent
         extensionJobParameter.writeTo(out);
     }
 
-    public ExtensionJobParameter getExtensionJobParameter() {
-        return extensionJobParameter;
-    }
-
     @Override
     public XContentBuilder toXContent(XContentBuilder xContentBuilder, Params params) throws IOException {
         return xContentBuilder.startObject().field(RestHandlerUtils.EXTENSION_JOB_PARAMETER, extensionJobParameter).endObject();

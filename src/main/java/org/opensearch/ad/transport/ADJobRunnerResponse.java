@@ -12,22 +12,22 @@ public class ADJobRunnerResponse extends ActionResponse implements ToXContentObj
 
     private final boolean response;
 
-    public ADJobRunnerResponse(StreamInput in) {
+    public ADJobRunnerResponse(StreamInput in) throws IOException {
         super(in);
-        response=in.readBoolean();
+        response = in.readBoolean();
     }
 
-    public ADJobRunnerResponse(boolean response){
-        this.response=response;
+    public ADJobRunnerResponse(boolean response) {
+        this.response = response;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-       out.writeBoolean(response);
+        out.writeBoolean(response);
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder xContentBuilder, Params params) throws IOException {
-        return xContentBuilder.startObject().field("response",response).endObject();
+        return xContentBuilder.startObject().field("response", response).endObject();
     }
 }
