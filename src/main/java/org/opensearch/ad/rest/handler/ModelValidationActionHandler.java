@@ -49,10 +49,13 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -92,17 +95,21 @@ public class ModelValidationActionHandler {
     protected final TimeValue requestTimeout;
     protected final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
     protected final Client client;
+    protected final SecurityClientUtil clientUtil;
     protected final NamedXContentRegistry xContentRegistry;
     protected final ActionListener<ValidateAnomalyDetectorResponse> listener;
     protected final SearchFeatureDao searchFeatureDao;
     protected final Clock clock;
     protected final String validationType;
+    protected final Settings settings;
+    protected final User user;
 
     /**
      * Constructor function.
      *
      * @param clusterService                  ClusterService
      * @param client                          ES node client that executes actions on the local node
+     * @param clientUtil                      AD client util
      * @param listener                        ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetector                 anomaly detector instance
      * @param requestTimeout                  request time out configuration
@@ -110,20 +117,26 @@ public class ModelValidationActionHandler {
      * @param searchFeatureDao                Search feature DAO
      * @param validationType                  Specified type for validation
      * @param clock                           clock object to know when to timeout
+     * @param settings                        Node settings
+     * @param user                            User info
      */
     public ModelValidationActionHandler(
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         AnomalyDetector anomalyDetector,
         TimeValue requestTimeout,
         NamedXContentRegistry xContentRegistry,
         SearchFeatureDao searchFeatureDao,
         String validationType,
-        Clock clock
+        Clock clock,
+        Settings settings,
+        User user
     ) {
         this.clusterService = clusterService;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.listener = listener;
         this.anomalyDetector = anomalyDetector;
         this.requestTimeout = requestTimeout;
@@ -131,6 +144,8 @@ public class ModelValidationActionHandler {
         this.searchFeatureDao = searchFeatureDao;
         this.validationType = validationType;
         this.clock = clock;
+        this.settings = settings;
+        this.user = user;
     }
 
     // Need to first check if multi entity detector or not before doing any sort of validation.
@@ -195,7 +210,7 @@ public class ModelValidationActionHandler {
         SearchRequest searchRequest = new SearchRequest()
             .indices(anomalyDetector.getIndices().toArray(new String[0]))
             .source(searchSourceBuilder);
-        client.search(searchRequest, ActionListener.wrap(response -> {
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 topEntityListener.onResponse(Collections.emptyMap());
@@ -228,7 +243,17 @@ public class ModelValidationActionHandler {
                 }
             }
             topEntityListener.onResponse(topKeys);
-        }, topEntityListener::onFailure));
+        }, topEntityListener::onFailure);
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                user,
+                client,
+                searchResponseListener
+            );
     }
 
     private void getLatestDateForValidation(Map<String, Object> topEntity) {
@@ -303,18 +328,25 @@ public class ModelValidationActionHandler {
                 listener.onFailure(exception);
                 logger.error("Failed to get interval recommendation", exception);
             });
-        client
-            .search(
+        final ActionListener<SearchResponse> searchResponseListener =
+            new ModelValidationActionHandler.DetectorIntervalRecommendationListener(
+                intervalListener,
+                searchRequest.source(),
+                (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval(),
+                clock.millis() + TOP_VALIDATE_TIMEOUT_IN_MILLIS,
+                latestTime,
+                false,
+                MAX_TIMES_DECREASING_INTERVAL
+            );
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
-                new ModelValidationActionHandler.DetectorIntervalRecommendationListener(
-                    intervalListener,
-                    searchRequest.source(),
-                    (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval(),
-                    clock.millis() + TOP_VALIDATE_TIMEOUT_IN_MILLIS,
-                    latestTime,
-                    false,
-                    MAX_TIMES_DECREASING_INTERVAL
-                )
+                client::search,
+                user,
+                client,
+                searchResponseListener
             );
     }
 
@@ -421,11 +453,16 @@ public class ModelValidationActionHandler {
                         searchSourceBuilder.query(),
                         getBucketAggregation(this.latestTime, new IntervalTimeConfiguration(newIntervalMinute, ChronoUnit.MINUTES))
                     );
-                    client
-                        .search(
+                    // using the original context in listener as user roles have no permissions for internal operations like fetching a
+                    // checkpoint
+                    clientUtil
+                        .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                             new SearchRequest()
                                 .indices(anomalyDetector.getIndices().toArray(new String[0]))
                                 .source(updatedSearchSourceBuilder),
+                            client::search,
+                            user,
+                            client,
                             this
                         );
                     // In this case decreasingInterval has to be true already, so we will stop
@@ -452,9 +489,14 @@ public class ModelValidationActionHandler {
                 searchSourceBuilder.query(),
                 getBucketAggregation(this.latestTime, new IntervalTimeConfiguration(newIntervalMinuteValue, ChronoUnit.MINUTES))
             );
-            client
-                .search(
+            // using the original context in listener as user roles have no permissions for internal operations like fetching a
+            // checkpoint
+            clientUtil
+                .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                     new SearchRequest().indices(anomalyDetector.getIndices().toArray(new String[0])).source(updatedSearchSourceBuilder),
+                    client::search,
+                    user,
+                    client,
                     this
                 );
         }
@@ -524,7 +566,18 @@ public class ModelValidationActionHandler {
         );
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(aggregation).size(0).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client.search(searchRequest, ActionListener.wrap(response -> processRawDataResults(response, latestTime), listener::onFailure));
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(response -> processRawDataResults(response, latestTime), listener::onFailure);
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                user,
+                client,
+                searchResponseListener
+            );
     }
 
     private Histogram checkBucketResultErrors(SearchResponse response) {
@@ -580,7 +633,18 @@ public class ModelValidationActionHandler {
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client.search(searchRequest, ActionListener.wrap(response -> processDataFilterResults(response, latestTime), listener::onFailure));
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(response -> processDataFilterResults(response, latestTime), listener::onFailure);
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                user,
+                client,
+                searchResponseListener
+            );
     }
 
     private void processDataFilterResults(SearchResponse response, long latestTime) {
@@ -634,7 +698,18 @@ public class ModelValidationActionHandler {
         );
         SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client.search(searchRequest, ActionListener.wrap(response -> processTopEntityResults(response, latestTime), listener::onFailure));
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(response -> processTopEntityResults(response, latestTime), listener::onFailure);
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                user,
+                client,
+                searchResponseListener
+            );
     }
 
     private void processTopEntityResults(SearchResponse response, long latestTime) {
@@ -695,7 +770,7 @@ public class ModelValidationActionHandler {
             SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
             SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]))
                 .source(searchSourceBuilder);
-            client.search(searchRequest, ActionListener.wrap(response -> {
+            final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
                 Histogram aggregate = checkBucketResultErrors(response);
                 if (aggregate == null) {
                     return;
@@ -718,7 +793,17 @@ public class ModelValidationActionHandler {
                 logger.error(e);
                 multiFeatureQueriesResponseListener
                     .onFailure(new OpenSearchStatusException(CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE, RestStatus.BAD_REQUEST, e));
-            }));
+            });
+            // using the original context in listener as user roles have no permissions for internal operations like fetching a
+            // checkpoint
+            clientUtil
+                .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                    searchRequest,
+                    client::search,
+                    user,
+                    client,
+                    searchResponseListener
+                );
         }
     }
 

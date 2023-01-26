@@ -70,8 +70,10 @@ import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -143,6 +145,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     protected final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
     protected final RestRequest.Method method;
     protected final Client client;
+    protected final SecurityClientUtil clientUtil;
     protected final TransportService transportService;
     protected final NamedXContentRegistry xContentRegistry;
     protected final ActionListener<T> listener;
@@ -152,12 +155,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     protected final boolean isDryRun;
     protected final Clock clock;
     protected final String validationType;
+    protected final Settings settings;
 
     /**
      * Constructor function.
      *
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
+     * @param clientUtil              AD security client
      * @param transportService        ES transport service
      * @param listener                ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
@@ -178,10 +183,12 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      * @param isDryRun                Whether handler is dryrun or not
      * @param validationType          Whether validation is for detector or model
      * @param clock                   clock object to know when to timeout
+     * @param settings                Node settings
      */
     public AbstractAnomalyDetectorActionHandler(
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         TransportService transportService,
         ActionListener<T> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -201,10 +208,12 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         SearchFeatureDao searchFeatureDao,
         String validationType,
         boolean isDryRun,
-        Clock clock
+        Clock clock,
+        Settings settings
     ) {
         this.clusterService = clusterService;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.transportService = transportService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.listener = listener;
@@ -225,6 +234,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         this.validationType = validationType;
         this.isDryRun = isDryRun;
         this.clock = clock;
+        this.settings = settings;
     }
 
     /**
@@ -387,7 +397,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });
-        client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
+        clientUtil.executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, mappingsListener);
     }
 
     /**
@@ -670,7 +680,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             listener.onFailure(new IllegalArgumentException(message));
         });
 
-        client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
+        clientUtil.executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, mappingsListener);
     }
 
     protected void searchAdInputIndices(String detectorId, boolean indexingDryRun) {
@@ -681,15 +691,13 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
 
-        client
-            .search(
-                searchRequest,
-                ActionListener
-                    .wrap(
-                        searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId, indexingDryRun),
-                        exception -> listener.onFailure(exception)
-                    )
+        ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(
+                searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId, indexingDryRun),
+                exception -> listener.onFailure(exception)
             );
+
+        clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, searchResponseListener);
     }
 
     protected void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId, boolean indexingDryRun) throws IOException {
@@ -716,7 +724,6 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             }
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).timeout(requestTimeout);
             SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
-
             client
                 .search(
                     searchRequest,
@@ -775,13 +782,16 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             ModelValidationActionHandler modelValidationActionHandler = new ModelValidationActionHandler(
                 clusterService,
                 client,
+                clientUtil,
                 (ActionListener<ValidateAnomalyDetectorResponse>) listener,
                 anomalyDetector,
                 requestTimeout,
                 xContentRegistry,
                 searchFeatureDao,
                 validationType,
-                clock
+                clock,
+                settings,
+                user
             );
             modelValidationActionHandler.checkIfMultiEntityDetector();
         }
@@ -935,7 +945,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             );
             ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());
             SearchRequest searchRequest = new SearchRequest().indices(anomalyDetector.getIndices().toArray(new String[0])).source(ssb);
-            client.search(searchRequest, ActionListener.wrap(response -> {
+            ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
                 Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()));
                 if (aggFeatureResult.isPresent()) {
                     multiFeatureQueriesResponseListener
@@ -956,7 +966,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 }
                 logger.error(errorMessage, e);
                 multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
-            }));
+            });
+            clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, searchResponseListener);
         }
     }
 }
