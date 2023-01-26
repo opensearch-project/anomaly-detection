@@ -65,6 +65,7 @@ public final class RestHandlerUtils {
     public static final String RESULT_INDEX = "resultIndex";
     public static final String ANOMALY_DETECTOR = "anomaly_detector";
     public static final String ANOMALY_DETECTOR_JOB = "anomaly_detector_job";
+    public static final String EXTENSION_JOB_PARAMETER = "extension_job_parameter";
     public static final String REALTIME_TASK = "realtime_detection_task";
     public static final String HISTORICAL_ANALYSIS_TASK = "historical_analysis_task";
     public static final String RUN = "_run";
