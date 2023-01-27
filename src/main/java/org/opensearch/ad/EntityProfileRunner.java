@@ -26,6 +26,7 @@ import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -43,6 +44,7 @@ import org.opensearch.ad.transport.EntityProfileRequest;
 import org.opensearch.ad.transport.EntityProfileResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.routing.Preference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -64,11 +66,13 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     static final String EMPTY_ENTITY_ATTRIBUTES = "Empty entity attributes";
     static final String NO_ENTITY = "Cannot find entity";
     private Client client;
+    private SecurityClientUtil clientUtil;
     private NamedXContentRegistry xContentRegistry;
 
-    public EntityProfileRunner(Client client, NamedXContentRegistry xContentRegistry, long requiredSamples) {
+    public EntityProfileRunner(Client client, SecurityClientUtil clientUtil, NamedXContentRegistry xContentRegistry, long requiredSamples) {
         super(requiredSamples);
         this.client = client;
+        this.clientUtil = clientUtil;
         this.xContentRegistry = xContentRegistry;
     }
 
@@ -165,8 +169,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder)
             .preference(Preference.LOCAL.toString());
-
-        client.search(searchRequest, ActionListener.wrap(searchResponse -> {
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(searchResponse -> {
             try {
                 if (searchResponse.getHits().getHits().length == 0) {
                     listener.onFailure(new IllegalArgumentException(NO_ENTITY));
@@ -177,7 +180,17 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 listener.onFailure(new IllegalArgumentException(NO_ENTITY));
                 return;
             }
-        }, e -> listener.onFailure(new IllegalArgumentException(NO_ENTITY))));
+        }, e -> listener.onFailure(new IllegalArgumentException(NO_ENTITY)));
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
+            );
 
     }
 
