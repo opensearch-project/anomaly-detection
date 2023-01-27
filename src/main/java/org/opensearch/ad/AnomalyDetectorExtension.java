@@ -12,6 +12,7 @@ package org.opensearch.ad;
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -122,8 +123,10 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Override
     public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActions() {
-        return ImmutableMap
-            .of(ADJobParameterAction.NAME, ADJobParameterTransportAction.class, ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
+        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map= new HashMap<>();
+        map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
+        map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
+        return map;
     }
 
     public static void main(String[] args) throws IOException {
