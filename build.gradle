@@ -755,7 +755,7 @@ dependencies {
 //    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
 //  Removed Common Utils dependency from AD
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
-    implementation "org.opensearch:opensearch-sdk-java:1.0.0-SNAPSHOT"
+    implementation "org.opensearch.sdk:opensearch-sdk-java:1.0.0-SNAPSHOT"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-java:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
