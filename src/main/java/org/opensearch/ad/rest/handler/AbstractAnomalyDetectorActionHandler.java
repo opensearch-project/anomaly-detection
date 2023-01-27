@@ -12,7 +12,6 @@
 package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
-import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.ParseUtils.listEqualsWithoutConsideringOrder;
 import static org.opensearch.ad.util.ParseUtils.parseAggregators;
@@ -385,6 +384,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         // FIXME Need to implement this; does shard level actions on the cluster
         // https://github.com/opensearch-project/opensearch-sdk-java/issues/361
         // client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
+        // For now just skip and go to the next step:
+        prepareAnomalyDetectorIndexing(indexingDryRun);
     }
 
     /**
@@ -403,6 +404,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             // () -> updateAnomalyDetector(detectorId, indexingDryRun),
             // xContentRegistry
             // );
+            // FIXME Substitute call for the above, remove when JS work enables above code
+            updateAnomalyDetector(detectorId, indexingDryRun);
         } else {
             createAnomalyDetector(indexingDryRun);
         }
@@ -445,14 +448,17 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 return;
             }
 
-            adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
-                if (adTask.isPresent() && !adTask.get().isDone()) {
-                    // can't update detector if there is AD task running
-                    listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-                } else {
-                    validateExistingDetector(existingDetector, indexingDryRun);
-                }
-            }, transportService, true, listener);
+            // FIXME: Need to implement ADTaskManager extension point
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/371
+
+            // adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
+            // if (adTask.isPresent() && !adTask.get().isDone()) {
+            // // can't update detector if there is AD task running
+            // listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+            // } else {
+            validateExistingDetector(existingDetector, indexingDryRun);
+            // }
+            // }, transportService, true, listener);
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;
             logger.error(message, e);
@@ -668,6 +674,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         // FIXME Need to implement this; does shard level actions on the cluster
         // https://github.com/opensearch-project/opensearch-sdk-java/issues/361
         // client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
+        // For now just skip and go to the next step:
+        searchAdInputIndices(detectorId, indexingDryRun);
     }
 
     protected void searchAdInputIndices(String detectorId, boolean indexingDryRun) {

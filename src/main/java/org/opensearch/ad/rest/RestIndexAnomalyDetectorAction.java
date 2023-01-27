@@ -193,6 +193,8 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         RestStatus restStatus = RestStatus.CREATED;
         if (request.method() == RestRequest.Method.PUT) {
             restStatus = RestStatus.OK;
+        } else {
+            logger.info("Detector ID: {}", response.getId());
         }
         ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
             request,

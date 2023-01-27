@@ -523,8 +523,11 @@ public final class ParseUtils {
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole
     ) {
+        logger.info("in getDetector()");
         if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
+            logger.info("Cluster metadata contains {}", AnomalyDetector.ANOMALY_DETECTORS_INDEX);
             GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+            logger.info("Creating get request for detector {}", detectorId);
             client
                 .get(
                     request,
@@ -546,6 +549,7 @@ public final class ParseUtils {
                         )
                 );
         } else {
+            logger.info("Index not found: {}", AnomalyDetector.ANOMALY_DETECTORS_INDEX);
             listener.onFailure(new IndexNotFoundException(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
         }
     }
