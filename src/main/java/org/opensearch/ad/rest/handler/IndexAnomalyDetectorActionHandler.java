@@ -18,8 +18,10 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.commons.authuser.User;
@@ -38,6 +40,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
      *
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
+     * @param clientUtil              AD client util
      * @param transportService        ES transport service
      * @param listener                 ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
@@ -55,10 +58,12 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
      * @param user                    User context
      * @param adTaskManager           AD Task manager
      * @param searchFeatureDao        Search feature dao
+     * @param settings                Node settings
      */
     public IndexAnomalyDetectorActionHandler(
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         TransportService transportService,
         ActionListener<IndexAnomalyDetectorResponse> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -75,11 +80,13 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
         NamedXContentRegistry xContentRegistry,
         User user,
         ADTaskManager adTaskManager,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        Settings settings
     ) {
         super(
             clusterService,
             client,
+            clientUtil,
             transportService,
             listener,
             anomalyDetectionIndices,
@@ -99,7 +106,8 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
             searchFeatureDao,
             null,
             false,
-            null
+            null,
+            settings
         );
     }
 

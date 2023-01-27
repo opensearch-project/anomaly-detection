@@ -158,10 +158,7 @@ import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
+import org.opensearch.ad.util.*;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
@@ -232,6 +229,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ThreadPool threadPool;
     private ADStats adStats;
     private ClientUtil clientUtil;
+    private SecurityClientUtil securityClientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
     private ADTaskManager adTaskManager;
@@ -344,11 +342,21 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
             new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
         Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+        stateManager = new NodeStateManager(
+            client,
+            xContentRegistry,
+            settings,
+            clientUtil,
+            getClock(),
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            clusterService
+        );
+        securityClientUtil = new SecurityClientUtil(stateManager, settings);
         SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry,
             interpolator,
-            clientUtil,
+            securityClientUtil,
             settings,
             clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
@@ -371,16 +379,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
             clusterService,
             adCircuitBreakerService
-        );
-
-        stateManager = new NodeStateManager(
-            client,
-            xContentRegistry,
-            settings,
-            clientUtil,
-            getClock(),
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
         );
 
         FeatureManager featureManager = new FeatureManager(
@@ -731,6 +729,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             threadPool,
             clusterService,
             client,
+            securityClientUtil,
             adCircuitBreakerService,
             featureManager,
             adTaskManager,

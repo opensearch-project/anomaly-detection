@@ -29,14 +29,18 @@ public class Throttler {
     private final ConcurrentHashMap<String, Map.Entry<ActionRequest, Instant>> negativeCache;
     private final Clock clock;
 
-    /**
-     * Inject annotation required by Guice to instantiate EntityResultTransportAction (transitive dependency)
-     * (EntityResultTransportAction &gt; ResultHandler &gt; ClientUtil &gt; Throttler)
-     * @param clock a UTC clock
-     */
     public Throttler(Clock clock) {
         this.negativeCache = new ConcurrentHashMap<>();
         this.clock = clock;
+    }
+
+    /**
+     * This will be used when dependency injection directly/indirectly injects a Throttler object. Without this object,
+     * node start might fail due to not being able to find a Clock object. We removed Clock object association in
+     * https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/305
+     */
+    public Throttler() {
+        this(Clock.systemUTC());
     }
 
     /**
