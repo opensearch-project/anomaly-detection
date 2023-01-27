@@ -1093,6 +1093,17 @@ public class TestHelpers {
         createIndexMapping(client, indexName, TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
+    public static void createEmptyIndexMapping(RestClient client, String indexName, Map<String, String> fieldsAndTypes) throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        for (Map.Entry<String, String> entry : fieldsAndTypes.entrySet()) {
+            indexMappings.append("\"" + entry.getKey() + "\":{\"type\":\"" + entry.getValue() + "\"},");
+        }
+        indexMappings.append("}}");
+        createEmptyIndex(client, indexName);
+        createIndexMapping(client, indexName, TestHelpers.toHttpEntity(indexMappings.toString()));
+    }
+
     public static void createEmptyAnomalyResultIndex(RestClient client) throws IOException {
         createEmptyIndex(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         createIndexMapping(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS, toHttpEntity(AnomalyDetectionIndices.getAnomalyResultMappings()));
