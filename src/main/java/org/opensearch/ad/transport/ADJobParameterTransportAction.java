@@ -4,14 +4,14 @@ import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.transport.JobParameterRequest;
@@ -41,7 +41,7 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
 
         String errorMessage = "Failed to parse the Job Parameter";
         ActionListener<ExtensionActionResponse> listener = wrapRestActionListener(actionListener, errorMessage);
-        JobParameterRequest jobParameterRequest;
+        JobParameterRequest jobParameterRequest = null;
         try {
             jobParameterRequest = new JobParameterRequest(request.getRequestBytes());
         } catch (Exception e) {
@@ -55,7 +55,7 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
                 .xContent()
                 .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
             ScheduledJobParameter scheduledJobParameter = AnomalyDetectorJob.parse(parser);
-            JobParameterResponse jobParameterResponse = new JobParameterResponse(new ExtensionJobParameter(scheduledJobParameter))
+            JobParameterResponse jobParameterResponse = new JobParameterResponse(new ExtensionJobParameter(scheduledJobParameter));
             listener.onResponse(new ExtensionJobActionResponse<JobParameterResponse>(jobParameterResponse));
         } catch (Exception e) {
             LOG.error(e);

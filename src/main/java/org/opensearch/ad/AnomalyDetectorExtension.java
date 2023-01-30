@@ -42,7 +42,6 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public class AnomalyDetectorExtension extends BaseExtension {
 
@@ -126,7 +125,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Override
     public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActions() {
-        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map= new HashMap<>();
+        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map = new HashMap<>();
         map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
         map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
         return map;
