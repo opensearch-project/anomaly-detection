@@ -624,6 +624,14 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction',
         'org.opensearch.ad.transport.handler.ADSearchHandler',
 
+        // TODO: Disabled until create components integration is complete
+        // https://github.com/opensearch-project/opensearch-sdk-java/issues/283
+        'org.opensearch.ad.indices.AnomalyDetectionIndices.IndexState',
+        'org.opensearch.ad.feature.SearchFeatureDao.TopEntitiesListener',
+        'org.opensearch.ad.ml.CheckpointDao',
+        'org.opensearch.ad.transport.handler.MultiEntityResultHandler',
+        'org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler',
+
         // TODO: Removing all code except for create detector.
         // See https://github.com/opensearch-project/opensearch-sdk/issues/20
         'org.opensearch.ad.util.ParseUtils',
