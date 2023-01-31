@@ -121,7 +121,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             Map<Setting<?>, Consumer<?>> settingsUpdateConsumers = new HashMap<>();
             settingsUpdateConsumers.put(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = (int) it);
             settingsUpdateConsumers.put(PAGE_SIZE, it -> this.pageSize = (int) it);
-            clusterService.addSettingsUpdateConsumer(settingsUpdateConsumers);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(settingsUpdateConsumers);
         } catch (Exception e) {
             // TODO Handle this
         }

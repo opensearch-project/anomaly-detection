@@ -201,7 +201,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         settingToConsumerMap.put(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> historyRetentionPeriod = (TimeValue) it);
         settingToConsumerMap.put(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = (int) it);
         try {
-            this.clusterService.addSettingsUpdateConsumer(settingToConsumerMap);
+            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(settingToConsumerMap);
         } catch (Exception e) {
             // TODO Handle this
         }

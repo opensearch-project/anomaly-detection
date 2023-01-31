@@ -82,7 +82,7 @@ public class IndexAnomalyDetectorTransportAction {
         this.searchFeatureDao = searchFeatureDao;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         try {
-            sdkClusterService.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+            sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         } catch (Exception e) {
             // TODO Handle this
         }

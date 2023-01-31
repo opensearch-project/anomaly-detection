@@ -57,7 +57,7 @@ public abstract class AbstractAnomalyDetectorAction extends BaseExtensionRestHan
         settingToConsumerMap.put(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = (Integer) it);
         SDKClusterService clusterService = new SDKClusterService(extensionsRunner);
         try {
-            clusterService.addSettingsUpdateConsumer(settingToConsumerMap);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(settingToConsumerMap);
         } catch (Exception e) {
             // FIXME handle this
         }

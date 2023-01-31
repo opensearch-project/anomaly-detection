@@ -81,7 +81,7 @@ public class ValidateAnomalyDetectorTransportAction {
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         try {
-            clusterService.addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         } catch (Exception e) {
             // TODO Handle this
         }
