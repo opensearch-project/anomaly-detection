@@ -26,8 +26,6 @@ import java.util.HashSet;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.alias.Alias;
-import org.opensearch.action.admin.indices.create.CreateIndexRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -36,6 +34,8 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.IndicesAdminClient;
+import org.opensearch.client.indices.CreateIndexRequest;
+import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
@@ -97,8 +97,10 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         when(clusterService.state()).thenReturn(clusterState);
 
         adIndices = new AnomalyDetectionIndices(
-            client,
-            clusterService,
+            // FIXME: Replace with SDK equivalents when re-enabling tests
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+            null, // client,
+            null, // clusterService,
             threadPool,
             settings,
             nodeFilter,

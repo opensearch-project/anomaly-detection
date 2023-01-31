@@ -154,12 +154,14 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         clock = mock(Clock.class);
 
         searchFeatureDao = new SearchFeatureDao(
-            client,
+            // FIXME: Replace with SDK equivalents when re-enabling tests
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+            null, // client,
             xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
             interpolator,
             clientUtil,
             settings,
-            clusterService,
+            null, // clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
             clock,
             1,
@@ -341,12 +343,14 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         ActionListener<List<Entity>> listener = mock(ActionListener.class);
 
         searchFeatureDao = new SearchFeatureDao(
-            client,
+            // FIXME: Replace with SDK equivalents when re-enabling tests
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+            null, // client,
             xContentRegistry(),
             interpolator,
             clientUtil,
             settings,
-            clusterService,
+            null, // clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
             clock,
             2,
@@ -387,12 +391,14 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
 
         long timeoutMillis = 60_000L;
         searchFeatureDao = new SearchFeatureDao(
-            client,
+            // FIXME: Replace with SDK equivalents when re-enabling tests
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+            null, // client,
             xContentRegistry(),
             interpolator,
             clientUtil,
             settings,
-            clusterService,
+            null, // clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
             clock,
             2,

@@ -97,8 +97,10 @@ public class RolloverTests extends AbstractADTest {
         when(nodeFilter.getNumberOfEligibleDataNodes()).thenReturn(numberOfNodes);
 
         adIndices = new AnomalyDetectionIndices(
-            client,
-            clusterService,
+            // FIXME: Replace with SDK equivalents when re-enabling tests
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+            null, // client,
+            null, // clusterService,
             threadPool,
             settings,
             nodeFilter,

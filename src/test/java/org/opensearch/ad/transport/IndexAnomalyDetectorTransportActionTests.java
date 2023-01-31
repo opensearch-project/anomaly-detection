@@ -18,8 +18,6 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Locale;
 
 import org.junit.Assert;
@@ -41,17 +39,17 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.ImmutableOpenMap;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.Task;
@@ -65,10 +63,10 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private Task task;
     private IndexAnomalyDetectorRequest request;
     private ActionListener<IndexAnomalyDetectorResponse> response;
-    private ClusterService clusterService;
-    private ClusterSettings clusterSettings;
+    private SDKClusterService clusterService;
+    private SDKClusterSettings clusterSettings;
     private ADTaskManager adTaskManager;
-    private Client client = mock(Client.class);
+    private SDKRestClient client = mock(SDKRestClient.class);
     private SearchFeatureDao searchFeatureDao;
 
     @SuppressWarnings("unchecked")
@@ -76,11 +74,14 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
+        clusterService = mock(SDKClusterService.class);
+        clusterSettings = mock(SDKClusterSettings.class);
+        /*-
         clusterSettings = new ClusterSettings(
             Settings.EMPTY,
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
         );
+        */
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         ClusterName clusterName = new ClusterName("test");
@@ -104,7 +105,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
-            client(),
+            client, // client(),
             clusterService,
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
