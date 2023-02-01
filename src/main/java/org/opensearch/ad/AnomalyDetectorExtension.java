@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestGetDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
@@ -23,6 +26,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -93,6 +97,15 @@ public class AnomalyDetectorExtension extends BaseExtension {
                 .reduce(Stream::concat)
                 .orElseGet(Stream::empty)
                 .collect(Collectors.toList())
+        );
+    }
+
+    @Override
+    public List<NamedXContentRegistry.Entry> getNamedXContent() {
+        // Copied from AnomalyDetectorPlugin getNamedXContent
+        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY, DetectorInternalState.XCONTENT_REGISTRY
+        // Pending Job Scheduler Integration
+        // AnomalyDetectorJob.XCONTENT_REGISTRY
         );
     }
 
