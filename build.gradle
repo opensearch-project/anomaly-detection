@@ -31,15 +31,15 @@ buildscript {
             opensearch_build += "-SNAPSHOT"
         }
         opensearch_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
-//        js_resource_folder = "src/test/resources/job-scheduler"
+        js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
 //         @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
 
-//        job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-//        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
-//                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
-//        anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
-//                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
+        job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
+        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
+               '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
+        anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
+                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
         bwcOpenDistroADDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
                 'opendistro-anomaly-detection/opendistro-anomaly-detection-1.13.0.0.zip'
         bwcOpenDistroJSDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
@@ -752,9 +752,10 @@ dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
 //  Removed Job Scheduler dependency from AD
-//    compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
+    implementation "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
 //  Removed Common Utils dependency from AD
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
+    implementation "org.opensearch:opensearch-job-scheduler:${job_scheduler_version}"
     implementation "org.opensearch.sdk:opensearch-sdk-java:1.0.0-SNAPSHOT"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-java:${opensearch_version}"

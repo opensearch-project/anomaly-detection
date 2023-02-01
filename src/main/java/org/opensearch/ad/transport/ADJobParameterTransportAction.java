@@ -9,11 +9,12 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.common.io.stream.Writeable;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.*;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
+import org.opensearch.jobscheduler.model.ExtensionJobParameter;
+import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
+import org.opensearch.jobscheduler.transport.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.JobParameterRequest;
 import org.opensearch.jobscheduler.transport.JobParameterResponse;
 import org.opensearch.tasks.Task;
@@ -26,13 +27,11 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
     private final NamedXContentRegistry xContentRegistry;
 
     protected ADJobParameterTransportAction(
-        String actionName,
         TransportService transportService,
         ActionFilters actionFilters,
-        Writeable.Reader<ExtensionActionRequest> extensionActionRequestReader,
         NamedXContentRegistry xContentRegistry
     ) {
-        super(actionName, transportService, actionFilters, extensionActionRequestReader);
+        super(ADJobParameterAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
         this.xContentRegistry = xContentRegistry;
     }
 
@@ -51,12 +50,10 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
 
         try {
 
-            XContentParser parser = XContentType.JSON
-                .xContent()
-                .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
+            XContentParser parser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
             ScheduledJobParameter scheduledJobParameter = AnomalyDetectorJob.parse(parser);
             JobParameterResponse jobParameterResponse = new JobParameterResponse(new ExtensionJobParameter(scheduledJobParameter));
-            listener.onResponse(new ExtensionJobActionResponse<JobParameterResponse>(jobParameterResponse));
+            listener.onResponse(new ExtensionJobActionResponse<>(jobParameterResponse));
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);

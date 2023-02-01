@@ -11,10 +11,15 @@
 
 package org.opensearch.ad;
 
+import org.mockito.Mockito;
+import org.opensearch.ad.model.*;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
+import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import static org.opensearch.test.OpenSearchTestCase.*;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
@@ -64,25 +69,6 @@ import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.mock.model.MockSimpleLog;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
-import org.opensearch.ad.model.ADTaskType;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.AnomalyResultBucket;
-import org.opensearch.ad.model.DataByFeatureId;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.model.DetectorValidationIssueType;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.ExpectedValueList;
-import org.opensearch.ad.model.Feature;
-import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.model.TimeConfiguration;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -714,14 +700,13 @@ public class TestHelpers {
         return new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 1000), ChronoUnit.MINUTES);
     }
 
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // public static IntervalSchedule randomIntervalSchedule() {
-    // return new IntervalSchedule(
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
-    // OpenSearchRestTestCase.randomIntBetween(1, 1000),
-    // ChronoUnit.MINUTES
-    // );
-    // }
+    public static IntervalSchedule randomIntervalSchedule() {
+        return new IntervalSchedule(
+                Instant.now().truncatedTo(ChronoUnit.SECONDS),
+                OpenSearchRestTestCase.randomIntBetween(1, 1000),
+                ChronoUnit.MINUTES
+        );
+    }
 
     public static Feature randomFeature() {
         return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5));
@@ -939,33 +924,76 @@ public class TestHelpers {
             randomDoubleBetween(1.1, 10.0, true)
         );
     }
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // public static AnomalyDetectorJob randomAnomalyDetectorJob() {
-    // return randomAnomalyDetectorJob(true);
-    // }
-    //
-    // public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
-    // return new AnomalyDetectorJob(
-    // randomAlphaOfLength(10),
-    // randomIntervalSchedule(),
-    // randomIntervalTimeConfiguration(),
-    // enabled,
-    // enabledTime,
-    // disabledTime,
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
-    // 60L,
-    // randomUser(),
-    // null
-    // );
-    // }
 
-    // public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
-    // return randomAnomalyDetectorJob(
-    // enabled,
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS)
-    // );
-    // }
+    public static AnomalyDetectorJob randomAnomalyDetectorJob() {
+        return randomAnomalyDetectorJob(true);
+    }
+
+    public static ScheduledJobParameter scheduleJobParameter(){
+        return new ScheduledJobParameter() {
+            @Override
+            public String getName() {
+                return "name";
+            }
+
+            @Override
+            public Instant getLastUpdateTime() {
+                return Instant.ofEpochSecond(1L);
+            }
+
+            @Override
+            public Instant getEnabledTime() {
+                return Instant.ofEpochSecond(1L);
+            }
+
+            @Override
+            public Schedule getSchedule() {
+                return TestHelpers.randomIntervalSchedule();
+            }
+
+            @Override
+            public boolean isEnabled() {
+                return false;
+            }
+
+            @Override
+            public Double getJitter(){
+                return 1.0;
+            }
+
+            @Override
+            public Long getLockDurationSeconds(){
+                return 1L;
+            }
+
+            @Override
+            public XContentBuilder toXContent(XContentBuilder xContentBuilder, Params params) throws IOException {
+                return null;
+            }
+        };
+    }
+    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
+        return new AnomalyDetectorJob(
+                randomAlphaOfLength(10),
+                randomIntervalSchedule(),
+                randomIntervalTimeConfiguration(),
+                enabled,
+                enabledTime,
+                disabledTime,
+                Instant.now().truncatedTo(ChronoUnit.SECONDS),
+                60L,
+                randomUser(),
+                null
+        );
+    }
+
+    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
+        return randomAnomalyDetectorJob(
+                enabled,
+                Instant.now().truncatedTo(ChronoUnit.SECONDS),
+                Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        );
+    }
 
     public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() throws IOException {
         return new AnomalyDetectorExecutionInput(
