@@ -1530,5 +1530,4 @@ public class AnomalyResultTests extends AbstractADTest {
 
         assertException(listener, LimitExceededException.class, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG);
     }
-
 }

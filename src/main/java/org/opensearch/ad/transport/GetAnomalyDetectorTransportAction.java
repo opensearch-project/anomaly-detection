@@ -64,6 +64,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
@@ -86,7 +87,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
 
     private final ClusterService clusterService;
     private final Client client;
-
+    private final SecurityClientUtil clientUtil;
     private final Set<String> allProfileTypeStrs;
     private final Set<DetectorProfileName> allProfileTypes;
     private final Set<DetectorProfileName> defaultDetectorProfileTypes;
@@ -106,6 +107,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         ActionFilters actionFilters,
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         Settings settings,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
@@ -113,7 +115,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         super(GetAnomalyDetectorAction.NAME, transportService, actionFilters, GetAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
         this.client = client;
-
+        this.clientUtil = clientUtil;
         List<DetectorProfileName> allProfiles = Arrays.asList(DetectorProfileName.values());
         this.allProfileTypes = EnumSet.copyOf(allProfiles);
         this.allProfileTypeStrs = getProfileListStrs(allProfiles);
@@ -207,6 +209,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                     Set<DetectorProfileName> profilesToCollect = getProfilesToCollect(typesStr, all);
                     AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(
                         client,
+                        clientUtil,
                         xContentRegistry,
                         nodeFilter,
                         AnomalyDetectorSettings.NUM_MIN_SAMPLES,

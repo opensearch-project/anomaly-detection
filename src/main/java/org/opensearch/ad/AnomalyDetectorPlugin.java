@@ -154,6 +154,7 @@ import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.ad.util.ThrowingConsumerWrapper;
 import org.opensearch.client.Client;
@@ -218,6 +219,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     private ThreadPool threadPool;
     private ADStats adStats;
     private ClientUtil clientUtil;
+    private SecurityClientUtil securityClientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private IndexUtils indexUtils;
     private DetectionStateHandler detectorStateHandler;
@@ -326,32 +328,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
             new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
         Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
-        SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
-            client,
-            xContentRegistry,
-            interpolator,
-            clientUtil,
-            threadPool,
-            settings,
-            clusterService
-        );
 
         JvmService jvmService = new JvmService(environment.settings());
-        RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
-        CheckpointDao checkpoint = new CheckpointDao(
-            client,
-            clientUtil,
-            CommonName.CHECKPOINT_INDEX_NAME,
-            gson,
-            rcfSerde,
-            HybridThresholdingModel.class,
-            getClock(),
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            anomalyDetectionIndices,
-            AnomalyDetectorSettings.MAX_BULK_CHECKPOINT_SIZE,
-            AnomalyDetectorSettings.CHECKPOINT_BULK_PER_SECOND
-        );
-
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
 
         MemoryTracker memoryTracker = new MemoryTracker(
@@ -377,6 +355,31 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             getClock(),
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             modelPartitioner
+        );
+        securityClientUtil = new SecurityClientUtil(stateManager, settings);
+        SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
+            client,
+            xContentRegistry,
+            interpolator,
+            threadPool,
+            securityClientUtil,
+            settings,
+            clusterService
+        );
+
+        RandomCutForestSerDe rcfSerde = new RandomCutForestSerDe();
+        CheckpointDao checkpoint = new CheckpointDao(
+            client,
+            clientUtil,
+            CommonName.CHECKPOINT_INDEX_NAME,
+            gson,
+            rcfSerde,
+            HybridThresholdingModel.class,
+            getClock(),
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            anomalyDetectionIndices,
+            AnomalyDetectorSettings.MAX_BULK_CHECKPOINT_SIZE,
+            AnomalyDetectorSettings.CHECKPOINT_BULK_PER_SECOND
         );
 
         FeatureManager featureManager = new FeatureManager(
@@ -560,6 +563,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             client,
             nodeFilter,
             indexNameExpressionResolver,
+            securityClientUtil,
             adCircuitBreakerService,
             featureManager,
             adTaskManager,

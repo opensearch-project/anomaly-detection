@@ -109,7 +109,15 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public String createDetector(AnomalyDetector detector) throws IOException {
-        return indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        if (detector.getDetectorId() == null) {
+            return indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        } else {
+            return indexDoc(
+                AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+                detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE),
+                detector.getDetectorId()
+            );
+        }
     }
 
     public String createADResult(AnomalyResult adResult) throws IOException {
@@ -166,6 +174,16 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public String indexDoc(String indexName, XContentBuilder source) {
         IndexRequest indexRequest = new IndexRequest(indexName).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE).source(source);
+        IndexResponse indexResponse = client().index(indexRequest).actionGet(timeout);
+        assertEquals(RestStatus.CREATED, indexResponse.status());
+        return indexResponse.getId();
+    }
+
+    public String indexDoc(String indexName, XContentBuilder source, String detectorId) {
+        IndexRequest indexRequest = new IndexRequest(indexName)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .source(source)
+            .id(detectorId);
         IndexResponse indexResponse = client().index(indexRequest).actionGet(timeout);
         assertEquals(RestStatus.CREATED, indexResponse.status());
         return indexResponse.getId();

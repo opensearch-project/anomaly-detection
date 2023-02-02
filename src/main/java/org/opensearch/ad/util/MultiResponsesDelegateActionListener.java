@@ -85,7 +85,7 @@ public class MultiResponsesDelegateActionListener<T extends Mergeable> implement
 
     @Override
     public void onFailure(Exception e) {
-        LOG.error(e);
+        LOG.error("Failure in response", e);
         try {
             this.exceptions.add(e.getMessage());
         } finally {

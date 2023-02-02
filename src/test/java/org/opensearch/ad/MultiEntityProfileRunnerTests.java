@@ -45,7 +45,9 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
@@ -66,15 +68,18 @@ import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileNodeResponse;
 import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.transport.TransportService;
 
 public class MultiEntityProfileRunnerTests extends AbstractADTest {
     private AnomalyDetectorProfileRunner runner;
     private Client client;
+    private SecurityClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private int requiredSamples;
     private AnomalyDetector detector;
@@ -103,12 +108,24 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         NOT_INITTED,
     }
 
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        setUpThreadPool(MultiEntityProfileRunnerTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
+    }
+
     @SuppressWarnings("unchecked")
     @Before
     @Override
     public void setUp() throws Exception {
         super.setUp();
         client = mock(Client.class);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         requiredSamples = 128;
 
@@ -118,7 +135,15 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
         job = TestHelpers.randomAnomalyDetectorJob(true);
         adTaskManager = mock(ADTaskManager.class);
         transportService = mock(TransportService.class);
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
+        runner = new AnomalyDetectorProfileRunner(
+            client,
+            clientUtil,
+            xContentRegistry(),
+            nodeFilter,
+            requiredSamples,
+            transportService,
+            adTaskManager
+        );
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

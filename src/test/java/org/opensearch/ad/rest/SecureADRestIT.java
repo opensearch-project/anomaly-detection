@@ -283,6 +283,10 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Exception.class,
             () -> { previewAnomalyDetector(aliceDetector.getDetectorId(), elkClient, input); }
         );
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:data/read/search]"));
+        Assert
+            .assertTrue(
+                "actual msg: " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [indices:data/read/search]")
+            );
     }
 }
