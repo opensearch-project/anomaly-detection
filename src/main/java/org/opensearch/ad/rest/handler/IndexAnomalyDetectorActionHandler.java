@@ -68,6 +68,7 @@ import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
@@ -111,6 +112,7 @@ public class IndexAnomalyDetectorActionHandler {
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
     private final RestRequest.Method method;
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private final TransportService transportService;
     private final NamedXContentRegistry xContentRegistry;
     private final ActionListener<IndexAnomalyDetectorResponse> listener;
@@ -122,6 +124,7 @@ public class IndexAnomalyDetectorActionHandler {
      *
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
+     * @param clientUtil              AD client util
      * @param transportService        ES transport service
      * @param listener                 ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
@@ -142,6 +145,7 @@ public class IndexAnomalyDetectorActionHandler {
     public IndexAnomalyDetectorActionHandler(
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         TransportService transportService,
         ActionListener<IndexAnomalyDetectorResponse> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -161,6 +165,7 @@ public class IndexAnomalyDetectorActionHandler {
     ) {
         this.clusterService = clusterService;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.transportService = transportService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.listener = listener;
@@ -412,7 +417,7 @@ public class IndexAnomalyDetectorActionHandler {
             listener.onFailure(new IllegalArgumentException(message));
         });
 
-        client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
+        clientUtil.executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, mappingsListener);
     }
 
     private void searchAdInputIndices(String detectorId) {
@@ -423,15 +428,10 @@ public class IndexAnomalyDetectorActionHandler {
 
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
 
-        client
-            .search(
-                searchRequest,
-                ActionListener
-                    .wrap(
-                        searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId),
-                        exception -> listener.onFailure(exception)
-                    )
-            );
+        ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(searchResponse -> onSearchAdInputIndicesResponse(searchResponse, detectorId), exception -> listener.onFailure(exception));
+
+        clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, searchResponseListener);
     }
 
     private void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId) throws IOException {

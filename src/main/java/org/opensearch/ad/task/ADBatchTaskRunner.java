@@ -65,6 +65,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.PriorityTracker;
@@ -103,6 +104,7 @@ import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -134,6 +136,7 @@ public class ADBatchTaskRunner {
 
     private final ThreadPool threadPool;
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private final ADStats adStats;
     private final ClusterService clusterService;
     private final FeatureManager featureManager;
@@ -161,6 +164,7 @@ public class ADBatchTaskRunner {
         ThreadPool threadPool,
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         ADCircuitBreakerService adCircuitBreakerService,
         FeatureManager featureManager,
         ADTaskManager adTaskManager,
@@ -174,6 +178,7 @@ public class ADBatchTaskRunner {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.anomalyResultBulkIndexHandler = anomalyResultBulkIndexHandler;
         this.adStats = adStats;
         this.adCircuitBreakerService = adCircuitBreakerService;
@@ -445,7 +450,7 @@ public class ADBatchTaskRunner {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(sourceBuilder);
         searchRequest.indices(adTask.getDetector().getIndices().toArray(new String[0]));
-        client.search(searchRequest, ActionListener.wrap(r -> {
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(r -> {
             StringTerms stringTerms = r.getAggregations().get(topEntitiesAgg);
             List<StringTerms.Bucket> buckets = stringTerms.getBuckets();
             List<String> topEntities = new ArrayList<>();
@@ -480,7 +485,18 @@ public class ADBatchTaskRunner {
         }, e -> {
             logger.error("Failed to get top entities for detector " + adTask.getDetectorId(), e);
             internalHCListener.onFailure(e);
-        }));
+        });
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
+                adTask.getUser(),
+                client,
+                searchResponseListener
+            );
     }
 
     /**
@@ -956,8 +972,7 @@ public class ADBatchTaskRunner {
         SearchRequest request = new SearchRequest()
             .indices(adTask.getDetector().getIndices().toArray(new String[0]))
             .source(searchSourceBuilder);
-
-        client.search(request, ActionListener.wrap(r -> {
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(r -> {
             InternalMin minAgg = r.getAggregations().get(AGG_NAME_MIN_TIME);
             InternalMax maxAgg = r.getAggregations().get(AGG_NAME_MAX_TIME);
             double minValue = minAgg.getValue();
@@ -996,7 +1011,18 @@ public class ADBatchTaskRunner {
                 return;
             }
             consumer.accept(dataStartTime, dataEndTime);
-        }, e -> { internalListener.onFailure(e); }));
+        }, e -> { internalListener.onFailure(e); });
+
+        // inject user role while searching.
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                request,
+                client::search,
+                // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
+                adTask.getUser(),
+                client,
+                searchResponseListener
+            );
     }
 
     private void getFeatureData(

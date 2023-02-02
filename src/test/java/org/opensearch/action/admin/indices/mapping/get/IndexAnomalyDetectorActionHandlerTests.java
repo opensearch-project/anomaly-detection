@@ -58,6 +58,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -65,6 +66,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -90,6 +92,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     private IndexAnomalyDetectorActionHandler handler;
     private ClusterService clusterService;
     private NodeClient clientMock;
+    private SecurityClientUtil clientUtil;
     private TransportService transportService;
     private ActionListener<IndexAnomalyDetectorResponse> channel;
     private AnomalyDetectionIndices anomalyDetectionIndices;
@@ -145,7 +148,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         settings = Settings.EMPTY;
         clusterService = mock(ClusterService.class);
-        clientMock = spy(new NodeClient(settings, null));
+        clientMock = spy(new NodeClient(settings, threadPool));
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, settings);
         transportService = mock(TransportService.class);
 
         channel = mock(ActionListener.class);
@@ -177,6 +182,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
+            clientUtil,
             transportService,
             channel,
             anomalyDetectionIndices,
@@ -225,6 +231,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
+            clientUtil,
             transportService,
             channel,
             anomalyDetectionIndices,
@@ -286,10 +293,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
                 }
             }
         };
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             client,
+            clientUtil,
             transportService,
             channel,
             anomalyDetectionIndices,
@@ -363,10 +373,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         };
 
         NodeClient clientSpy = spy(client);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientSpy,
+            clientUtil,
             transportService,
             channel,
             anomalyDetectionIndices,
@@ -454,6 +467,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         };
 
         NodeClient clientSpy = spy(client);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         ClusterName clusterName = new ClusterName("test");
         ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
@@ -461,6 +476,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientSpy,
+            clientUtil,
             transportService,
             channel,
             anomalyDetectionIndices,
@@ -587,6 +603,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
+            clientUtil,
             transportService,
             channel,
             anomalyDetectionIndices,
@@ -662,6 +679,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
+            clientUtil,
             transportService,
             channel,
             anomalyDetectionIndices,

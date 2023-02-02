@@ -34,12 +34,14 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
@@ -48,7 +50,9 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -80,6 +84,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
 
     protected AnomalyDetectorProfileRunner runner;
     protected Client client;
+    protected SecurityClientUtil clientUtil;
     protected DiscoveryNodeFilterer nodeFilter;
     protected AnomalyDetector detector;
     protected ClusterService clusterService;
@@ -156,6 +161,12 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
             emptySet(),
             Version.CURRENT
         );
+        setUpThreadPool(AnomalyResultTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
     }
 
     @SuppressWarnings("unchecked")
@@ -164,6 +175,9 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
         client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
+        Clock clock = mock(Clock.class);
+
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         clusterService = mock(ClusterService.class);
         adTaskManager = mock(ADTaskManager.class);
@@ -178,7 +192,6 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
             function.accept(Optional.of(TestHelpers.randomAdTask()));
             return null;
         }).when(adTaskManager).getAndExecuteOnLatestDetectorLevelTask(any(), any(), any(), any(), anyBoolean(), any());
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
 
         detectorIntervalMin = 3;
         detectorGetReponse = mock(GetResponse.class);

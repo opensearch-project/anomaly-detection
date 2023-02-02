@@ -35,13 +35,17 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTask;
@@ -54,6 +58,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
@@ -66,12 +71,14 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.threadpool.TestThreadPool;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
 
 public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNodeTestCase {
-
+    private static ThreadPool threadPool;
     private GetAnomalyDetectorTransportAction action;
     private Task task;
     private ActionListener<GetAnomalyDetectorResponse> response;
@@ -79,6 +86,16 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
     private Entity entity;
     private String categoryField;
     private String categoryValue;
+
+    @BeforeClass
+    public static void beforeCLass() {
+        threadPool = new TestThreadPool("GetAnomalyDetectorTransportActionTests");
+    }
+
+    @AfterClass
+    public static void afterClass() {
+        ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
+    }
 
     @Override
     @Before
@@ -91,12 +108,15 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         adTaskManager = mock(ADTaskManager.class);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        SecurityClientUtil clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         action = new GetAnomalyDetectorTransportAction(
             Mockito.mock(TransportService.class),
             Mockito.mock(DiscoveryNodeFilterer.class),
             Mockito.mock(ActionFilters.class),
             clusterService,
             client(),
+            clientUtil,
             Settings.EMPTY,
             xContentRegistry(),
             adTaskManager

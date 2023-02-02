@@ -115,6 +115,8 @@ import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.Bwc;
 import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.SecurityClientUtil;
+import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -158,6 +160,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     private static Settings settings;
     private TransportService transportService;
     private Client client;
+    private SecurityClientUtil securityClientUtil;
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
     private HashRing hashRing;
@@ -228,6 +231,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         setUpADThreadPool(mockThreadPool);
         when(client.threadPool()).thenReturn(mockThreadPool);
         when(mockThreadPool.getThreadContext()).thenReturn(threadContext);
+        securityClientUtil = new SecurityClientUtil(stateManager, settings);
 
         featureQuery = mock(FeatureManager.class);
 
@@ -286,6 +290,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            securityClientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -430,31 +435,34 @@ public class MultiEntityResultTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     public void setUpNormlaStateManager() throws IOException {
-        ClientUtil clientUtil = mock(ClientUtil.class);
 
         AnomalyDetector detector = TestHelpers
             .randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), true, true);
+
         doAnswer(invocation -> {
-            ActionListener<GetResponse> listener = invocation.getArgument(2);
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
             listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
             return null;
-        }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
+        }).when(client).get(any(GetRequest.class), any(ActionListener.class));
 
         stateManager = new NodeStateManager(
             client,
             xContentRegistry(),
             settings,
-            clientUtil,
+            new ClientUtil(settings, client, new Throttler(mock(Clock.class)), threadPool),
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             clusterService
         );
+
+        securityClientUtil = new SecurityClientUtil(stateManager, settings);
 
         action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
             settings,
             client,
+            securityClientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -528,7 +536,6 @@ public class MultiEntityResultTests extends AbstractADTest {
         }).when(client).search(any(), any());
 
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
-
         action.doExecute(null, request, listener);
 
         AnomalyResultResponse response = listener.actionGet(10000L);
@@ -694,6 +701,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             realTransportService,
             settings,
             client,
+            securityClientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -753,6 +761,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            securityClientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1104,6 +1113,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             detector,
             xContentRegistry(),
             client,
+            securityClientUtil,
             100,
             clock,
             settings,
@@ -1128,6 +1138,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             detector,
             xContentRegistry(),
             client,
+            securityClientUtil,
             100,
             clock,
             settings,

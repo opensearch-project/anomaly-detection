@@ -29,6 +29,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -61,6 +62,7 @@ public class CompositeRetriever extends AbstractRetriever {
     private final AnomalyDetector anomalyDetector;
     private final NamedXContentRegistry xContent;
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private int totalResults;
     private int maxEntities;
     private final int pageSize;
@@ -73,6 +75,7 @@ public class CompositeRetriever extends AbstractRetriever {
         AnomalyDetector anomalyDetector,
         NamedXContentRegistry xContent,
         Client client,
+        SecurityClientUtil clientUtil,
         long expirationEpochMs,
         Clock clock,
         Settings settings,
@@ -84,6 +87,7 @@ public class CompositeRetriever extends AbstractRetriever {
         this.anomalyDetector = anomalyDetector;
         this.xContent = xContent;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.totalResults = 0;
         this.maxEntities = maxEntitiesPerInterval;
         this.pageSize = pageSize;
@@ -98,6 +102,7 @@ public class CompositeRetriever extends AbstractRetriever {
         AnomalyDetector anomalyDetector,
         NamedXContentRegistry xContent,
         Client client,
+        SecurityClientUtil clientUtil,
         long expirationEpochMs,
         Settings settings,
         int maxEntitiesPerInterval,
@@ -109,6 +114,7 @@ public class CompositeRetriever extends AbstractRetriever {
             anomalyDetector,
             xContent,
             client,
+            clientUtil,
             expirationEpochMs,
             Clock.systemUTC(),
             settings,
@@ -157,10 +163,13 @@ public class CompositeRetriever extends AbstractRetriever {
         private SearchSourceBuilder source;
         // a map from categorical field name to values (type: java.lang.Comparable)
         Map<String, Object> afterKey;
+        // number of iterations so far
+        private int iterations;
 
         public PageIterator(SearchSourceBuilder source) {
             this.source = source;
             this.afterKey = null;
+            this.iterations = 0;
         }
 
         /**
@@ -168,8 +177,11 @@ public class CompositeRetriever extends AbstractRetriever {
          * @param listener Listener to return results
          */
         public void next(ActionListener<Page> listener) {
+            iterations++;
+
+            // inject user role while searching.
             SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]), source);
-            client.search(searchRequest, new ActionListener<SearchResponse>() {
+            final ActionListener<SearchResponse> searchResponseListener = new ActionListener<SearchResponse>() {
                 @Override
                 public void onResponse(SearchResponse response) {
                     processResponse(response, () -> client.search(searchRequest, this), listener);
@@ -179,7 +191,17 @@ public class CompositeRetriever extends AbstractRetriever {
                 public void onFailure(Exception e) {
                     listener.onFailure(e);
                 }
-            });
+            };
+            // using the original context in listener as user roles have no permissions for internal operations like fetching a
+            // checkpoint
+            clientUtil
+                .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                    searchRequest,
+                    client::search,
+                    anomalyDetector.getDetectorId(),
+                    client,
+                    searchResponseListener
+                );
         }
 
         private void processResponse(SearchResponse response, Runnable retry, ActionListener<Page> listener) {
@@ -301,12 +323,12 @@ public class CompositeRetriever extends AbstractRetriever {
 
         /**
          * Whether next page exists.  Conditions are:
-         * 1) we haven't fetched any page yet (totalResults == 0) or afterKey is not null
+         * 1)this is the first time we query (iterations == 0) or afterKey is not null
          * 2) next detection interval has not started
          * @return true if the iteration has more pages.
          */
         public boolean hasNext() {
-            return (totalResults == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
+            return (iterations == 0 || (totalResults > 0 && afterKey != null)) && expirationEpochMs > clock.millis();
         }
 
         @Override

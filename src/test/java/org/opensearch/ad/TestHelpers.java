@@ -804,6 +804,19 @@ public class TestHelpers {
             );
     }
 
+    public static void createIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        indexMappings.append("}}");
+        createIndex(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+        createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
+    }
+
+    public static void createIndexMapping(RestClient client, String indexName, HttpEntity mappings) throws IOException {
+        TestHelpers.makeRequest(client, "POST", "/" + indexName + "/_mapping", ImmutableMap.of(), mappings, null);
+    }
+
     public static GetResponse createGetResponse(ToXContentObject o, String id, String indexName) throws IOException {
         XContentBuilder content = o.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS);
         return new GetResponse(
