@@ -31,15 +31,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -999,6 +991,19 @@ public class TestHelpers {
                 data,
                 null
             );
+    }
+
+    public static void createIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+        StringBuilder indexMappings = new StringBuilder();
+        indexMappings.append("{\"properties\":{");
+        indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        indexMappings.append("}}");
+        createIndex(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+        createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
+    }
+
+    public static void createIndexMapping(RestClient client, String indexName, HttpEntity mappings) throws IOException {
+        TestHelpers.makeRequest(client, "POST", "/" + indexName + "/_mapping", ImmutableMap.of(), mappings, null);
     }
 
     public static GetResponse createGetResponse(ToXContentObject o, String id, String indexName) throws IOException {

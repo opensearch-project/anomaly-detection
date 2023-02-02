@@ -37,6 +37,7 @@ import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -56,6 +57,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     private static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
 
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
@@ -65,6 +67,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     @Inject
     public ValidateAnomalyDetectorTransportAction(
         Client client,
+        SecurityClientUtil clientUtil,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         Settings settings,
@@ -75,6 +78,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     ) {
         super(ValidateAnomalyDetectorAction.NAME, transportService, actionFilters, ValidateAnomalyDetectorRequest::new);
         this.client = client;
+        this.clientUtil = clientUtil;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -139,6 +143,7 @@ public class ValidateAnomalyDetectorTransportAction extends
             ValidateAnomalyDetectorActionHandler handler = new ValidateAnomalyDetectorActionHandler(
                 clusterService,
                 client,
+                clientUtil,
                 validateListener,
                 anomalyDetectionIndices,
                 detector,

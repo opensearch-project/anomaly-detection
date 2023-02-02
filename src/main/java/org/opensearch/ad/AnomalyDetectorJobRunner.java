@@ -57,6 +57,7 @@ import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileRequest;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.SecurityUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
@@ -76,7 +77,6 @@ import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 
 /**
  * JobScheduler will call AD job runner to get anomaly result periodically
@@ -218,28 +218,11 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         }
         anomalyDetectionIndices.update();
 
-        /*
-         * We need to handle 3 cases:
-         * 1. Detectors created by older versions and never updated. These detectors wont have User details in the
-         * detector object. `detector.user` will be null. Insert `all_access, AmazonES_all_access` role.
-         * 2. Detectors are created when security plugin is disabled, these will have empty User object.
-         * (`detector.user.name`, `detector.user.roles` are empty )
-         * 3. Detectors are created when security plugin is enabled, these will have an User object.
-         * This will inject user role and check if the user role has permissions to call the execute
-         * Anomaly Result API.
-         */
-        String user;
-        List<String> roles;
-        if (jobParameter.getUser() == null) {
-            // It's possible that user create domain with security disabled, then enable security
-            // after upgrading. This is for BWC, for old detectors which created when security
-            // disabled, the user will be null.
-            user = "";
-            roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
-        } else {
-            user = jobParameter.getUser().getName();
-            roles = jobParameter.getUser().getRoles();
-        }
+        User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
+
+        String user = userInfo.getName();
+        List<String> roles = userInfo.getRoles();
+
         String resultIndex = jobParameter.getResultIndex();
         if (resultIndex == null) {
             runAnomalyDetectionJob(jobParameter, lockService, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
@@ -265,7 +248,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String user,
         List<String> roles
     ) {
-
+        // using one thread in the write threadpool
         try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
             // Injecting user role to verify if the user has permissions for our API.
             injectSecurity.inject(user, roles);

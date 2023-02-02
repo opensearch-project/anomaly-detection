@@ -18,11 +18,14 @@ import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTT
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,6 +55,10 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
@@ -198,5 +205,47 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     @Override
     protected boolean preserveIndicesUponCompletion() {
         return true;
+    }
+
+    protected void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
+        int maxWaitCycles = 3;
+        do {
+            Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
+            request
+                .setJsonEntity(
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "{\"query\": {"
+                                + "        \"match_all\": {}"
+                                + "    },"
+                                + "    \"size\": 1,"
+                                + "    \"sort\": ["
+                                + "       {"
+                                + "         \"timestamp\": {"
+                                + "           \"order\": \"desc\""
+                                + "         }"
+                                + "       }"
+                                + "   ]}"
+                        )
+                );
+            // Make sure all of the test data has been ingested
+            // Expected response:
+            // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
+            Response response = client.performRequest(request);
+            JsonObject json = JsonParser
+                .parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset()))
+                .getAsJsonObject();
+            JsonArray hits = json.getAsJsonObject("hits").getAsJsonArray("hits");
+            if (hits != null
+                && hits.size() == 1
+                && expectedSize - 1 == hits.get(0).getAsJsonObject().getAsJsonPrimitive("_id").getAsLong()) {
+                break;
+            } else {
+                request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
+                client.performRequest(request);
+            }
+            Thread.sleep(1_000);
+        } while (maxWaitCycles-- >= 0);
     }
 }

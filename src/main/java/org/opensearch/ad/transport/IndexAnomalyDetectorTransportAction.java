@@ -36,6 +36,7 @@ import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -53,6 +54,7 @@ import org.opensearch.transport.TransportService;
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private final TransportService transportService;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final ClusterService clusterService;
@@ -60,12 +62,14 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
+    private final Settings settings;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
+        SecurityClientUtil clientUtil,
         ClusterService clusterService,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -75,6 +79,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
+        this.clientUtil = clientUtil;
         this.transportService = transportService;
         this.clusterService = clusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -83,6 +88,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.searchFeatureDao = searchFeatureDao;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        this.settings = settings;
     }
 
     @Override
@@ -157,6 +163,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
             IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                 clusterService,
                 client,
+                clientUtil,
                 transportService,
                 listener,
                 anomalyDetectionIndices,

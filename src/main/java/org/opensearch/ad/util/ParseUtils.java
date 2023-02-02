@@ -456,6 +456,14 @@ public final class ParseUtils {
         return searchSourceBuilder;
     }
 
+    /**
+     * Generates a user string formed by the username, backend roles, roles and requested tenants separated by '|'
+     * (e.g., john||own_index,testrole|__user__, no backend role so you see two verticle line after john.).
+     * This is the user string format used internally in the OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT and may be
+     * parsed using User.parse(string).
+     * @param client Client containing user info. A public API request will fill in the user info in the thread context.
+     * @return parsed user object
+     */
     public static User getUserContext(Client client) {
         String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
         logger.debug("Filtering result by " + userStr);

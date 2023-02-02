@@ -11,29 +11,22 @@
 
 package org.opensearch.ad.feature;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +34,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.BytesRef;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
@@ -52,7 +47,9 @@ import org.opensearch.action.search.SearchResponse.Clusters;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -60,7 +57,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -71,16 +68,12 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
-import org.opensearch.search.aggregations.AggregationBuilder;
-import org.opensearch.search.aggregations.Aggregations;
-import org.opensearch.search.aggregations.AggregatorFactories;
-import org.opensearch.search.aggregations.BucketOrder;
-import org.opensearch.search.aggregations.InternalAggregations;
-import org.opensearch.search.aggregations.InternalOrder;
+import org.opensearch.search.aggregations.*;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.*;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
@@ -88,7 +81,8 @@ import org.opensearch.search.internal.InternalSearchResponse;
 import com.google.common.collect.ImmutableList;
 
 /**
- * SearchFeatureDaoTests uses Powermock and has strange log4j related errors.
+ * SearchFeatureDaoTests uses Powermock and has strange log4j related errors
+ * (e.g., TEST_INSTANCES_ARE_REUSED).
  * Create a new class for new tests related to SearchFeatureDao.
  *
  */
@@ -99,7 +93,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private Client client;
     private SearchFeatureDao searchFeatureDao;
     private LinearUniformInterpolator interpolator;
-    private ClientUtil clientUtil;
+    private SecurityClientUtil clientUtil;
     private Settings settings;
     private ClusterService clusterService;
     private Clock clock;
@@ -107,7 +101,18 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private String detectorId;
     private Map<String, Object> attrs1, attrs2;
 
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        setUpThreadPool(NoPowermockSearchFeatureDaoTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
+    }
+
     @Override
+    @SuppressWarnings("unchecked")
     public void setUp() throws Exception {
         super.setUp();
         serviceField = "service";
@@ -125,10 +130,9 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
 
         client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
 
         interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
-
-        clientUtil = mock(ClientUtil.class);
 
         settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
@@ -141,6 +145,13 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         clock = mock(Clock.class);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        clientUtil = new SecurityClientUtil(nodeStateManager, settings);
 
         searchFeatureDao = new SearchFeatureDao(
             client,
@@ -570,5 +581,165 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
 
     public void testGetColdStartSamplesForPeriodsRawFormat() throws IOException, InterruptedException {
         getColdStartSamplesForPeriodsTemplate(DocValueFormat.RAW);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetFeaturesForPeriod_throwToListener_whenSearchFails() throws Exception {
+
+        long start = 100L;
+        long end = 200L;
+        // when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onFailure(new RuntimeException());
+            return null;
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
+
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
+
+        verify(listener).onFailure(any(Exception.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetEntityMinDataTime() {
+        // simulate response {"took":11,"timed_out":false,"_shards":{"total":1,
+        // "successful":1,"skipped":0,"failed":0},"hits":{"max_score":null,"hits":[]},
+        // "aggregations":{"min_timefield":{"value":1.602211285E12,
+        // "value_as_string":"2020-10-09T02:41:25.000Z"},
+        // "max_timefield":{"value":1.602348325E12,"value_as_string":"2020-10-10T16:45:25.000Z"}}}
+        DocValueFormat dateFormat = new DocValueFormat.DateTime(
+            DateFormatter.forPattern("strict_date_optional_time||epoch_millis"),
+            ZoneId.of("UTC"),
+            DateFieldMapper.Resolution.MILLISECONDS
+        );
+        double earliest = 1.602211285E12;
+        InternalMin minInternal = new InternalMin("min_timefield", earliest, dateFormat, new HashMap<>());
+        InternalAggregations internalAggregations = InternalAggregations.from(Arrays.asList(minInternal));
+        SearchHits hits = new SearchHits(new SearchHit[] {}, null, Float.NaN);
+        SearchResponseSections searchSections = new SearchResponseSections(hits, internalAggregations, null, false, false, null, 1);
+
+        SearchResponse searchResponse = new SearchResponse(
+            searchSections,
+            null,
+            1,
+            1,
+            0,
+            11,
+            ShardSearchFailure.EMPTY_ARRAY,
+            SearchResponse.Clusters.EMPTY
+        );
+
+        doAnswer(invocation -> {
+            SearchRequest request = invocation.getArgument(0);
+            assertEquals(1, request.indices().length);
+            assertTrue(detector.getIndices().contains(request.indices()[0]));
+            AggregatorFactories.Builder aggs = request.source().aggregations();
+            assertEquals(1, aggs.count());
+            Collection<AggregationBuilder> factory = aggs.getAggregatorFactories();
+            assertTrue(!factory.isEmpty());
+            Iterator<AggregationBuilder> iterator = factory.iterator();
+            while (iterator.hasNext()) {
+                assertThat(iterator.next(), anyOf(instanceOf(MaxAggregationBuilder.class), instanceOf(MinAggregationBuilder.class)));
+            }
+
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
+
+        ActionListener<Optional<Long>> listener = mock(ActionListener.class);
+        Entity entity = Entity.createSingleAttributeEntity("field", "app_1");
+        searchFeatureDao.getEntityMinDataTime(detector, entity, listener);
+
+        ArgumentCaptor<Optional<Long>> captor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(captor.capture());
+        Optional<Long> result = captor.getValue();
+        assertEquals((long) earliest, result.get().longValue());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetFeaturesForPeriod_throwToListener_whenResponseParsingFails() throws Exception {
+
+        long start = 100L;
+        long end = 200L;
+
+        SearchResponse searchResponse = mock(SearchResponse.class);
+        SearchHits hits = new SearchHits(new SearchHit[0], new TotalHits(1L, TotalHits.Relation.EQUAL_TO), 1f);
+        when(searchResponse.getHits()).thenReturn(hits);
+
+        // when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(detector.getEnabledFeatureIds()).thenReturn(null);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
+
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
+
+        verify(listener).onResponse(eq(Optional.empty()));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetFeaturesForSampledPeriods_throwToListener_whenSamplingFail() {
+        SearchFeatureDao spySearchFeatureDao = spy(searchFeatureDao);
+        doAnswer(invocation -> {
+            ActionListener<Optional<double[]>> listener = invocation.getArgument(3);
+            listener.onFailure(new RuntimeException());
+            return null;
+        }).when(spySearchFeatureDao).getFeaturesForPeriod(any(), anyLong(), anyLong(), any(ActionListener.class));
+
+        ActionListener<Optional<Entry<double[][], Integer>>> listener = mock(ActionListener.class);
+        spySearchFeatureDao.getFeaturesForSampledPeriods(detector, 1, 1, 0, listener);
+
+        verify(listener).onFailure(any(Exception.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testGetLatestDataTime_returnExpectedToListener() {
+        long epochTime = 100L;
+
+        // simulate response {"took":11,"timed_out":false,"_shards":{"total":1,
+        // "successful":1,"skipped":0,"failed":0},"hits":{"max_score":null,"hits":[]},
+        // "aggregations":{"min_timefield":{"value":1.602211285E12,
+        // "value_as_string":"2020-10-09T02:41:25.000Z"},
+        // "max_timefield":{"value":1.602348325E12,"value_as_string":"2020-10-10T16:45:25.000Z"}}}
+        DocValueFormat dateFormat = new DocValueFormat.DateTime(
+            DateFormatter.forPattern("strict_date_optional_time||epoch_millis"),
+            ZoneId.of("UTC"),
+            DateFieldMapper.Resolution.MILLISECONDS
+        );
+        InternalMax minInternal = new InternalMax(CommonName.AGG_NAME_MAX_TIME, epochTime, dateFormat, new HashMap<>());
+        InternalAggregations internalAggregations = InternalAggregations.from(Arrays.asList(minInternal));
+        SearchHits hits = new SearchHits(new SearchHit[] {}, null, Float.NaN);
+        SearchResponseSections searchSections = new SearchResponseSections(hits, internalAggregations, null, false, false, null, 1);
+
+        SearchResponse searchResponse = new SearchResponse(
+            searchSections,
+            null,
+            1,
+            1,
+            0,
+            11,
+            ShardSearchFailure.EMPTY_ARRAY,
+            SearchResponse.Clusters.EMPTY
+        );
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
+
+        // when(ParseUtils.getLatestDataTime(eq(searchResponse))).thenReturn(Optional.of(epochTime));
+        ActionListener<Optional<Long>> listener = mock(ActionListener.class);
+        searchFeatureDao.getLatestDataTime(detector, listener);
+
+        ArgumentCaptor<Optional<Long>> captor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(captor.capture());
+        Optional<Long> result = captor.getValue();
+        assertEquals(epochTime, result.get().longValue());
     }
 }
