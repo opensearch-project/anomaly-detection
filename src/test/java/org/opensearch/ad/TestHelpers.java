@@ -15,6 +15,7 @@ import org.mockito.Mockito;
 import org.opensearch.ad.model.*;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
@@ -1543,4 +1544,27 @@ public class TestHelpers {
         ClusterState clusterState = new ClusterState(new ClusterName("test_name"), 1l, "uuid", metaData, null, null, null, null, 1, true);
         return clusterState;
     }
+
+    public static XContentBuilder randomXContent() throws IOException {
+        AnomalyDetectorJob anomalyDetectorJob = randomAnomalyDetectorJob();
+        XContentBuilder xContentBuilder = JsonXContent.contentBuilder()
+                .startObject()
+                .field(AnomalyDetectorJob.NAME_FIELD, anomalyDetectorJob.getName())
+                .field(AnomalyDetectorJob.SCHEDULE_FIELD, anomalyDetectorJob.getSchedule())
+                .field(AnomalyDetectorJob.WINDOW_DELAY_FIELD, anomalyDetectorJob.getWindowDelay())
+                .field(AnomalyDetectorJob.IS_ENABLED_FIELD, anomalyDetectorJob.isEnabled())
+                .field(AnomalyDetectorJob.ENABLED_TIME_FIELD, anomalyDetectorJob.getEnabledTime().toEpochMilli())
+                .field(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD, anomalyDetectorJob.getLastUpdateTime().toEpochMilli())
+                .field(AnomalyDetectorJob.LOCK_DURATION_SECONDS, anomalyDetectorJob.getLockDurationSeconds());
+        if (anomalyDetectorJob.getDisabledTime() != null) {
+            xContentBuilder.field(AnomalyDetectorJob.DISABLED_TIME_FIELD, anomalyDetectorJob.getDisabledTime().toEpochMilli());
+        }
+        if (anomalyDetectorJob.getUser() != null) {
+            xContentBuilder.field(AnomalyDetectorJob.USER_FIELD, anomalyDetectorJob.getUser());
+        }
+
+        return xContentBuilder.endObject();
+
+    }
+
 }

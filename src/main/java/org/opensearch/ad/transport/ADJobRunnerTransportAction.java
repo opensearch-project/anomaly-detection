@@ -12,31 +12,34 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorJobRunner;
-import org.opensearch.client.Client;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
-import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
 import org.opensearch.jobscheduler.transport.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.JobRunnerRequest;
 import org.opensearch.jobscheduler.transport.JobRunnerResponse;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
+/**
+ * Transport Action to execute job runner of anomaly detection.
+ */
 public class ADJobRunnerTransportAction extends HandledTransportAction<ExtensionActionRequest, ExtensionActionResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ADJobRunnerTransportAction.class);
 
-    private Client client;
+    private SDKRestClient client;
 
     protected ADJobRunnerTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
-        Client client
+        SDKRestClient client
     ) {
         super(ADJobRunnerAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
         this.client=client;
@@ -55,10 +58,11 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
         }
 
         try {
-            //ScheduledJobParameter scheduledJobParameter = jobRunnerRequest.getJobParameter();
             final AnomalyDetectorJob[] scheduledJobParameter = new AnomalyDetectorJob[1];
             CompletableFuture<AnomalyDetectorJob[]> inProgressFuture = new CompletableFuture<>();
-            findById(jobRunnerRequest.getJobParameterDocumentId(), new ActionListener<>() {
+
+            String jobParameterDocumentId=jobRunnerRequest.getJobParameterDocumentId();
+            findById(jobParameterDocumentId, new ActionListener<>() {
                         @Override
                         public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
                             scheduledJobParameter[0] =anomalyDetectorJob;
@@ -67,7 +71,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
 
                         @Override
                         public void onFailure(Exception e) {
-                            logger.info("could not process job index", e);
+                            logger.info("could not find AnomalyDetectorJob with id "+jobParameterDocumentId, e);
                             inProgressFuture.completeExceptionally(e);
                         }
                     }
@@ -84,7 +88,6 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
 
     }
 
-
     private void findById(String jobParameterId, ActionListener<AnomalyDetectorJob> listener) {
         GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, jobParameterId);
 
@@ -95,7 +98,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                 try {
                     XContentParser parser = XContentType.JSON.xContent()
                             .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
-                    parser.nextToken();
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     listener.onResponse(AnomalyDetectorJob.parse(parser));
                 } catch (IOException e) {
                     logger.error("IOException occurred finding AnomalyDetectorJob for jobParameterId " + jobParameterId, e);

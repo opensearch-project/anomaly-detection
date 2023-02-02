@@ -40,6 +40,8 @@ import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+
 
 import com.google.common.collect.ImmutableList;
 
@@ -114,12 +116,23 @@ public class AnomalyDetectorExtension extends BaseExtension {
     // TODO: replace or override client object on BaseExtension
     // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
     public OpenSearchClient getClient() {
-        SDKClient sdkClient = new SDKClient();
-        OpenSearchClient client = sdkClient
+        @SuppressWarnings("resource")
+        OpenSearchClient client = new SDKClient()
             .initializeJavaClient(
                 getExtensionSettings().getOpensearchAddress(),
                 Integer.parseInt(getExtensionSettings().getOpensearchPort())
             );
+        return client;
+    }
+
+    @Deprecated
+    public SDKRestClient getRestClient() {
+        @SuppressWarnings("resource")
+        SDKRestClient client = new SDKClient()
+                .initializeRestClient(
+                        getExtensionSettings().getOpensearchAddress(),
+                        Integer.parseInt(getExtensionSettings().getOpensearchPort())
+                );
         return client;
     }
 

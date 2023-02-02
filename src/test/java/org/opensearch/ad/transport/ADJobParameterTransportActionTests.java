@@ -7,6 +7,8 @@ import org.mockito.Mockito;
 import static org.mockito.Mockito.*;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.bytes.BytesReference;
@@ -45,10 +47,7 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
         );
         task = mock(Task.class);
         JobDocVersion jobDocVersion = new JobDocVersion(1L,1L,1L);
-        XContentBuilder content = JsonXContent.contentBuilder();
-        content.startObject();
-        content.endObject();
-
+        XContentBuilder content = TestHelpers.randomXContent();
         XContentParser parser = XContentHelper.createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
         JobParameterRequest jobParamRequest = new JobParameterRequest("token",parser,"id",jobDocVersion);
         extensionActionRequest= new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_PARAMETER_ACTION_NAME, jobParamRequest);
@@ -56,18 +55,12 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
             @Override
             public void onResponse(ExtensionActionResponse extensionActionResponse) {
-                try {
-                    JobParameterResponse jobParameterResponse= new JobParameterResponse(extensionActionResponse.getResponseBytes());
-                    System.out.println(jobParameterResponse);
-                }catch (Exception e){
-
-                }
-                Assert.assertTrue(false);
+                 Assert.assertTrue(true);
             }
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertTrue(true);
+                Assert.assertFalse(true);
             }
         };
     }
