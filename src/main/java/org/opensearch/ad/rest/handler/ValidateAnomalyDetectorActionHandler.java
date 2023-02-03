@@ -23,6 +23,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
@@ -46,6 +47,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      *
      * @param clusterService                  ClusterService
      * @param client                          ES node client that executes actions on the local node
+     * @param clientUtil                      AD client utility
      * @param listener                        ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices         anomaly detector index manager
      * @param anomalyDetector                 anomaly detector instance
@@ -62,6 +64,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
     public ValidateAnomalyDetectorActionHandler(
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
         AnomalyDetector anomalyDetector,
@@ -78,6 +81,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         super(
             clusterService,
             client,
+            clientUtil,
             null,
             listener,
             anomalyDetectionIndices,

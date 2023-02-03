@@ -34,6 +34,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -45,6 +46,7 @@ import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -136,9 +138,13 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             return null;
         }).when(clientMock).search(any(SearchRequest.class), any());
 
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        SecurityClientUtil clientUtil = new SecurityClientUtil(nodeStateManager, settings);
+
         handler = new ValidateAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
+            clientUtil,
             channel,
             anomalyDetectionIndices,
             TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null, true),
@@ -190,9 +196,13 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             return null;
         }).when(clientMock).search(any(SearchRequest.class), any());
 
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        SecurityClientUtil clientUtil = new SecurityClientUtil(nodeStateManager, settings);
+
         handler = new ValidateAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
+            clientUtil,
             channel,
             anomalyDetectionIndices,
             detector,

@@ -18,6 +18,7 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
@@ -38,6 +39,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
      *
      * @param clusterService          ClusterService
      * @param client                  ES node client that executes actions on the local node
+     * @param clientUtil              AD client util
      * @param transportService        ES transport service
      * @param listener                 ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
@@ -59,6 +61,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
     public IndexAnomalyDetectorActionHandler(
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         TransportService transportService,
         ActionListener<IndexAnomalyDetectorResponse> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
@@ -80,6 +83,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
         super(
             clusterService,
             client,
+            clientUtil,
             transportService,
             listener,
             anomalyDetectionIndices,
