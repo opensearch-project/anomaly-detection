@@ -1,5 +1,6 @@
 package org.opensearch.ad.transport;
 
+import java.io.IOException;
 import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
@@ -77,6 +78,22 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
     public void testJobRunnerTransportAction() {
         AnomalyDetectorJobRunner.getJobRunnerInstance().setAdTaskManager(adTaskManager);
         Mockito.doNothing().when(adTaskManager).refreshRealtimeJobRunTime(Mockito.anyString());
+        action.doExecute(task, extensionActionRequest, response);
+    }
+
+    @Test
+    public void testJobRunnerTransportActionWithNoADTaskManager() {
+        action.doExecute(task, extensionActionRequest, response);
+    }
+
+    @Test
+    public void testJobRunnerTransportActionWithNullJobParameterId() throws IOException {
+        JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
+        Instant time = Instant.ofEpochSecond(1L);
+        JobExecutionContext jobExecutionContext = new JobExecutionContext(time, jobDocVersion, lockService, "jobIndex", "jobId");
+        JobRunnerRequest jobRunnerRequest = new JobRunnerRequest("token", "", jobExecutionContext);
+        extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_RUNNER_ACTION_NAME, jobRunnerRequest);
+
         action.doExecute(task, extensionActionRequest, response);
     }
 }

@@ -59,24 +59,28 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
             CompletableFuture<AnomalyDetectorJob[]> inProgressFuture = new CompletableFuture<>();
 
             String jobParameterDocumentId = jobRunnerRequest.getJobParameterDocumentId();
-            findById(jobParameterDocumentId, new ActionListener<>() {
-                @Override
-                public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
-                    scheduledJobParameter[0] = anomalyDetectorJob;
-                    inProgressFuture.complete(scheduledJobParameter);
-                }
+            if (jobParameterDocumentId==null || jobParameterDocumentId.isEmpty() ){
+                listener.onFailure(new IllegalArgumentException("jobParameterDocumentId cannot be empty or null"));
+            }else {
+                findById(jobParameterDocumentId, new ActionListener<>() {
+                    @Override
+                    public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
+                        scheduledJobParameter[0] = anomalyDetectorJob;
+                        inProgressFuture.complete(scheduledJobParameter);
+                    }
 
-                @Override
-                public void onFailure(Exception e) {
-                    logger.info("could not find AnomalyDetectorJob with id " + jobParameterDocumentId, e);
-                    inProgressFuture.completeExceptionally(e);
-                }
-            });
-            JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
+                    @Override
+                    public void onFailure(Exception e) {
+                        logger.info("could not find AnomalyDetectorJob with id " + jobParameterDocumentId, e);
+                        inProgressFuture.completeExceptionally(e);
+                    }
+                });
+                JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
 
-            AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter[0], jobExecutionContext);
-            JobRunnerResponse jobRunnerResponse = new JobRunnerResponse(true);
-            listener.onResponse(new ExtensionJobActionResponse<>(jobRunnerResponse));
+                AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter[0], jobExecutionContext);
+                JobRunnerResponse jobRunnerResponse = new JobRunnerResponse(true);
+                listener.onResponse(new ExtensionJobActionResponse<>(jobRunnerResponse));
+            }
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);

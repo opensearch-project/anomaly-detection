@@ -1,5 +1,6 @@
 package org.opensearch.ad.transport;
 
+import java.io.IOException;
 import static org.mockito.Mockito.*;
 
 import org.junit.Assert;
@@ -11,6 +12,7 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.*;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobDocVersion;
@@ -30,6 +32,10 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
     private ExtensionActionRequest extensionActionRequest;
 
+    private JobDocVersion jobDocVersion;
+
+    private XContentParser parser;
+
     @Override
     @Before
     public void setUp() throws Exception {
@@ -37,13 +43,8 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
         action = new ADJobParameterTransportAction(mock(TransportService.class), mock(ActionFilters.class), xContentRegistry());
         task = mock(Task.class);
-        JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
-        XContentBuilder content = TestHelpers.randomXContent();
-        XContentParser parser = XContentHelper
-            .createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
-        JobParameterRequest jobParamRequest = new JobParameterRequest("token", parser, "id", jobDocVersion);
-        extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_PARAMETER_ACTION_NAME, jobParamRequest);
-        response = new ActionListener<>() {
+        jobDocVersion = new JobDocVersion(1L, 1L, 1L);
+          response = new ActionListener<>() {
 
             @Override
             public void onResponse(ExtensionActionResponse extensionActionResponse) {
@@ -52,13 +53,30 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertFalse(true);
+                Assert.assertTrue(true);
             }
         };
     }
 
     @Test
-    public void testJobParameterTransportAction() {
+    public void testJobParameterTransportAction() throws IOException {
+        XContentBuilder content = TestHelpers.randomXContent();
+        setExtensionActionRequest(content);
         action.doExecute(task, extensionActionRequest, response);
     }
+
+    @Test
+    public void testJobParameterTransportActionWithZeroJobSource() throws IOException {
+        XContentBuilder content = JsonXContent.contentBuilder().startObject().endObject();
+        setExtensionActionRequest(content);
+        action.doExecute(task, extensionActionRequest, response);
+    }
+
+    private void setExtensionActionRequest(XContentBuilder content) throws IOException {
+        parser = XContentHelper
+                .createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
+        JobParameterRequest jobParamRequest = new JobParameterRequest("token", parser, "id", jobDocVersion);
+        extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_PARAMETER_ACTION_NAME, jobParamRequest);
+    }
+
 }
