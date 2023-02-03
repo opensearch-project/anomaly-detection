@@ -25,6 +25,7 @@ import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_IN
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -42,6 +43,7 @@ import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
@@ -49,6 +51,8 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.SecurityClientUtil;
+import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
@@ -64,6 +68,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
     private DiscoveryNodeFilterer nodeFilter;
     private ActionFilters actionFilters;
     private Client client;
+    private SecurityClientUtil clientUtil;
     private GetAnomalyDetectorRequest request;
     private String detectorId = "yecrdnUBqurvo9uKU_d8";
     private String entityValue = "app_0";
@@ -111,6 +116,12 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
         client = mock(Client.class);
         when(client.threadPool()).thenReturn(threadPool);
 
+        Clock clock = mock(Clock.class);
+        Throttler throttler = new Throttler(clock);
+
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
+
         adTaskManager = mock(ADTaskManager.class);
 
         action = new GetAnomalyDetectorTransportAction(
@@ -119,6 +130,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
             actionFilters,
             clusterService,
             client,
+            clientUtil,
             Settings.EMPTY,
             xContentRegistry(),
             adTaskManager

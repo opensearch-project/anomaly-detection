@@ -18,8 +18,10 @@ import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.commons.authuser.User;
@@ -36,6 +38,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      *
      * @param clusterService                  ClusterService
      * @param client                          ES node client that executes actions on the local node
+     * @param clientUtil                      AD client utility
      * @param listener                        ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices         anomaly detector index manager
      * @param anomalyDetector                 anomaly detector instance
@@ -49,10 +52,12 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      * @param searchFeatureDao                Search feature DAO
      * @param validationType                  Specified type for validation
      * @param clock                           Clock object to know when to timeout
+     * @param settings                        Node settings
      */
     public ValidateAnomalyDetectorActionHandler(
         ClusterService clusterService,
         Client client,
+        SecurityClientUtil clientUtil,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         AnomalyDetectionIndices anomalyDetectionIndices,
         AnomalyDetector anomalyDetector,
@@ -65,11 +70,13 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         User user,
         SearchFeatureDao searchFeatureDao,
         String validationType,
-        Clock clock
+        Clock clock,
+        Settings settings
     ) {
         super(
             clusterService,
             client,
+            clientUtil,
             null,
             listener,
             anomalyDetectionIndices,
@@ -89,7 +96,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             searchFeatureDao,
             validationType,
             true,
-            clock
+            clock,
+            settings
         );
     }
 

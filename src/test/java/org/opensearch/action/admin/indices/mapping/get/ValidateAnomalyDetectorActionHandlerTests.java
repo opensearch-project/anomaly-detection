@@ -33,6 +33,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -44,6 +45,7 @@ import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
@@ -141,10 +143,13 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             .getCustomNodeClient(detectorResponse, userIndexResponse, singleEntityDetector, threadPool);
 
         NodeClient clientSpy = spy(client);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        SecurityClientUtil clientUtil = new SecurityClientUtil(nodeStateManager, settings);
 
         handler = new ValidateAnomalyDetectorActionHandler(
             clusterService,
             clientSpy,
+            clientUtil,
             channel,
             anomalyDetectionIndices,
             singleEntityDetector,
@@ -157,7 +162,8 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             null,
             searchFeatureDao,
             ValidationAspect.DETECTOR.getName(),
-            clock
+            clock,
+            settings
         );
         handler.start();
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
@@ -191,10 +197,13 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         NodeClient client = IndexAnomalyDetectorActionHandlerTests
             .getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
         NodeClient clientSpy = spy(client);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        SecurityClientUtil clientUtil = new SecurityClientUtil(nodeStateManager, settings);
 
         handler = new ValidateAnomalyDetectorActionHandler(
             clusterService,
             clientSpy,
+            clientUtil,
             channel,
             anomalyDetectionIndices,
             detector,
@@ -207,7 +216,8 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             null,
             searchFeatureDao,
             "",
-            clock
+            clock,
+            Settings.EMPTY
         );
         handler.start();
         ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);

@@ -13,21 +13,20 @@ package org.opensearch.ad;
 
 import static java.util.Collections.emptyMap;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.lucene.search.TotalHits;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -49,9 +48,11 @@ import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileResponse;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
@@ -64,6 +65,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
     private AnomalyDetector detector;
     private int detectorIntervalMin;
     private Client client;
+    private SecurityClientUtil clientUtil;
     private EntityProfileRunner runner;
     private Set<EntityProfileName> state;
     private Set<EntityProfileName> initNInfo;
@@ -89,8 +91,19 @@ public class EntityProfileRunnerTests extends AbstractADTest {
         NOT_INITTED,
     }
 
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        setUpThreadPool(AnomalyDetectorJobRunnerTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
+    }
+
     @SuppressWarnings("unchecked")
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         detectorIntervalMin = 3;
@@ -108,14 +121,22 @@ public class EntityProfileRunnerTests extends AbstractADTest {
         detectorId = "A69pa3UBHuCbh-emo9oR";
         entityValue = "app-0";
 
-        requiredSamples = 128;
-        client = mock(Client.class);
-
-        runner = new EntityProfileRunner(client, xContentRegistry(), requiredSamples);
-
         categoryField = "a";
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(categoryField));
         job = TestHelpers.randomAnomalyDetectorJob(true);
+
+        requiredSamples = 128;
+        client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
+
+        runner = new EntityProfileRunner(client, clientUtil, xContentRegistry(), requiredSamples);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
