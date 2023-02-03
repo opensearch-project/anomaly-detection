@@ -11,16 +11,10 @@
 
 package org.opensearch.ad;
 
-import org.mockito.Mockito;
-import org.opensearch.ad.model.*;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
-import org.opensearch.common.xcontent.json.JsonXContent;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
-import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
-import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import static org.opensearch.test.OpenSearchTestCase.*;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
@@ -70,6 +64,7 @@ import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.mock.model.MockSimpleLog;
+import org.opensearch.ad.model.*;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -106,10 +101,14 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
+import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -703,9 +702,9 @@ public class TestHelpers {
 
     public static IntervalSchedule randomIntervalSchedule() {
         return new IntervalSchedule(
-                Instant.now().truncatedTo(ChronoUnit.SECONDS),
-                OpenSearchRestTestCase.randomIntBetween(1, 1000),
-                ChronoUnit.MINUTES
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            OpenSearchRestTestCase.randomIntBetween(1, 1000),
+            ChronoUnit.MINUTES
         );
     }
 
@@ -930,7 +929,7 @@ public class TestHelpers {
         return randomAnomalyDetectorJob(true);
     }
 
-    public static ScheduledJobParameter scheduleJobParameter(){
+    public static ScheduledJobParameter scheduleJobParameter() {
         return new ScheduledJobParameter() {
             @Override
             public String getName() {
@@ -958,12 +957,12 @@ public class TestHelpers {
             }
 
             @Override
-            public Double getJitter(){
+            public Double getJitter() {
                 return 1.0;
             }
 
             @Override
-            public Long getLockDurationSeconds(){
+            public Long getLockDurationSeconds() {
                 return 1L;
             }
 
@@ -973,26 +972,27 @@ public class TestHelpers {
             }
         };
     }
+
     public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
         return new AnomalyDetectorJob(
-                randomAlphaOfLength(10),
-                randomIntervalSchedule(),
-                randomIntervalTimeConfiguration(),
-                enabled,
-                enabledTime,
-                disabledTime,
-                Instant.now().truncatedTo(ChronoUnit.SECONDS),
-                60L,
-                randomUser(),
-                null
+            randomAlphaOfLength(10),
+            randomIntervalSchedule(),
+            randomIntervalTimeConfiguration(),
+            enabled,
+            enabledTime,
+            disabledTime,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            60L,
+            randomUser(),
+            null
         );
     }
 
     public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
         return randomAnomalyDetectorJob(
-                enabled,
-                Instant.now().truncatedTo(ChronoUnit.SECONDS),
-                Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            enabled,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 
@@ -1547,15 +1547,16 @@ public class TestHelpers {
 
     public static XContentBuilder randomXContent() throws IOException {
         AnomalyDetectorJob anomalyDetectorJob = randomAnomalyDetectorJob();
-        XContentBuilder xContentBuilder = JsonXContent.contentBuilder()
-                .startObject()
-                .field(AnomalyDetectorJob.NAME_FIELD, anomalyDetectorJob.getName())
-                .field(AnomalyDetectorJob.SCHEDULE_FIELD, anomalyDetectorJob.getSchedule())
-                .field(AnomalyDetectorJob.WINDOW_DELAY_FIELD, anomalyDetectorJob.getWindowDelay())
-                .field(AnomalyDetectorJob.IS_ENABLED_FIELD, anomalyDetectorJob.isEnabled())
-                .field(AnomalyDetectorJob.ENABLED_TIME_FIELD, anomalyDetectorJob.getEnabledTime().toEpochMilli())
-                .field(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD, anomalyDetectorJob.getLastUpdateTime().toEpochMilli())
-                .field(AnomalyDetectorJob.LOCK_DURATION_SECONDS, anomalyDetectorJob.getLockDurationSeconds());
+        XContentBuilder xContentBuilder = JsonXContent
+            .contentBuilder()
+            .startObject()
+            .field(AnomalyDetectorJob.NAME_FIELD, anomalyDetectorJob.getName())
+            .field(AnomalyDetectorJob.SCHEDULE_FIELD, anomalyDetectorJob.getSchedule())
+            .field(AnomalyDetectorJob.WINDOW_DELAY_FIELD, anomalyDetectorJob.getWindowDelay())
+            .field(AnomalyDetectorJob.IS_ENABLED_FIELD, anomalyDetectorJob.isEnabled())
+            .field(AnomalyDetectorJob.ENABLED_TIME_FIELD, anomalyDetectorJob.getEnabledTime().toEpochMilli())
+            .field(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD, anomalyDetectorJob.getLastUpdateTime().toEpochMilli())
+            .field(AnomalyDetectorJob.LOCK_DURATION_SECONDS, anomalyDetectorJob.getLockDurationSeconds());
         if (anomalyDetectorJob.getDisabledTime() != null) {
             xContentBuilder.field(AnomalyDetectorJob.DISABLED_TIME_FIELD, anomalyDetectorJob.getDisabledTime().toEpochMilli());
         }

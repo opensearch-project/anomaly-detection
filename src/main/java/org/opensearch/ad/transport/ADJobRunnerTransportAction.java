@@ -1,21 +1,22 @@
 package org.opensearch.ad.transport;
 
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorJobRunner;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
@@ -36,13 +37,9 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
 
     private SDKRestClient client;
 
-    protected ADJobRunnerTransportAction(
-        TransportService transportService,
-        ActionFilters actionFilters,
-        SDKRestClient client
-    ) {
+    protected ADJobRunnerTransportAction(TransportService transportService, ActionFilters actionFilters, SDKRestClient client) {
         super(ADJobRunnerAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
-        this.client=client;
+        this.client = client;
     }
 
     @Override
@@ -61,21 +58,20 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
             final AnomalyDetectorJob[] scheduledJobParameter = new AnomalyDetectorJob[1];
             CompletableFuture<AnomalyDetectorJob[]> inProgressFuture = new CompletableFuture<>();
 
-            String jobParameterDocumentId=jobRunnerRequest.getJobParameterDocumentId();
+            String jobParameterDocumentId = jobRunnerRequest.getJobParameterDocumentId();
             findById(jobParameterDocumentId, new ActionListener<>() {
-                        @Override
-                        public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
-                            scheduledJobParameter[0] =anomalyDetectorJob;
-                            inProgressFuture.complete(scheduledJobParameter);
-                        }
+                @Override
+                public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
+                    scheduledJobParameter[0] = anomalyDetectorJob;
+                    inProgressFuture.complete(scheduledJobParameter);
+                }
 
-                        @Override
-                        public void onFailure(Exception e) {
-                            logger.info("could not find AnomalyDetectorJob with id "+jobParameterDocumentId, e);
-                            inProgressFuture.completeExceptionally(e);
-                        }
-                    }
-            );
+                @Override
+                public void onFailure(Exception e) {
+                    logger.info("could not find AnomalyDetectorJob with id " + jobParameterDocumentId, e);
+                    inProgressFuture.completeExceptionally(e);
+                }
+            });
             JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
 
             AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter[0], jobExecutionContext);
@@ -96,8 +92,9 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                 listener.onResponse(null);
             } else {
                 try {
-                    XContentParser parser = XContentType.JSON.xContent()
-                            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
+                    XContentParser parser = XContentType.JSON
+                        .xContent()
+                        .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     listener.onResponse(AnomalyDetectorJob.parse(parser));
                 } catch (IOException e) {

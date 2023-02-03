@@ -1,11 +1,13 @@
 package org.opensearch.ad.transport;
 
+import static org.mockito.Mockito.mock;
+
 import java.time.Instant;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
-import static org.mockito.Mockito.mock;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.AnomalyDetectorJobRunner;
@@ -45,27 +47,23 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
     public void setUp() throws Exception {
         super.setUp();
 
-        sdkRestClient=mock(SDKRestClient.class);
-        action= new ADJobRunnerTransportAction(
-                mock(TransportService.class),
-                mock(ActionFilters.class),
-               sdkRestClient
-        );
+        sdkRestClient = mock(SDKRestClient.class);
+        action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), sdkRestClient);
 
         task = mock(Task.class);
         lockService = new LockService(mock(Client.class), clusterService());
-        adTaskManager= mock(ADTaskManager.class);
-        JobDocVersion jobDocVersion = new JobDocVersion(1L,1L,1L);
+        adTaskManager = mock(ADTaskManager.class);
+        JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
         Instant time = Instant.ofEpochSecond(1L);
-        JobExecutionContext jobExecutionContext= new JobExecutionContext(time, jobDocVersion,lockService,"jobIndex","jobId");
-        JobRunnerRequest jobRunnerRequest = new JobRunnerRequest("token","jobParameterId",jobExecutionContext);
-        extensionActionRequest= new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_RUNNER_ACTION_NAME, jobRunnerRequest);
+        JobExecutionContext jobExecutionContext = new JobExecutionContext(time, jobDocVersion, lockService, "jobIndex", "jobId");
+        JobRunnerRequest jobRunnerRequest = new JobRunnerRequest("token", "jobParameterId", jobExecutionContext);
+        extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_RUNNER_ACTION_NAME, jobRunnerRequest);
 
         response = new ActionListener<>() {
 
             @Override
             public void onResponse(ExtensionActionResponse extensionActionResponse) {
-               Assert.assertFalse(true);
+                Assert.assertFalse(true);
             }
 
             @Override

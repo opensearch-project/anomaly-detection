@@ -42,7 +42,6 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 
-
 import com.google.common.collect.ImmutableList;
 
 public class AnomalyDetectorExtension extends BaseExtension {
@@ -129,10 +128,10 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public SDKRestClient getRestClient() {
         @SuppressWarnings("resource")
         SDKRestClient client = new SDKClient()
-                .initializeRestClient(
-                        getExtensionSettings().getOpensearchAddress(),
-                        Integer.parseInt(getExtensionSettings().getOpensearchPort())
-                );
+            .initializeRestClient(
+                getExtensionSettings().getOpensearchAddress(),
+                Integer.parseInt(getExtensionSettings().getOpensearchPort())
+            );
         return client;
     }
 
