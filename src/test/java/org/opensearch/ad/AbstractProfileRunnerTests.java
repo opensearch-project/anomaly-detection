@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
@@ -43,11 +44,13 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.transport.TransportService;
 
@@ -74,6 +77,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
 
     protected AnomalyDetectorProfileRunner runner;
     protected Client client;
+    protected SecurityClientUtil clientUtil;
     protected DiscoveryNodeFilterer nodeFilter;
     protected AnomalyDetector detector;
     protected ClusterService clusterService;
@@ -150,6 +154,12 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
             emptySet(),
             Version.CURRENT
         );
+        setUpThreadPool(AbstractProfileRunnerTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
     }
 
     @Override
@@ -157,6 +167,10 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
         client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        SecurityClientUtil securityClientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
+
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         clusterService = mock(ClusterService.class);
         when(clusterService.state()).thenReturn(ClusterState.builder(new ClusterName("test cluster")).build());
@@ -164,7 +178,15 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
         requiredSamples = 128;
         neededSamples = 5;
 
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
+        runner = new AnomalyDetectorProfileRunner(
+            client,
+            securityClientUtil,
+            xContentRegistry(),
+            nodeFilter,
+            requiredSamples,
+            transportService,
+            adTaskManager
+        );
 
         detectorIntervalMin = 3;
         detectorGetReponse = mock(GetResponse.class);

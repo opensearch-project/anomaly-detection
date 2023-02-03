@@ -59,6 +59,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.ADTaskCancelledException;
@@ -92,6 +93,7 @@ import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -117,6 +119,7 @@ public class ADBatchTaskRunner {
 
     private final ThreadPool threadPool;
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private final ADStats adStats;
     private final DiscoveryNodeFilterer nodeFilter;
     private final ClusterService clusterService;
@@ -141,6 +144,7 @@ public class ADBatchTaskRunner {
         Client client,
         DiscoveryNodeFilterer nodeFilter,
         IndexNameExpressionResolver indexNameExpressionResolver,
+        SecurityClientUtil clientUtil,
         ADCircuitBreakerService adCircuitBreakerService,
         FeatureManager featureManager,
         ADTaskManager adTaskManager,
@@ -152,6 +156,7 @@ public class ADBatchTaskRunner {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.anomalyResultBulkIndexHandler = anomalyResultBulkIndexHandler;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.nodeFilter = nodeFilter;
@@ -488,8 +493,7 @@ public class ADBatchTaskRunner {
         SearchRequest request = new SearchRequest()
             .indices(adTask.getDetector().getIndices().toArray(new String[0]))
             .source(searchSourceBuilder);
-
-        client.search(request, ActionListener.wrap(r -> {
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(r -> {
             InternalMin minAgg = r.getAggregations().get(AGG_NAME_MIN_TIME);
             InternalMax maxAgg = r.getAggregations().get(AGG_NAME_MAX_TIME);
             double minValue = minAgg.getValue();
@@ -499,8 +503,20 @@ public class ADBatchTaskRunner {
                 listener.onFailure(new ResourceNotFoundException(adTask.getDetectorId(), "There is no data in the time field"));
                 return;
             }
+
             consumer.accept((long) minValue, (long) maxValue);
-        }, e -> { listener.onFailure(e); }));
+        }, e -> { listener.onFailure(e); });
+
+        // inject user role while searching.
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                request,
+                client::search,
+                // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
+                adTask.getUser(),
+                client,
+                searchResponseListener
+            );
     }
 
     private void getFeatureData(

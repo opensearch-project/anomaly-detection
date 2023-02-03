@@ -424,7 +424,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     ) {
         return ActionListener.wrap(featureOptional -> {
             List<FeatureData> featureInResponse = null;
-
             if (featureOptional.getUnprocessedFeatures().isPresent()) {
                 featureInResponse = ParseUtils.getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector);
             }

@@ -73,6 +73,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
         endTime = Instant.now();
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type);
         createDetectionStateIndex();
+        createDetectorIndex();
     }
 
     @Override
@@ -209,6 +210,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalDetector
     private ADBatchAnomalyResultRequest adBatchAnomalyResultRequest(DetectionDateRange dateRange, String indexName) throws IOException {
         AnomalyDetector detector = TestHelpers
             .randomDetector(dateRange, ImmutableList.of(maxValueFeature()), indexName, detectionIntervalInMinutes, timeField);
+        createDetector(detector);
         ADTask adTask = randomCreatedADTask(randomAlphaOfLength(5), detector);
         adTask.setTaskId(createADTask(adTask));
         return new ADBatchAnomalyResultRequest(adTask);
