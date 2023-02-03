@@ -91,24 +91,30 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
     private void findById(String jobParameterId, ActionListener<AnomalyDetectorJob> listener) {
         GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, jobParameterId);
 
-        client.get(getRequest, ActionListener.wrap(response -> {
-            if (!response.isExists()) {
-                listener.onResponse(null);
-            } else {
-                try {
-                    XContentParser parser = XContentType.JSON
-                        .xContent()
-                        .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    listener.onResponse(AnomalyDetectorJob.parse(parser));
-                } catch (IOException e) {
-                    logger.error("IOException occurred finding AnomalyDetectorJob for jobParameterId " + jobParameterId, e);
+        try {
+            client.get(getRequest, ActionListener.wrap(response -> {
+                if (!response.isExists()) {
                     listener.onResponse(null);
+                } else {
+                    try {
+                        XContentParser parser = XContentType.JSON
+                            .xContent()
+                            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                        listener.onResponse(AnomalyDetectorJob.parse(parser));
+                    } catch (IOException e) {
+                        logger.error("IOException occurred finding AnomalyDetectorJob for jobParameterId " + jobParameterId, e);
+                        listener.onResponse(null);
+                    }
                 }
-            }
-        }, exception -> {
-            logger.error("Exception occurred finding AnomalyDetectorJob for jobParameterId " + jobParameterId, exception);
-            listener.onFailure(exception);
-        }));
+            }, exception -> {
+                logger.error("Exception occurred finding AnomalyDetectorJob for jobParameterId " + jobParameterId, exception);
+                listener.onFailure(exception);
+            }));
+        } catch (Exception e) {
+            logger.error("Error occurred finding anomaly detector job with jobParameterId " + jobParameterId, e);
+            listener.onFailure(e);
+        }
+
     }
 }
