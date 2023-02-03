@@ -221,7 +221,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
         // Fish should be able to update detectors created by Alice. But the detector's backend role should
         // not be replaced as Fish's backend roles.
-        TestHelpers.createIndexWithTimeField(client(), newDetector.getIndices().get(0), newDetector.getTimeField());
         Response response = updateAnomalyDetector(aliceDetector.getDetectorId(), newDetector, fishClient);
         Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
         AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
@@ -387,7 +386,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Exception.class,
             () -> { previewAnomalyDetector(aliceDetector.getDetectorId(), elkClient, input); }
         );
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:data/read/search]"));
+        Assert
+            .assertTrue(
+                "actual msg: " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [indices:data/read/search]")
+            );
     }
 
     public void testValidateAnomalyDetectorWithWriteAccess() throws IOException {

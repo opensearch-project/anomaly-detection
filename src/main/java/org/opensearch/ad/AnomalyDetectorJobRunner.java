@@ -45,6 +45,7 @@ import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
 import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.AnomalyResultTransportAction;
+import org.opensearch.ad.util.SecurityUtil;
 import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -53,6 +54,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.InjectSecurity;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
@@ -62,7 +64,6 @@ import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 
 /**
  * JobScheduler will call AD job runner to get anomaly result periodically
@@ -145,49 +146,57 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         final LockService lockService = context.getLockService();
 
         Runnable runnable = () -> {
-            nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
-                if (!detectorOptional.isPresent()) {
-                    log.error(new ParameterizedMessage("fail to get detector [{}]", detectorId));
-                    return;
-                }
-                AnomalyDetector detector = detectorOptional.get();
+            try {
+                nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+                    if (!detectorOptional.isPresent()) {
+                        log.error(new ParameterizedMessage("fail to get detector [{}]", detectorId));
+                        return;
+                    }
+                    AnomalyDetector detector = detectorOptional.get();
 
-                if (jobParameter.getLockDurationSeconds() != null) {
-                    lockService
-                        .acquireLock(
-                            jobParameter,
-                            context,
-                            ActionListener
-                                .wrap(
-                                    lock -> runAdJob(
-                                        jobParameter,
-                                        lockService,
-                                        lock,
-                                        detectionStartTime,
-                                        executionStartTime,
-                                        recorder,
-                                        detector
-                                    ),
-                                    exception -> {
-                                        indexAnomalyResultException(
+                    if (jobParameter.getLockDurationSeconds() != null) {
+                        lockService
+                            .acquireLock(
+                                jobParameter,
+                                context,
+                                ActionListener
+                                    .wrap(
+                                        lock -> runAdJob(
                                             jobParameter,
                                             lockService,
-                                            null,
+                                            lock,
                                             detectionStartTime,
                                             executionStartTime,
-                                            exception,
-                                            false,
                                             recorder,
                                             detector
-                                        );
-                                        throw new IllegalStateException("Failed to acquire lock for AD job: " + detectorId);
-                                    }
-                                )
-                        );
-                } else {
-                    log.warn("Can't get lock for AD job: " + detectorId);
-                }
-            }, e -> log.error(new ParameterizedMessage("fail to get detector [{}]", detectorId), e)));
+                                        ),
+                                        exception -> {
+                                            indexAnomalyResultException(
+                                                jobParameter,
+                                                lockService,
+                                                null,
+                                                detectionStartTime,
+                                                executionStartTime,
+                                                exception,
+                                                false,
+                                                recorder,
+                                                detector
+                                            );
+                                            throw new IllegalStateException("Failed to acquire lock for AD job: " + detectorId);
+                                        }
+                                    )
+                            );
+                    } else {
+                        log.warn("Can't get lock for AD job: " + detectorId);
+                    }
+
+                }, e -> log.error(new ParameterizedMessage("fail to get detector [{}]", detectorId), e)));
+            } catch (Exception e) {
+                // os log won't show anything if there is an exception happens (maybe due to running on a ExecutorService)
+                // we at least log the error.
+                log.error("Can't start AD job: " + detectorId, e);
+                throw e;
+            }
         };
 
         ExecutorService executor = threadPool.executor(AD_THREAD_POOL_NAME);
@@ -231,28 +240,11 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         }
         anomalyDetectionIndices.update();
 
-        /*
-         * We need to handle 3 cases:
-         * 1. Detectors created by older versions and never updated. These detectors wont have User details in the
-         * detector object. `detector.user` will be null. Insert `all_access, AmazonES_all_access` role.
-         * 2. Detectors are created when security plugin is disabled, these will have empty User object.
-         * (`detector.user.name`, `detector.user.roles` are empty )
-         * 3. Detectors are created when security plugin is enabled, these will have an User object.
-         * This will inject user role and check if the user role has permissions to call the execute
-         * Anomaly Result API.
-         */
-        String user;
-        List<String> roles;
-        if (jobParameter.getUser() == null) {
-            // It's possible that user create domain with security disabled, then enable security
-            // after upgrading. This is for BWC, for old detectors which created when security
-            // disabled, the user will be null.
-            user = "";
-            roles = settings.getAsList("", ImmutableList.of("all_access", "AmazonES_all_access"));
-        } else {
-            user = jobParameter.getUser().getName();
-            roles = jobParameter.getUser().getRoles();
-        }
+        User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
+
+        String user = userInfo.getName();
+        List<String> roles = userInfo.getRoles();
+
         String resultIndex = jobParameter.getResultIndex();
         if (resultIndex == null) {
             runAnomalyDetectionJob(
@@ -302,7 +294,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         ExecuteADResultResponseRecorder recorder,
         AnomalyDetector detector
     ) {
-
+        // using one thread in the write threadpool
         try (InjectSecurity injectSecurity = new InjectSecurity(detectorId, settings, client.threadPool().getThreadContext())) {
             // Injecting user role to verify if the user has permissions for our API.
             injectSecurity.inject(user, roles);

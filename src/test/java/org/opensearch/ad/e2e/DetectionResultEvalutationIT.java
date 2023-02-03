@@ -183,6 +183,8 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         String requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
             + " \"Feature1\": { \"type\": \"long\" }, \"Feature2\": { \"type\": \"long\" } } } }";
         request.setJsonEntity(requestBody);
+        // a WarningFailureException on access system indices .opendistro_security will fail the test if this is not false.
+        setWarningHandler(request, false);
         client.performRequest(request);
         Thread.sleep(1_000);
         data.stream().limit(trainTestSplit).forEach(r -> {
