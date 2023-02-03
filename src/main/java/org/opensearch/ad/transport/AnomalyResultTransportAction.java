@@ -89,6 +89,7 @@ import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
@@ -141,6 +142,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ThreadPool threadPool;
     private final Client client;
+    private final SecurityClientUtil clientUtil;
     private final ADTaskManager adTaskManager;
 
     // Cache HC detector id. This is used to count HC failure stats. We can tell a detector
@@ -163,6 +165,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         TransportService transportService,
         Settings settings,
         Client client,
+        SecurityClientUtil clientUtil,
         NodeStateManager manager,
         FeatureManager featureManager,
         ModelManager modelManager,
@@ -179,6 +182,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.transportService = transportService;
         this.settings = settings;
         this.client = client;
+        this.clientUtil = clientUtil;
         this.stateManager = manager;
         this.featureManager = featureManager;
         this.modelManager = modelManager;
@@ -490,6 +494,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 anomalyDetector,
                 xContentRegistry,
                 client,
+                clientUtil,
                 nextDetectionStartTime,
                 settings,
                 maxEntitiesPerInterval,
@@ -509,7 +514,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             PageListener getEntityFeatureslistener = new PageListener(pageIterator, adID, dataStartTime, dataEndTime);
-
             if (pageIterator.hasNext()) {
                 pageIterator.next(getEntityFeatureslistener);
             }
@@ -574,7 +578,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     ) {
         return ActionListener.wrap(featureOptional -> {
             List<FeatureData> featureInResponse = null;
-
             if (featureOptional.getUnprocessedFeatures().isPresent()) {
                 featureInResponse = ParseUtils.getFeatureData(featureOptional.getUnprocessedFeatures().get(), detector);
             }

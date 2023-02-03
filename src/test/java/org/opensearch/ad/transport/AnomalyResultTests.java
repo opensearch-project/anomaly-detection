@@ -108,6 +108,7 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -153,6 +154,7 @@ public class AnomalyResultTests extends AbstractADTest {
     private FeatureManager featureQuery;
     private ModelManager normalModelManager;
     private Client client;
+    private SecurityClientUtil clientUtil;
     private AnomalyDetector detector;
     private HashRing hashRing;
     private IndexNameExpressionResolver indexNameResolver;
@@ -269,6 +271,8 @@ public class AnomalyResultTests extends AbstractADTest {
 
             return null;
         }).when(client).index(any(), any());
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        clientUtil = new SecurityClientUtil(nodeStateManager, settings);
 
         indexNameResolver = new IndexNameExpressionResolver(new ThreadContext(Settings.EMPTY));
 
@@ -345,6 +349,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -468,6 +473,7 @@ public class AnomalyResultTests extends AbstractADTest {
             realTransportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -519,6 +525,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -562,6 +569,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -665,6 +673,7 @@ public class AnomalyResultTests extends AbstractADTest {
             realTransportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -706,6 +715,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -774,6 +784,7 @@ public class AnomalyResultTests extends AbstractADTest {
             exceptionTransportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -826,6 +837,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             muteStateManager,
             featureQuery,
             normalModelManager,
@@ -866,6 +878,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1014,6 +1027,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1105,6 +1119,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1142,6 +1157,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1185,6 +1201,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1228,6 +1245,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1278,6 +1296,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1365,6 +1384,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1413,6 +1433,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1439,6 +1460,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1471,6 +1493,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1511,6 +1534,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1574,6 +1598,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1626,6 +1651,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1669,6 +1695,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1709,6 +1736,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,
@@ -1747,6 +1775,7 @@ public class AnomalyResultTests extends AbstractADTest {
             transportService,
             settings,
             client,
+            clientUtil,
             stateManager,
             featureQuery,
             normalModelManager,

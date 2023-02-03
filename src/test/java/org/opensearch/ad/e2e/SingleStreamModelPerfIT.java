@@ -285,6 +285,7 @@ public class SingleStreamModelPerfIT extends ODFERestTestCase {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
         Thread.sleep(1_000);
+        waitAllSyncheticDataIngested(data.size(), datasetName, client);
     }
 
     private void setWarningHandler(Request request, boolean strictDeprecationMode) {

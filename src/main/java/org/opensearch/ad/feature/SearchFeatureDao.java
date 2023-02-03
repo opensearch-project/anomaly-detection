@@ -61,8 +61,8 @@ import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -103,7 +103,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     private final Client client;
     private final NamedXContentRegistry xContent;
     private final Interpolator interpolator;
-    private final ClientUtil clientUtil;
+    private final SecurityClientUtil clientUtil;
     private volatile int maxEntitiesForPreview;
     private volatile int pageSize;
     private final int minimumDocCountForPreview;
@@ -115,7 +115,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         Client client,
         NamedXContentRegistry xContent,
         Interpolator interpolator,
-        ClientUtil clientUtil,
+        SecurityClientUtil clientUtil,
         Settings settings,
         ClusterService clusterService,
         int minimumDocCount,
@@ -153,7 +153,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         Client client,
         NamedXContentRegistry xContent,
         Interpolator interpolator,
-        ClientUtil clientUtil,
+        SecurityClientUtil clientUtil,
         Settings settings,
         ClusterService clusterService,
         int minimumDocCount
@@ -174,28 +174,6 @@ public class SearchFeatureDao extends AbstractRetriever {
     }
 
     /**
-     * Returns epoch time of the latest data under the detector.
-     *
-     * @deprecated use getLatestDataTime with listener instead.
-     *
-     * @param detector info about the indices and documents
-     * @return epoch time of the latest data in milliseconds
-     */
-    @Deprecated
-    public Optional<Long> getLatestDataTime(AnomalyDetector detector) {
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
-            .size(0);
-        SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        return clientUtil
-            .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
-            .map(SearchResponse::getAggregations)
-            .map(aggs -> aggs.asMap())
-            .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME))
-            .map(agg -> (long) agg.getValue());
-    }
-
-    /**
      * Returns to listener the epoch time of the latset data under the detector.
      *
      * @param detector info about the data
@@ -206,10 +184,17 @@ public class SearchFeatureDao extends AbstractRetriever {
             .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
-            .search(
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure);
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
-                ActionListener.wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure)
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
             );
     }
 
@@ -371,18 +356,24 @@ public class SearchFeatureDao extends AbstractRetriever {
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
-            .search(
+        final ActionListener<SearchResponse> searchResponseListener = new TopEntitiesListener(
+            listener,
+            detector,
+            searchSourceBuilder,
+            // TODO: tune timeout for historical analysis based on performance test result
+            clock.millis() + previewTimeoutInMilliseconds,
+            maxEntitiesSize,
+            minimumDocCount
+        );
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
-                new TopEntitiesListener(
-                    listener,
-                    detector,
-                    searchSourceBuilder,
-                    // TODO: tune timeout for historical analysis based on performance test result
-                    clock.millis() + previewTimeoutInMilliseconds,
-                    maxEntitiesSize,
-                    minimumDocCount
-                )
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
             );
     }
 
@@ -466,9 +457,14 @@ public class SearchFeatureDao extends AbstractRetriever {
                         }
                     } else {
                         updateSourceAfterKey(afterKey, searchSourceBuilder);
-                        client
-                            .search(
+                        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+                        // checkpoint
+                        clientUtil
+                            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                                 new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder),
+                                client::search,
+                                detector.getDetectorId(),
+                                client,
                                 this
                             );
                     }
@@ -509,10 +505,16 @@ public class SearchFeatureDao extends AbstractRetriever {
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
-            .search(
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(response -> { listener.onResponse(parseMinMaxDataTime(response)); }, listener::onFailure);
+        // inject user role while searching.
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
-                ActionListener.wrap(response -> { listener.onResponse(parseMinMaxDataTime(response)); }, listener::onFailure)
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
             );
     }
 
@@ -530,31 +532,6 @@ public class SearchFeatureDao extends AbstractRetriever {
     }
 
     /**
-     * Gets features for the given time period.
-     * This function also adds given detector to negative cache before sending es request.
-     * Once response/exception is received within timeout, this request will be treated as complete
-     * and cleared from the negative cache.
-     * Otherwise this detector entry remain in the negative to reject further request.
-     *
-     * @deprecated use getFeaturesForPeriod with listener instead.
-     *
-     * @param detector info about indices, documents, feature query
-     * @param startTime epoch milliseconds at the beginning of the period
-     * @param endTime epoch milliseconds at the end of the period
-     * @throws IllegalStateException when unexpected failures happen
-     * @return features from search results, empty when no data found
-     */
-    @Deprecated
-    public Optional<double[]> getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime) {
-        SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
-
-        // send throttled request: this request will clear the negative cache if the request finished within timeout
-        return clientUtil
-            .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, client::search, detector)
-            .flatMap(resp -> parseResponse(resp, detector.getEnabledFeatureIds()));
-    }
-
-    /**
      * Returns to listener features for the given time period.
      *
      * @param detector info about indices, feature query
@@ -564,11 +541,17 @@ public class SearchFeatureDao extends AbstractRetriever {
      */
     public void getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime, ActionListener<Optional<double[]>> listener) {
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
-        client
-            .search(
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(response -> listener.onResponse(parseResponse(response, detector.getEnabledFeatureIds())), listener::onFailure);
+        // using the original context in listener as user roles have no permissions for internal operations like fetching a
+        // checkpoint
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
-                ActionListener
-                    .wrap(response -> listener.onResponse(parseResponse(response, detector.getEnabledFeatureIds())), listener::onFailure)
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
             );
     }
 
@@ -583,14 +566,19 @@ public class SearchFeatureDao extends AbstractRetriever {
         logger.debug("Batch query for detector {}: {} ", detector.getDetectorId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
-            .search(
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener
+            .wrap(
+                response -> { listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds())); },
+                listener::onFailure
+            );
+        // inject user role while searching.
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
-                ActionListener
-                    .wrap(
-                        response -> { listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds())); },
-                        listener::onFailure
-                    )
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
             );
     }
 
@@ -628,8 +616,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
         SearchRequest request = createPreviewSearchRequest(detector, ranges);
-
-        client.search(request, ActionListener.wrap(response -> {
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 listener.onResponse(Collections.emptyList());
@@ -646,105 +633,16 @@ public class SearchFeatureDao extends AbstractRetriever {
                         .map(bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()))
                         .collect(Collectors.toList())
                 );
-        }, listener::onFailure));
-    }
-
-    /**
-     * Gets features for sampled periods.
-     *
-     * @deprecated use getFeaturesForSampledPeriods with listener instead.
-     *
-     * Sampling starts with the latest period and goes backwards in time until there are up to {@code maxSamples} samples.
-     * If the initial stride {@code maxStride} results into a low count of samples, the implementation
-     * may attempt with (exponentially) reduced strides and interpolate missing points.
-     *
-     * @param detector info about indices, documents, feature query
-     * @param maxSamples the maximum number of samples to return
-     * @param maxStride the maximum number of periods between samples
-     * @param endTime the end time of the latest period
-     * @return sampled features and stride, empty when no data found
-     */
-    @Deprecated
-    public Optional<Entry<double[][], Integer>> getFeaturesForSampledPeriods(
-        AnomalyDetector detector,
-        int maxSamples,
-        int maxStride,
-        long endTime
-    ) {
-        Map<Long, double[]> cache = new HashMap<>();
-        int currentStride = maxStride;
-        Optional<double[][]> features = Optional.empty();
-        logger.info(String.format(Locale.ROOT, "Getting features for detector %s starting %d", detector.getDetectorId(), endTime));
-        while (currentStride >= 1) {
-            boolean isInterpolatable = currentStride < maxStride;
-            features = getFeaturesForSampledPeriods(detector, maxSamples, currentStride, endTime, cache, isInterpolatable);
-
-            if (!features.isPresent() || features.get().length > maxSamples / 2 || currentStride == 1) {
-                logger
-                    .info(
-                        String
-                            .format(
-                                Locale.ROOT,
-                                "Get features for detector %s finishes with features present %b, current stride %d",
-                                detector.getDetectorId(),
-                                features.isPresent(),
-                                currentStride
-                            )
-                    );
-                break;
-            } else {
-                currentStride = currentStride / 2;
-            }
-        }
-        if (features.isPresent()) {
-            return Optional.of(new SimpleEntry<>(features.get(), currentStride));
-        } else {
-            return Optional.empty();
-        }
-    }
-
-    private Optional<double[][]> getFeaturesForSampledPeriods(
-        AnomalyDetector detector,
-        int maxSamples,
-        int stride,
-        long endTime,
-        Map<Long, double[]> cache,
-        boolean isInterpolatable
-    ) {
-        ArrayDeque<double[]> sampledFeatures = new ArrayDeque<>(maxSamples);
-        for (int i = 0; i < maxSamples; i++) {
-            long span = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
-            long end = endTime - span * stride * i;
-            if (cache.containsKey(end)) {
-                sampledFeatures.addFirst(cache.get(end));
-            } else {
-                Optional<double[]> features = getFeaturesForPeriod(detector, end - span, end);
-                if (features.isPresent()) {
-                    cache.put(end, features.get());
-                    sampledFeatures.addFirst(features.get());
-                } else if (isInterpolatable) {
-                    Optional<double[]> previous = Optional.ofNullable(cache.get(end - span * stride));
-                    Optional<double[]> next = Optional.ofNullable(cache.get(end + span * stride));
-                    if (previous.isPresent() && next.isPresent()) {
-                        double[] interpolants = getInterpolants(previous.get(), next.get());
-                        cache.put(end, interpolants);
-                        sampledFeatures.addFirst(interpolants);
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-
-            }
-        }
-        Optional<double[][]> samples;
-        if (sampledFeatures.isEmpty()) {
-            samples = Optional.empty();
-        } else {
-            samples = Optional.of(sampledFeatures.toArray(new double[0][0]));
-        }
-        return samples;
+        }, listener::onFailure);
+        // inject user role while searching
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                request,
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
+            );
     }
 
     /**
@@ -986,10 +884,9 @@ public class SearchFeatureDao extends AbstractRetriever {
         Entity entity,
         boolean includesEmptyBucket,
         ActionListener<List<Optional<double[]>>> listener
-    ) throws IOException {
+    ) {
         SearchRequest request = createColdStartFeatureSearchRequest(detector, ranges, entity);
-
-        client.search(request, ActionListener.wrap(response -> {
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 listener.onResponse(Collections.emptyList());
@@ -1021,7 +918,17 @@ public class SearchFeatureDao extends AbstractRetriever {
                         .map(bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()))
                         .collect(Collectors.toList())
                 );
-        }, listener::onFailure));
+        }, listener::onFailure);
+
+        // inject user role while searching.
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                request,
+                client::search,
+                detector.getDetectorId(),
+                client,
+                searchResponseListener
+            );
     }
 
     private SearchRequest createColdStartFeatureSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges, Entity entity) {

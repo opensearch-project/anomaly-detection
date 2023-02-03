@@ -294,32 +294,6 @@ public class FeatureManager implements CleanState {
     }
 
     /**
-     * Provides data for cold-start training.
-     *
-     * @deprecated use getColdStartData with listener instead.
-     *
-     * Training data starts with getting samples from (costly) search.
-     * Samples are increased in size via interpolation and then
-     * in dimension via shingling.
-     *
-     * @param detector contains data info (indices, documents, etc)
-     * @return data for cold-start training, or empty if unavailable
-     */
-    @Deprecated
-    public Optional<double[][]> getColdStartData(AnomalyDetector detector) {
-        int shingleSize = detector.getShingleSize();
-        return searchFeatureDao
-            .getLatestDataTime(detector)
-            .flatMap(latest -> searchFeatureDao.getFeaturesForSampledPeriods(detector, maxTrainSamples, maxSampleStride, latest))
-            .map(
-                samples -> transpose(
-                    interpolator.interpolate(transpose(samples.getKey()), samples.getValue() * (samples.getKey().length - 1) + 1)
-                )
-            )
-            .map(points -> batchShingle(points, shingleSize));
-    }
-
-    /**
      * Returns to listener data for cold-start training.
      *
      * Training data starts with getting samples from (costly) search.
@@ -503,7 +477,7 @@ public class FeatureManager implements CleanState {
         int stride = sampleRangeResults.getValue();
         int shingleSize = detector.getShingleSize();
 
-        getSamplesInRangesForEntity(detector, sampleRanges, entity, getFeatureSamplesListener(stride, shingleSize, listener));
+        getPreviewSamplesInRangesForEntity(detector, sampleRanges, entity, getFeatureSamplesListener(stride, shingleSize, listener));
     }
 
     private ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> getFeatureSamplesListener(
@@ -579,7 +553,7 @@ public class FeatureManager implements CleanState {
      * @param listener handle search results map: key is time ranges, value is corresponding search results
      * @throws IOException if a user gives wrong query input when defining a detector
      */
-    void getSamplesInRangesForEntity(
+    void getPreviewSamplesInRangesForEntity(
         AnomalyDetector detector,
         List<Entry<Long, Long>> sampleRanges,
         Entity entity,

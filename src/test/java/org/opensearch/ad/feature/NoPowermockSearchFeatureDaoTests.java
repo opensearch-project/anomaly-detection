@@ -11,10 +11,7 @@
 
 package org.opensearch.ad.feature;
 
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -32,12 +29,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.BytesRef;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
@@ -49,13 +49,14 @@ import org.opensearch.action.search.SearchResponse.Clusters;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -77,7 +78,8 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import com.google.common.collect.ImmutableList;
 
 /**
- * SearchFeatureDaoTests uses Powermock and has strange log4j related errors.
+ * SearchFeatureDaoTests uses Powermock and has strange log4j related errors
+ * (e.g., TEST_INSTANCES_ARE_REUSED).
  * Create a new class for new tests related to SearchFeatureDao.
  *
  */
@@ -88,7 +90,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private Client client;
     private SearchFeatureDao searchFeatureDao;
     private LinearUniformInterpolator interpolator;
-    private ClientUtil clientUtil;
+    private SecurityClientUtil clientUtil;
     private Settings settings;
     private ClusterService clusterService;
     private Clock clock;
@@ -96,7 +98,18 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private String detectorId;
     private Map<String, Object> attrs1, attrs2;
 
+    @BeforeClass
+    public static void setUpBeforeClass() {
+        setUpThreadPool(NoPowermockSearchFeatureDaoTests.class.getSimpleName());
+    }
+
+    @AfterClass
+    public static void tearDownAfterClass() {
+        tearDownThreadPool();
+    }
+
     @Override
+    @SuppressWarnings("unchecked")
     public void setUp() throws Exception {
         super.setUp();
         serviceField = "service";
@@ -114,10 +127,9 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
 
         client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
 
         interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
-
-        clientUtil = mock(ClientUtil.class);
 
         settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
@@ -130,6 +142,13 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         clock = mock(Clock.class);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(detector));
+            return null;
+        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        clientUtil = new SecurityClientUtil(nodeStateManager, settings);
 
         searchFeatureDao = new SearchFeatureDao(
             client,
