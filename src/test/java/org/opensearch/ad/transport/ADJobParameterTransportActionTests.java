@@ -1,7 +1,8 @@
 package org.opensearch.ad.transport;
 
-import java.io.IOException;
 import static org.mockito.Mockito.*;
+
+import java.io.IOException;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -44,7 +45,7 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
         action = new ADJobParameterTransportAction(mock(TransportService.class), mock(ActionFilters.class), xContentRegistry());
         task = mock(Task.class);
         jobDocVersion = new JobDocVersion(1L, 1L, 1L);
-          response = new ActionListener<>() {
+        response = new ActionListener<>() {
 
             @Override
             public void onResponse(ExtensionActionResponse extensionActionResponse) {
@@ -74,7 +75,7 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
     private void setExtensionActionRequest(XContentBuilder content) throws IOException {
         parser = XContentHelper
-                .createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
+            .createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
         JobParameterRequest jobParamRequest = new JobParameterRequest("token", parser, "id", jobDocVersion);
         extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_PARAMETER_ACTION_NAME, jobParamRequest);
     }

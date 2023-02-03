@@ -26,6 +26,7 @@ public class ADJobParameterActionTests extends OpenSearchSingleNodeTestCase {
     public void setUp() throws Exception {
         super.setUp();
     }
+
     @Override
     protected NamedWriteableRegistry writableRegistry() {
         return getInstanceFromNode(NamedWriteableRegistry.class);
@@ -37,9 +38,12 @@ public class ADJobParameterActionTests extends OpenSearchSingleNodeTestCase {
         XContentBuilder content = TestHelpers.randomXContent();
         JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
         XContentParser parser = XContentHelper
-                .createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
+            .createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
         JobParameterRequest jobParamRequest = new JobParameterRequest("token", parser, "id", jobDocVersion);
-        ExtensionActionRequest request = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_PARAMETER_ACTION_NAME, jobParamRequest);
+        ExtensionActionRequest request = new ExtensionJobActionRequest<>(
+            RestHandlerUtils.EXTENSION_JOB_PARAMETER_ACTION_NAME,
+            jobParamRequest
+        );
 
         request.writeTo(out);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
@@ -47,7 +51,6 @@ public class ADJobParameterActionTests extends OpenSearchSingleNodeTestCase {
         Assert.assertEquals(request.getAction(), newRequest.getAction());
         Assert.assertNull(newRequest.validate());
     }
-
 
     @Test
     public void testExtensionActionResponse() throws Exception {

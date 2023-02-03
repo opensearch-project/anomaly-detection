@@ -1,8 +1,8 @@
 package org.opensearch.ad.transport;
 
-import java.io.IOException;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.time.Instant;
 
 import org.junit.Assert;

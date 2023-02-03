@@ -59,9 +59,9 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
             CompletableFuture<AnomalyDetectorJob[]> inProgressFuture = new CompletableFuture<>();
 
             String jobParameterDocumentId = jobRunnerRequest.getJobParameterDocumentId();
-            if (jobParameterDocumentId==null || jobParameterDocumentId.isEmpty() ){
+            if (jobParameterDocumentId == null || jobParameterDocumentId.isEmpty()) {
                 listener.onFailure(new IllegalArgumentException("jobParameterDocumentId cannot be empty or null"));
-            }else {
+            } else {
                 findById(jobParameterDocumentId, new ActionListener<>() {
                     @Override
                     public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
