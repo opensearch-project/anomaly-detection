@@ -2,7 +2,6 @@ package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.ad.constant.CommonValue;
-import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.extensions.action.ExtensionActionResponse;
 
 public class ADJobParameterAction extends ActionType<ExtensionActionResponse> {
@@ -14,7 +13,4 @@ public class ADJobParameterAction extends ActionType<ExtensionActionResponse> {
         super(NAME, ExtensionActionResponse::new);
     }
 
-    public ADJobParameterAction(String name, Writeable.Reader<ExtensionActionResponse> adJobParameterResponseReader) {
-        super(name, adJobParameterResponseReader);
-    }
 }
