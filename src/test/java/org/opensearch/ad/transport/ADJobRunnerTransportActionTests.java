@@ -10,7 +10,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.extensions.action.ExtensionActionRequest;
@@ -37,8 +36,6 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
 
     private LockService lockService;
 
-    private ADTaskManager adTaskManager;
-
     private SDKRestClient sdkRestClient;
 
     private JobExecutionContext jobExecutionContext;
@@ -53,7 +50,6 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
 
         task = mock(Task.class);
         lockService = new LockService(mock(Client.class), clusterService());
-        adTaskManager = mock(ADTaskManager.class);
         JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
         Instant time = Instant.ofEpochSecond(1L);
         jobExecutionContext = new JobExecutionContext(time, jobDocVersion, lockService, "jobIndex", "jobId");
@@ -78,11 +74,6 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), null);
         action.doExecute(task, extensionActionRequest, response);
     }
-
-    // @Test
-    // public void testJobRunnerTransportActionWithNoADTaskManager() {
-    // action.doExecute(task, extensionActionRequest, response);
-    // }
 
     @Test
     public void testJobRunnerTransportActionWithNullJobParameterId() throws IOException {
