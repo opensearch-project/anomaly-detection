@@ -712,7 +712,8 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.feature.CompositeRetriever.PageIterator.1',
         'org.opensearch.ad.feature.CompositeRetriever.PageIterator',
         'org.opensearch.ad.cluster.ADDataMigrator',
-        'org.opensearch.ad.AnomalyDetectorExtension'
+        'org.opensearch.ad.AnomalyDetectorExtension',
+        'org.opensearch.ad.transport.ADJobRunnerTransportActionTests'
 ]
 
 
