@@ -37,6 +37,8 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
 
     private SDKRestClient client;
 
+    private AnomalyDetectorJob scheduledJobParameter;
+
     protected ADJobRunnerTransportAction(TransportService transportService, ActionFilters actionFilters, SDKRestClient client) {
         super(ADJobRunnerAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
         this.client = client;
@@ -55,9 +57,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
         }
 
         try {
-            final AnomalyDetectorJob[] scheduledJobParameter = new AnomalyDetectorJob[1];
-            CompletableFuture<AnomalyDetectorJob[]> inProgressFuture = new CompletableFuture<>();
-
+            CompletableFuture<AnomalyDetectorJob> inProgressFuture = new CompletableFuture<>();
             String jobParameterDocumentId = jobRunnerRequest.getJobParameterDocumentId();
             if (jobParameterDocumentId == null || jobParameterDocumentId.isEmpty()) {
                 listener.onFailure(new IllegalArgumentException("jobParameterDocumentId cannot be empty or null"));
@@ -65,7 +65,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                 findById(jobParameterDocumentId, new ActionListener<>() {
                     @Override
                     public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
-                        scheduledJobParameter[0] = anomalyDetectorJob;
+                        scheduledJobParameter = anomalyDetectorJob;
                         inProgressFuture.complete(scheduledJobParameter);
                     }
 
@@ -77,7 +77,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                 });
                 JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
 
-                AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter[0], jobExecutionContext);
+                AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter, jobExecutionContext);
                 JobRunnerResponse jobRunnerResponse = new JobRunnerResponse(true);
                 listener.onResponse(new ExtensionJobActionResponse<>(jobRunnerResponse));
             }

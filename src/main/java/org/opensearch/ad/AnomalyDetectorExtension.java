@@ -24,9 +24,9 @@ import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
-import org.opensearch.ad.rest.RestValidateDetectorAction;
+import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.ADJobParameterAction;
@@ -48,6 +48,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
+    public static final String AD_BASE_DETECTORS_URI = "/detectors";
+
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
     }
@@ -56,9 +58,13 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestCreateDetectorAction(extensionsRunner, this),
-                new RestGetDetectorAction(),
-                new RestValidateDetectorAction(extensionsRunner, this)
+                new RestIndexAnomalyDetectorAction(extensionsRunner, this),
+                // FIXME delete this
+                // new RestCreateDetectorAction(extensionsRunner, this),
+                new RestValidateAnomalyDetectorAction(extensionsRunner, this),
+                new RestGetDetectorAction()
+                // FIXME delete this
+                // new RestValidateDetectorAction(extensionsRunner, this)
             );
     }
 

@@ -9,7 +9,11 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.common.xcontent.*;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.model.ExtensionJobParameter;
@@ -52,7 +56,6 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
         }
 
         try {
-
             XContentParser parser = XContentHelper
                 .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);

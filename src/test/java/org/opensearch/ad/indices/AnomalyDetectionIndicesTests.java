@@ -58,9 +58,11 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
         nodeFilter = new DiscoveryNodeFilterer(clusterService());
 
         indices = new AnomalyDetectionIndices(
-            client(),
-            clusterService(),
-            client().threadPool(),
+            // FIXME: Replace with SDK equivalents when re-enabling tests
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+            null, // client(),
+            null, // clusterService(),
+            null, // client().threadPool(),
             settings,
             nodeFilter,
             AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
