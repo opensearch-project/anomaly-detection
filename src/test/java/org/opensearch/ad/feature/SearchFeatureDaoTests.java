@@ -210,12 +210,14 @@ public class SearchFeatureDaoTests {
 
         searchFeatureDao = spy(
             new SearchFeatureDao(
-                client,
+                // FIXME: Replace with SDK equivalents when re-enabling tests
+                // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+                null, // client,
                 xContent,
                 interpolator,
                 clientUtil,
                 settings,
-                clusterService,
+                null, // clusterService,
                 AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
             )
         );

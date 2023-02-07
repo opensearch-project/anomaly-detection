@@ -110,8 +110,9 @@ public class PreviewAnomalyDetectorTransportAction extends
                 filterByEnabled,
                 listener,
                 (anomalyDetector) -> previewExecute(request, listener),
-                client,
-                clusterService,
+                // TODO: Switch these to SDKRestClient and SDKClusterService when implementing this
+                null, // client,
+                null, // clusterService,
                 xContentRegistry
             );
         } catch (Exception e) {

@@ -45,15 +45,12 @@ import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
-import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
@@ -167,8 +164,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         jobRunner.setAdTaskManager(adTaskManager);
         
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
-        */
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
+        */
         /* @anomaly-detection.create-detector
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
         RestSearchAnomalyResultAction searchAnomalyResultAction = new RestSearchAnomalyResultAction();
@@ -186,21 +183,21 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         return ImmutableList
             .of(
                 // restGetAnomalyDetectorAction,
-                restIndexAnomalyDetectorAction
-            /* @anomaly-detection.create-detector
-            searchAnomalyDetectorAction,
-            searchAnomalyResultAction,
-            searchADTasksAction,
-            deleteAnomalyDetectorAction,
-            executeAnomalyDetectorAction,
-            anomalyDetectorJobAction,
-            statsAnomalyDetectorAction,
-            searchAnomalyDetectorInfoAction,
-            previewAnomalyDetectorAction,
-            deleteAnomalyResultsAction,
-            searchTopAnomalyResultAction,
-            validateAnomalyDetectorAction
-             */
+                // restIndexAnomalyDetectorAction
+                /* @anomaly-detection.create-detector
+                searchAnomalyDetectorAction,
+                searchAnomalyResultAction,
+                searchADTasksAction,
+                deleteAnomalyDetectorAction,
+                executeAnomalyDetectorAction,
+                anomalyDetectorJobAction,
+                statsAnomalyDetectorAction,
+                searchAnomalyDetectorInfoAction,
+                previewAnomalyDetectorAction,
+                deleteAnomalyResultsAction,
+                searchTopAnomalyResultAction,
+                validateAnomalyDetectorAction
+                 */
             );
     }
 
@@ -238,8 +235,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         */
         // AnomalyDetectionIndices is Injected for IndexAnomalyDetectorTrasnportAction constructor
         this.anomalyDetectionIndices = new AnomalyDetectionIndices(
-            client,
-            clusterService,
+            null, // client,
+            null, // clusterService,
             threadPool,
             settings,
             nodeFilter,
@@ -252,12 +249,12 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
         // SearchFeatureDao is Injected for IndexAnomalyDetectorTrasnportAction constructor
         SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
-            client,
+            null, // Client client,
             xContentRegistry,
             interpolator,
             clientUtil,
             settings,
-            clusterService,
+            null, // ClusterService clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
         );
 
@@ -876,24 +873,24 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class),
-                */
                 new ActionHandler<>(IndexAnomalyDetectorAction.INSTANCE, IndexAnomalyDetectorTransportAction.class)
-            /* @anomaly-detection.create-detector
-            new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
-            new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class),
-            new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
-            new ActionHandler<>(EntityProfileAction.INSTANCE, EntityProfileTransportAction.class),
-            new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
-            new ActionHandler<>(PreviewAnomalyDetectorAction.INSTANCE, PreviewAnomalyDetectorTransportAction.class),
-            new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
-            new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
-            new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
-            new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
-            new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
-            new ActionHandler<>(DeleteAnomalyResultsAction.INSTANCE, DeleteAnomalyResultsTransportAction.class),
-            new ActionHandler<>(SearchTopAnomalyResultAction.INSTANCE, SearchTopAnomalyResultTransportAction.class),
-            new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class)
-             */
+                */
+                /* @anomaly-detection.create-detector
+                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
+                new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class),
+                new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
+                new ActionHandler<>(EntityProfileAction.INSTANCE, EntityProfileTransportAction.class),
+                new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
+                new ActionHandler<>(PreviewAnomalyDetectorAction.INSTANCE, PreviewAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
+                new ActionHandler<>(ADBatchTaskRemoteExecutionAction.INSTANCE, ADBatchTaskRemoteExecutionTransportAction.class),
+                new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class),
+                new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
+                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
+                new ActionHandler<>(DeleteAnomalyResultsAction.INSTANCE, DeleteAnomalyResultsTransportAction.class),
+                new ActionHandler<>(SearchTopAnomalyResultAction.INSTANCE, SearchTopAnomalyResultTransportAction.class),
+                new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class)
+                 */
             );
     }
 

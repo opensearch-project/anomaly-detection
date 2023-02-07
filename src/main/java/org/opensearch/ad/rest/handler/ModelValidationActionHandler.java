@@ -49,8 +49,6 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -58,6 +56,8 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
@@ -87,11 +87,11 @@ public class ModelValidationActionHandler {
     protected static final String AGG_NAME_TOP = "top_agg";
     protected static final String AGGREGATION = "agg";
     protected final AnomalyDetector anomalyDetector;
-    protected final ClusterService clusterService;
+    protected final SDKClusterService clusterService;
     protected final Logger logger = LogManager.getLogger(AbstractAnomalyDetectorActionHandler.class);
     protected final TimeValue requestTimeout;
     protected final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
-    protected final Client client;
+    protected final SDKRestClient client;
     protected final NamedXContentRegistry xContentRegistry;
     protected final ActionListener<ValidateAnomalyDetectorResponse> listener;
     protected final SearchFeatureDao searchFeatureDao;
@@ -112,8 +112,8 @@ public class ModelValidationActionHandler {
      * @param clock                           clock object to know when to timeout
      */
     public ModelValidationActionHandler(
-        ClusterService clusterService,
-        Client client,
+        SDKClusterService clusterService,
+        SDKRestClient client,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         AnomalyDetector anomalyDetector,
         TimeValue requestTimeout,

@@ -19,9 +19,9 @@ import java.util.stream.Stream;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.rest.RestCreateDetectorAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
-import org.opensearch.ad.rest.RestValidateDetectorAction;
+import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -31,12 +31,15 @@ import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 
 import com.google.common.collect.ImmutableList;
 
 public class AnomalyDetectorExtension extends BaseExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
+
+    public static final String AD_BASE_DETECTORS_URI = "/detectors";
 
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
@@ -46,9 +49,13 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestCreateDetectorAction(extensionsRunner, this),
-                new RestGetDetectorAction(),
-                new RestValidateDetectorAction(extensionsRunner, this)
+                new RestIndexAnomalyDetectorAction(extensionsRunner, this),
+                // FIXME delete this
+                // new RestCreateDetectorAction(extensionsRunner, this),
+                new RestValidateAnomalyDetectorAction(extensionsRunner, this),
+                new RestGetDetectorAction()
+                // FIXME delete this
+                // new RestValidateDetectorAction(extensionsRunner, this)
             );
     }
 
@@ -105,9 +112,20 @@ public class AnomalyDetectorExtension extends BaseExtension {
     // TODO: replace or override client object on BaseExtension
     // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
     public OpenSearchClient getClient() {
-        SDKClient sdkClient = new SDKClient();
-        OpenSearchClient client = sdkClient
+        @SuppressWarnings("resource")
+        OpenSearchClient client = new SDKClient()
             .initializeJavaClient(
+                getExtensionSettings().getOpensearchAddress(),
+                Integer.parseInt(getExtensionSettings().getOpensearchPort())
+            );
+        return client;
+    }
+
+    @Deprecated
+    public SDKRestClient getRestClient() {
+        @SuppressWarnings("resource")
+        SDKRestClient client = new SDKClient()
+            .initializeRestClient(
                 getExtensionSettings().getOpensearchAddress(),
                 Integer.parseInt(getExtensionSettings().getOpensearchPort())
             );
