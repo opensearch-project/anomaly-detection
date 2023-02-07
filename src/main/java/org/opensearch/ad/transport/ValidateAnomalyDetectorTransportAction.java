@@ -83,7 +83,8 @@ public class ValidateAnomalyDetectorTransportAction {
         try {
             clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         } catch (Exception e) {
-            // TODO Handle this
+            // FIXME Handle this
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
         }
         this.searchFeatureDao = searchFeatureDao;
         this.clock = Clock.systemUTC();

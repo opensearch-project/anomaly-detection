@@ -49,8 +49,6 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
-import org.opensearch.rest.BytesRestResponse;
-import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -118,16 +116,13 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         }
     };
 
-    protected void sendAnomalyDetectorValidationParseResponse(DetectorValidationIssue issue, RestChannel channel) throws IOException {
-        try {
-            BytesRestResponse restResponse = new BytesRestResponse(
-                RestStatus.OK,
-                new ValidateAnomalyDetectorResponse(issue).toXContent(channel.newBuilder())
-            );
-            channel.sendResponse(restResponse);
-        } catch (Exception e) {
-            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, e.getMessage()));
-        }
+    protected ExtensionRestResponse sendAnomalyDetectorValidationParseResponse(ExtensionRestRequest request, DetectorValidationIssue issue)
+        throws IOException {
+        return new ExtensionRestResponse(
+            request,
+            RestStatus.OK,
+            new ValidateAnomalyDetectorResponse(issue).toXContent(JsonXContent.contentBuilder())
+        );
     }
 
     private Boolean validationTypesAreAccepted(String validationType) {
@@ -161,11 +156,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
                     ADException.getType(),
                     ADException.getMessage()
                 );
-                return new ExtensionRestResponse(
-                    request,
-                    RestStatus.OK,
-                    new ValidateAnomalyDetectorResponse(issue).toXContent(JsonXContent.contentBuilder())
-                );
+                return sendAnomalyDetectorValidationParseResponse(request, issue);
             } else {
                 throw ex;
             }

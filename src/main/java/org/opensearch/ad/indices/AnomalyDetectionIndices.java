@@ -178,6 +178,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.adminClient = restClient;
         this.clusterService = sdkClusterService;
         this.threadPool = threadPool;
+        // FIXME Implement this
+        // https://github.com/opensearch-project/opensearch-sdk-java/issues/423
         // this.clusterService.addLocalNodeMasterListener(this);
         this.historyRolloverPeriod = AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings);
         this.historyMaxDocs = AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings);
@@ -203,7 +205,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         try {
             this.clusterService.getClusterSettings().addSettingsUpdateConsumer(settingToConsumerMap);
         } catch (Exception e) {
-            // TODO Handle this
+            // FIXME Handle this
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
         }
 
         this.settings = Settings.builder().put("index.hidden", true).build();
