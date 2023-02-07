@@ -104,7 +104,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                         listener.onResponse(AnomalyDetectorJob.parse(parser));
                     } catch (IOException e) {
                         logger.error("IOException occurred finding AnomalyDetectorJob for jobParameterId " + jobParameterId, e);
-                        listener.onResponse(null);
+                        listener.onFailure(e);
                     }
                 }
             }, exception -> {

@@ -46,6 +46,7 @@ public class ADJobParameterActionTests extends OpenSearchSingleNodeTestCase {
         );
 
         request.writeTo(out);
+        out.flush();
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
         ExtensionActionRequest newRequest = new ExtensionActionRequest(input);
         Assert.assertEquals(request.getAction(), newRequest.getAction());
@@ -59,6 +60,7 @@ public class ADJobParameterActionTests extends OpenSearchSingleNodeTestCase {
         JobParameterResponse jobParameterResponse = new JobParameterResponse(new ExtensionJobParameter(scheduledJobParameter));
         ExtensionActionResponse response = new ExtensionJobActionResponse<>(jobParameterResponse);
         response.writeTo(out);
+        out.flush();
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
         ExtensionActionResponse newResponse = new ExtensionActionResponse(input);
         Assert.assertEquals(response.getResponseBytes().length, newResponse.getResponseBytes().length);

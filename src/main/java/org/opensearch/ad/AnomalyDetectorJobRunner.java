@@ -155,6 +155,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         IntervalSchedule schedule = (IntervalSchedule) jobParameter.getSchedule();
         Instant detectionStartTime = executionStartTime.minus(schedule.getInterval(), schedule.getUnit());
 
+        //TODO: modify this workflow and avoid pulling the lockService from the provided JobExecutionContext.
+        // The writeable JobExecutionContext sent from Job Scheduler will set the lockService as null since this is not serializable
         final LockService lockService = context.getLockService();
 
         Runnable runnable = () -> {

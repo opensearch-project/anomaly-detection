@@ -1,4 +1,3 @@
-// @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
