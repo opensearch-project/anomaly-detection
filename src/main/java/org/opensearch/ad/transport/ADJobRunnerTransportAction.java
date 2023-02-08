@@ -24,6 +24,7 @@ import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.transport.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.JobRunnerRequest;
 import org.opensearch.jobscheduler.transport.JobRunnerResponse;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -39,9 +40,17 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
 
     private AnomalyDetectorJob scheduledJobParameter;
 
-    protected ADJobRunnerTransportAction(TransportService transportService, ActionFilters actionFilters, SDKRestClient client) {
+    private final NamedXContentRegistry namedXContentRegistry;
+
+    protected ADJobRunnerTransportAction(
+        TransportService transportService,
+        ActionFilters actionFilters,
+        SDKRestClient client,
+        ExtensionsRunner extensionsRunner
+    ) {
         super(ADJobRunnerAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
         this.client = client;
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
     }
 
     @Override
@@ -99,7 +108,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                     try {
                         XContentParser parser = XContentType.JSON
                             .xContent()
-                            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
+                            .createParser(namedXContentRegistry, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                         listener.onResponse(AnomalyDetectorJob.parse(parser));
                     } catch (IOException e) {

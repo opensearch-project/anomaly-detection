@@ -19,6 +19,7 @@ import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.jobscheduler.transport.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.JobRunnerRequest;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
@@ -46,7 +47,12 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         super.setUp();
 
         sdkRestClient = mock(SDKRestClient.class);
-        action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), sdkRestClient);
+        action = new ADJobRunnerTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            sdkRestClient,
+            mock(ExtensionsRunner.class)
+        );
 
         task = mock(Task.class);
         lockService = new LockService(mock(Client.class), clusterService());
@@ -71,7 +77,12 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testJobRunnerTransportAction() {
-        action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), null);
+        action = new ADJobRunnerTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            null,
+            mock(ExtensionsRunner.class)
+        );
         action.doExecute(task, extensionActionRequest, response);
     }
 
