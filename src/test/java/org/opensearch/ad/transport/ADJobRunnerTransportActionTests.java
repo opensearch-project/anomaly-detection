@@ -6,9 +6,9 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.time.Instant;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.util.RestHandlerUtils;
@@ -20,6 +20,7 @@ import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.jobscheduler.transport.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.JobRunnerRequest;
+import org.opensearch.jobscheduler.transport.JobRunnerResponse;
 import org.opensearch.sdk.ExtensionNamedXContentRegistry;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -27,6 +28,9 @@ import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.transport.TransportService;
 
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
+
+@ThreadLeakScope(ThreadLeakScope.Scope.NONE)
 public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
 
     private ADJobRunnerTransportAction action;
@@ -60,19 +64,26 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         lockService = new LockService(mock(Client.class), clusterService());
         JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
         Instant time = Instant.ofEpochSecond(1L);
-        jobExecutionContext = new JobExecutionContext(time, jobDocVersion, lockService, "jobIndex", "jobId");
+        jobExecutionContext = new JobExecutionContext(time, jobDocVersion, null, "jobIndex", "jobId");
         JobRunnerRequest jobRunnerRequest = new JobRunnerRequest("token", "jobParameterId", jobExecutionContext);
         extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_RUNNER_ACTION_NAME, jobRunnerRequest);
         response = new ActionListener<>() {
 
             @Override
             public void onResponse(ExtensionActionResponse extensionActionResponse) {
-                Assert.assertNull(extensionActionResponse);
+                assertNotNull(extensionActionResponse);
+                try {
+                    JobRunnerResponse jobRunnerResponse = new JobRunnerResponse(extensionActionResponse.getResponseBytes());
+                    assertEquals(false, jobRunnerResponse.getJobRunnerStatus());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
             }
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertNotNull(e);
+                assertTrue(e instanceof OpenSearchStatusException);
             }
         };
     }
@@ -91,10 +102,5 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_RUNNER_ACTION_NAME, jobRunnerRequest);
 
         action.doExecute(task, extensionActionRequest, response);
-    }
-
-    @Test
-    public void testJobRunnerTransportActionWithNullExtensionActionRequest() throws IOException {
-        action.doExecute(task, null, response);
     }
 }

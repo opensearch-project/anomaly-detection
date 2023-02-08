@@ -4,9 +4,9 @@ import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.TestHelpers;
@@ -23,6 +23,7 @@ import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobDocVersion;
 import org.opensearch.jobscheduler.transport.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.JobParameterRequest;
+import org.opensearch.jobscheduler.transport.JobParameterResponse;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.transport.TransportService;
@@ -53,12 +54,19 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
             @Override
             public void onResponse(ExtensionActionResponse extensionActionResponse) {
-                Assert.assertNotNull(extensionActionResponse);
+                assertNotNull(extensionActionResponse);
+                try {
+                    JobParameterResponse jobParameterResponse = new JobParameterResponse(extensionActionResponse.getResponseBytes());
+                    assertNotNull(jobParameterResponse.getJobParameter());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
             }
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertNotNull(e);
+                assertTrue(e instanceof OpenSearchStatusException);
             }
         };
     }

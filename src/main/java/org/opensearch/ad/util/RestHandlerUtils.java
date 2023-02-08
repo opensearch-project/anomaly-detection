@@ -81,6 +81,8 @@ public final class RestHandlerUtils {
     public static final String RESULTS = "results";
     public static final String TOP_ANOMALIES = "_topAnomalies";
     public static final String VALIDATE = "_validate";
+    public static Long TIME_OUT_FOR_REQUEST = 10L;
+
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";

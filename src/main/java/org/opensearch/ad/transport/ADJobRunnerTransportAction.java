@@ -5,6 +5,9 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -14,6 +17,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorJobRunner;
 import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
@@ -78,11 +82,30 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                         inProgressFuture.completeExceptionally(e);
                     }
                 });
-                JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
 
-                AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter, jobExecutionContext);
-                JobRunnerResponse jobRunnerResponse = new JobRunnerResponse(true);
+                try {
+                    inProgressFuture.orTimeout(RestHandlerUtils.TIME_OUT_FOR_REQUEST, TimeUnit.SECONDS).join();
+                } catch (CompletionException e) {
+                    if (e.getCause() instanceof TimeoutException) {
+                        logger.info(" Request timed out with an exception ", e);
+                    } else {
+                        throw e;
+                    }
+                } catch (Exception e) {
+                    logger.info(" Could not find Job Parameter due to exception ", e);
+                }
+
+                JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
+                JobRunnerResponse jobRunnerResponse;
+                if (scheduledJobParameter != null && validateJobExecutionContext(jobExecutionContext)) {
+                    jobRunnerResponse = new JobRunnerResponse(true);
+                } else {
+                    jobRunnerResponse = new JobRunnerResponse(false);
+                }
                 listener.onResponse(new ExtensionJobActionResponse<>(jobRunnerResponse));
+                if (jobRunnerResponse.getJobRunnerStatus()) {
+                    AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter, jobExecutionContext);
+                }
             }
         } catch (Exception e) {
             LOG.error(e);
@@ -119,5 +142,22 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
             listener.onFailure(e);
         }
 
+    }
+
+    private boolean validateJobExecutionContext(JobExecutionContext jobExecutionContext) {
+        if (jobExecutionContext != null) {
+            if (jobExecutionContext.getJobId() != null
+                && !jobExecutionContext.getJobId().isEmpty()
+                && jobExecutionContext.getJobIndexName() != null
+                && !jobExecutionContext.getJobIndexName().isEmpty()
+                && jobExecutionContext.getExpectedExecutionTime() != null
+                && jobExecutionContext.getJobVersion() != null) {
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
     }
 }
