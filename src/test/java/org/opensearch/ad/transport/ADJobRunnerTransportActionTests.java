@@ -1,6 +1,7 @@
 package org.opensearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -19,6 +20,7 @@ import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.jobscheduler.transport.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.JobRunnerRequest;
+import org.opensearch.sdk.ExtensionNamedXContentRegistry;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.tasks.Task;
@@ -47,12 +49,12 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         super.setUp();
 
         sdkRestClient = mock(SDKRestClient.class);
-        action = new ADJobRunnerTransportAction(
-            mock(TransportService.class),
-            mock(ActionFilters.class),
-            sdkRestClient,
-            mock(ExtensionsRunner.class)
-        );
+
+        ExtensionsRunner extensionsRunner = mock(ExtensionsRunner.class);
+        ExtensionNamedXContentRegistry extensionNamedXContentRegistry = mock(ExtensionNamedXContentRegistry.class);
+        when(extensionsRunner.getNamedXContentRegistry()).thenReturn(extensionNamedXContentRegistry);
+        when(extensionNamedXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+        action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), sdkRestClient, extensionsRunner);
 
         task = mock(Task.class);
         lockService = new LockService(mock(Client.class), clusterService());
@@ -77,12 +79,6 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testJobRunnerTransportAction() {
-        action = new ADJobRunnerTransportAction(
-            mock(TransportService.class),
-            mock(ActionFilters.class),
-            null,
-            mock(ExtensionsRunner.class)
-        );
         action.doExecute(task, extensionActionRequest, response);
     }
 
