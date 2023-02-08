@@ -57,15 +57,9 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
     protected void doExecute(Task task, ExtensionActionRequest request, ActionListener<ExtensionActionResponse> actionListener) {
         String errorMessage = "Failed to run the Job";
         ActionListener<ExtensionActionResponse> listener = wrapRestActionListener(actionListener, errorMessage);
-        JobRunnerRequest jobRunnerRequest = null;
+        JobRunnerRequest jobRunnerRequest;
         try {
             jobRunnerRequest = new JobRunnerRequest(request.getRequestBytes());
-        } catch (Exception e) {
-            LOG.error(e);
-            listener.onFailure(e);
-        }
-
-        try {
             CompletableFuture<AnomalyDetectorJob> inProgressFuture = new CompletableFuture<>();
             String jobParameterDocumentId = jobRunnerRequest.getJobParameterDocumentId();
             if (jobParameterDocumentId == null || jobParameterDocumentId.isEmpty()) {

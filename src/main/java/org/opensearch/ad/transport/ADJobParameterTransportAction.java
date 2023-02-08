@@ -47,15 +47,9 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
 
         String errorMessage = "Failed to parse the Job Parameter";
         ActionListener<ExtensionActionResponse> listener = wrapRestActionListener(actionListener, errorMessage);
-        JobParameterRequest jobParameterRequest = null;
+        JobParameterRequest jobParameterRequest;
         try {
             jobParameterRequest = new JobParameterRequest(request.getRequestBytes());
-        } catch (Exception e) {
-            LOG.error(e);
-            listener.onFailure(e);
-        }
-
-        try {
             XContentParser parser = XContentHelper
                 .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
