@@ -145,17 +145,14 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
     }
 
     private boolean validateJobExecutionContext(JobExecutionContext jobExecutionContext) {
-        if (jobExecutionContext != null) {
-            if (jobExecutionContext.getJobId() != null
-                && !jobExecutionContext.getJobId().isEmpty()
-                && jobExecutionContext.getJobIndexName() != null
-                && !jobExecutionContext.getJobIndexName().isEmpty()
-                && jobExecutionContext.getExpectedExecutionTime() != null
-                && jobExecutionContext.getJobVersion() != null) {
-                return true;
-            } else {
-                return false;
-            }
+        if (jobExecutionContext != null
+            && jobExecutionContext.getJobId() != null
+            && !jobExecutionContext.getJobId().isEmpty()
+            && jobExecutionContext.getJobIndexName() != null
+            && !jobExecutionContext.getJobIndexName().isEmpty()
+            && jobExecutionContext.getExpectedExecutionTime() != null
+            && jobExecutionContext.getJobVersion() != null) {
+            return true;
         } else {
             return false;
         }

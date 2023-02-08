@@ -1589,9 +1589,7 @@ public class TestHelpers {
         if (anomalyDetectorJob.getUser() != null) {
             xContentBuilder.field(AnomalyDetectorJob.USER_FIELD, anomalyDetectorJob.getUser());
         }
-
         return xContentBuilder.endObject();
-
     }
 
 }
