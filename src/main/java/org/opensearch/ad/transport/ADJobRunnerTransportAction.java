@@ -153,8 +153,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
             && jobExecutionContext.getExpectedExecutionTime() != null
             && jobExecutionContext.getJobVersion() != null) {
             return true;
-        } else {
-            return false;
         }
+        return false;
     }
 }
