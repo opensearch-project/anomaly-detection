@@ -1,4 +1,3 @@
-// @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
 /*
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -10,9 +9,21 @@
  * GitHub history for details.
  */
 
-/*
 package org.opensearch.ad.model;
 
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Locale;
+
+import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.plugins.Plugin;
+import org.opensearch.test.InternalSettingsPlugin;
+import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 public class AnomalyDetectorJobTests extends OpenSearchSingleNodeTestCase {
 
@@ -46,4 +57,3 @@ public class AnomalyDetectorJobTests extends OpenSearchSingleNodeTestCase {
         assertNotNull(parsedAnomalyDetectorJob);
     }
 }
-*/

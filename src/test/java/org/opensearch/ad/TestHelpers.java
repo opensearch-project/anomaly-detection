@@ -15,7 +15,14 @@ import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-import static org.opensearch.test.OpenSearchTestCase.*;
+import static org.opensearch.test.OpenSearchTestCase.buildNewFakeTransportAddress;
+import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
+import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
+import static org.opensearch.test.OpenSearchTestCase.randomDouble;
+import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomInt;
+import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomLong;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
@@ -69,6 +76,7 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.model.DataByFeatureId;
@@ -119,10 +127,14 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
+import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -714,14 +726,13 @@ public class TestHelpers {
         return new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 1000), ChronoUnit.MINUTES);
     }
 
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // public static IntervalSchedule randomIntervalSchedule() {
-    // return new IntervalSchedule(
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
-    // OpenSearchRestTestCase.randomIntBetween(1, 1000),
-    // ChronoUnit.MINUTES
-    // );
-    // }
+    public static IntervalSchedule randomIntervalSchedule() {
+        return new IntervalSchedule(
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            OpenSearchRestTestCase.randomIntBetween(1, 1000),
+            ChronoUnit.MINUTES
+        );
+    }
 
     public static Feature randomFeature() {
         return randomFeature(randomAlphaOfLength(5), randomAlphaOfLength(5));
@@ -939,33 +950,77 @@ public class TestHelpers {
             randomDoubleBetween(1.1, 10.0, true)
         );
     }
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // public static AnomalyDetectorJob randomAnomalyDetectorJob() {
-    // return randomAnomalyDetectorJob(true);
-    // }
-    //
-    // public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
-    // return new AnomalyDetectorJob(
-    // randomAlphaOfLength(10),
-    // randomIntervalSchedule(),
-    // randomIntervalTimeConfiguration(),
-    // enabled,
-    // enabledTime,
-    // disabledTime,
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
-    // 60L,
-    // randomUser(),
-    // null
-    // );
-    // }
 
-    // public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
-    // return randomAnomalyDetectorJob(
-    // enabled,
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS),
-    // Instant.now().truncatedTo(ChronoUnit.SECONDS)
-    // );
-    // }
+    public static AnomalyDetectorJob randomAnomalyDetectorJob() {
+        return randomAnomalyDetectorJob(true);
+    }
+
+    public static ScheduledJobParameter scheduleJobParameter() {
+        return new ScheduledJobParameter() {
+            @Override
+            public String getName() {
+                return "name";
+            }
+
+            @Override
+            public Instant getLastUpdateTime() {
+                return Instant.ofEpochSecond(1L);
+            }
+
+            @Override
+            public Instant getEnabledTime() {
+                return Instant.ofEpochSecond(1L);
+            }
+
+            @Override
+            public Schedule getSchedule() {
+                return TestHelpers.randomIntervalSchedule();
+            }
+
+            @Override
+            public boolean isEnabled() {
+                return false;
+            }
+
+            @Override
+            public Double getJitter() {
+                return 1.0;
+            }
+
+            @Override
+            public Long getLockDurationSeconds() {
+                return 1L;
+            }
+
+            @Override
+            public XContentBuilder toXContent(XContentBuilder xContentBuilder, Params params) throws IOException {
+                return null;
+            }
+        };
+    }
+
+    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
+        return new AnomalyDetectorJob(
+            randomAlphaOfLength(10),
+            randomIntervalSchedule(),
+            randomIntervalTimeConfiguration(),
+            enabled,
+            enabledTime,
+            disabledTime,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            60L,
+            randomUser(),
+            null
+        );
+    }
+
+    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
+        return randomAnomalyDetectorJob(
+            enabled,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        );
+    }
 
     public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() throws IOException {
         return new AnomalyDetectorExecutionInput(
@@ -1515,4 +1570,26 @@ public class TestHelpers {
         ClusterState clusterState = new ClusterState(new ClusterName("test_name"), 1l, "uuid", metaData, null, null, null, null, 1, true);
         return clusterState;
     }
+
+    public static XContentBuilder randomXContent() throws IOException {
+        AnomalyDetectorJob anomalyDetectorJob = randomAnomalyDetectorJob();
+        XContentBuilder xContentBuilder = JsonXContent
+            .contentBuilder()
+            .startObject()
+            .field(AnomalyDetectorJob.NAME_FIELD, anomalyDetectorJob.getName())
+            .field(AnomalyDetectorJob.SCHEDULE_FIELD, anomalyDetectorJob.getSchedule())
+            .field(AnomalyDetectorJob.WINDOW_DELAY_FIELD, anomalyDetectorJob.getWindowDelay())
+            .field(AnomalyDetectorJob.IS_ENABLED_FIELD, anomalyDetectorJob.isEnabled())
+            .field(AnomalyDetectorJob.ENABLED_TIME_FIELD, anomalyDetectorJob.getEnabledTime().toEpochMilli())
+            .field(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD, anomalyDetectorJob.getLastUpdateTime().toEpochMilli())
+            .field(AnomalyDetectorJob.LOCK_DURATION_SECONDS, anomalyDetectorJob.getLockDurationSeconds());
+        if (anomalyDetectorJob.getDisabledTime() != null) {
+            xContentBuilder.field(AnomalyDetectorJob.DISABLED_TIME_FIELD, anomalyDetectorJob.getDisabledTime().toEpochMilli());
+        }
+        if (anomalyDetectorJob.getUser() != null) {
+            xContentBuilder.field(AnomalyDetectorJob.USER_FIELD, anomalyDetectorJob.getUser());
+        }
+        return xContentBuilder.endObject();
+    }
+
 }

@@ -65,6 +65,8 @@ public final class RestHandlerUtils {
     public static final String RESULT_INDEX = "resultIndex";
     public static final String ANOMALY_DETECTOR = "anomaly_detector";
     public static final String ANOMALY_DETECTOR_JOB = "anomaly_detector_job";
+    public static final String EXTENSION_JOB_PARAMETER_ACTION_NAME = "extension_job_parameter";
+    public static final String EXTENSION_JOB_RUNNER_ACTION_NAME = "extension_job_runner";
     public static final String REALTIME_TASK = "realtime_detection_task";
     public static final String HISTORICAL_ANALYSIS_TASK = "historical_analysis_task";
     public static final String RUN = "_run";
@@ -79,6 +81,8 @@ public final class RestHandlerUtils {
     public static final String RESULTS = "results";
     public static final String TOP_ANOMALIES = "_topAnomalies";
     public static final String VALIDATE = "_validate";
+    public static Long TIME_OUT_FOR_REQUEST = 10L;
+
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     private static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";
