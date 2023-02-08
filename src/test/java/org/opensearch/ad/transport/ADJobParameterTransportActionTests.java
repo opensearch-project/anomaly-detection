@@ -53,12 +53,12 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
             @Override
             public void onResponse(ExtensionActionResponse extensionActionResponse) {
-                Assert.assertTrue(true);
+                Assert.assertNotNull(extensionActionResponse);
             }
 
             @Override
             public void onFailure(Exception e) {
-                Assert.assertTrue(true);
+                Assert.assertNotNull(e);
             }
         };
     }
