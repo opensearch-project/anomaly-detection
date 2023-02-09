@@ -103,8 +103,6 @@ import org.opensearch.transport.TransportService;
 public class AnomalyResultTransportAction extends HandledTransportAction<ActionRequest, AnomalyResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(AnomalyResultTransportAction.class);
-    static final String NO_MODEL_ERR_MSG = "No RCF models are available either because RCF"
-        + " models are not ready or all nodes are unresponsive or the system might have bugs.";
     static final String WAIT_FOR_THRESHOLD_ERR_MSG = "Exception in waiting for threshold result";
     static final String NODE_UNRESPONSIVE_ERR_MSG = "Model node is unresponsive.  Mute node";
     static final String READ_WRITE_BLOCKED = "Cannot read/write due to global block.";
@@ -699,7 +697,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
         LOG.info("Trigger cold start for {}", detector.getDetectorId());
         coldStart(detector);
-        return previousException.orElse(exp);
+        return previousException.orElse(new InternalFailure(adID, CommonErrorMessages.NO_MODEL_ERR_MSG));
     }
 
     private void findException(Throwable cause, String adID, AtomicReference<Exception> failure, String nodeId) {
@@ -830,7 +828,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         );
                 } else {
                     LOG.warn(NULL_RESPONSE + " {} for {}", modelID, rcfNodeID);
-                    listener.onFailure(new InternalFailure(adID, NO_MODEL_ERR_MSG));
+                    listener.onFailure(new InternalFailure(adID, CommonErrorMessages.NO_MODEL_ERR_MSG));
                 }
             } catch (Exception ex) {
                 LOG.error(new ParameterizedMessage("Unexpected exception for [{}]", adID), ex);

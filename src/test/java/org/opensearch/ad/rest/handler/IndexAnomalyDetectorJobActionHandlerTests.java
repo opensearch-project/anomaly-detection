@@ -37,6 +37,7 @@ import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
@@ -341,7 +342,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
             Object[] args = invocation.getArguments();
             ActionListener<AnomalyResultResponse> listener = (ActionListener<AnomalyResultResponse>) args[2];
 
-            listener.onFailure(new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG));
+            listener.onFailure(new InternalFailure(detectorId, CommonErrorMessages.NO_MODEL_ERR_MSG));
 
             return null;
         }).when(client).execute(any(AnomalyResultAction.class), any(), any());
