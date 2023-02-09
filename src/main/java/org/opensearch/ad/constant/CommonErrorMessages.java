@@ -131,5 +131,7 @@ public class CommonErrorMessages {
     public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
         "Feature has an unknown exception caught while executing the feature query: ";
     public static final String VALIDATION_FEATURE_FAILURE = "Validation failed for feature(s) of detector %s";
+    public static final String NO_MODEL_ERR_MSG = "No RCF models are available either because RCF"
+        + " models are not ready or all nodes are unresponsive or the system might have bugs.";
 
 }
