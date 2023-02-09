@@ -699,7 +699,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
         LOG.info("Trigger cold start for {}", detector.getDetectorId());
         coldStart(detector);
-        return previousException.orElse(exp);
+        return previousException.orElse(new InternalFailure(adID, NO_MODEL_ERR_MSG));
     }
 
     private void findException(Throwable cause, String adID, AtomicReference<Exception> failure, String nodeId) {
