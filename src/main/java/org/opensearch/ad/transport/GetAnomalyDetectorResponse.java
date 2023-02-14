@@ -14,10 +14,7 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.ActionResponse;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.model.EntityProfile;
+import org.opensearch.ad.model.*;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -33,7 +30,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     private long primaryTerm;
     private long seqNo;
     private AnomalyDetector detector;
-    // private AnomalyDetectorJob adJob;
+    private AnomalyDetectorJob adJob;
     private ADTask realtimeAdTask;
     private ADTask historicalAdTask;
     private RestStatus restStatus;
@@ -63,12 +60,11 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             restStatus = in.readEnum(RestStatus.class);
             detector = new AnomalyDetector(in);
             returnJob = in.readBoolean();
-            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-            // if (returnJob) {
-            // adJob = new AnomalyDetectorJob(in);
-            // } else {
-            // adJob = null;
-            // }
+            if (returnJob) {
+                adJob = new AnomalyDetectorJob(in);
+            } else {
+                adJob = null;
+            }
             returnTask = in.readBoolean();
             if (in.readBoolean()) {
                 realtimeAdTask = new ADTask(in);
@@ -89,7 +85,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         long primaryTerm,
         long seqNo,
         AnomalyDetector detector,
-        // AnomalyDetectorJob adJob,
+        AnomalyDetectorJob adJob,
         boolean returnJob,
         ADTask realtimeAdTask,
         ADTask historicalAdTask,
@@ -106,12 +102,11 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         this.detector = detector;
         this.restStatus = restStatus;
         this.returnJob = returnJob;
-        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-        // if (this.returnJob) {
-        // this.adJob = adJob;
-        // } else {
-        // this.adJob = null;
-        // }
+        if (this.returnJob) {
+            this.adJob = adJob;
+        } else {
+            this.adJob = null;
+        }
         this.returnTask = returnTask;
         if (this.returnTask) {
             this.realtimeAdTask = realtimeAdTask;
@@ -144,13 +139,12 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             out.writeLong(seqNo);
             out.writeEnum(restStatus);
             detector.writeTo(out);
-            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-            // if (returnJob) {
-            // out.writeBoolean(true); // returnJob is true
-            // adJob.writeTo(out);
-            // } else {
-            // out.writeBoolean(false); // returnJob is false
-            // }
+            if (returnJob) {
+                out.writeBoolean(true); // returnJob is true
+                adJob.writeTo(out);
+            } else {
+                out.writeBoolean(false); // returnJob is false
+            }
             out.writeBoolean(returnTask);
             if (realtimeAdTask != null) {
                 out.writeBoolean(true);
@@ -182,10 +176,9 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             builder.field(RestHandlerUtils._PRIMARY_TERM, primaryTerm);
             builder.field(RestHandlerUtils._SEQ_NO, seqNo);
             builder.field(RestHandlerUtils.ANOMALY_DETECTOR, detector);
-            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-            // if (returnJob) {
-            // builder.field(RestHandlerUtils.ANOMALY_DETECTOR_JOB, adJob);
-            // }
+            if (returnJob) {
+                builder.field(RestHandlerUtils.ANOMALY_DETECTOR_JOB, adJob);
+            }
             if (returnTask) {
                 builder.field(RestHandlerUtils.REALTIME_TASK, realtimeAdTask);
                 builder.field(RestHandlerUtils.HISTORICAL_ANALYSIS_TASK, historicalAdTask);
@@ -198,10 +191,10 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     public DetectorProfile getDetectorProfile() {
         return detectorProfile;
     }
-    // @anomaly-detection.create-detector Commented this code until we have support of Get Detector for extensibility
-    // public AnomalyDetectorJob getAdJob() {
-    // return adJob;
-    // }
+
+    public AnomalyDetectorJob getAdJob() {
+        return adJob;
+    }
 
     public ADTask getRealtimeAdTask() {
         return realtimeAdTask;
