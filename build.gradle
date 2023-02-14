@@ -769,7 +769,8 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.stats.ADStats',
         'org.opensearch.ad.MaintenanceState',
         'org.opensearch.ad.AnomalyDetectorExtension.1',
-        'org.opensearch.ad.AnomalyDetectorExtension.1.1'
+        'org.opensearch.ad.AnomalyDetectorExtension.1.1',
+        'org.opensearch.ad.EntityProfileRunner'
 ]
 
 
