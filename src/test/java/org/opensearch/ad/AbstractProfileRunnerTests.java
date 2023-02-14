@@ -10,8 +10,38 @@
  * GitHub history for details.
  */
 
-/*package org.opensearch.ad;
+package org.opensearch.ad;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.opensearch.Version;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.DetectorProfileName;
+import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.transport.TransportService;
 
 public class AbstractProfileRunnerTests extends AbstractADTest {
     protected enum DetectorStatus {
@@ -35,7 +65,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
     }
 
     protected AnomalyDetectorProfileRunner runner;
-    protected Client client;
+    protected SDKRestClient client;
     protected DiscoveryNodeFilterer nodeFilter;
     protected AnomalyDetector detector;
     protected ClusterService clusterService;
@@ -119,7 +149,7 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        client = mock(Client.class);
+        client = mock(SDKRestClient.class);
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         clusterService = mock(ClusterService.class);
         adTaskManager = mock(ADTaskManager.class);
@@ -140,4 +170,4 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
         detectorGetReponse = mock(GetResponse.class);
 
     }
-}*/
+}

@@ -23,15 +23,15 @@ import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
-import java.util.Set;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -46,15 +46,14 @@ import org.opensearch.ad.AnomalyDetectorProfileRunner;
 import org.opensearch.ad.EntityProfileRunner;
 import org.opensearch.ad.Name;
 import org.opensearch.ad.auth.UserIdentity;
-import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.EntityProfileName;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
-import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyDetector;
-
+import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.model.DetectorProfile;
+import org.opensearch.ad.model.DetectorProfileName;
+import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -154,11 +153,6 @@ public class GetAnomalyDetectorTransportAction {
             LOG.error(e);
             listener.onFailure(e);
         }
-    }
-
-    protected void tempGetExecute(GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> listener) {
-        String detectorID = request.getDetectorID();
-        getDetectorAndJob(detectorID, false, false, Optional.empty(), Optional.empty(), listener);
     }
 
     // FIXME Handle this
