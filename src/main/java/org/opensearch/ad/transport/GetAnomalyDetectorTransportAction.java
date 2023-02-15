@@ -122,13 +122,7 @@ public class GetAnomalyDetectorTransportAction {
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        try {
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
-        } catch (Exception e) {
-            // FIXME Handle this
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
-        }
-
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.transportService = transportService;
         this.adTaskManager = adTaskManager;
     }
