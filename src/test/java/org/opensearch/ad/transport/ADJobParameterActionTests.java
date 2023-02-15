@@ -15,10 +15,10 @@ import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.model.ExtensionJobParameter;
 import org.opensearch.jobscheduler.spi.JobDocVersion;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
-import org.opensearch.jobscheduler.transport.ExtensionJobActionRequest;
-import org.opensearch.jobscheduler.transport.ExtensionJobActionResponse;
-import org.opensearch.jobscheduler.transport.JobParameterRequest;
-import org.opensearch.jobscheduler.transport.JobParameterResponse;
+import org.opensearch.jobscheduler.transport.request.ExtensionJobActionRequest;
+import org.opensearch.jobscheduler.transport.request.JobParameterRequest;
+import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
+import org.opensearch.jobscheduler.transport.response.JobParameterResponse;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 public class ADJobParameterActionTests extends OpenSearchSingleNodeTestCase {
