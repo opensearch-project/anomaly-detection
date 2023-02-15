@@ -18,7 +18,10 @@ import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobDocVersion;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.utils.LockService;
-import org.opensearch.jobscheduler.transport.*;
+import org.opensearch.jobscheduler.transport.request.ExtensionJobActionRequest;
+import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
+import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
+import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 public class ADJobRunnerActionTests extends OpenSearchSingleNodeTestCase {
