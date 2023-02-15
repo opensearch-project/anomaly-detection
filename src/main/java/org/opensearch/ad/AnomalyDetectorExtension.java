@@ -58,13 +58,9 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner, this),
-                // FIXME delete this
-                // new RestCreateDetectorAction(extensionsRunner, this),
-                new RestValidateAnomalyDetectorAction(extensionsRunner, this),
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
                 new RestGetDetectorAction()
-                // FIXME delete this
-                // new RestValidateDetectorAction(extensionsRunner, this)
             );
     }
 
@@ -142,7 +138,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     }
 
     @Override
-    public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActions() {
+    public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActionsMap() {
         Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map = new HashMap<>();
         map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
         map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
