@@ -59,13 +59,9 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner, this),
-                // FIXME delete this
-                // new RestCreateDetectorAction(extensionsRunner, this),
-                new RestValidateAnomalyDetectorAction(extensionsRunner, this),
-                new RestGetAnomalyDetectorAction(extensionsRunner, this)
-                // FIXME delete this
-                // new RestValidateDetectorAction(extensionsRunner, this)
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
+                new RestGetAnomalyDetectorAction(extensionsRunner(), this)
             );
     }
 
@@ -137,11 +133,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     @Deprecated
     public SDKRestClient getRestClient() {
         @SuppressWarnings("resource")
-        SDKRestClient client = new SDKClient()
-            .initializeRestClient(
-                getExtensionSettings().getOpensearchAddress(),
-                Integer.parseInt(getExtensionSettings().getOpensearchPort())
-            );
+        SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
         return client;
     }
 
