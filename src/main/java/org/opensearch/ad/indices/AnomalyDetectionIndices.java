@@ -610,7 +610,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         try {
             CreateIndexRequest request = new CreateIndexRequest(".opendistro-anomaly-detector-jobs")
                 .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
-                request
+            request
                 .settings(
                     Settings
                         .builder()
@@ -627,7 +627,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                         .put("index.hidden", true)
                 );
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
-            } catch (IOException e) {
+        } catch (IOException e) {
             logger.error("Fail to init AD job index", e);
             actionListener.onFailure(e);
         }

@@ -16,34 +16,41 @@ import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
 import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
+import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
+import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
-import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -60,9 +67,9 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     private SDKClusterService clusterService;
     private NamedXContentRegistry namedXContentRegistry;
     private Settings settings;
-    private volatile TimeValue requestTimeout; 
+    private volatile TimeValue requestTimeout;
 
-    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension){
+    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         this.extensionsRunner = extensionsRunner;
         this.client = anomalyDetectorExtension.getRestClient();
         this.transportService = extensionsRunner.getExtensionTransportService();
@@ -120,14 +127,47 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             rawPath
         );
 
-        // CANNOT call transport action directly as it needs components to be injected.
+        // FIXME : inject ADindicies and adTaskManager from guice after create component integration
+        AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
+            client,
+            clusterService,
+            null, // threadPool
+            settings,
+            null, // nodeFilter
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        );
 
-        // TODO : Create AnomalyDetectorJobTransportAction - needs AdTaskManager / AdIndices from create components
-        // TODO : Create CompleteableFuture<AnomalyDetectorJobResponse> adJobFutureResponse = new CompleteableFuture<>();
-        // TODO : invoke adJobTransportAction.doExecute with actionListener to complete adJobResponse
-        // TODO : AnomalyDetectorJobResponse response = adJobFutureResponse.orTimeout.join()
-        // TODO : Create ExtensionRestResponse with RestStatus.OK and return
+        // FIXME : need to add adTaskManager
+        AnomalyDetectorJobTransportAction adJobTransportAction = new AnomalyDetectorJobTransportAction(
+            transportService,
+            null, // action filter
+            client,
+            clusterService,
+            settings,
+            anomalyDetectionIndices,
+            namedXContentRegistry,
+            null // AD TaskManager
+        );
 
+        // Execute anomaly detector job transport action
+        CompletableFuture<AnomalyDetectorJobResponse> adJobFutureResponse = new CompletableFuture<>();
+        adJobTransportAction
+            .doExecute(
+                null, // task
+                anomalyDetectorJobRequest,
+                ActionListener
+                    .wrap(adJobResponse -> adJobFutureResponse.complete(adJobResponse), ex -> adJobFutureResponse.completeExceptionally(ex))
+            );
+
+        // Retrieve and return AD Job response
+        AnomalyDetectorJobResponse response = adJobFutureResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+        return new ExtensionRestResponse(
+            request,
+            RestStatus.OK,
+            response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        );
     }
 
     private DetectionDateRange parseDetectionDateRange(ExtensionRestRequest request) throws IOException {

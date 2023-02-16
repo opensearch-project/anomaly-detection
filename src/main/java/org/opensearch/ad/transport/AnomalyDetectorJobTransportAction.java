@@ -9,8 +9,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-    
-    
+
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_START_DETECTOR;
@@ -25,28 +24,24 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
-import org.opensearch.sdk.SDKClient;
-import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorJobTransportAction {
     // extends HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
-        
+
     private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
 
     private final SDKRestClient client;
@@ -84,7 +79,8 @@ public class AnomalyDetectorJobTransportAction {
     public void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> actionListener) {
         String detectorId = request.getDetectorID();
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
-        boolean historical = request.isHistorical(); // Request will temporarily set historical boolean to false until historical analysis workflow has been integrated
+        boolean historical = request.isHistorical(); // Request will temporarily set historical boolean to false until historical analysis
+                                                     // workflow has been integrated
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();
         String rawPath = request.getRawPath();
@@ -147,8 +143,10 @@ public class AnomalyDetectorJobTransportAction {
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
             adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, listener);
-        } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
-            adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
         }
+        // FIXME : Stop detector
+        // else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
+        // adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
+        // }
     }
 }

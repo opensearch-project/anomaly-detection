@@ -37,9 +37,9 @@ public enum ADIndex {
     ),
     JOB(
         AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
-         false,
+        false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getAnomalyDetectorJobMappings)
-     ),
+    ),
     CHECKPOINT(
         CommonName.CHECKPOINT_INDEX_NAME,
         false,

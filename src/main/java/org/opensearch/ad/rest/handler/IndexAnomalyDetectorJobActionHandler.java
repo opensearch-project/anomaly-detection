@@ -32,17 +32,12 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
-import org.opensearch.ad.transport.StopDetectorAction;
-import org.opensearch.ad.transport.StopDetectorRequest;
-import org.opensearch.ad.transport.StopDetectorResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -50,7 +45,6 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.sdk.SDKClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.transport.TransportService;
 
@@ -125,12 +119,12 @@ public class IndexAnomalyDetectorJobActionHandler {
                 } else {
                     logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
                     listener
-                    .onFailure(
-                    new OpenSearchStatusException(
-                    "Created " + ANOMALY_DETECTORS_INDEX + " with mappings call not acknowledged.",
-                    RestStatus.INTERNAL_SERVER_ERROR
-                    )
-                    );
+                        .onFailure(
+                            new OpenSearchStatusException(
+                                "Created " + ANOMALY_DETECTORS_INDEX + " with mappings call not acknowledged.",
+                                RestStatus.INTERNAL_SERVER_ERROR
+                            )
+                        );
                 }
             }, exception -> listener.onFailure(exception)));
         } else {
@@ -178,15 +172,15 @@ public class IndexAnomalyDetectorJobActionHandler {
 
     private void onGetAnomalyDetectorJobForWrite(GetResponse response, AnomalyDetector detector, AnomalyDetectorJob job)
         throws IOException {
-            if (response.isExists()) {
-                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob currentAdJob = AnomalyDetectorJob.parse(parser);
-                    if (currentAdJob.isEnabled()) {
-                        listener
-                            .onFailure(new OpenSearchStatusException("Anomaly detector job is already running: " + detectorId, RestStatus.OK));
-                        return;
-                    } else {
+        if (response.isExists()) {
+            try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                AnomalyDetectorJob currentAdJob = AnomalyDetectorJob.parse(parser);
+                if (currentAdJob.isEnabled()) {
+                    listener
+                        .onFailure(new OpenSearchStatusException("Anomaly detector job is already running: " + detectorId, RestStatus.OK));
+                    return;
+                } else {
                     AnomalyDetectorJob newJob = new AnomalyDetectorJob(
                         job.getName(),
                         job.getSchedule(),
@@ -211,27 +205,27 @@ public class IndexAnomalyDetectorJobActionHandler {
                                 .wrap(
                                     r -> { indexAnomalyDetectorJob(newJob, null); },
                                     e -> {
-                                    // Have logged error message in ADTaskManager#startDetector
-                                    listener.onFailure(e);
+                                        // Have logged error message in ADTaskManager#startDetector
+                                        listener.onFailure(e);
                                     }
                                 )
                         );
-                    }
-                } catch (IOException e) {
-                    String message = "Failed to parse anomaly detector job " + job.getName();
-                    logger.error(message, e);
-                    listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
                 }
-            } else {
-                adTaskManager
-                    .startDetector(
-                        detector,
-                        null,
-                        job.getUser(),
-                        transportService,
-                        ActionListener.wrap(r -> { indexAnomalyDetectorJob(job, null); }, e -> listener.onFailure(e))
-                    );
+            } catch (IOException e) {
+                String message = "Failed to parse anomaly detector job " + job.getName();
+                logger.error(message, e);
+                listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
+        } else {
+            adTaskManager
+                .startDetector(
+                    detector,
+                    null,
+                    job.getUser(),
+                    transportService,
+                    ActionListener.wrap(r -> { indexAnomalyDetectorJob(job, null); }, e -> listener.onFailure(e))
+                );
+        }
     }
 
     private void indexAnomalyDetectorJob(AnomalyDetectorJob job, AnomalyDetectorFunction function) throws IOException {
@@ -244,9 +238,9 @@ public class IndexAnomalyDetectorJobActionHandler {
             .id(detectorId);
         client
             .index(
-            indexRequest,
-            ActionListener
-            .wrap(response -> onIndexAnomalyDetectorJobResponse(response, function), exception -> listener.onFailure(exception))
+                indexRequest,
+                ActionListener
+                    .wrap(response -> onIndexAnomalyDetectorJobResponse(response, function), exception -> listener.onFailure(exception))
             );
     }
 
@@ -271,7 +265,7 @@ public class IndexAnomalyDetectorJobActionHandler {
     }
 
     // TODO : https://github.com/opensearch-project/opensearch-sdk-java/issues/384
-    
+
     // /**
     // * Stop anomaly detector job.
     // * 1.If job not exists, return error message
