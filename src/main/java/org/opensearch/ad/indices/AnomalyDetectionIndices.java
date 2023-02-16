@@ -202,8 +202,13 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         });
         settingToConsumerMap.put(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> historyRetentionPeriod = (TimeValue) it);
         settingToConsumerMap.put(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = (int) it);
+        try {
+            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(settingToConsumerMap);
+        } catch (Exception e) {
+            // FIXME Handle this
+            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
+        }
 
-        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(settingToConsumerMap);
         this.settings = Settings.builder().put("index.hidden", true).build();
 
         this.maxUpdateRunningTimes = maxUpdateRunningTimes;
