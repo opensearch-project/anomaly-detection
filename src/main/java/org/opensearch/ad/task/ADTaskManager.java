@@ -120,6 +120,7 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
+import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
 import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
 import org.opensearch.ad.transport.ADCancelTaskAction;
@@ -277,66 +278,65 @@ public class ADTaskManager {
      * @param transportService transport service
      * @param listener action listener
      */
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // public void startDetector(
-    // String detectorId,
-    // DetectionDateRange detectionDateRange,
-    // IndexAnomalyDetectorJobActionHandler handler,
-    // UserIdentity user,
-    // TransportService transportService,
-    // ActionListener<AnomalyDetectorJobResponse> listener
-    // ) {
-    // // upgrade index mapping of AD default indices
-    // detectionIndices.update();
-    //
-    // getDetector(detectorId, (detector) -> {
-    // if (!detector.isPresent()) {
-    // listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
-    // return;
-    // }
-    //
-    // // Validate if detector is ready to start. Will return null if ready to start.
-    // String errorMessage = validateDetector(detector.get());
-    // if (errorMessage != null) {
-    // listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
-    // return;
-    // }
-    // String resultIndex = detector.get().getResultIndex();
-    // if (resultIndex == null) {
-    // startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
-    // return;
-    // }
-    // detectionIndices
-    // .initCustomResultIndexAndExecute(
-    // resultIndex,
-    // () -> startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector),
-    // listener
-    // );
-    //
-    // }, listener);
-    // }
+    public void startDetector(
+        String detectorId,
+        DetectionDateRange detectionDateRange,
+        IndexAnomalyDetectorJobActionHandler handler,
+        UserIdentity user,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener
+        ) {
+            // upgrade index mapping of AD default indices
+            detectionIndices.update();
+            
+            getDetector(detectorId, (detector) -> {
+                if (!detector.isPresent()) {
+                    listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
+                    return;
+                }
+                
+                // Validate if detector is ready to start. Will return null if ready to start.
+                String errorMessage = validateDetector(detector.get());
+                if (errorMessage != null) {
+                    listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
+                    return;
+                }
+                String resultIndex = detector.get().getResultIndex();
+                if (resultIndex == null) {
+                    startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector);
+                    return;
+                }
+                detectionIndices
+                    .initCustomResultIndexAndExecute(
+                    resultIndex,
+                    () -> startRealtimeOrHistoricalDetection(detectionDateRange, handler, user, transportService, listener, detector),
+                    listener
+                );
+            
+            }, listener);
+    }
 
-    // private void startRealtimeOrHistoricalDetection(
-    // DetectionDateRange detectionDateRange,
-    // IndexAnomalyDetectorJobActionHandler handler,
-    // UserIdentity user,
-    // TransportService transportService,
-    // ActionListener<AnomalyDetectorJobResponse> listener,
-    // Optional<AnomalyDetector> detector
-    // ) {
-    // try {
-    // if (detectionDateRange == null) {
-    // // start realtime job
-    // handler.startAnomalyDetectorJob(detector.get());
-    // } else {
-    // // start historical analysis task
-    // forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
-    // }
-    // } catch (Exception e) {
-    // logger.error("Failed to stash context", e);
-    // listener.onFailure(e);
-    // }
-    // }
+    private void startRealtimeOrHistoricalDetection(
+        DetectionDateRange detectionDateRange,
+        IndexAnomalyDetectorJobActionHandler handler,
+        UserIdentity user,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener,
+        Optional<AnomalyDetector> detector
+        ) {
+            try {
+                if (detectionDateRange == null) {
+                    // start realtime job
+                    handler.startAnomalyDetectorJob(detector.get());
+                } else {
+                    // start historical analysis task
+                    forwardApplyForTaskSlotsRequestToLeadNode(detector.get(), detectionDateRange, user, transportService, listener);
+                }
+            } catch (Exception e) {
+                logger.error("Failed to stash context", e);
+                listener.onFailure(e);
+            }
+    }
 
     /**
      * When AD receives start historical analysis request for a detector, will

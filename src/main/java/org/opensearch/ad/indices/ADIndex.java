@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.util.ThrowingSupplierWrapper;
 
 /**
@@ -34,12 +35,11 @@ public enum ADIndex {
         false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getAnomalyDetectorMappings)
     ),
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // JOB(
-    // AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
-    // false,
-    // ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getAnomalyDetectorJobMappings)
-    // ),
+    JOB(
+        AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+         false,
+        ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getAnomalyDetectorJobMappings)
+     ),
     CHECKPOINT(
         CommonName.CHECKPOINT_INDEX_NAME,
         false,

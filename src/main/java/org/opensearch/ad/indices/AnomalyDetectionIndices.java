@@ -58,6 +58,7 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -306,9 +307,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      *
      * @return true if anomaly detector job index exists
      */
-    // public boolean doesAnomalyDetectorJobIndexExist() {
-    // return clusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
-    // }
+    public boolean doesAnomalyDetectorJobIndexExist() {
+        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+    }
 
     /**
      * anomaly result index exist or not.
@@ -605,33 +606,32 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      *
      * @param actionListener action called after create index
      */
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
-    // try {
-    // CreateIndexRequest request = new CreateIndexRequest(".opendistro-anomaly-detector-jobs")
-    // .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
-    // request
-    // .settings(
-    // Settings
-    // .builder()
-    // // AD job index is small. 1 primary shard is enough
-    // .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
-    // // Job scheduler puts both primary and replica shards in the
-    // // hash ring. Auto-expand the number of replicas based on the
-    // // number of data nodes (up to 20) in the cluster so that each node can
-    // // become a coordinating node. This is useful when customers
-    // // scale out their cluster so that we can do adaptive scaling
-    // // accordingly.
-    // // At least 1 replica for fail-over.
-    // .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
-    // .put("index.hidden", true)
-    // );
-    // adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
-    // } catch (IOException e) {
-    // logger.error("Fail to init AD job index", e);
-    // actionListener.onFailure(e);
-    // }
-    // }
+    public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
+        try {
+            CreateIndexRequest request = new CreateIndexRequest(".opendistro-anomaly-detector-jobs")
+                .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
+                request
+                .settings(
+                    Settings
+                        .builder()
+                        // AD job index is small. 1 primary shard is enough
+                        .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+                        // Job scheduler puts both primary and replica shards in the
+                        // hash ring. Auto-expand the number of replicas based on the
+                        // number of data nodes (up to 20) in the cluster so that each node can
+                        // become a coordinating node. This is useful when customers
+                        // scale out their cluster so that we can do adaptive scaling
+                        // accordingly.
+                        // At least 1 replica for fail-over.
+                        .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
+                        .put("index.hidden", true)
+                );
+            adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
+            } catch (IOException e) {
+            logger.error("Fail to init AD job index", e);
+            actionListener.onFailure(e);
+        }
+    }
 
     /**
      * Create the state index.
@@ -1072,7 +1072,6 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         return indexState.schemaVersion;
     }
 
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private void updateJobIndexSettingIfNecessary(IndexState jobIndexState, ActionListener<Void> listener) {
     // GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
     // .indices(ADIndex.JOB.getIndexName())

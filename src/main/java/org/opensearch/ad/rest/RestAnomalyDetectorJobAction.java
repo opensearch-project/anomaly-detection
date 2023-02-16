@@ -22,45 +22,83 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 
-import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
-import org.opensearch.client.node.NodeClient;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.extensions.rest.ExtensionRestRequest;
+import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.sdk.BaseExtensionRestHandler;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.RouteHandler;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to handle request to start/stop AD job.
  */
-public class RestAnomalyDetectorJobAction extends BaseRestHandler {
+public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
 
     public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
-    private volatile TimeValue requestTimeout;
+    private ExtensionsRunner extensionsRunner;
+    private SDKRestClient client;
+    private TransportService transportService;
+    private SDKClusterService clusterService;
+    private NamedXContentRegistry namedXContentRegistry;
+    private Settings settings;
+    private volatile TimeValue requestTimeout; 
 
-    public RestAnomalyDetectorJobAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension){
+        this.extensionsRunner = extensionsRunner;
+        this.client = anomalyDetectorExtension.getRestClient();
+        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.clusterService = new SDKClusterService(extensionsRunner);
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.settings = extensionsRunner.getEnvironmentSettings();
+        this.requestTimeout = REQUEST_TIMEOUT.get(this.settings);
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
     }
 
-    @Override
     public String getName() {
         return AD_JOB_ACTION;
     }
 
     @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    public List<RouteHandler> routeHandlers() {
+        return ImmutableList
+            .of(
+                // start AD Job
+                new RouteHandler(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
+                    handleRequest
+                )
+            );
+    }
+
+    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            return exceptionalRequest(request, e);
+        }
+    };
+
+    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -68,8 +106,9 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         String detectorId = request.param(DETECTOR_ID);
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
-        boolean historical = request.paramAsBoolean("historical", false);
-        String rawPath = request.rawPath();
+        // Passed false until historical analysis workflow is enabled
+        boolean historical = false;
+        String rawPath = request.path();
         DetectionDateRange detectionDateRange = parseDetectionDateRange(request);
 
         AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(
@@ -81,25 +120,33 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
             rawPath
         );
 
-        return channel -> client
-            .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));
+        // CANNOT call transport action directly as it needs components to be injected.
+
+        // TODO : Create AnomalyDetectorJobTransportAction - needs AdTaskManager / AdIndices from create components
+        // TODO : Create CompleteableFuture<AnomalyDetectorJobResponse> adJobFutureResponse = new CompleteableFuture<>();
+        // TODO : invoke adJobTransportAction.doExecute with actionListener to complete adJobResponse
+        // TODO : AnomalyDetectorJobResponse response = adJobFutureResponse.orTimeout.join()
+        // TODO : Create ExtensionRestResponse with RestStatus.OK and return
+
     }
 
-    private DetectionDateRange parseDetectionDateRange(RestRequest request) throws IOException {
+    private DetectionDateRange parseDetectionDateRange(ExtensionRestRequest request) throws IOException {
         if (!request.hasContent()) {
             return null;
         }
-        XContentParser parser = request.contentParser();
+        XContentParser parser = request.contentParser(this.namedXContentRegistry);
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         DetectionDateRange dateRange = DetectionDateRange.parse(parser);
         return dateRange;
     }
-
+    /* 
     @Override
     public List<Route> routes() {
         return ImmutableList.of();
     }
+    */
 
+    /* 
     @Override
     public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList
@@ -120,4 +167,5 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
                 )
             );
     }
+    */
 }

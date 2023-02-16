@@ -22,8 +22,10 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
+import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestGetDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
@@ -60,7 +62,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
             .of(
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
-                new RestGetDetectorAction()
+                new RestGetDetectorAction(),
+                new RestAnomalyDetectorJobAction(extensionsRunner(), this)
             );
     }
 
@@ -108,10 +111,13 @@ public class AnomalyDetectorExtension extends BaseExtension {
     @Override
     public List<NamedXContentRegistry.Entry> getNamedXContent() {
         // Copied from AnomalyDetectorPlugin getNamedXContent
-        return ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY, AnomalyResult.XCONTENT_REGISTRY, DetectorInternalState.XCONTENT_REGISTRY
-        // Pending Job Scheduler Integration
-        // AnomalyDetectorJob.XCONTENT_REGISTRY
-        );
+        return ImmutableList
+            .of(
+                AnomalyDetector.XCONTENT_REGISTRY,
+                AnomalyResult.XCONTENT_REGISTRY,
+                DetectorInternalState.XCONTENT_REGISTRY,
+                AnomalyDetectorJob.XCONTENT_REGISTRY
+            );
     }
 
     // TODO: replace or override client object on BaseExtension
@@ -129,11 +135,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     @Deprecated
     public SDKRestClient getRestClient() {
         @SuppressWarnings("resource")
-        SDKRestClient client = new SDKClient()
-            .initializeRestClient(
-                getExtensionSettings().getOpensearchAddress(),
-                Integer.parseInt(getExtensionSettings().getOpensearchPort())
-            );
+        SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
         return client;
     }
 
