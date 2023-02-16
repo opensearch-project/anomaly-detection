@@ -72,7 +72,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         it -> parse(it)
     );
     public static final String NO_ID = "";
-    public static final String ANOMALY_DETECTORS_INDEX = "opendistro-anomaly-detectors";
+    public static final String ANOMALY_DETECTORS_INDEX = ".opendistro-anomaly-detectors";
     public static final String TYPE = "_doc";
     public static final String QUERY_PARAM_PERIOD_START = "period_start";
     public static final String QUERY_PARAM_PERIOD_END = "period_end";

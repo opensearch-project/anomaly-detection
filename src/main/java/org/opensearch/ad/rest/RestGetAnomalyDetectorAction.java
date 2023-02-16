@@ -12,62 +12,112 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.action.ActionListener;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
-import org.opensearch.client.node.NodeClient;
+import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
+import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.common.Strings;
-import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.extensions.rest.ExtensionRestRequest;
+import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.action.RestActions;
-import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.BaseExtensionRestHandler;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.RouteHandler;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to retrieve an anomaly detector.
  */
-public class RestGetAnomalyDetectorAction extends BaseRestHandler {
+public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String GET_ANOMALY_DETECTOR_ACTION = "get_anomaly_detector";
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
+    private NamedXContentRegistry namedXContentRegistry;
+    private Settings settings;
+    private TransportService transportService;
+    private SDKRestClient client;
+    private SDKClusterService clusterService;
+    private ExtensionsRunner extensionsRunner;
 
-    public RestGetAnomalyDetectorAction() {}
+    public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+        this.extensionsRunner = extensionsRunner;
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.settings = extensionsRunner.getEnvironmentSettings();
+        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.client = anomalyDetectorExtension.getRestClient();
+        this.clusterService = new SDKClusterService(extensionsRunner);
+    }
 
-    @Override
+    // @Override
     public String getName() {
         return GET_ANOMALY_DETECTOR_ACTION;
     }
 
     @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    public List<RouteHandler> routeHandlers() {
+        return ImmutableList
+            .of(
+                // GET
+                new RouteHandler(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    handleRequest
+                )
+            );
+    }
+
+    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
+
+    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
         String detectorId = request.param(DETECTOR_ID);
         String typesStr = request.param(TYPE);
 
-        String rawPath = request.rawPath();
-        boolean returnJob = request.paramAsBoolean("job", false);
-        boolean returnTask = request.paramAsBoolean("task", false);
-        boolean all = request.paramAsBoolean("_all", false);
+        String rawPath = request.path();
+        // FIXME handle this
+        // Passed false until job scheduler is integrated
+        boolean returnJob = false;
+        boolean returnTask = false;
+        boolean all = false;
         GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
             detectorId,
-            RestActions.parseVersion(request),
+            1, // version. RestActions.parseVersion(request). TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/431
             returnJob,
             returnTask,
             typesStr,
@@ -76,27 +126,52 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             buildEntity(request, detectorId)
         );
 
-        return channel -> client
-            .execute(GetAnomalyDetectorAction.INSTANCE, getAnomalyDetectorRequest, new RestToXContentListener<>(channel));
+        GetAnomalyDetectorTransportAction getTransportAction = new GetAnomalyDetectorTransportAction(
+            transportService,
+            null, // nodeFilter
+            null, // ActionFilters actionFilters
+            clusterService,
+            client,
+            settings,
+            extensionsRunner.getNamedXContentRegistry().getRegistry(), // TODO:
+                                                                       // https://github.com/opensearch-project/opensearch-sdk-java/issues/447
+            null // ADTaskManager adTaskManager
+        );
+
+        CompletableFuture<GetAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
+        getTransportAction
+            .doExecute(
+                null, // task
+                getAnomalyDetectorRequest,
+                ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
+            );
+
+        GetAnomalyDetectorResponse response = futureResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        // TODO handle exceptional response
+        return getAnomalyDetectorResponse(request, response);
+
     }
 
-    @Override
+    /*@Override
     public List<Route> routes() {
         return ImmutableList
-            .of(
-                // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
-                new Route(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
-                ),
-                new Route(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
-                )
-            );
-    }
+                .of(
+                        // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
+                        new Route(
+                                RestRequest.Method.POST,
+                                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
+                        ),
+                        new Route(
+                                RestRequest.Method.POST,
+                                String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
+                        )
+                );
+    }*/
 
-    @Override
+    /* @Override
     public List<ReplacedRoute> replacedRoutes() {
         String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
         String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
@@ -127,9 +202,9 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                         )
                 )
             );
-    }
+    }*/
 
-    private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
+    private Entity buildEntity(ExtensionRestRequest request, String detectorId) throws IOException {
         if (Strings.isEmpty(detectorId)) {
             throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
         }
@@ -151,12 +226,23 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
              *      }]
              * }
              */
-            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser());
+            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser(namedXContentRegistry));
             if (entity.isPresent()) {
                 return entity.get();
             }
         }
         // not a valid profile request with correct entity information
         return null;
+    }
+
+    private ExtensionRestResponse getAnomalyDetectorResponse(ExtensionRestRequest request, GetAnomalyDetectorResponse response)
+        throws IOException {
+        RestStatus restStatus = RestStatus.OK;
+        ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
+            request,
+            restStatus,
+            response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        );
+        return extensionRestResponse;
     }
 }
