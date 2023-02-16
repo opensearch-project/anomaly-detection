@@ -26,7 +26,7 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
-import org.opensearch.ad.rest.RestGetDetectorAction;
+import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -62,8 +62,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
             .of(
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
-                new RestGetDetectorAction(),
-                new RestAnomalyDetectorJobAction(extensionsRunner(), this)
+                new RestAnomalyDetectorJobAction(extensionsRunner(), this),
+                new RestGetAnomalyDetectorAction(extensionsRunner(), this)
             );
     }
 
