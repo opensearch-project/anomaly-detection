@@ -19,7 +19,7 @@ buildscript {
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
         opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
         buildVersionQualifier = System.getProperty("build.version_qualifier", "")
-        // 2.1.0-SNAPSHOT -> 2.1.0.0-SNAPSHOT
+        // 3.0.0-SNAPSHOT -> 3.0.0.0-SNAPSHOT
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
         plugin_no_snapshot = opensearch_build
@@ -33,18 +33,7 @@ buildscript {
         opensearch_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
-//         @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
-               '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
-        anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
-                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        bwcOpenDistroADDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
-                'opendistro-anomaly-detection/opendistro-anomaly-detection-1.13.0.0.zip'
-        bwcOpenDistroJSDownload = 'https://d3g5vo6xdbdb9a.cloudfront.net/downloads/elasticsearch-plugins/' +
-                'opendistro-job-scheduler/opendistro-job-scheduler-1.13.0.0.zip'
-
         bwcVersionShort = "2.6.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
@@ -55,6 +44,7 @@ buildscript {
         bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
         bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
         bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
+
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
         // This option turn on log printing during tests. 
@@ -443,14 +433,7 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                        if (new File("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build").exists()) {
-                            project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$opensearch_build"))
-                        }
-                        project.mkdir bwcJobSchedulerPath + opensearch_build
-                        ant.get(src: job_scheduler_build_download,
-                                dest: bwcJobSchedulerPath + opensearch_build,
-                                httpusecaches: false)
-                        return fileTree(bwcJobSchedulerPath + opensearch_build).getSingleFile()
+                        return configurations.zipArchive.asFileTree.getSingleFile()
                     }
                 }
             }
@@ -461,12 +444,12 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                    	return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
-		    }
+                        return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
+                    }
                 }
             }
         })
-    ]
+]
 
 // Creates 2 test clusters with 3 nodes of the old version. 
 2.times {i -> 
