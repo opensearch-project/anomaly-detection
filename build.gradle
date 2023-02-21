@@ -760,6 +760,7 @@ dependencies {
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch:opensearch-job-scheduler:${job_scheduler_version}"
     implementation "org.opensearch.sdk:opensearch-sdk-java:1.0.0-SNAPSHOT"
+    implementation "com.google.inject:guice:5.1.0"
     implementation "org.opensearch.client:opensearch-java:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:${opensearch_version}"
