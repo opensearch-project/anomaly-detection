@@ -28,13 +28,12 @@ import java.util.function.Function;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
-import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -49,11 +48,11 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
-import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClient;
 import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 
 /**
  * This class consists of the REST handler to handle request to start/stop AD job.
@@ -61,20 +60,21 @@ import com.google.common.collect.ImmutableList;
 public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
 
     public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
-    private ExtensionsRunner extensionsRunner;
-    private SDKRestClient client;
-    private TransportService transportService;
+
+    @Inject
+    private SDKClient client;
+    @Inject
     private SDKClusterService clusterService;
+    @Inject
     private NamedXContentRegistry namedXContentRegistry;
+
+    private ExtensionsRunner extensionsRunner;
     private Settings settings;
     private volatile TimeValue requestTimeout;
 
-    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+    @Inject
+    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner) {
         this.extensionsRunner = extensionsRunner;
-        this.client = anomalyDetectorExtension.getRestClient();
-        this.transportService = extensionsRunner.getExtensionTransportService();
-        this.clusterService = new SDKClusterService(extensionsRunner);
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.requestTimeout = REQUEST_TIMEOUT.get(this.settings);
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
@@ -127,33 +127,11 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             rawPath
         );
 
-        // FIXME : inject ADindicies and adTaskManager from guice after create component integration
-        AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
-            client,
-            clusterService,
-            null, // threadPool
-            settings,
-            null, // nodeFilter
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
-        );
-
-        // FIXME : need to add adTaskManager
-        AnomalyDetectorJobTransportAction adJobTransportAction = new AnomalyDetectorJobTransportAction(
-            transportService,
-            null, // action filter
-            client,
-            clusterService,
-            settings,
-            anomalyDetectionIndices,
-            namedXContentRegistry,
-            null // AD TaskManager
-        );
-
         // Execute anomaly detector job transport action
         CompletableFuture<AnomalyDetectorJobResponse> adJobFutureResponse = new CompletableFuture<>();
-        adJobTransportAction
-            .doExecute(
-                null, // task
+        client
+            .execute(
+                AnomalyDetectorJobAction.INSTANCE,
                 anomalyDetectorJobRequest,
                 ActionListener
                     .wrap(adJobResponse -> adJobFutureResponse.complete(adJobResponse), ex -> adJobFutureResponse.completeExceptionally(ex))

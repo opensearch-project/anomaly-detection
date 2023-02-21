@@ -7,7 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -22,23 +22,27 @@ import org.opensearch.jobscheduler.transport.request.JobParameterRequest;
 import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobParameterResponse;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
+
+import com.google.inject.Inject;
 
 /**
  * Transport Action to parse Anomaly Detector
  */
-public class ADJobParameterTransportAction extends HandledTransportAction<ExtensionActionRequest, ExtensionActionResponse> {
+public class ADJobParameterTransportAction extends TransportAction<ExtensionActionRequest, ExtensionActionResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ADJobParameterTransportAction.class);
 
     private final NamedXContentRegistry xContentRegistry;
 
+    @Inject
     protected ADJobParameterTransportAction(
-        TransportService transportService,
+        String actionName,
         ActionFilters actionFilters,
+        TaskManager taskManager,
         NamedXContentRegistry xContentRegistry
     ) {
-        super(ADJobParameterAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
+        super(actionName, actionFilters, taskManager);
         this.xContentRegistry = xContentRegistry;
     }
 

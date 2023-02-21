@@ -24,6 +24,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.DetectionDateRange;
@@ -37,10 +38,10 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
 
-public class AnomalyDetectorJobTransportAction {
-    // extends HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
+public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
 
     private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
 
@@ -55,8 +56,10 @@ public class AnomalyDetectorJobTransportAction {
 
     @Inject
     public AnomalyDetectorJobTransportAction(
-        TransportService transportService,
+        String actionName,
         ActionFilters actionFilters,
+        TaskManager taskManager,
+        TransportService transportService,
         SDKRestClient client,
         SDKClusterService clusterService,
         Settings settings,
@@ -64,7 +67,7 @@ public class AnomalyDetectorJobTransportAction {
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
     ) {
-        // super(AnomalyDetectorJobAction.NAME, transportService, actionFilters, AnomalyDetectorJobRequest::new);
+        super(actionName, actionFilters, taskManager);
         this.transportService = transportService;
         this.client = client;
         this.clusterService = clusterService;

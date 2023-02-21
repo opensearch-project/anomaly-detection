@@ -14,7 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.AnomalyDetectorJobRunner;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.util.RestHandlerUtils;
@@ -28,33 +28,34 @@ import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
 import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
-import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
+
+import com.google.inject.Inject;
 
 /**
  * Transport Action to execute job runner of anomaly detection.
  */
-public class ADJobRunnerTransportAction extends HandledTransportAction<ExtensionActionRequest, ExtensionActionResponse> {
+public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionRequest, ExtensionActionResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ADJobRunnerTransportAction.class);
 
     private SDKRestClient client;
-
     private AnomalyDetectorJob scheduledJobParameter;
+    private final NamedXContentRegistry xContentRegistry;
 
-    private final NamedXContentRegistry namedXContentRegistry;
-
+    @Inject
     protected ADJobRunnerTransportAction(
-        TransportService transportService,
+        String actionName,
         ActionFilters actionFilters,
-        SDKRestClient client,
-        ExtensionsRunner extensionsRunner
+        TaskManager taskManager,
+        NamedXContentRegistry xContentRegistry,
+        SDKRestClient client
     ) {
-        super(ADJobRunnerAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
+        super(ADJobRunnerAction.NAME, actionFilters, taskManager);
         this.client = client;
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.xContentRegistry = xContentRegistry;
     }
 
     @Override
@@ -125,7 +126,7 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                     try {
                         XContentParser parser = XContentType.JSON
                             .xContent()
-                            .createParser(namedXContentRegistry, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
+                            .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                         listener.onResponse(AnomalyDetectorJob.parse(parser));
                     } catch (IOException e) {

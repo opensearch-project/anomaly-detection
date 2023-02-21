@@ -25,8 +25,8 @@ import org.opensearch.jobscheduler.transport.request.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.request.JobParameterRequest;
 import org.opensearch.jobscheduler.transport.response.JobParameterResponse;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.transport.TransportService;
 
 public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase {
 
@@ -47,7 +47,12 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
     public void setUp() throws Exception {
         super.setUp();
 
-        action = new ADJobParameterTransportAction(mock(TransportService.class), mock(ActionFilters.class), xContentRegistry());
+        action = new ADJobParameterTransportAction(
+            ADJobParameterAction.NAME,
+            mock(ActionFilters.class),
+            mock(TaskManager.class),
+            xContentRegistry()
+        );
         task = mock(Task.class);
         jobDocVersion = new JobDocVersion(1L, 1L, 1L);
         response = new ActionListener<>() {
