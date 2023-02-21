@@ -62,7 +62,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
             .of(
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
-                new RestAnomalyDetectorJobAction(extensionsRunner(), this),
+                new RestAnomalyDetectorJobAction(extensionsRunner()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), this)
             );
     }
