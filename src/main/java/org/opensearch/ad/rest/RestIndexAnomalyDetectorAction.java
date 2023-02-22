@@ -72,7 +72,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
 
     public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner);
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = anomalyDetectorExtension.getRestClient();

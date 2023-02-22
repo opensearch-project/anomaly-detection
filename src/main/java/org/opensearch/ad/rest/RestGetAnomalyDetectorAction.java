@@ -68,7 +68,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         this.extensionsRunner = extensionsRunner;
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.client = anomalyDetectorExtension.getRestClient();
