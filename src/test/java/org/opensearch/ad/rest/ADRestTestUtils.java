@@ -46,7 +46,7 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
-import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.core.xcontent.XContentParser;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
