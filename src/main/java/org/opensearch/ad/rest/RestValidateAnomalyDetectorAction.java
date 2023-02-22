@@ -78,7 +78,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
 
     public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner);
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = anomalyDetectorExtension.getRestClient();
