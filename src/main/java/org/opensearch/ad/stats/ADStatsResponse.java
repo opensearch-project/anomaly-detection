@@ -21,9 +21,9 @@ import org.opensearch.ad.model.Mergeable;
 import org.opensearch.ad.transport.ADStatsNodesResponse;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.xcontent.ToXContent;
-import org.opensearch.common.xcontent.ToXContentObject;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.ToXContentObject;
+import org.opensearch.core.xcontent.XContentBuilder;
 
 /**
  * ADStatsResponse contains logic to merge the node stats and cluster stats together and return them to user

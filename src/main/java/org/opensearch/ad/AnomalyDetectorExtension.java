@@ -36,7 +36,7 @@ import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;

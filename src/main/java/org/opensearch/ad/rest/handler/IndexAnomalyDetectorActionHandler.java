@@ -20,7 +20,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;

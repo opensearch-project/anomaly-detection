@@ -19,8 +19,8 @@ import org.opensearch.action.support.nodes.BaseNodesResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.xcontent.ToXContentFragment;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.ToXContentFragment;
+import org.opensearch.core.xcontent.XContentBuilder;
 
 public class DeleteModelResponse extends BaseNodesResponse<DeleteModelNodeResponse> implements ToXContentFragment {
     static String NODES_JSON_KEY = "nodes";
