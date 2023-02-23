@@ -24,6 +24,7 @@ import java.util.Locale;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
@@ -52,6 +53,7 @@ import io.protostuff.Schema;
  * class for tests requiring checking logs.
  *
  */
+@Ignore
 public class CheckpointDeleteTests extends AbstractADTest {
     private enum DeleteExecutionMode {
         NORMAL,

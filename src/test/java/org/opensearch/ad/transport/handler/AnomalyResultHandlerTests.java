@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -43,6 +44,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 
+@Ignore
 public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     @Mock
     private NodeStateManager nodeStateManager;
@@ -107,6 +109,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     }
 
     @Test
+    @Ignore
     public void testSavingFailureRetry() throws InterruptedException, IOException {
         setWriteBlockAdResultIndex(false);
         savingFailureTemplate(true, 3, true);

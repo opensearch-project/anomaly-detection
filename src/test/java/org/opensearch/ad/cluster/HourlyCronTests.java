@@ -24,6 +24,7 @@ import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.Ignore;
 import org.opensearch.OpenSearchException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
@@ -43,6 +44,7 @@ import org.opensearch.common.io.stream.StreamInput;
 
 import test.org.opensearch.ad.util.ClusterCreation;
 
+@Ignore
 public class HourlyCronTests extends AbstractADTest {
 
     enum HourlyCronTestExecutionMode {

@@ -21,9 +21,9 @@ import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.jobscheduler.transport.request.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
 import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
-import org.opensearch.sdk.ExtensionNamedXContentRegistry;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.transport.TransportService;
@@ -55,9 +55,9 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         sdkRestClient = mock(SDKRestClient.class);
 
         ExtensionsRunner extensionsRunner = mock(ExtensionsRunner.class);
-        ExtensionNamedXContentRegistry extensionNamedXContentRegistry = mock(ExtensionNamedXContentRegistry.class);
-        when(extensionsRunner.getNamedXContentRegistry()).thenReturn(extensionNamedXContentRegistry);
-        when(extensionNamedXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+        SDKNamedXContentRegistry sdkNamedXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(extensionsRunner.getNamedXContentRegistry()).thenReturn(sdkNamedXContentRegistry);
+        when(sdkNamedXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
         action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), sdkRestClient, extensionsRunner);
 
         task = mock(Task.class);

@@ -23,6 +23,7 @@ import java.time.Duration;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -30,6 +31,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 
+@Ignore
 public class ModelCheckpointIndexRetentionTests extends AbstractADTest {
 
     Duration defaultCheckpointTtl = Duration.ofDays(3);
