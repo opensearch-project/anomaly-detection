@@ -17,7 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class AnomalyDetectorExecutionInputTests extends OpenSearchTestCase {

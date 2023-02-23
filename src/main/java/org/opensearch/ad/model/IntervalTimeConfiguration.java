@@ -21,7 +21,7 @@ import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;

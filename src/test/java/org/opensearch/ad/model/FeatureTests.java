@@ -15,7 +15,7 @@ import java.io.IOException;
 import java.util.Locale;
 
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class FeatureTests extends OpenSearchTestCase {

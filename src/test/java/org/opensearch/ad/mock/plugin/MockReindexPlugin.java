@@ -34,7 +34,7 @@ import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobTransportActionWit
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.BulkByScrollTask;
 import org.opensearch.index.reindex.DeleteByQueryAction;

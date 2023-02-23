@@ -19,9 +19,9 @@ import java.time.Instant;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.Strings;
-import org.opensearch.common.xcontent.ToXContentObject;
-import org.opensearch.common.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.core.xcontent.ToXContentObject;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
 
 import com.google.common.base.Objects;
 

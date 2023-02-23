@@ -47,7 +47,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestStatus;
