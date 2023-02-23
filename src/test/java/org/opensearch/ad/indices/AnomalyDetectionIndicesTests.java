@@ -27,7 +27,7 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.RestStatus;
