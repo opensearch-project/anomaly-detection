@@ -42,8 +42,8 @@
     import org.opensearch.client.Client;
     import org.opensearch.cluster.node.DiscoveryNode;
     import org.opensearch.cluster.service.ClusterService;
-    import org.opensearch.common.xcontent.NamedXContentRegistry;
-    import org.opensearch.common.xcontent.XContentParser;
+    import org.opensearch.core.xcontent.NamedXContentRegistry;
+    import org.opensearch.core.xcontent.XContentParser;
     import org.opensearch.index.IndexNotFoundException;
     import org.opensearch.index.shard.ShardId;
     import org.opensearch.search.SearchHit;

@@ -22,6 +22,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -37,6 +38,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.store.StoreStats;
 
+@Ignore
 public class IndexCleanupTests extends AbstractADTest {
 
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)

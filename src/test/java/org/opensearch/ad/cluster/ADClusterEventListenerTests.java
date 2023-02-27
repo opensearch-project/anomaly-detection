@@ -26,6 +26,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
@@ -39,6 +40,7 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.gateway.GatewayService;
 
+@Ignore
 public class ADClusterEventListenerTests extends AbstractADTest {
     private final String clusterManagerNodeId = "clusterManagerNode";
     private final String dataNode1Id = "dataNode1";

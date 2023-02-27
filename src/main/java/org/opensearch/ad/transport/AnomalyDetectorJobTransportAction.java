@@ -37,7 +37,7 @@
     import org.opensearch.common.inject.Inject;
     import org.opensearch.common.settings.Settings;
     import org.opensearch.common.unit.TimeValue;
-    import org.opensearch.common.xcontent.NamedXContentRegistry;
+    import org.opensearch.core.xcontent.NamedXContentRegistry;
     import org.opensearch.tasks.Task;
     import org.opensearch.transport.TransportService;
     

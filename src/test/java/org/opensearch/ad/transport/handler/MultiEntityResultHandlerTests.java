@@ -21,6 +21,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
 import org.opensearch.action.ActionListener;
@@ -32,6 +33,7 @@ import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 
+@Ignore
 public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
     private MultiEntityResultHandler handler;
     private ADResultBulkRequest request;

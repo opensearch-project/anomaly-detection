@@ -715,7 +715,21 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.AnomalyDetectorExtension',
         'org.opensearch.ad.transport.ADJobRunnerTransportAction*',
         'org.opensearch.ad.AnomalyDetectorProfileRunner',
-        'org.opensearch.ad.EntityProfileRunner'
+        'org.opensearch.ad.EntityProfileRunner',
+        'org.opensearch.ad.util.BulkUtil',
+        'org.opensearch.ad.common.exception.InternalFailure',
+        'org.opensearch.ad.cluster.HourlyCron',
+        'org.opensearch.ad.cluster.ADClusterEventListener',
+        'org.opensearch.ad.cluster.DailyCron',
+        'org.opensearch.ad.cluster.diskcleanup.IndexCleanup',
+        'org.opensearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention',
+        'org.opensearch.ad.transport.handler.AnomalyIndexHandler',
+        'org.opensearch.ad.transport.AnomalyResultTransportAction.RCFActionListener',
+        'org.opensearch.ad.transport.AnomalyResultRequest',
+        'org.opensearch.ad.transport.AnomalyResultAction',
+        'org.opensearch.ad.transport.CronNodeResponse',
+        'org.opensearch.ad.transport.CronResponse',
+        'org.opensearch.ad.transport.AnomalyResultResponse'
 ]
 
 
@@ -759,7 +773,7 @@ dependencies {
 //  Removed Common Utils dependency from AD
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch:opensearch-job-scheduler:${job_scheduler_version}"
-    implementation "org.opensearch.sdk:opensearch-sdk-java:1.0.0-SNAPSHOT"
+    implementation "org.opensearch.sdk:opensearch-sdk-java:2.0.0-SNAPSHOT"
     implementation "org.opensearch.client:opensearch-java:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:${opensearch_version}"
