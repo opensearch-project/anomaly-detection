@@ -78,7 +78,6 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
         SDKRestClient sdkRestClient = getRestClient();
-        SDKClient sdkClient = runner.getSdkClient();
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         NamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry().getRegistry();
