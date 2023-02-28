@@ -43,6 +43,7 @@ import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.util.Timeout;
 import org.junit.After;
+import org.junit.jupiter.api.BeforeEach;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
@@ -55,12 +56,32 @@ import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
  */
 public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
+
+    private static SDKRestClient sdkRestClient;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        super.initClient();
+        if (sdkRestClient == null) {
+            sdkRestClient = new SDKClient().initializeRestClient("localhost", 9200);
+        }
+    }
+
+    protected static SDKRestClient sdkRestClient() {
+        return sdkRestClient;
+    }
+
+    protected static SDKRestClient sdkRestAdminClient() {
+        return sdkRestClient.admin();
+    }
 
     protected boolean isHttps() {
         boolean isHttps = Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
@@ -141,7 +162,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     @SuppressWarnings("unchecked")
     @After
     protected void wipeAllODFEIndices() throws IOException {
-        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
+        Response response = sdkRestAdminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
         XContentType xContentType = XContentType.fromMediaType(response.getEntity().getContentType());
         try (
             XContentParser parser = xContentType

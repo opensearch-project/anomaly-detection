@@ -8,23 +8,10 @@
 
 package org.opensearch.ad.bwc;
 
-import static org.opensearch.ad.rest.ADRestTestUtils.countADResultOfDetector;
-import static org.opensearch.ad.rest.ADRestTestUtils.deleteDetector;
-import static org.opensearch.ad.rest.ADRestTestUtils.searchLatestAdTaskOfDetector;
-import static org.opensearch.ad.rest.ADRestTestUtils.startHistoricalAnalysis;
-import static org.opensearch.ad.rest.ADRestTestUtils.waitUntilTaskDone;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.Before;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
@@ -275,16 +262,16 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
 
     // This function can only run on new AD version(>=1.1).
     // TODO: execute this function on new node in mixed cluster when we have way to send request to specific node.
-    private void startHistoricalAnalysisOnNewNode(String detectorId, String taskType) throws IOException, InterruptedException {
-        String taskId = startHistoricalAnalysis(client(), detectorId);
-        deleteRunningDetector(detectorId);
-        waitUntilTaskDone(client(), detectorId);
-        List<ADTask> adTasks = searchLatestAdTaskOfDetector(client(), detectorId, taskType);
-        assertEquals(1, adTasks.size());
-        assertEquals(taskId, adTasks.get(0).getTaskId());
-        int adResultCount = countADResultOfDetector(client(), detectorId, taskId);
-        assertTrue(adResultCount > 0);
-    }
+    // private void startHistoricalAnalysisOnNewNode(String detectorId, String taskType) throws IOException, InterruptedException {
+    // String taskId = startHistoricalAnalysis(client(), detectorId);
+    // deleteRunningDetector(detectorId);
+    // waitUntilTaskDone(client(), detectorId);
+    // List<ADTask> adTasks = searchLatestAdTaskOfDetector(client(), detectorId, taskType);
+    // assertEquals(1, adTasks.size());
+    // assertEquals(taskId, adTasks.get(0).getTaskId());
+    // int adResultCount = countADResultOfDetector(client(), detectorId, taskId);
+    // assertTrue(adResultCount > 0);
+    // }
 
     // This function can only run on new AD version(>=1.1).
     // TODO: execute this function on new node in mixed cluster when we have way to send request to specific node.
@@ -376,7 +363,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
     // }
     // }
 
-    @SuppressWarnings("unchecked")
+    // @SuppressWarnings("unchecked")
     // private void createHistoricalAnomalyDetectorsAndStart() throws Exception {
     // // only support single entity for historical detector
     // Response historicalSingleFlowDetectorResponse = createAnomalyDetector(
@@ -403,13 +390,13 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
     // assertTrue(adResultCount > 0);
     // }
 
-    private void deleteRunningDetector(String detectorId) {
-        try {
-            deleteDetector(client(), detectorId);
-        } catch (Exception e) {
-            assertTrue(ExceptionUtil.getErrorMessage(e).contains("running"));
-        }
-    }
+    // private void deleteRunningDetector(String detectorId) {
+    // try {
+    // deleteDetector(client(), detectorId);
+    // } catch (Exception e) {
+    // assertTrue(ExceptionUtil.getErrorMessage(e).contains("running"));
+    // }
+    // }
     // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // private List<String> startAnomalyDetector(Response response, boolean historicalDetector) throws IOException {
     // // verify that the detector is created
@@ -444,11 +431,11 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
     // return ImmutableList.of(detectorId, taskOrJobId);
     // }
 
-    private void verifyAnomalyDetectorCount(String uri, long expectedCount) throws Exception {
-        Response response = TestHelpers.makeRequest(client(), "GET", uri + "/" + RestHandlerUtils.COUNT, null, "", null);
-        Map<String, Object> responseMap = entityAsMap(response);
-        Integer count = (Integer) responseMap.get("count");
-        assertEquals(expectedCount, (long) count);
-    }
+    // private void verifyAnomalyDetectorCount(String uri, long expectedCount) throws Exception {
+    // Response response = TestHelpers.makeRequest(client(), "GET", uri + "/" + RestHandlerUtils.COUNT, null, "", null);
+    // Map<String, Object> responseMap = entityAsMap(response);
+    // Integer count = (Integer) responseMap.get("count");
+    // assertEquals(expectedCount, (long) count);
+    // }
 
 }

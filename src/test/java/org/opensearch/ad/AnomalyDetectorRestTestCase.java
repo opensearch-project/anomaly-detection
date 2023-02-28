@@ -30,7 +30,6 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -43,6 +42,7 @@ import org.opensearch.core.xcontent.XContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import com.google.common.collect.ImmutableList;
@@ -63,24 +63,28 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return super.restClientSettings();
     }
 
-    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, String indexName, RestClient client)
+    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, String indexName, SDKRestClient client)
         throws IOException {
         return createRandomAnomalyDetector(refresh, withMetadata, client, true, indexName);
     }
 
-    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client) throws IOException {
+    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, SDKRestClient client) throws IOException {
         return createRandomAnomalyDetector(refresh, withMetadata, client, true);
     }
 
-    protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, RestClient client, boolean featureEnabled)
-        throws IOException {
+    protected AnomalyDetector createRandomAnomalyDetector(
+        Boolean refresh,
+        Boolean withMetadata,
+        SDKRestClient client,
+        boolean featureEnabled
+    ) throws IOException {
         return createRandomAnomalyDetector(refresh, withMetadata, client, featureEnabled, null);
     }
 
     protected AnomalyDetector createRandomAnomalyDetector(
         Boolean refresh,
         Boolean withMetadata,
-        RestClient client,
+        SDKRestClient client,
         boolean featureEnabled,
         String indexName
     ) throws IOException {
@@ -124,7 +128,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"), client);
     }
 
-    protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, RestClient client) throws IOException {
+    protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, SDKRestClient client) throws IOException {
         Response response = TestHelpers
             .makeRequest(client, "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
@@ -161,7 +165,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return detectorInIndex;
     }
 
-    protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, RestClient client) throws IOException {
+    protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, SDKRestClient client) throws IOException {
         return TestHelpers
             .makeRequest(
                 client,
@@ -173,7 +177,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    protected Response stopAnomalyDetector(String detectorId, RestClient client, boolean realtime) throws IOException {
+    protected Response stopAnomalyDetector(String detectorId, SDKRestClient client, boolean realtime) throws IOException {
         String jobType = realtime ? "" : "?historical";
         return TestHelpers
             .makeRequest(
@@ -186,11 +190,11 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    protected Response deleteAnomalyDetector(String detectorId, RestClient client) throws IOException {
+    protected Response deleteAnomalyDetector(String detectorId, SDKRestClient client) throws IOException {
         return TestHelpers.makeRequest(client, "DELETE", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId, ImmutableMap.of(), "", null);
     }
 
-    protected Response previewAnomalyDetector(String detectorId, RestClient client, AnomalyDetectorExecutionInput input)
+    protected Response previewAnomalyDetector(String detectorId, SDKRestClient client, AnomalyDetectorExecutionInput input)
         throws IOException {
         return TestHelpers
             .makeRequest(
@@ -203,11 +207,11 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    public AnomalyDetector getAnomalyDetector(String detectorId, RestClient client) throws IOException {
+    public AnomalyDetector getAnomalyDetector(String detectorId, SDKRestClient client) throws IOException {
         return (AnomalyDetector) getAnomalyDetector(detectorId, false, client)[0];
     }
 
-    public Response updateAnomalyDetector(String detectorId, AnomalyDetector newDetector, RestClient client) throws IOException {
+    public Response updateAnomalyDetector(String detectorId, AnomalyDetector newDetector, SDKRestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
         return TestHelpers
             .makeRequest(
@@ -220,11 +224,11 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header, RestClient client) throws IOException {
+    public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header, SDKRestClient client) throws IOException {
         return (AnomalyDetector) getAnomalyDetector(detectorId, header, false, false, client)[0];
     }
 
-    public ToXContentObject[] getAnomalyDetector(String detectorId, boolean returnJob, RestClient client) throws IOException {
+    public ToXContentObject[] getAnomalyDetector(String detectorId, boolean returnJob, SDKRestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
         return getAnomalyDetector(detectorId, header, returnJob, false, client);
     }
@@ -234,7 +238,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         BasicHeader header,
         boolean returnJob,
         boolean returnTask,
-        RestClient client
+        SDKRestClient client
     ) throws IOException {
         Response response = TestHelpers
             .makeRequest(
@@ -335,7 +339,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         Thread.sleep(2000); // sleep some time to resolve flaky test
     }
 
-    public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile, RestClient client) throws IOException {
+    public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile, SDKRestClient client) throws IOException {
         return TestHelpers
             .makeRequest(
                 client,
@@ -348,17 +352,17 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     }
 
     public Response getDetectorProfile(String detectorId) throws IOException {
-        return getDetectorProfile(detectorId, false, "", client());
+        return getDetectorProfile(detectorId, false, "", sdkRestClient());
     }
 
     public Response getDetectorProfile(String detectorId, boolean all) throws IOException {
-        return getDetectorProfile(detectorId, all, "", client());
+        return getDetectorProfile(detectorId, all, "", sdkRestClient());
     }
 
     public Response getSearchDetectorCount() throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.COUNT,
                 null,
@@ -370,7 +374,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response getSearchDetectorMatch(String name) throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.MATCH,
                 ImmutableMap.of("name", name),
@@ -379,7 +383,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    public Response searchTopAnomalyResults(String detectorId, boolean historical, String bodyAsJsonString, RestClient client)
+    public Response searchTopAnomalyResults(String detectorId, boolean historical, String bodyAsJsonString, SDKRestClient client)
         throws IOException {
         return TestHelpers
             .makeRequest(
@@ -405,7 +409,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         }
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/internalusers/" + name,
                 null,
@@ -432,7 +436,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         }
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/rolesmapping/" + role,
                 null,
@@ -447,7 +451,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response createIndexRole(String role, String index) throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/roles/" + role,
                 null,
@@ -482,7 +486,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response createSearchRole(String role, String index) throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/roles/" + role,
                 null,
@@ -516,7 +520,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response deleteUser(String user) throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "DELETE",
                 "/_opendistro/_security/api/internalusers/" + user,
                 null,
@@ -528,7 +532,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response deleteRoleMapping(String user) throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "DELETE",
                 "/_opendistro/_security/api/rolesmapping/" + user,
                 null,
@@ -540,7 +544,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response enableFilterBy() throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "PUT",
                 "_cluster/settings",
                 null,
@@ -559,7 +563,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response disableFilterBy() throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                sdkRestClient(),
                 "PUT",
                 "_cluster/settings",
                 null,
@@ -598,7 +602,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return detector;
     }
 
-    protected Response validateAnomalyDetector(AnomalyDetector detector, RestClient client) throws IOException {
+    protected Response validateAnomalyDetector(AnomalyDetector detector, SDKRestClient client) throws IOException {
         return TestHelpers
             .makeRequest(
                 client,

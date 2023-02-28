@@ -99,7 +99,6 @@ import org.opensearch.client.Client;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -136,6 +135,7 @@ import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.SearchModule;
@@ -172,7 +172,7 @@ public class TestHelpers {
     public static final Random random = new Random(42);
 
     public static Response makeRequest(
-        RestClient client,
+        SDKRestClient client,
         String method,
         String endpoint,
         Map<String, String> params,
@@ -184,7 +184,7 @@ public class TestHelpers {
     }
 
     public static Response makeRequest(
-        RestClient client,
+        SDKRestClient client,
         String method,
         String endpoint,
         Map<String, String> params,
@@ -195,7 +195,7 @@ public class TestHelpers {
     }
 
     public static Response makeRequest(
-        RestClient client,
+        SDKRestClient client,
         String method,
         String endpoint,
         Map<String, String> params,
@@ -1104,7 +1104,7 @@ public class TestHelpers {
         return adminClient.indices().create(request).actionGet(5_000);
     }
 
-    public static void createIndex(RestClient client, String indexName, HttpEntity data) throws IOException {
+    public static void createIndex(SDKRestClient client, String indexName, HttpEntity data) throws IOException {
         TestHelpers
             .makeRequest(
                 client,
@@ -1116,7 +1116,7 @@ public class TestHelpers {
             );
     }
 
-    public static void createIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+    public static void createIndexWithTimeField(SDKRestClient client, String indexName, String timeField) throws IOException {
         StringBuilder indexMappings = new StringBuilder();
         indexMappings.append("{\"properties\":{");
         indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
@@ -1125,7 +1125,7 @@ public class TestHelpers {
         createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
-    public static void createEmptyIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+    public static void createEmptyIndexWithTimeField(SDKRestClient client, String indexName, String timeField) throws IOException {
         StringBuilder indexMappings = new StringBuilder();
         indexMappings.append("{\"properties\":{");
         indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
@@ -1134,7 +1134,7 @@ public class TestHelpers {
         createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
-    public static void createIndexWithHCADFields(RestClient client, String indexName, Map<String, String> categoryFieldsAndTypes)
+    public static void createIndexWithHCADFields(SDKRestClient client, String indexName, Map<String, String> categoryFieldsAndTypes)
         throws IOException {
         StringBuilder indexMappings = new StringBuilder();
         indexMappings.append("{\"properties\":{");
@@ -1147,20 +1147,20 @@ public class TestHelpers {
         createIndexMapping(client, indexName, TestHelpers.toHttpEntity(indexMappings.toString()));
     }
 
-    public static void createEmptyAnomalyResultIndex(RestClient client) throws IOException {
+    public static void createEmptyAnomalyResultIndex(SDKRestClient client) throws IOException {
         createEmptyIndex(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
         createIndexMapping(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS, toHttpEntity(AnomalyDetectionIndices.getAnomalyResultMappings()));
     }
 
-    public static void createEmptyIndex(RestClient client, String indexName) throws IOException {
+    public static void createEmptyIndex(SDKRestClient client, String indexName) throws IOException {
         TestHelpers.makeRequest(client, "PUT", "/" + indexName, ImmutableMap.of(), "", null);
     }
 
-    public static void createIndexMapping(RestClient client, String indexName, HttpEntity mappings) throws IOException {
+    public static void createIndexMapping(SDKRestClient client, String indexName, HttpEntity mappings) throws IOException {
         TestHelpers.makeRequest(client, "POST", "/" + indexName + "/_mapping", ImmutableMap.of(), mappings, null);
     }
 
-    public static void ingestDataToIndex(RestClient client, String indexName, HttpEntity data) throws IOException {
+    public static void ingestDataToIndex(SDKRestClient client, String indexName, HttpEntity data) throws IOException {
         TestHelpers
             .makeRequest(
                 client,

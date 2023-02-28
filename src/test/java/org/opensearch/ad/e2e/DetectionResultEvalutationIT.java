@@ -49,12 +49,12 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
 import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,7 +85,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         double minRecall,
         double maxError
     ) throws Exception {
-        RestClient client = client();
+        SDKRestClient client = sdkRestClient();
 
         String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
         String labelFileName = String.format(Locale.ROOT, "data/%s.label", datasetName);
@@ -143,7 +143,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         int trainTestSplit,
         int intervalMinutes,
         List<Entry<Instant, Instant>> anomalies,
-        RestClient client
+        SDKRestClient client
     ) throws Exception {
 
         double positives = 0;
@@ -189,7 +189,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         int trainTestSplit,
         int shingleSize,
         int intervalMinutes,
-        RestClient client
+        SDKRestClient client
     ) throws Exception {
 
         Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
@@ -236,7 +236,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         int trainTestSplit,
         int shingleSize,
         int intervalMinutes,
-        RestClient client
+        SDKRestClient client
     ) throws Exception {
 
         Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
@@ -276,8 +276,13 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         } while (duration <= 60_000);
     }
 
-    private String createDetector(String datasetName, int intervalMinutes, RestClient client, String categoryField, long windowDelayInMins)
-        throws Exception {
+    private String createDetector(
+        String datasetName,
+        int intervalMinutes,
+        SDKRestClient client,
+        String categoryField,
+        long windowDelayInMins
+    ) throws Exception {
         Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/");
         String requestBody = null;
         if (Strings.isEmpty(categoryField)) {
@@ -335,8 +340,13 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         return anomalies;
     }
 
-    private void bulkIndexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client, String categoryField)
-        throws Exception {
+    private void bulkIndexTrainData(
+        String datasetName,
+        List<JsonObject> data,
+        int trainTestSplit,
+        SDKRestClient client,
+        String categoryField
+    ) throws Exception {
         Request request = new Request("PUT", datasetName);
         String requestBody = null;
         if (Strings.isEmpty(categoryField)) {
@@ -376,7 +386,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         waitAllSyncheticDataIngested(trainTestSplit, datasetName, client);
     }
 
-    private void bulkIndexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
+    private void bulkIndexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, SDKRestClient client) throws Exception {
         StringBuilder bulkRequestBuilder = new StringBuilder();
         for (int i = trainTestSplit; i < data.size(); i++) {
             bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
@@ -395,7 +405,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         waitAllSyncheticDataIngested(data.size(), datasetName, client);
     }
 
-    private void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
+    private void waitAllSyncheticDataIngested(int expectedSize, String datasetName, SDKRestClient client) throws Exception {
         int maxWaitCycles = 3;
         do {
             Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
@@ -452,7 +462,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         return list;
     }
 
-    private Map<String, Object> getDetectionResult(String detectorId, Instant begin, Instant end, RestClient client) {
+    private Map<String, Object> getDetectionResult(String detectorId, Instant begin, Instant end, SDKRestClient client) {
         try {
             Request request = new Request(
                 "POST",
@@ -495,7 +505,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     public void testValidationIntervalRecommendation() throws Exception {
-        RestClient client = client();
+        SDKRestClient client = sdkRestClient();
         long recDetectorIntervalMillis = 180000;
         long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
         List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
@@ -514,7 +524,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             );
         Response resp = TestHelpers
             .makeRequest(
-                client(),
+                client,
                 "POST",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
                 ImmutableMap.of(),
@@ -532,7 +542,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     public void testValidationWindowDelayRecommendation() throws Exception {
-        RestClient client = client();
+        SDKRestClient client = sdkRestClient();
         long recDetectorIntervalMillis = 180000;
         // this would be equivalent to the window delay in this data test
         long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
@@ -552,7 +562,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             );
         Response resp = TestHelpers
             .makeRequest(
-                client(),
+                client,
                 "POST",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
                 ImmutableMap.of(),
@@ -586,7 +596,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         return list;
     }
 
-    private void indexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client) throws Exception {
+    private void indexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, SDKRestClient client) throws Exception {
         Request request = new Request("PUT", datasetName);
         String requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
             + " \"Feature1\": { \"type\": \"long\" }, \"Feature2\": { \"type\": \"long\" } } } }";
@@ -621,7 +631,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     private void verifyRestart(String datasetName, int intervalMinutes, int shingleSize) throws Exception {
-        RestClient client = client();
+        SDKRestClient client = sdkRestClient();
 
         String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
 
@@ -686,7 +696,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         assertEquals("init progress is " + initProgress, "100%", initProgress);
     }
 
-    private void stopDetector(String detectorId, RestClient client) throws Exception {
+    private void stopDetector(String detectorId, SDKRestClient client) throws Exception {
         Request request = new Request("POST", String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_stop", detectorId));
 
         Map<String, Object> response = entityAsMap(client.performRequest(request));
@@ -694,7 +704,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         assertEquals(detectorId, responseDetectorId);
     }
 
-    private void startDetector(String detectorId, RestClient client) throws Exception {
+    private void startDetector(String detectorId, SDKRestClient client) throws Exception {
         Request request = new Request("POST", String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_start", detectorId));
 
         Map<String, Object> response = entityAsMap(client.performRequest(request));
@@ -702,7 +712,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         assertEquals(detectorId, responseDetectorId);
     }
 
-    private String profileDetectorInitProgress(String detectorId, RestClient client) throws Exception {
+    private String profileDetectorInitProgress(String detectorId, SDKRestClient client) throws Exception {
         Request request = new Request(
             "GET",
             String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_profile/init_progress", detectorId)
