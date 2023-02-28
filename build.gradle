@@ -729,7 +729,21 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.AnomalyResultAction',
         'org.opensearch.ad.transport.CronNodeResponse',
         'org.opensearch.ad.transport.CronResponse',
-        'org.opensearch.ad.transport.AnomalyResultResponse'
+        'org.opensearch.ad.transport.AnomalyResultResponse',
+        'org.opensearch.ad.MemoryTracker',
+        'org.opensearch.ad.caching.PriorityCache',
+        'org.opensearch.ad.common.exception.EndRunException',
+        'org.opensearch.ad.common.exception.LimitExceededException',
+        'org.opensearch.ad.common.exception.ClientException',
+        'org.opensearch.ad.task.ADTaskSlotLimit',
+        'org.opensearch.ad.task.ADHCBatchTaskCache',
+        'org.opensearch.ad.task.ADTaskCacheManager',
+        'org.opensearch.ad.task.ADRealtimeTaskCache',
+        'org.opensearch.ad.task.ADHCBatchTaskRunState:',
+        'org.opensearch.ad.task.ADBatchTaskCache',
+        'org.opensearch.ad.caching.DoorKeeper',
+        'org.opensearch.ad.caching.PriorityCache.1',
+        'org.opensearch.ad.caching.CacheProvider'
 ]
 
 
@@ -774,6 +788,7 @@ dependencies {
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch:opensearch-job-scheduler:${job_scheduler_version}"
     implementation "org.opensearch.sdk:opensearch-sdk-java:2.0.0-SNAPSHOT"
+    implementation "com.google.inject:guice:5.1.0"
     implementation "org.opensearch.client:opensearch-java:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:${opensearch_version}"

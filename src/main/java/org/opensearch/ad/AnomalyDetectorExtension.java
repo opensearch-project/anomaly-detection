@@ -12,6 +12,7 @@ package org.opensearch.ad;
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.stream.Stream;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.support.TransportAction;
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
@@ -30,18 +33,24 @@ import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.task.ADTaskCacheManager;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
 
@@ -63,6 +72,54 @@ public class AnomalyDetectorExtension extends BaseExtension {
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), this)
             );
+    }
+
+    @Override
+    public Collection<Object> createComponents(ExtensionsRunner runner) {
+
+        SDKRestClient sdkRestClient = getRestClient();
+        SDKClient sdkClient = runner.getSdkClient();
+        SDKClusterService sdkClusterService = runner.getSdkClusterService();
+        Settings environmentSettings = runner.getEnvironmentSettings();
+        NamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry().getRegistry();
+        ThreadPool threadPool = runner.getThreadPool();
+
+        JvmService jvmService = new JvmService(environmentSettings);
+
+        ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
+
+        MemoryTracker memoryTracker = new MemoryTracker(
+            jvmService,
+            AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(environmentSettings),
+            AnomalyDetectorSettings.DESIRED_MODEL_SIZE_PERCENTAGE,
+            sdkClusterService,
+            adCircuitBreakerService
+        );
+
+        ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
+
+        AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
+            sdkRestClient,
+            sdkClusterService,
+            threadPool,
+            environmentSettings,
+            null, // nodeFilter
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        );
+
+        ADTaskManager adTaskManager = new ADTaskManager(
+            environmentSettings,
+            sdkClusterService,
+            sdkRestClient,
+            xContentRegistry,
+            anomalyDetectionIndices,
+            null, // nodeFilter
+            null, // hashRing
+            adTaskCacheManager,
+            threadPool
+        );
+
+        return ImmutableList.of(anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
     }
 
     @Override

@@ -8,31 +8,9 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly-detection.create-components. Commented until we have support for SDKClusterSettings for extensions
 package org.opensearch.ad;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.ByteSizeValue;
-import org.opensearch.monitor.jvm.JvmInfo;
-import org.opensearch.monitor.jvm.JvmInfo.Mem;
-import org.opensearch.monitor.jvm.JvmService;
-import org.opensearch.test.OpenSearchTestCase;
-
-import com.amazon.randomcutforest.config.Precision;
-import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class MemoryTrackerTests extends OpenSearchTestCase {
 
@@ -325,3 +303,4 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         assertTrue(!tracker.syncMemoryState(MemoryTracker.Origin.HC_DETECTOR, 2 * bytesToUse, bytesToUse));
     }
 }
+*/

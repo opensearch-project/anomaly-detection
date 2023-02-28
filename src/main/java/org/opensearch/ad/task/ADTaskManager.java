@@ -135,9 +135,7 @@ import org.opensearch.ad.transport.ForwardADTaskAction;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -160,6 +158,8 @@ import org.opensearch.index.reindex.UpdateByQueryAction;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
@@ -182,8 +182,8 @@ public class ADTaskManager {
     private final Logger logger = LogManager.getLogger(this.getClass());
     static final String STATE_INDEX_NOT_EXIST_MSG = "State index does not exist.";
     private final Set<String> retryableErrors = ImmutableSet.of(EXCEED_HISTORICAL_ANALYSIS_LIMIT, NO_ELIGIBLE_NODE_TO_RUN_DETECTOR);
-    private final Client client;
-    private final ClusterService clusterService;
+    private final SDKRestClient sdkRestClient;
+    private final SDKClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
     private final AnomalyDetectionIndices detectionIndices;
     private final DiscoveryNodeFilterer nodeFilter;
@@ -206,8 +206,8 @@ public class ADTaskManager {
 
     public ADTaskManager(
         Settings settings,
-        ClusterService clusterService,
-        Client client,
+        SDKClusterService clusterService,
+        SDKRestClient sdkRestClient,
         NamedXContentRegistry xContentRegistry,
         AnomalyDetectionIndices detectionIndices,
         DiscoveryNodeFilterer nodeFilter,
@@ -215,7 +215,7 @@ public class ADTaskManager {
         ADTaskCacheManager adTaskCacheManager,
         ThreadPool threadPool
     ) {
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.xContentRegistry = xContentRegistry;
         this.detectionIndices = detectionIndices;
         this.nodeFilter = nodeFilter;
@@ -577,7 +577,7 @@ public class ADTaskManager {
             ADStatsRequest adStatsRequest = new ADStatsRequest(nodes);
             adStatsRequest
                 .addAll(ImmutableSet.of(AD_USED_BATCH_TASK_SLOT_COUNT.getName(), AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT.getName()));
-            client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
+            sdkRestClient.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
                 int totalUsedTaskSlots = 0; // Total entity tasks running on worker nodes
                 int totalAssignedTaskSlots = 0; // Total assigned task slots on coordinating nodes
                 for (ADStatsNodeResponse response : adStatsResponse.getNodes()) {
@@ -862,7 +862,7 @@ public class ADTaskManager {
      */
     public <T> void getDetector(String detectorId, Consumer<Optional<AnomalyDetector>> function, ActionListener<T> listener) {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-        client.get(getRequest, ActionListener.wrap(response -> {
+        sdkRestClient.get(getRequest, ActionListener.wrap(response -> {
             if (!response.isExists()) {
                 function.accept(Optional.empty());
                 return;
@@ -999,7 +999,7 @@ public class ADTaskManager {
         searchRequest.source(sourceBuilder);
         searchRequest.indices(DETECTION_STATE_INDEX);
 
-        client.search(searchRequest, ActionListener.wrap(r -> {
+        sdkRestClient.search(searchRequest, ActionListener.wrap(r -> {
             // https://github.com/opendistro-for-elasticsearch/anomaly-detection/pull/359#discussion_r558653132
             // getTotalHits will be null when we track_total_hits is false in the query request.
             // Add more checking here to cover some unknown cases.
@@ -1243,7 +1243,7 @@ public class ADTaskManager {
         String userName = user == null ? null : user.getName();
 
         ADCancelTaskRequest cancelTaskRequest = new ADCancelTaskRequest(detectorId, taskId, userName, dataNodes);
-        client
+        sdkRestClient
             .execute(
                 ADCancelTaskAction.INSTANCE,
                 cancelTaskRequest,
@@ -1299,7 +1299,7 @@ public class ADTaskManager {
         String script = String.format(Locale.ROOT, "ctx._source.%s='%s';", STATE_FIELD, ADTaskState.STOPPED.name());
         updateByQueryRequest.setScript(new Script(script));
 
-        client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
+        sdkRestClient.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
             if (isNullOrEmpty(bulkFailures)) {
                 logger.debug("Updated {} child entity tasks state for detector task {}", r.getUpdated(), detectorTaskId);
@@ -1417,7 +1417,7 @@ public class ADTaskManager {
 
         hashRing.getAllEligibleDataNodesWithKnownAdVersion(dataNodes -> {
             ADTaskProfileRequest adTaskProfileRequest = new ADTaskProfileRequest(detectorId, dataNodes);
-            client.execute(ADTaskProfileAction.INSTANCE, adTaskProfileRequest, ActionListener.wrap(response -> {
+            sdkRestClient.execute(ADTaskProfileAction.INSTANCE, adTaskProfileRequest, ActionListener.wrap(response -> {
                 if (response.hasFailures()) {
                     listener.onFailure(response.failures().get(0));
                     return;
@@ -1490,7 +1490,7 @@ public class ADTaskManager {
         String script = String.format(Locale.ROOT, "ctx._source.%s=%s;", IS_LATEST_FIELD, false);
         updateByQueryRequest.setScript(new Script(script));
 
-        client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
+        sdkRestClient.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
             if (bulkFailures.isEmpty()) {
                 // Realtime AD coordinating node is chosen by job scheduler, we won't know it until realtime AD job
@@ -1563,7 +1563,7 @@ public class ADTaskManager {
             request
                 .source(adTask.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE))
                 .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-            client.index(request, ActionListener.wrap(r -> function.accept(r), e -> {
+            sdkRestClient.index(request, ActionListener.wrap(r -> function.accept(r), e -> {
                 logger.error("Failed to create AD task for detector " + adTask.getDetectorId(), e);
                 listener.onFailure(e);
             }));
@@ -1680,7 +1680,7 @@ public class ADTaskManager {
                         listener.onFailure(e);
                     }
                 }
-                client.execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(res -> {
+                sdkRestClient.execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(res -> {
                     logger.info("Old AD tasks deleted for detector {}", detectorId);
                     BulkItemResponse[] bulkItemResponses = res.getItems();
                     if (bulkItemResponses != null && bulkItemResponses.length > 0) {
@@ -1711,7 +1711,7 @@ public class ADTaskManager {
             }
         });
 
-        client.search(searchRequest, searchListener);
+        sdkRestClient.search(searchRequest, searchListener);
     }
 
     /**
@@ -1728,12 +1728,12 @@ public class ADTaskManager {
             }
             DeleteByQueryRequest deleteADResultsRequest = new DeleteByQueryRequest(ALL_AD_RESULTS_INDEX_PATTERN);
             deleteADResultsRequest.setQuery(new TermsQueryBuilder(TASK_ID_FIELD, taskId));
-            client.execute(DeleteByQueryAction.INSTANCE, deleteADResultsRequest, ActionListener.wrap(res -> {
+            sdkRestClient.execute(DeleteByQueryAction.INSTANCE, deleteADResultsRequest, ActionListener.wrap(res -> {
                 logger.debug("Successfully deleted AD results of task " + taskId);
                 DeleteByQueryRequest deleteChildTasksRequest = new DeleteByQueryRequest(DETECTION_STATE_INDEX);
                 deleteChildTasksRequest.setQuery(new TermsQueryBuilder(PARENT_TASK_ID_FIELD, taskId));
 
-                client.execute(DeleteByQueryAction.INSTANCE, deleteChildTasksRequest, ActionListener.wrap(r -> {
+                sdkRestClient.execute(DeleteByQueryAction.INSTANCE, deleteChildTasksRequest, ActionListener.wrap(r -> {
                     logger.debug("Successfully deleted child tasks of task " + taskId);
                     cleanChildTasksAndADResultsOfDeletedTask();
                 }, e -> { logger.error("Failed to delete child tasks of task " + taskId, e); }));
@@ -1742,7 +1742,7 @@ public class ADTaskManager {
     }
 
     private void runBatchResultAction(IndexResponse response, ADTask adTask, ActionListener<AnomalyDetectorJobResponse> listener) {
-        client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
+        sdkRestClient.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
             String remoteOrLocal = r.isRunTaskRemotely() ? "remote" : "local";
             logger
                 .info(
@@ -1833,7 +1833,7 @@ public class ADTaskManager {
         updatedContent.put(LAST_UPDATE_TIME_FIELD, Instant.now().toEpochMilli());
         updateRequest.doc(updatedContent);
         updateRequest.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-        client.update(updateRequest, listener);
+        sdkRestClient.update(updateRequest, listener);
     }
 
     /**
@@ -1860,7 +1860,7 @@ public class ADTaskManager {
      */
     public void deleteADTask(String taskId, ActionListener<DeleteResponse> listener) {
         DeleteRequest deleteRequest = new DeleteRequest(DETECTION_STATE_INDEX, taskId);
-        client.delete(deleteRequest, listener);
+        sdkRestClient.delete(deleteRequest, listener);
     }
 
     /**
@@ -1900,7 +1900,7 @@ public class ADTaskManager {
         query.filter(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
 
         request.setQuery(query);
-        client.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(r -> {
+        sdkRestClient.execute(DeleteByQueryAction.INSTANCE, request, ActionListener.wrap(r -> {
             if (r.getBulkFailures() == null || r.getBulkFailures().size() == 0) {
                 logger.info("AD tasks deleted for detector {}", detectorId);
                 deleteADResultOfDetector(detectorId);
@@ -1927,7 +1927,7 @@ public class ADTaskManager {
         logger.info("Start to delete AD results of detector {}", detectorId);
         DeleteByQueryRequest deleteADResultsRequest = new DeleteByQueryRequest(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteADResultsRequest.setQuery(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
-        client
+        sdkRestClient
             .execute(
                 DeleteByQueryAction.INSTANCE,
                 deleteADResultsRequest,
@@ -2402,7 +2402,7 @@ public class ADTaskManager {
         SearchRequest request = new SearchRequest();
         request.source(sourceBuilder);
         request.indices(DETECTION_STATE_INDEX);
-        client.search(request, ActionListener.wrap(r -> {
+        sdkRestClient.search(request, ActionListener.wrap(r -> {
             TotalHits totalHits = r.getHits().getTotalHits();
             listener.onResponse(totalHits.value);
         }, e -> listener.onFailure(e)));
@@ -2519,7 +2519,7 @@ public class ADTaskManager {
             listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.ACCEPTED));
             return;
         }
-        client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
+        sdkRestClient.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
             String remoteOrLocal = r.isRunTaskRemotely() ? "remote" : "local";
             logger
                 .info(
@@ -2879,7 +2879,7 @@ public class ADTaskManager {
      */
     public void getADTask(String taskId, ActionListener<Optional<ADTask>> listener) {
         GetRequest request = new GetRequest(DETECTION_STATE_INDEX, taskId);
-        client.get(request, ActionListener.wrap(r -> {
+        sdkRestClient.get(request, ActionListener.wrap(r -> {
             if (r != null && r.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
@@ -2925,7 +2925,7 @@ public class ADTaskManager {
         });
 
         bulkRequest.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-        client.execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(res -> {
+        sdkRestClient.execute(BulkAction.INSTANCE, bulkRequest, ActionListener.wrap(res -> {
             BulkItemResponse[] bulkItemResponses = res.getItems();
             if (bulkItemResponses != null && bulkItemResponses.length > 0) {
                 for (BulkItemResponse bulkItemResponse : bulkItemResponses) {
@@ -3007,7 +3007,7 @@ public class ADTaskManager {
         searchRequest.source(sourceBuilder);
         searchRequest.indices(DETECTION_STATE_INDEX);
 
-        client.search(searchRequest, ActionListener.wrap(r -> {
+        sdkRestClient.search(searchRequest, ActionListener.wrap(r -> {
             if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
                 return;
             }

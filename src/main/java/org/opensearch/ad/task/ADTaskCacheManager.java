@@ -45,8 +45,8 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;
@@ -141,10 +141,10 @@ public class ADTaskCacheManager {
      * Constructor to create AD task cache manager.
      *
      * @param settings ES settings
-     * @param clusterService ES cluster service
+     * @param clusterService SDK cluster service
      * @param memoryTracker AD memory tracker
      */
-    public ADTaskCacheManager(Settings settings, ClusterService clusterService, MemoryTracker memoryTracker) {
+    public ADTaskCacheManager(Settings settings, SDKClusterService clusterService, MemoryTracker memoryTracker) {
         this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
         this.maxCachedDeletedTask = MAX_CACHED_DELETED_TASKS.get(settings);
