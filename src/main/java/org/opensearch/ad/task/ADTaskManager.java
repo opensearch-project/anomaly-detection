@@ -205,7 +205,7 @@ public class ADTaskManager {
     private static final int SCALE_ENTITY_TASK_LANE_INTERVAL_IN_MILLIS = 10_000; // 10 seconds
 
     public ADTaskManager(
-        Settings settings,
+        Settings environmentSettings,
         SDKClusterService clusterService,
         SDKRestClient sdkRestClient,
         SDKNamedXContentRegistry xContentRegistry,
@@ -223,23 +223,23 @@ public class ADTaskManager {
         this.adTaskCacheManager = adTaskCacheManager;
         this.hashRing = hashRing;
 
-        this.maxOldAdTaskDocsPerDetector = MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(settings);
+        this.maxOldAdTaskDocsPerDetector = MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.get(environmentSettings);
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR, it -> maxOldAdTaskDocsPerDetector = it);
 
-        this.pieceIntervalSeconds = BATCH_TASK_PIECE_INTERVAL_SECONDS.get(settings);
+        this.pieceIntervalSeconds = BATCH_TASK_PIECE_INTERVAL_SECONDS.get(environmentSettings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(BATCH_TASK_PIECE_INTERVAL_SECONDS, it -> pieceIntervalSeconds = it);
 
-        this.deleteADResultWhenDeleteDetector = DELETE_AD_RESULT_WHEN_DELETE_DETECTOR.get(settings);
+        this.deleteADResultWhenDeleteDetector = DELETE_AD_RESULT_WHEN_DELETE_DETECTOR.get(environmentSettings);
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(DELETE_AD_RESULT_WHEN_DELETE_DETECTOR, it -> deleteADResultWhenDeleteDetector = it);
 
-        this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
+        this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(environmentSettings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
 
-        this.maxRunningEntitiesPerDetector = MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.get(settings);
+        this.maxRunningEntitiesPerDetector = MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.get(environmentSettings);
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS, it -> maxRunningEntitiesPerDetector = it);
@@ -247,7 +247,7 @@ public class ADTaskManager {
         transportRequestOptions = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(REQUEST_TIMEOUT.get(settings))
+            .withTimeout(REQUEST_TIMEOUT.get(environmentSettings))
             .build();
         clusterService
             .getClusterSettings()
