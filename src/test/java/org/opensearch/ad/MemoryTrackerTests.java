@@ -8,7 +8,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/* @anomaly-detection.create-components. Commented until we have support for SDKClusterSettings for extensions
+/* @anomaly-detection.create-components. https://github.com/opensearch-project/opensearch-sdk-java/issues/503. Commented until we have support for SDKClusterSettings for extensions
 package org.opensearch.ad;
 
 

@@ -142,7 +142,6 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
@@ -160,6 +159,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
@@ -184,7 +184,7 @@ public class ADTaskManager {
     private final Set<String> retryableErrors = ImmutableSet.of(EXCEED_HISTORICAL_ANALYSIS_LIMIT, NO_ELIGIBLE_NODE_TO_RUN_DETECTOR);
     private final SDKRestClient sdkRestClient;
     private final SDKClusterService clusterService;
-    private final NamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
     private final AnomalyDetectionIndices detectionIndices;
     private final DiscoveryNodeFilterer nodeFilter;
     private final ADTaskCacheManager adTaskCacheManager;
@@ -208,7 +208,7 @@ public class ADTaskManager {
         Settings settings,
         SDKClusterService clusterService,
         SDKRestClient sdkRestClient,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         AnomalyDetectionIndices detectionIndices,
         DiscoveryNodeFilterer nodeFilter,
         HashRing hashRing,
@@ -867,7 +867,7 @@ public class ADTaskManager {
                 function.accept(Optional.empty());
                 return;
             }
-            try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
+            try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry.getRegistry(), response.getSourceAsBytesRef())) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
@@ -1014,7 +1014,7 @@ public class ADTaskManager {
             Iterator<SearchHit> iterator = r.getHits().iterator();
             while (iterator.hasNext()) {
                 SearchHit searchHit = iterator.next();
-                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
+                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry.getRegistry(), searchHit.getSourceRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     ADTask adTask = ADTask.parse(parser, searchHit.getId());
                     adTasks.add(adTask);
@@ -1671,7 +1671,9 @@ public class ADTaskManager {
                 BulkRequest bulkRequest = new BulkRequest();
                 while (iterator.hasNext()) {
                     SearchHit searchHit = iterator.next();
-                    try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
+                    try (
+                        XContentParser parser = createXContentParserFromRegistry(xContentRegistry.getRegistry(), searchHit.getSourceRef())
+                    ) {
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                         ADTask adTask = ADTask.parse(parser, searchHit.getId());
                         logger.debug("Delete old task: {} of detector: {}", adTask.getTaskId(), adTask.getDetectorId());
@@ -2858,7 +2860,7 @@ public class ADTaskManager {
             try {
                 XContentParser parser = XContentType.JSON
                     .xContent()
-                    .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, entityValue);
+                    .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, entityValue);
                 ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.nextToken(), parser);
                 return Entity.parse(parser);
             } catch (IOException e) {
@@ -2881,7 +2883,7 @@ public class ADTaskManager {
         GetRequest request = new GetRequest(DETECTION_STATE_INDEX, taskId);
         sdkRestClient.get(request, ActionListener.wrap(r -> {
             if (r != null && r.isExists()) {
-                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
+                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry.getRegistry(), r.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     ADTask adTask = ADTask.parse(parser, r.getId());
                     listener.onResponse(Optional.ofNullable(adTask));
@@ -3015,7 +3017,7 @@ public class ADTaskManager {
             Iterator<SearchHit> iterator = r.getHits().iterator();
             while (iterator.hasNext()) {
                 SearchHit searchHit = iterator.next();
-                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
+                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry.getRegistry(), searchHit.getSourceRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     taskQueue.add(ADTask.parse(parser, searchHit.getId()));
                 } catch (Exception e) {

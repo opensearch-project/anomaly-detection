@@ -50,6 +50,7 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
@@ -80,7 +81,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         SDKRestClient sdkRestClient = getRestClient();
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
-        NamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry().getRegistry();
+        SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
         ThreadPool threadPool = runner.getThreadPool();
 
         JvmService jvmService = new JvmService(environmentSettings);
@@ -118,7 +119,8 @@ public class AnomalyDetectorExtension extends BaseExtension {
             threadPool
         );
 
-        return ImmutableList.of(anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
+        return ImmutableList
+            .of(sdkRestClient, anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
     }
 
     @Override
