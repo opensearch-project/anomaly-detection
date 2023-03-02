@@ -21,8 +21,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.sdk.SDKClusterService;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -66,7 +66,7 @@ public class MemoryTracker {
         JvmService jvmService,
         double modelMaxSizePercentage,
         double modelDesiredSizePercentage,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         ADCircuitBreakerService adCircuitBreakerService
     ) {
         this.totalMemoryBytes = 0;

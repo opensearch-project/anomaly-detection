@@ -17,9 +17,7 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
-import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -30,21 +28,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.SpecialPermission;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.CheckpointDao;
-import org.opensearch.ad.ml.EntityColdStarter;
-import org.opensearch.ad.ml.HybridThresholdingModel;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
@@ -58,39 +42,24 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.env.Environment;
-import org.opensearch.env.NodeEnvironment;
-import org.opensearch.monitor.jvm.JvmInfo;
-import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
-import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
-import org.opensearch.script.ScriptService;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.watcher.ResourceWatcherService;
 
-import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
-import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
-import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
-import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
 import io.protostuff.LinkedBuffer;
-import io.protostuff.Schema;
-import io.protostuff.runtime.RuntimeSchema;
 
 /**
  * Entry point of AD plugin.
@@ -206,6 +175,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         return null;
     }
 
+    /* @anomalydetection.createcomponents
     @Override
     public Collection<Object> createComponents(
         Client client,
@@ -221,18 +191,14 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
         EnabledSetting.getInstance().init(clusterService);
-        /* @anomaly-detection.create-detector
         NumericSetting.getInstance().init(clusterService);
         this.client = client;
         this.threadPool = threadPool;
-        */
         Settings settings = environment.settings();
-        /* @anomaly-detection.create-detector
         Throttler throttler = new Throttler(getClock());
         this.clientUtil = new ClientUtil(settings, client, throttler);
         this.indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameExpressionResolver);
         this.nodeFilter = new DiscoveryNodeFilterer(clusterService);
-        */
         // AnomalyDetectionIndices is Injected for IndexAnomalyDetectorTrasnportAction constructor
         this.anomalyDetectionIndices = new AnomalyDetectionIndices(
             null, // client,
@@ -243,7 +209,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
         );
         this.clusterService = clusterService;
-
+    
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
             new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
         Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
@@ -257,18 +223,18 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             null, // ClusterService clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
         );
-
+    
         JvmService jvmService = new JvmService(environment.settings());
         RandomCutForestMapper mapper = new RandomCutForestMapper();
         mapper.setSaveExecutorContextEnabled(true);
         mapper.setSaveTreeStateEnabled(true);
         mapper.setPartialTreeStateEnabled(true);
         V1JsonToV3StateConverter converter = new V1JsonToV3StateConverter();
-
+    
         double modelMaxSizePercent = AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings);
-
+    
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
-
+    
         MemoryTracker memoryTracker = new MemoryTracker(
             jvmService,
             modelMaxSizePercent,
@@ -276,7 +242,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             clusterService,
             adCircuitBreakerService
         );
-
+    
         NodeStateManager stateManager = new NodeStateManager(
             client,
             xContentRegistry,
@@ -286,7 +252,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             clusterService
         );
-
+    
         FeatureManager featureManager = new FeatureManager(
             searchFeatureDao,
             interpolator,
@@ -304,7 +270,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AD_THREAD_POOL_NAME
         );
         long heapSizeBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
-        /* @anomaly-detection.create-detector
         serializeRCFBufferPool = AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
             @Override
             public GenericObjectPool<LinkedBuffer> run() {
@@ -326,7 +291,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         serializeRCFBufferPool.setMinIdle(0);
         serializeRCFBufferPool.setBlockWhenExhausted(false);
         serializeRCFBufferPool.setTimeBetweenEvictionRuns(AnomalyDetectorSettings.HOURLY_MAINTENANCE);
-        */
         CheckpointDao checkpoint = new CheckpointDao(
             client,
             clientUtil,
@@ -347,9 +311,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
             1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE
         );
-
+    
         Random random = new Random(42);
-
+    
         CheckpointWriteWorker checkpointWriteQueue = new CheckpointWriteWorker(
             heapSizeBytes,
             AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
@@ -371,7 +335,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             stateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
-        /* @anomaly-detection.create-detector
         EntityCache cache = new PriorityCache(
             checkpoint,
             AnomalyDetectorSettings.DEDICATED_CACHE_SIZE.get(settings),
@@ -388,7 +351,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         
         CacheProvider cacheProvider = new CacheProvider(cache);
-        */
         EntityColdStarter entityColdStarter = new EntityColdStarter(
             getClock(),
             threadPool,
@@ -408,7 +370,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             checkpointWriteQueue,
             AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
         );
-        /* @anomaly-detection.create-detector
         EntityColdStartWorker coldstartQueue = new EntityColdStartWorker(
             heapSizeBytes,
             AnomalyDetectorSettings.ENTITY_REQUEST_SIZE_IN_BYTES,
@@ -428,8 +389,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             stateManager
         );
-        */
-
+    
         ModelManager modelManager = new ModelManager(
             checkpoint,
             getClock(),
@@ -445,7 +405,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             featureManager,
             memoryTracker
         );
-        /* @anomaly-detection.create-detector
         MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
             client,
             settings,
@@ -521,11 +480,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             stateManager
         );
-        */
-        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-        // ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
+        
+        ADDataMigrator dataMigrator = new ADDataMigrator(client, clusterService, xContentRegistry, anomalyDetectionIndices);
         HashRing hashRing = new HashRing(nodeFilter, getClock(), settings, client, clusterService, modelManager);
-        /* @anomaly-detection.create-detector
         anomalyDetectorRunner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
         
         Map<String, ADStat<?>> stats = ImmutableMap
@@ -571,7 +528,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         adStats = new ADStats(stats);
         
         adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
-        */
         adTaskManager = new ADTaskManager(
             settings,
             clusterService,
@@ -583,7 +539,6 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             adTaskCacheManager,
             threadPool
         );
-        /* @anomaly-detection.create-detector
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             client,
             settings,
@@ -646,9 +601,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 entityColdStarter,
                 adTaskCacheManager
             );
-        */
         return ImmutableList.of(searchFeatureDao, anomalyDetectionIndices, adTaskManager);
     }
+    */
 
     /**
      * createComponents doesn't work for Clock as ES process cannot start
