@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
@@ -21,24 +22,28 @@ import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
 import org.opensearch.jobscheduler.transport.request.JobParameterRequest;
 import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobParameterResponse;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
+
+import com.google.inject.Inject;
 
 /**
  * Transport Action to parse Anomaly Detector
  */
-public class ADJobParameterTransportAction extends HandledTransportAction<ExtensionActionRequest, ExtensionActionResponse> {
+public class ADJobParameterTransportAction extends TransportAction<ExtensionActionRequest, ExtensionActionResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ADJobParameterTransportAction.class);
 
-    private final NamedXContentRegistry xContentRegistry;
+    private SDKNamedXContentRegistry xContentRegistry;
 
+    @Inject
     protected ADJobParameterTransportAction(
-        TransportService transportService,
         ActionFilters actionFilters,
-        NamedXContentRegistry xContentRegistry
+        TaskManager taskManager,
+        SDKNamedXContentRegistry xContentRegistry
     ) {
-        super(ADJobParameterAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
+        super(ADJobParameterAction.NAME, actionFilters, taskManager);
         this.xContentRegistry = xContentRegistry;
     }
 
@@ -51,7 +56,7 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
         try {
             jobParameterRequest = new JobParameterRequest(request.getRequestBytes());
             XContentParser parser = XContentHelper
-                .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
+                .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             ScheduledJobParameter scheduledJobParameter = AnomalyDetectorJob.parse(parser);
             JobParameterResponse jobParameterResponse = new JobParameterResponse(new ExtensionJobParameter(scheduledJobParameter));

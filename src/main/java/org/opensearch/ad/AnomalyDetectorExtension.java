@@ -12,6 +12,7 @@ package org.opensearch.ad;
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,8 @@ import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
+import org.opensearch.ad.transport.AnomalyDetectorJobAction;
+import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -195,12 +198,14 @@ public class AnomalyDetectorExtension extends BaseExtension {
         return client;
     }
 
-    // @Override
-    public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActionsMap() {
-        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map = new HashMap<>();
-        map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
-        map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
-        return map;
+    @Override
+    public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
+        return Arrays
+            .asList(
+                new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
+                new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
+                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
+            );
     }
 
     public static void main(String[] args) throws IOException {
