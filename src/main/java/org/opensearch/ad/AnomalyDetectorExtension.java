@@ -14,15 +14,12 @@ import static java.util.Collections.unmodifiableList;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;

@@ -20,7 +20,6 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
@@ -28,9 +27,8 @@ import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
 import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
-import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
 
@@ -46,7 +44,7 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
     private SDKRestClient client;
     private SDKNamedXContentRegistry xContentRegistry;
     private AnomalyDetectorJob scheduledJobParameter;
-    
+
     @Inject
     protected ADJobRunnerTransportAction(
         ActionFilters actionFilters,
@@ -54,7 +52,7 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
         SDKNamedXContentRegistry xContentRegistry,
         SDKRestClient client
     ) {
-        super(ADJobRunnerAction.NAME,  actionFilters, taskManager);
+        super(ADJobRunnerAction.NAME, actionFilters, taskManager);
         this.client = client;
         this.xContentRegistry = xContentRegistry;
     }

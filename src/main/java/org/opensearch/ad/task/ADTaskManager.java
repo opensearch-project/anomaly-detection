@@ -1078,7 +1078,7 @@ public class ADTaskManager {
             listener
         );
     }
-    
+
     private <T> void resetRealtimeDetectorTaskState(
         List<ADTask> runningRealtimeTasks,
         AnomalyDetectorFunction function,
@@ -1095,14 +1095,14 @@ public class ADTaskManager {
         client.get(getJobRequest, ActionListener.wrap(r -> {
             if (r.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry.getRegistry(), r.getSourceAsBytesRef())) {
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
-                if (!job.isEnabled()) {
-                    logger.debug("AD job is disabled, reset realtime task as stopped for detector {}", detectorId);
-                    resetTaskStateAsStopped(adTask, function, transportService, listener);
-                } else {
-                    function.execute();
-                }
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    if (!job.isEnabled()) {
+                        logger.debug("AD job is disabled, reset realtime task as stopped for detector {}", detectorId);
+                        resetTaskStateAsStopped(adTask, function, transportService, listener);
+                    } else {
+                        function.execute();
+                    }
                 } catch (IOException e) {
                     logger.error(" Failed to parse AD job " + detectorId, e);
                     listener.onFailure(e);

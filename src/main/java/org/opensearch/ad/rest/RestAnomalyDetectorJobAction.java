@@ -16,7 +16,6 @@ import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
 import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -28,7 +27,6 @@ import java.util.function.Function;
 
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorExtension;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -36,8 +34,6 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
-import org.opensearch.client.node.NodeClient;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.json.JsonXContent;
@@ -47,7 +43,6 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.BaseExtensionRestHandler;
@@ -167,7 +162,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     public List<Route> routes() {
         return ImmutableList.of();
     }
-
+    
     @Override
     public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList

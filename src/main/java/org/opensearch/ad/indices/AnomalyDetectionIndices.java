@@ -1078,11 +1078,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
             .indices(ADIndex.JOB.getIndexName())
             .names(
-            new String[] {
-            IndexMetadata.SETTING_NUMBER_OF_SHARDS,
-            IndexMetadata.SETTING_NUMBER_OF_REPLICAS,
-            IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS }
-        );
+                new String[] {
+                    IndexMetadata.SETTING_NUMBER_OF_SHARDS,
+                    IndexMetadata.SETTING_NUMBER_OF_REPLICAS,
+                    IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS }
+            );
         client.execute(GetSettingsAction.INSTANCE, getSettingsRequest, ActionListener.wrap(settingResponse -> {
             // auto expand setting is a range string like "1-all"
             String autoExpandReplica = getStringSetting(settingResponse, IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS);
@@ -1098,15 +1098,15 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             if (primaryShardsNumber == null || replicaNumber == null) {
                 logger
                     .error(
-                    new ParameterizedMessage(
-                    "Fail to find AD job index's primary or replica shard number: primary [{}], replica [{}]",
-                    primaryShardsNumber,
-                    replicaNumber
-                    )
-            );
-            // don't throw exception as we don't know how to handle it and retry next time
-            listener.onResponse(null);
-            return;
+                        new ParameterizedMessage(
+                            "Fail to find AD job index's primary or replica shard number: primary [{}], replica [{}]",
+                            primaryShardsNumber,
+                            replicaNumber
+                        )
+                    );
+                // don't throw exception as we don't know how to handle it and retry next time
+                listener.onResponse(null);
+                return;
             }
             // at least minJobIndexReplicas
             // at most maxJobIndexReplicas / primaryShardsNumber replicas.

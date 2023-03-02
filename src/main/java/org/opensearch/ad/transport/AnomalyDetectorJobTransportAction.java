@@ -33,9 +33,8 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.SDKClient;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
@@ -144,10 +143,10 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
             adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, listener);
-        } 
+        }
         // TODO : https://github.com/opensearch-project/opensearch-sdk-java/issues/384
         // else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
-        //     adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
+        // adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
         // }
     }
 }

@@ -7,13 +7,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
@@ -56,7 +54,12 @@ public class ADJobParameterTransportAction extends TransportAction<ExtensionActi
         try {
             jobParameterRequest = new JobParameterRequest(request.getRequestBytes());
             XContentParser parser = XContentHelper
-                .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
+                .createParser(
+                    xContentRegistry.getRegistry(),
+                    LoggingDeprecationHandler.INSTANCE,
+                    jobParameterRequest.getJobSource(),
+                    XContentType.JSON
+                );
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             ScheduledJobParameter scheduledJobParameter = AnomalyDetectorJob.parse(parser);
             JobParameterResponse jobParameterResponse = new JobParameterResponse(new ExtensionJobParameter(scheduledJobParameter));
