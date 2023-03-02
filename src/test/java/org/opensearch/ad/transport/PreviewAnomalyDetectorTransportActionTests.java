@@ -58,18 +58,24 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -81,7 +87,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     private ActionListener<PreviewAnomalyDetectorResponse> response;
     private PreviewAnomalyDetectorTransportAction action;
     private AnomalyDetectorRunner runner;
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
     private FeatureManager featureManager;
     private ModelManager modelManager;
     private Task task;
@@ -92,23 +98,24 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        SDKRestClient client = mock(SDKRestClient.class);
+
         task = mock(Task.class);
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
-                                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
-                                AnomalyDetectorSettings.PAGE_SIZE,
-                                AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW
-                            )
-                    )
-                )
-        );
+        clusterService = mock(SDKClusterService.class);
+        Settings settings = Settings.EMPTY;
+        List<Setting<?>> settingsList = List
+            .of(
+                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
+                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                AnomalyDetectorSettings.PAGE_SIZE,
+                AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW
+            );
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         ClusterName clusterName = new ClusterName("test");
@@ -139,7 +146,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             mock(TransportService.class),
             clusterService,
             mock(ActionFilters.class),
-            client(),
+            client,
             runner,
             mockSdkXContentRegistry,
             circuitBreaker
@@ -190,6 +197,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             return null;
         }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
         action.doExecute(task, request, previewResponse);
+        // The latch will never be triggered with mocked client so trigger ourselves here
+        inProgressLatch.countDown();
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
@@ -217,6 +226,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
+        // The latch will never be triggered with mocked client so trigger ourselves here
+        inProgressLatch.countDown();
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
@@ -238,6 +249,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
+        // The latch will never be triggered with mocked client so trigger ourselves here
+        inProgressLatch.countDown();
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
@@ -259,6 +272,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
+        // The latch will never be triggered with mocked client so trigger ourselves here
+        inProgressLatch.countDown();
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
@@ -283,6 +298,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
+        // The latch will never be triggered with mocked client so trigger ourselves here
+        inProgressLatch.countDown();
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
@@ -291,7 +308,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testPreviewTransportActionNoContext() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
-        Client client = mock(Client.class);
+        SDKRestClient client = mock(SDKRestClient.class);
         PreviewAnomalyDetectorTransportAction previewAction = new PreviewAnomalyDetectorTransportAction(
             settings,
             mock(TransportService.class),
@@ -404,6 +421,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             return null;
         }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
         action.doExecute(task, request, previewResponse);
+        // The latch will never be triggered with mocked client so trigger ourselves here
+        inProgressLatch.countDown();
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
@@ -435,6 +454,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
+        // The latch will never be triggered with mocked client so trigger ourselves here
+        inProgressLatch.countDown();
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 }

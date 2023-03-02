@@ -33,7 +33,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
@@ -45,23 +45,22 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-public class PreviewAnomalyDetectorTransportAction extends
-    HandledTransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
+public class PreviewAnomalyDetectorTransportAction extends TransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
     private final Logger logger = LogManager.getLogger(PreviewAnomalyDetectorTransportAction.class);
     private final AnomalyDetectorRunner anomalyDetectorRunner;
-    private final ClusterService clusterService;
-    private final Client client;
+    private final SDKClusterService clusterService;
+    private final SDKRestClient client;
     private final SDKNamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
     private volatile Boolean filterByEnabled;
@@ -72,14 +71,15 @@ public class PreviewAnomalyDetectorTransportAction extends
     public PreviewAnomalyDetectorTransportAction(
         Settings settings,
         TransportService transportService,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         ActionFilters actionFilters,
-        Client client,
+        SDKRestClient client,
         AnomalyDetectorRunner anomalyDetectorRunner,
         SDKNamedXContentRegistry xContentRegistry,
         ADCircuitBreakerService adCircuitBreakerService
     ) {
-        super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
+        // super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
+        super(PreviewAnomalyDetectorAction.NAME, actionFilters, transportService.getTaskManager());
         this.clusterService = clusterService;
         this.client = client;
         this.anomalyDetectorRunner = anomalyDetectorRunner;
