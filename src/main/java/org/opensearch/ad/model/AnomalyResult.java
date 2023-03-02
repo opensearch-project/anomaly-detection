@@ -29,15 +29,15 @@ import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.core.ParseField;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.commons.authuser.User;
+import org.opensearch.core.ParseField;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.commons.authuser.User;
 
 import com.google.common.base.Objects;
 
