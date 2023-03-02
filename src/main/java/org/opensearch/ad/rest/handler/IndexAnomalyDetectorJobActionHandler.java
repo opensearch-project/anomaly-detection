@@ -40,6 +40,7 @@ import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
