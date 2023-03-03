@@ -37,7 +37,6 @@ import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestRequest;
@@ -48,11 +47,11 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
-import org.opensearch.sdk.SDKClient;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 
 /**
  * This class consists of the REST handler to handle request to start/stop AD job.
@@ -60,20 +59,17 @@ import com.google.inject.Inject;
 public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
 
     public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
-    @Inject
-    private SDKClient client;
-    @Inject
-    private SDKClusterService clusterService;
-    @Inject
-    private NamedXContentRegistry namedXContentRegistry;
 
-    private ExtensionsRunner extensionsRunner;
+    private SDKRestClient client;
+    private SDKClusterService clusterService;
+    private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings settings;
     private volatile TimeValue requestTimeout;
 
-    @Inject
-    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner) {
-        this.extensionsRunner = extensionsRunner;
+    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+        this.client = anomalyDetectorExtension.getRestClient();
+        this.clusterService = extensionsRunner.getSdkClusterService();
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
@@ -151,7 +147,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         if (!request.hasContent()) {
             return null;
         }
-        XContentParser parser = request.contentParser(namedXContentRegistry);
+        XContentParser parser = request.contentParser(namedXContentRegistry.getRegistry());
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         DetectionDateRange dateRange = DetectionDateRange.parse(parser);
         return dateRange;
