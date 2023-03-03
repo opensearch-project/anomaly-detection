@@ -61,7 +61,6 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
         TaskManager taskManager,
         SDKRestClient client,
         SDKClusterService clusterService,
-        Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         SDKNamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
@@ -70,7 +69,7 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.client = client;
         this.clusterService = clusterService;
-        this.settings = settings;
+        this.settings = extensionsRunner.getEnvironmentSettings();
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = xContentRegistry;
         this.adTaskManager = adTaskManager;
