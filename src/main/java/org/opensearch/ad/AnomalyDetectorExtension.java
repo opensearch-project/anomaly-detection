@@ -52,6 +52,7 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
@@ -86,6 +87,8 @@ import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
+import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -151,7 +154,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
+                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
+                new RestDeleteAnomalyDetectorAction(extensionsRunner(), restClient())
             );
     }
 
@@ -582,7 +586,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
-                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
+                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
+                new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class)
                 // TODO : Register AnomalyResultAction/TransportAction here :
                 // https://github.com/opensearch-project/opensearch-sdk-java/issues/626
             );
