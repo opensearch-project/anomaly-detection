@@ -30,7 +30,6 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -40,6 +39,8 @@ import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
+
+import com.google.inject.Inject;
 
 public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
