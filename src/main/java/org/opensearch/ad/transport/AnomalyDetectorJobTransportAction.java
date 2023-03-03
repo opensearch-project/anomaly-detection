@@ -77,7 +77,8 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
-    public void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> actionListener) {
+    @Override
+    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> actionListener) {
         String detectorId = request.getDetectorID();
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         boolean historical = request.isHistorical();
