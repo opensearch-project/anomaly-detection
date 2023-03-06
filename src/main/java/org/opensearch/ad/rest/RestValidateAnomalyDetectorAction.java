@@ -76,12 +76,12 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         .map(aspect -> aspect.getName())
         .collect(Collectors.toSet());
 
-    public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+    public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient restClient) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
-        this.restClient = anomalyDetectorExtension.getRestClient();
+        this.restClient = restClient;
         this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 

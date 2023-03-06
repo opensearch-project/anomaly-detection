@@ -61,24 +61,27 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
 
+    @Deprecated
+    private final SDKRestClient restClient;
+
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
+        this.restClient = new SDKClient().initializeRestClient(getExtensionSettings());
     }
 
     @Override
-    public List<ExtensionRestHandler> getExtensionRestHandlers() {
+    public List<ExtensionRestHandler> getExtensionRestHandlers(ExtensionsRunner extensionsRunner) {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
-                new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
-                new RestGetAnomalyDetectorAction(extensionsRunner(), this)
+                new RestIndexAnomalyDetectorAction(extensionsRunner, restClient),
+                new RestValidateAnomalyDetectorAction(extensionsRunner, restClient),
+                new RestGetAnomalyDetectorAction(extensionsRunner, restClient)
             );
     }
 
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
-        SDKRestClient sdkRestClient = getRestClient();
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -99,7 +102,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
 
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
-            sdkRestClient,
+            restClient,
             sdkClusterService,
             threadPool,
             environmentSettings,
@@ -110,7 +113,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         ADTaskManager adTaskManager = new ADTaskManager(
             environmentSettings,
             sdkClusterService,
-            sdkRestClient,
+            restClient,
             xContentRegistry,
             anomalyDetectionIndices,
             null, // nodeFilter
@@ -120,7 +123,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         );
 
         return ImmutableList
-            .of(sdkRestClient, anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
+            .of(restClient, anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
     }
 
     @Override
@@ -190,9 +193,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Deprecated
     public SDKRestClient getRestClient() {
-        @SuppressWarnings("resource")
-        SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
-        return client;
+        return this.restClient;
     }
 
     // @Override

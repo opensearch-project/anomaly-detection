@@ -66,12 +66,12 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
     private SDKClusterService clusterService;
     private ExtensionsRunner extensionsRunner;
 
-    public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+    public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         this.extensionsRunner = extensionsRunner;
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
-        this.client = anomalyDetectorExtension.getRestClient();
+        this.client = client;
         this.clusterService = new SDKClusterService(extensionsRunner);
     }
 
