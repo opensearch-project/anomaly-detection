@@ -24,6 +24,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 
 /**
  * Anomaly detector REST action handler to process POST request.
@@ -61,7 +62,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         Integer maxMultiEntityAnomalyDetectors,
         Integer maxAnomalyFeatures,
         RestRequest.Method method,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         UserIdentity user,
         SearchFeatureDao searchFeatureDao,
         String validationType,

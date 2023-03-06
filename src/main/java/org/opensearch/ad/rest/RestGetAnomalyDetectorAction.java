@@ -48,6 +48,7 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -59,7 +60,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String GET_ANOMALY_DETECTOR_ACTION = "get_anomaly_detector";
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
-    private NamedXContentRegistry namedXContentRegistry;
+    private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings settings;
     private TransportService transportService;
     private SDKRestClient client;
@@ -68,7 +69,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         this.extensionsRunner = extensionsRunner;
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.client = anomalyDetectorExtension.getRestClient();
@@ -133,8 +134,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
             clusterService,
             client,
             settings,
-            extensionsRunner.getNamedXContentRegistry().getRegistry(), // TODO:
-                                                                       // https://github.com/opensearch-project/opensearch-sdk-java/issues/447
+            extensionsRunner.getNamedXContentRegistry(),
             null // ADTaskManager adTaskManager
         );
 
@@ -226,7 +226,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
              *      }]
              * }
              */
-            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser(namedXContentRegistry));
+            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser(namedXContentRegistry.getRegistry()));
             if (entity.isPresent()) {
                 return entity.get();
             }

@@ -58,6 +58,7 @@ import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
@@ -92,7 +93,7 @@ public class ModelValidationActionHandler {
     protected final TimeValue requestTimeout;
     protected final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
     protected final SDKRestClient client;
-    protected final NamedXContentRegistry xContentRegistry;
+    protected final SDKNamedXContentRegistry xContentRegistry;
     protected final ActionListener<ValidateAnomalyDetectorResponse> listener;
     protected final SearchFeatureDao searchFeatureDao;
     protected final Clock clock;
@@ -117,7 +118,7 @@ public class ModelValidationActionHandler {
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         AnomalyDetector anomalyDetector,
         TimeValue requestTimeout,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         SearchFeatureDao searchFeatureDao,
         String validationType,
         Clock clock
@@ -688,7 +689,7 @@ public class ModelValidationActionHandler {
                 (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
             );
             BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
-            List<String> featureFields = ParseUtils.getFieldNamesForFeature(feature, xContentRegistry);
+            List<String> featureFields = ParseUtils.getFieldNamesForFeature(feature, xContentRegistry.getRegistry());
             for (String featureField : featureFields) {
                 query.filter(QueryBuilders.existsQuery(featureField));
             }

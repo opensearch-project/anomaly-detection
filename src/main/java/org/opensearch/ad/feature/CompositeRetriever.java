@@ -39,6 +39,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.AggregatorFactories;
@@ -64,7 +65,7 @@ public class CompositeRetriever extends AbstractRetriever {
     private final long dataStartEpoch;
     private final long dataEndEpoch;
     private final AnomalyDetector anomalyDetector;
-    private final NamedXContentRegistry xContent;
+    private final SDKNamedXContentRegistry xContent;
     private final Client client;
     private int totalResults;
     private int maxEntities;
@@ -78,7 +79,7 @@ public class CompositeRetriever extends AbstractRetriever {
         long dataStartEpoch,
         long dataEndEpoch,
         AnomalyDetector anomalyDetector,
-        NamedXContentRegistry xContent,
+        SDKNamedXContentRegistry xContent,
         Client client,
         long expirationEpochMs,
         Clock clock,
@@ -107,7 +108,7 @@ public class CompositeRetriever extends AbstractRetriever {
         long dataStartEpoch,
         long dataEndEpoch,
         AnomalyDetector anomalyDetector,
-        NamedXContentRegistry xContent,
+        SDKNamedXContentRegistry xContent,
         Client client,
         long expirationEpochMs,
         Settings settings,
@@ -154,7 +155,7 @@ public class CompositeRetriever extends AbstractRetriever {
             .size(pageSize);
         for (Feature feature : anomalyDetector.getFeatureAttributes()) {
             AggregatorFactories.Builder internalAgg = ParseUtils
-                .parseAggregators(feature.getAggregation().toString(), xContent, feature.getId());
+                .parseAggregators(feature.getAggregation().toString(), xContent.getRegistry(), feature.getId());
             composite.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
         }
 

@@ -90,6 +90,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.ActionNotFoundTransportException;
@@ -132,7 +133,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     // detector id to this field when start to run realtime detection and remove detector
     // id once realtime detection done.
     private final Set<String> hcDetectors;
-    private NamedXContentRegistry xContentRegistry;
+    private SDKNamedXContentRegistry xContentRegistry;
     private Settings settings;
     // within an interval, how many percents are used to process requests.
     // 1.0 means we use all of the detection interval to process requests.
@@ -156,7 +157,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
         ThreadPool threadPool,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
     ) {
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);

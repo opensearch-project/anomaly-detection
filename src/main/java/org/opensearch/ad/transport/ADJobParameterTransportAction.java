@@ -21,6 +21,7 @@ import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
 import org.opensearch.jobscheduler.transport.request.JobParameterRequest;
 import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobParameterResponse;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
@@ -31,12 +32,12 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
 
     private static final Logger LOG = LogManager.getLogger(ADJobParameterTransportAction.class);
 
-    private final NamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
 
     protected ADJobParameterTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
-        NamedXContentRegistry xContentRegistry
+        SDKNamedXContentRegistry xContentRegistry
     ) {
         super(ADJobParameterAction.NAME, transportService, actionFilters, ExtensionActionRequest::new);
         this.xContentRegistry = xContentRegistry;
@@ -51,7 +52,7 @@ public class ADJobParameterTransportAction extends HandledTransportAction<Extens
         try {
             jobParameterRequest = new JobParameterRequest(request.getRequestBytes());
             XContentParser parser = XContentHelper
-                .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
+                .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, jobParameterRequest.getJobSource(), XContentType.JSON);
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             ScheduledJobParameter scheduledJobParameter = AnomalyDetectorJob.parse(parser);
             JobParameterResponse jobParameterResponse = new JobParameterResponse(new ExtensionJobParameter(scheduledJobParameter));

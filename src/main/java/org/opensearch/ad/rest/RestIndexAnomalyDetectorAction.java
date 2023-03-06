@@ -53,6 +53,7 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -64,7 +65,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
 
     private static final String INDEX_ANOMALY_DETECTOR_ACTION = "index_anomaly_detector_action";
     private final Logger logger = LogManager.getLogger(RestIndexAnomalyDetectorAction.class);
-    private NamedXContentRegistry namedXContentRegistry;
+    private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
     private TransportService transportService;
     private SDKRestClient restClient;
@@ -72,7 +73,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
 
     public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner);
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = anomalyDetectorExtension.getRestClient();
@@ -116,7 +117,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
         logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
 
-        XContentParser parser = request.contentParser(this.namedXContentRegistry);
+        XContentParser parser = request.contentParser(this.namedXContentRegistry.getRegistry());
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         // TODO: check detection interval < modelTTL
         AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);

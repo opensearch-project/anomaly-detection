@@ -55,6 +55,7 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -64,7 +65,7 @@ import com.google.common.collect.ImmutableList;
  */
 public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
     private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
-    private NamedXContentRegistry namedXContentRegistry;
+    private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
     private TransportService transportService;
     private SDKRestClient restClient;
@@ -78,7 +79,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
 
     public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
         super(extensionsRunner);
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
+        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = anomalyDetectorExtension.getRestClient();
@@ -134,7 +135,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
-        XContentParser parser = request.contentParser(this.namedXContentRegistry);
+        XContentParser parser = request.contentParser(this.namedXContentRegistry.getRegistry());
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         String typesStr = request.param(TYPE);
 

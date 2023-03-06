@@ -53,6 +53,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
@@ -62,7 +63,7 @@ public class PreviewAnomalyDetectorTransportAction extends
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     private final ClusterService clusterService;
     private final Client client;
-    private final NamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
     private volatile Boolean filterByEnabled;
     private final ADCircuitBreakerService adCircuitBreakerService;
@@ -76,7 +77,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionFilters actionFilters,
         Client client,
         AnomalyDetectorRunner anomalyDetectorRunner,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         ADCircuitBreakerService adCircuitBreakerService
     ) {
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
@@ -113,7 +114,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 // TODO: Switch these to SDKRestClient and SDKClusterService when implementing this
                 null, // client,
                 null, // clusterService,
-                xContentRegistry
+                xContentRegistry.getRegistry()
             );
         } catch (Exception e) {
             logger.error(e);
@@ -224,7 +225,7 @@ public class PreviewAnomalyDetectorTransportAction extends
 
                 try {
                     XContentParser parser = RestHandlerUtils
-                        .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef());
+                        .createXContentParserFromRegistry(xContentRegistry.getRegistry(), response.getSourceAsBytesRef());
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
