@@ -25,6 +25,7 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.transport.TransportService;
 
@@ -58,7 +59,7 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         SDKNamedXContentRegistry sdkNamedXContentRegistry = mock(SDKNamedXContentRegistry.class);
         when(extensionsRunner.getNamedXContentRegistry()).thenReturn(sdkNamedXContentRegistry);
         when(sdkNamedXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
-        action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), sdkRestClient, extensionsRunner);
+        action = new ADJobRunnerTransportAction(mock(ActionFilters.class), mock(TaskManager.class), sdkNamedXContentRegistry, sdkRestClient);
 
         task = mock(Task.class);
         lockService = new LockService(mock(Client.class), clusterService());
