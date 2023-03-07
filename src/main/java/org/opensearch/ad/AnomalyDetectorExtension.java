@@ -200,7 +200,6 @@ public class AnomalyDetectorExtension extends BaseExtension {
         return client;
     }
 
-<<<<<<< HEAD
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays
@@ -209,19 +208,6 @@ public class AnomalyDetectorExtension extends BaseExtension {
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
             );
-=======
-    @Deprecated
-    public SDKRestClient restClient() {
-        return this.sdkRestClient;
-    }
-
-    // @Override
-    public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActionsMap() {
-        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map = new HashMap<>();
-        map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
-        map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
-        return map;
->>>>>>> feature/extensions
     }
 
     public static void main(String[] args) throws IOException {
