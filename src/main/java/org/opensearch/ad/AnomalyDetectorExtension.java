@@ -62,7 +62,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
 
     @Deprecated
-    private SDKRestClient restClient;
+    private SDKRestClient sdkRestClient;
 
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
@@ -81,7 +81,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
-        this.restClient = createRestClient();
+        this.sdkRestClient = createRestClient();
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -102,7 +102,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
 
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
-            restClient,
+            sdkRestClient,
             sdkClusterService,
             threadPool,
             environmentSettings,
@@ -113,7 +113,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         ADTaskManager adTaskManager = new ADTaskManager(
             environmentSettings,
             sdkClusterService,
-            restClient,
+            sdkRestClient,
             xContentRegistry,
             anomalyDetectionIndices,
             null, // nodeFilter
@@ -123,7 +123,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         );
 
         return ImmutableList
-            .of(restClient, anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
+            .of(sdkRestClient, anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
     }
 
     @Override
@@ -200,7 +200,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Deprecated
     public SDKRestClient restClient() {
-        return this.restClient;
+        return this.sdkRestClient;
     }
 
     // @Override
