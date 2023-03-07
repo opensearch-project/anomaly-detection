@@ -39,11 +39,11 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -55,7 +55,7 @@ public class IndexAnomalyDetectorTransportAction {
     private final TransportService transportService;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final SDKClusterService clusterService;
-    private final NamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
@@ -68,7 +68,7 @@ public class IndexAnomalyDetectorTransportAction {
         SDKClusterService sdkClusterService,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry namedXContentRegistry,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao
     ) {
@@ -77,7 +77,7 @@ public class IndexAnomalyDetectorTransportAction {
         this.transportService = transportService;
         this.clusterService = sdkClusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
-        this.xContentRegistry = xContentRegistry;
+        this.xContentRegistry = namedXContentRegistry;
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
@@ -121,7 +121,16 @@ public class IndexAnomalyDetectorTransportAction {
                 boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
                 // Update detector request, check if user has permissions to update the detector
                 // Get detector and verify backend roles
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry, filterByBackendRole);
+                getDetector(
+                    requestedUser,
+                    detectorId,
+                    listener,
+                    function,
+                    client,
+                    clusterService,
+                    xContentRegistry.getRegistry(),
+                    filterByBackendRole
+                );
             } else {
                 // Create Detector. No need to get current detector.
                 function.accept(null);

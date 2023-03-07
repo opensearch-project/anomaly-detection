@@ -33,7 +33,7 @@ public class ADJobParameterTransportAction extends TransportAction<ExtensionActi
 
     private static final Logger LOG = LogManager.getLogger(ADJobParameterTransportAction.class);
 
-    private SDKNamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
 
     @Inject
     protected ADJobParameterTransportAction(

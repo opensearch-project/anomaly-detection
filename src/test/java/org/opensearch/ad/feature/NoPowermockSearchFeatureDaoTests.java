@@ -69,6 +69,7 @@ import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -116,6 +117,8 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private String detectorId;
     private Map<String, Object> attrs1, attrs2;
 
+    private SDKNamedXContentRegistry mockSdkXContentRegistry;
+
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -151,11 +154,14 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         clock = mock(Clock.class);
 
+        this.mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+
         searchFeatureDao = new SearchFeatureDao(
             // FIXME: Replace with SDK equivalents when re-enabling tests
             // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
             null, // client,
-            xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
+            mockSdkXContentRegistry, // Important. Without this, ParseUtils cannot parse anything
             interpolator,
             clientUtil,
             settings,
@@ -348,7 +354,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
             // FIXME: Replace with SDK equivalents when re-enabling tests
             // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
             null, // client,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             interpolator,
             clientUtil,
             settings,
@@ -398,7 +404,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
             // FIXME: Replace with SDK equivalents when re-enabling tests
             // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
             null, // client,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             interpolator,
             clientUtil,
             settings,

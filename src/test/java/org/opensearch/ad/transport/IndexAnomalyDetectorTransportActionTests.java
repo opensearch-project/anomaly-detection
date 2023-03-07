@@ -50,6 +50,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.Task;
@@ -68,6 +69,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private ADTaskManager adTaskManager;
     private SDKRestClient client = mock(SDKRestClient.class);
     private SearchFeatureDao searchFeatureDao;
+    private SDKNamedXContentRegistry mockSdkXContentRegistry;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -102,6 +104,10 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
 
         adTaskManager = mock(ADTaskManager.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
+
+        this.mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+
         action = new IndexAnomalyDetectorTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
@@ -109,7 +115,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             clusterService,
             indexSettings(),
             mock(AnomalyDetectionIndices.class),
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             adTaskManager,
             searchFeatureDao
         );
@@ -202,7 +208,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             clusterService,
             settings,
             mock(AnomalyDetectionIndices.class),
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             adTaskManager,
             searchFeatureDao
 
@@ -222,7 +228,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             clusterService,
             settings,
             mock(AnomalyDetectionIndices.class),
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             adTaskManager,
             searchFeatureDao
         );

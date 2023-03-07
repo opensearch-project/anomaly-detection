@@ -42,7 +42,7 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
     private static final Logger LOG = LogManager.getLogger(ADJobRunnerTransportAction.class);
 
     private SDKRestClient client;
-    private SDKNamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
     private AnomalyDetectorJob scheduledJobParameter;
 
     @Inject

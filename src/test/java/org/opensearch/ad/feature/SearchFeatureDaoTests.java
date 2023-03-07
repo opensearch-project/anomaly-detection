@@ -88,12 +88,12 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.script.ScriptService;
 import org.opensearch.script.TemplateScript;
 import org.opensearch.script.TemplateScript.Factory;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -136,7 +136,7 @@ public class SearchFeatureDaoTests {
     @Mock
     private ScriptService scriptService;
     @Mock
-    private NamedXContentRegistry xContent;
+    private SDKNamedXContentRegistry xContent;
     @Mock
     private ClientUtil clientUtil;
 
@@ -233,7 +233,7 @@ public class SearchFeatureDaoTests {
         when(detector.getCategoryField()).thenReturn(Collections.singletonList("a"));
 
         searchSourceBuilder = SearchSourceBuilder
-            .fromXContent(XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, "{}"));
+            .fromXContent(XContentType.JSON.xContent().createParser(xContent.getRegistry(), LoggingDeprecationHandler.INSTANCE, "{}"));
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
         aggsMap = new HashMap<>();
 
@@ -391,7 +391,8 @@ public class SearchFeatureDaoTests {
         long end = 200L;
 
         // pre-conditions
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent.getRegistry())))
+            .thenReturn(searchSourceBuilder);
         when(searchResponse.getAggregations()).thenReturn(new Aggregations(aggs));
         when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
 
@@ -438,7 +439,8 @@ public class SearchFeatureDaoTests {
 
         long start = 100L;
         long end = 200L;
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent.getRegistry())))
+            .thenReturn(searchSourceBuilder);
         when(searchResponse.getAggregations()).thenReturn(new Aggregations(aggs));
         when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
         doAnswer(invocation -> {
@@ -462,7 +464,8 @@ public class SearchFeatureDaoTests {
 
         long start = 100L;
         long end = 200L;
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent.getRegistry())))
+            .thenReturn(searchSourceBuilder);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
             listener.onFailure(new RuntimeException());
@@ -481,7 +484,8 @@ public class SearchFeatureDaoTests {
 
         long start = 100L;
         long end = 200L;
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent.getRegistry())))
+            .thenReturn(searchSourceBuilder);
         when(detector.getEnabledFeatureIds()).thenReturn(null);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
@@ -501,7 +505,8 @@ public class SearchFeatureDaoTests {
         long end = 200L;
 
         // pre-conditions
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent.getRegistry())))
+            .thenReturn(searchSourceBuilder);
         when(searchResponse.getAggregations()).thenReturn(null);
 
         // test
@@ -517,7 +522,8 @@ public class SearchFeatureDaoTests {
         long end = 200L;
 
         // pre-conditions
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
+        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent.getRegistry())))
+            .thenReturn(searchSourceBuilder);
         when(searchResponse.getHits()).thenReturn(new SearchHits(new SearchHit[0], new TotalHits(0L, TotalHits.Relation.EQUAL_TO), 1f));
 
         List<Aggregation> aggList = new ArrayList<>(1);

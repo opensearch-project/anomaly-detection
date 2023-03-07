@@ -46,7 +46,6 @@ import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.cluster.routing.Preference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -54,6 +53,7 @@ import org.opensearch.index.query.NestedQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
@@ -64,9 +64,9 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     static final String EMPTY_ENTITY_ATTRIBUTES = "Empty entity attributes";
     static final String NO_ENTITY = "Cannot find entity";
     private SDKRestClient client;
-    private NamedXContentRegistry xContentRegistry;
+    private SDKNamedXContentRegistry xContentRegistry;
 
-    public EntityProfileRunner(SDKRestClient client, NamedXContentRegistry xContentRegistry, long requiredSamples) {
+    public EntityProfileRunner(SDKRestClient client, SDKNamedXContentRegistry xContentRegistry, long requiredSamples) {
         super(requiredSamples);
         this.client = client;
         this.xContentRegistry = xContentRegistry;
@@ -97,7 +97,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 try (
                     XContentParser parser = XContentType.JSON
                         .xContent()
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
+                        .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
@@ -213,7 +213,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 try (
                     XContentParser parser = XContentType.JSON
                         .xContent()
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
+                        .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);

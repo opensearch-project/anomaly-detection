@@ -70,6 +70,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.transport.TransportService;
@@ -85,6 +86,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     private ModelManager modelManager;
     private Task task;
     private ADCircuitBreakerService circuitBreaker;
+    private SDKNamedXContentRegistry mockSdkXContentRegistry;
 
     @Override
     @Before
@@ -130,6 +132,10 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         runner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
         circuitBreaker = mock(ADCircuitBreakerService.class);
         when(circuitBreaker.isOpen()).thenReturn(false);
+
+        this.mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+
         action = new PreviewAnomalyDetectorTransportAction(
             Settings.EMPTY,
             mock(TransportService.class),
@@ -137,7 +143,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             mock(ActionFilters.class),
             client(),
             runner,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             circuitBreaker
         );
     }
@@ -295,7 +301,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             mock(ActionFilters.class),
             client,
             runner,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             circuitBreaker
         );
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
