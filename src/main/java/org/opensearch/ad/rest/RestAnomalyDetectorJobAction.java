@@ -66,8 +66,8 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     private Settings settings;
     private volatile TimeValue requestTimeout;
 
-    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
-        this.client = anomalyDetectorExtension.getRestClient();
+    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+        this.client = client;
         this.clusterService = extensionsRunner.getSdkClusterService();
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();

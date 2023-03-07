@@ -62,6 +62,9 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
 
+    @Deprecated
+    private SDKRestClient sdkRestClient;
+
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
     }
@@ -70,17 +73,17 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
-                new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
-                new RestGetAnomalyDetectorAction(extensionsRunner(), this),
-                new RestAnomalyDetectorJobAction(extensionsRunner(), this)
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
             );
     }
 
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
-        SDKRestClient sdkRestClient = getRestClient();
+        this.sdkRestClient = createRestClient();
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -191,12 +194,13 @@ public class AnomalyDetectorExtension extends BaseExtension {
     }
 
     @Deprecated
-    public SDKRestClient getRestClient() {
+    private SDKRestClient createRestClient() {
         @SuppressWarnings("resource")
         SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
         return client;
     }
 
+<<<<<<< HEAD
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays
@@ -205,6 +209,19 @@ public class AnomalyDetectorExtension extends BaseExtension {
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
             );
+=======
+    @Deprecated
+    public SDKRestClient restClient() {
+        return this.sdkRestClient;
+    }
+
+    // @Override
+    public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActionsMap() {
+        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map = new HashMap<>();
+        map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
+        map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
+        return map;
+>>>>>>> feature/extensions
     }
 
     public static void main(String[] args) throws IOException {
