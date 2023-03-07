@@ -61,6 +61,9 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
 
+    @Deprecated
+    private SDKRestClient sdkRestClient;
+
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
     }
@@ -69,16 +72,16 @@ public class AnomalyDetectorExtension extends BaseExtension {
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner(), this),
-                new RestValidateAnomalyDetectorAction(extensionsRunner(), this),
-                new RestGetAnomalyDetectorAction(extensionsRunner(), this)
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestGetAnomalyDetectorAction(extensionsRunner(), restClient())
             );
     }
 
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
-        SDKRestClient sdkRestClient = getRestClient();
+        this.sdkRestClient = createRestClient();
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -189,10 +192,15 @@ public class AnomalyDetectorExtension extends BaseExtension {
     }
 
     @Deprecated
-    public SDKRestClient getRestClient() {
+    private SDKRestClient createRestClient() {
         @SuppressWarnings("resource")
         SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
         return client;
+    }
+
+    @Deprecated
+    public SDKRestClient restClient() {
+        return this.sdkRestClient;
     }
 
     // @Override

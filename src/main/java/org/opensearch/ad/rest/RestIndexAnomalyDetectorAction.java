@@ -70,12 +70,12 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     private SDKRestClient restClient;
     private SDKClusterService sdkClusterService;
 
-    public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+    public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient restClient) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
-        this.restClient = anomalyDetectorExtension.getRestClient();
+        this.restClient = restClient;
         this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 
