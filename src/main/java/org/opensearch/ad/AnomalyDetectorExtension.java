@@ -200,6 +200,11 @@ public class AnomalyDetectorExtension extends BaseExtension {
         return client;
     }
 
+    @Deprecated
+    public SDKRestClient restClient() {
+        return this.sdkRestClient;
+    }
+
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays
