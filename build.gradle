@@ -695,6 +695,7 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.AnomalyDetectorJobAction',
         'org.opensearch.ad.transport.AnomalyResultTransportAction',
         'org.opensearch.ad.transport.GetAnomalyDetectorAction',
+        'org.opensearch.ad.transport.AnomalyDetectorJobTransportAction',
         'org.opensearch.ad.transport.AnomalyDetectorJobResponse',
         'org.opensearch.ad.transport.GetAnomalyDetectorRequest',
         'org.opensearch.ad.transport.AnomalyResultTransportAction',
