@@ -192,12 +192,14 @@ public class AnomalyDetectorExtension extends BaseExtension {
     }
 
     @Deprecated
-    public SDKRestClient createRestClient() {
-        return new SDKClient().initializeRestClient(getExtensionSettings());
+    private SDKRestClient createRestClient() {
+        @SuppressWarnings("resource")
+        SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
+        return client;
     }
 
     @Deprecated 
-    SDKRestClient restClient() {
+    public SDKRestClient restClient() {
         return this.restClient;
     }
 
