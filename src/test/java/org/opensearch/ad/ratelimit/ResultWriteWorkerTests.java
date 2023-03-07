@@ -49,6 +49,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 
 public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
@@ -82,6 +83,8 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
         setUpADThreadPool(threadPool);
 
         resultHandler = mock(MultiEntityResultHandler.class);
+        SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
 
         resultWriteQueue = new ResultWriteWorker(
             Integer.MAX_VALUE,
@@ -99,7 +102,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             resultHandler,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             nodeStateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );

@@ -41,12 +41,12 @@ import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -57,7 +57,7 @@ public class ValidateAnomalyDetectorTransportAction {
 
     private final SDKRestClient client;
     private final SDKClusterService clusterService;
-    private final NamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final SearchFeatureDao searchFeatureDao;
     private volatile Boolean filterByEnabled;
@@ -67,7 +67,7 @@ public class ValidateAnomalyDetectorTransportAction {
     public ValidateAnomalyDetectorTransportAction(
         SDKRestClient client,
         SDKClusterService clusterService,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry namedXContentRegistry,
         Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         ActionFilters actionFilters,
@@ -77,7 +77,7 @@ public class ValidateAnomalyDetectorTransportAction {
         // super(ValidateAnomalyDetectorAction.NAME, transportService, actionFilters, ValidateAnomalyDetectorRequest::new);
         this.client = client;
         this.clusterService = clusterService;
-        this.xContentRegistry = xContentRegistry;
+        this.xContentRegistry = namedXContentRegistry;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         try {

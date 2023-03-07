@@ -71,7 +71,6 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -80,6 +79,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.transport.TransportService;
@@ -141,7 +141,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     protected final RestRequest.Method method;
     protected final SDKRestClient client;
     protected final TransportService transportService;
-    protected final NamedXContentRegistry xContentRegistry;
+    protected final SDKNamedXContentRegistry xContentRegistry;
     protected final ActionListener<T> listener;
     protected final UserIdentity user;
     protected final ADTaskManager adTaskManager;
@@ -192,7 +192,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         Integer maxMultiEntityAnomalyDetectors,
         Integer maxAnomalyFeatures,
         RestRequest.Method method,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         UserIdentity user,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao,
@@ -429,7 +429,10 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
             return;
         }
-        try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
+        try (
+            XContentParser parser = RestHandlerUtils
+                .createXContentParserFromRegistry(xContentRegistry.getRegistry(), response.getSourceAsBytesRef())
+        ) {
             ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
             AnomalyDetector existingDetector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
             // If detector category field changed, frontend may not be able to render AD result for different detector types correctly.
@@ -935,7 +938,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             SearchSourceBuilder ssb = new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery());
             AggregatorFactories.Builder internalAgg = parseAggregators(
                 feature.getAggregation().toString(),
-                xContentRegistry,
+                xContentRegistry.getRegistry(),
                 feature.getId()
             );
             ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());

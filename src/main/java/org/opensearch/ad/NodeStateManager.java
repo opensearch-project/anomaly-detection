@@ -44,8 +44,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 
 /**
  * NodeStateManager is used to manage states shared by transport and ml components
@@ -57,7 +57,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     public static final String NO_ERROR = "no_error";
     private ConcurrentHashMap<String, NodeState> states;
     private Client client;
-    private NamedXContentRegistry xContentRegistry;
+    private SDKNamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
     // map from detector id to the map of ES node id to the node's backpressureMuter
     private Map<String, Map<String, BackPressureRouting>> backpressureMuter;
@@ -79,7 +79,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      */
     public NodeStateManager(
         Client client,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         Settings settings,
         ClientUtil clientUtil,
         Clock clock,
@@ -144,7 +144,9 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             LOG.debug("Fetched anomaly detector: {}", xc);
 
             try (
-                XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, xc)
+                XContentParser parser = XContentType.JSON
+                    .xContent()
+                    .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());

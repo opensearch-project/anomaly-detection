@@ -60,11 +60,11 @@ import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -80,7 +80,7 @@ import org.opensearch.transport.TransportService;
 public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorProfileRunner.class);
     private SDKRestClient client;
-    private NamedXContentRegistry xContentRegistry;
+    private SDKNamedXContentRegistry xContentRegistry;
     private DiscoveryNodeFilterer nodeFilter;
     private final TransportService transportService;
     private final ADTaskManager adTaskManager;
@@ -88,7 +88,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     public AnomalyDetectorProfileRunner(
         SDKRestClient client,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         DiscoveryNodeFilterer nodeFilter,
         long requiredSamples,
         TransportService transportService,
@@ -125,7 +125,11 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 try (
                     XContentParser xContentParser = XContentType.JSON
                         .xContent()
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getDetectorResponse.getSourceAsString())
+                        .createParser(
+                            xContentRegistry.getRegistry(),
+                            LoggingDeprecationHandler.INSTANCE,
+                            getDetectorResponse.getSourceAsString()
+                        )
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser);
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);
@@ -155,7 +159,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 try (
                     XContentParser parser = XContentType.JSON
                         .xContent()
-                        .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
+                        .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);

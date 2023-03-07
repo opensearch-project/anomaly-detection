@@ -62,11 +62,11 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.Strings;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
@@ -86,7 +86,7 @@ public class GetAnomalyDetectorTransportAction {
     private final Set<String> allEntityProfileTypeStrs;
     private final Set<EntityProfileName> allEntityProfileTypes;
     private final Set<EntityProfileName> defaultEntityProfileTypes;
-    private final NamedXContentRegistry xContentRegistry;
+    private final SDKNamedXContentRegistry xContentRegistry;
     private final DiscoveryNodeFilterer nodeFilter;
     private final TransportService transportService;
     private volatile Boolean filterByEnabled;
@@ -100,7 +100,7 @@ public class GetAnomalyDetectorTransportAction {
         SDKClusterService clusterService,
         SDKRestClient client,
         Settings settings,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
     ) {
         // super(GetAnomalyDetectorAction.NAME, transportService, actionFilters, GetAnomalyDetectorRequest::new);
@@ -141,7 +141,7 @@ public class GetAnomalyDetectorTransportAction {
                 (anomalyDetector) -> getExecute(request, listener),
                 client,
                 clusterService,
-                xContentRegistry
+                xContentRegistry.getRegistry()
             );
         } catch (Exception e) {
             LOG.error(e);
@@ -313,7 +313,10 @@ public class GetAnomalyDetectorTransportAction {
                         if (!response.getResponse().isSourceEmpty()) {
                             try (
                                 XContentParser parser = RestHandlerUtils
-                                    .createXContentParserFromRegistry(xContentRegistry, response.getResponse().getSourceAsBytesRef())
+                                    .createXContentParserFromRegistry(
+                                        xContentRegistry.getRegistry(),
+                                        response.getResponse().getSourceAsBytesRef()
+                                    )
                             ) {
                                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                                 detector = parser.namedObject(AnomalyDetector.class, AnomalyDetector.PARSE_FIELD_NAME, null);
@@ -331,7 +334,10 @@ public class GetAnomalyDetectorTransportAction {
                             && !response.getResponse().isSourceEmpty()) {
                             try (
                                 XContentParser parser = RestHandlerUtils
-                                    .createXContentParserFromRegistry(xContentRegistry, response.getResponse().getSourceAsBytesRef())
+                                    .createXContentParserFromRegistry(
+                                        xContentRegistry.getRegistry(),
+                                        response.getResponse().getSourceAsBytesRef()
+                                    )
                             ) {
                                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                                 adJob = AnomalyDetectorJob.parse(parser);

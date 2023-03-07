@@ -41,8 +41,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 
 public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultBulkRequest, ADResultBulkResponse> {
@@ -50,7 +50,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
     public static final String WORKER_NAME = "result-write";
 
     private final MultiEntityResultHandler resultHandler;
-    private NamedXContentRegistry xContentRegistry;
+    private SDKNamedXContentRegistry xContentRegistry;
 
     public ResultWriteWorker(
         long heapSizeInBytes,
@@ -68,7 +68,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
         int maintenanceFreqConstant,
         Duration executionTtl,
         MultiEntityResultHandler resultHandler,
-        NamedXContentRegistry xContentRegistry,
+        SDKNamedXContentRegistry xContentRegistry,
         NodeStateManager stateManager,
         Duration stateTtl
     ) {
@@ -203,7 +203,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
             XContentType indexContentType = indexRequest.getContentType();
             try (
                 XContentParser xContentParser = XContentHelper
-                    .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, indexSource, indexContentType)
+                    .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, indexSource, indexContentType)
             ) {
                 // the first character is null. Without skipping it, we get
                 // org.opensearch.common.ParsingException: Failed to parse object: expecting token of type [START_OBJECT] but found

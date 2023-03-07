@@ -51,13 +51,13 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -88,7 +88,7 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     // Dependencies
     private final SDKRestClient client;
-    private final NamedXContentRegistry xContent;
+    private final SDKNamedXContentRegistry xContent;
     private final Interpolator interpolator;
     private final ClientUtil clientUtil;
     private volatile int maxEntitiesForPreview;
@@ -100,7 +100,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     // used for testing as we can mock clock
     public SearchFeatureDao(
         SDKRestClient client,
-        NamedXContentRegistry xContent,
+        SDKNamedXContentRegistry xContent,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
@@ -145,7 +145,7 @@ public class SearchFeatureDao extends AbstractRetriever {
      */
     public SearchFeatureDao(
         SDKRestClient client,
-        NamedXContentRegistry xContent,
+        SDKNamedXContentRegistry xContent,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
@@ -564,7 +564,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         long endTime,
         ActionListener<Map<Long, Optional<double[]>>> listener
     ) throws IOException {
-        SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, entity, startTime, endTime, xContent);
+        SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, entity, startTime, endTime, xContent.getRegistry());
         logger.debug("Batch query for detector {}: {} ", detector.getDetectorId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
@@ -943,7 +943,8 @@ public class SearchFeatureDao extends AbstractRetriever {
     private SearchRequest createFeatureSearchRequest(AnomalyDetector detector, long startTime, long endTime, Optional<String> preference) {
         // TODO: FeatureQuery field is planned to be removed and search request creation will migrate to new api.
         try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, xContent);
+            SearchSourceBuilder searchSourceBuilder = ParseUtils
+                .generateInternalFeatureQuery(detector, startTime, endTime, xContent.getRegistry());
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder).preference(preference.orElse(null));
         } catch (IOException e) {
             logger
@@ -957,7 +958,7 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     private SearchRequest createPreviewSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges) throws IOException {
         try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generatePreviewQuery(detector, ranges, xContent);
+            SearchSourceBuilder searchSourceBuilder = ParseUtils.generatePreviewQuery(detector, ranges, xContent.getRegistry());
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger.warn("Failed to create feature search request for " + detector.getDetectorId() + " for preview", e);
@@ -1011,7 +1012,8 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     private SearchRequest createColdStartFeatureSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges, Entity entity) {
         try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateEntityColdStartQuery(detector, ranges, entity, xContent);
+            SearchSourceBuilder searchSourceBuilder = ParseUtils
+                .generateEntityColdStartQuery(detector, ranges, entity, xContent.getRegistry());
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger
