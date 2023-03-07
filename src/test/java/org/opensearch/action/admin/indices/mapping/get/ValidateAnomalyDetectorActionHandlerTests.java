@@ -42,6 +42,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
@@ -68,6 +69,8 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
     protected ADTaskManager adTaskManager;
     protected SearchFeatureDao searchFeatureDao;
     protected Clock clock;
+
+    private SDKNamedXContentRegistry mockSdkXContentRegistry;
 
     @Mock
     private SDKRestClient clientMock;
@@ -107,6 +110,9 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         method = RestRequest.Method.POST;
         adTaskManager = mock(ADTaskManager.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
+
+        this.mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
     }
 
     @SuppressWarnings("unchecked")
@@ -139,7 +145,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             searchFeatureDao,
             ValidationAspect.DETECTOR.getName(),
@@ -191,7 +197,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             searchFeatureDao,
             "",

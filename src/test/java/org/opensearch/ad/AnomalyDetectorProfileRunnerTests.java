@@ -14,6 +14,7 @@ package org.opensearch.ad;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
@@ -42,6 +43,7 @@ import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 
 // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
 public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTests {
@@ -602,9 +604,11 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
     // }
 
     public void testInvalidRequiredSamples() {
+        SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
         expectThrows(
             IllegalArgumentException.class,
-            () -> new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, 0, transportService, adTaskManager)
+            () -> new AnomalyDetectorProfileRunner(client, mockSdkXContentRegistry, nodeFilter, 0, transportService, adTaskManager)
         );
     }
 

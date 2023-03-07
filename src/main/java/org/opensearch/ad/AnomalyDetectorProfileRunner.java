@@ -60,7 +60,6 @@ import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -126,7 +125,11 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 try (
                     XContentParser xContentParser = XContentType.JSON
                         .xContent()
-                        .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, getDetectorResponse.getSourceAsString())
+                        .createParser(
+                            xContentRegistry.getRegistry(),
+                            LoggingDeprecationHandler.INSTANCE,
+                            getDetectorResponse.getSourceAsString()
+                        )
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, xContentParser.nextToken(), xContentParser);
                     AnomalyDetector detector = AnomalyDetector.parse(xContentParser, detectorId);

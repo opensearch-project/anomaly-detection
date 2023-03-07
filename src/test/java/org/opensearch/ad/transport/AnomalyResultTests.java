@@ -108,12 +108,12 @@ import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.shard.ShardId;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.NodeNotConnectedException;
 import org.opensearch.transport.RemoteTransportException;
@@ -361,7 +361,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -484,7 +484,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -535,7 +535,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -578,7 +578,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -697,7 +697,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -738,7 +738,7 @@ public class AnomalyResultTests extends AbstractADTest {
             breakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -806,7 +806,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -858,7 +858,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
         AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
@@ -898,7 +898,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1079,7 +1079,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
@@ -1172,7 +1172,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1210,7 +1210,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1253,7 +1253,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1296,7 +1296,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1346,7 +1346,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1433,7 +1433,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1481,7 +1481,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
         AnomalyResultTransportAction.RCFActionListener listener = action.new RCFActionListener(
@@ -1507,7 +1507,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
         ActionListener<AnomalyResultResponse> listener = mock(ActionListener.class);
@@ -1540,7 +1540,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
         ActionListener<AnomalyResultResponse> listener = mock(ActionListener.class);
@@ -1581,7 +1581,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1644,7 +1644,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1696,7 +1696,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1739,7 +1739,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1779,7 +1779,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 
@@ -1817,7 +1817,7 @@ public class AnomalyResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            NamedXContentRegistry.EMPTY,
+            SDKNamedXContentRegistry.EMPTY,
             adTaskManager
         );
 

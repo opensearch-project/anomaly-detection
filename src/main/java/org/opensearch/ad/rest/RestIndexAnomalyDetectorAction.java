@@ -41,7 +41,6 @@ import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestRequest;

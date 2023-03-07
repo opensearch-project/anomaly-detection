@@ -107,6 +107,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregation;
@@ -165,6 +166,7 @@ public class MultiEntityResultTests extends AbstractADTest {
     private Map<String, Object> attrs1, attrs2, attrs3;
     private EntityCache entityCache;
     private ADTaskManager adTaskManager;
+    private SDKNamedXContentRegistry mockSdkXContentRegistry;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -257,6 +259,8 @@ public class MultiEntityResultTests extends AbstractADTest {
                 any(TransportService.class),
                 any(ActionListener.class)
             );
+        this.mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
 
         action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -272,7 +276,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             adTaskManager
         );
 
@@ -420,7 +424,7 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         stateManager = new NodeStateManager(
             client,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             settings,
             clientUtil,
             clock,
@@ -442,7 +446,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             adTaskManager
         );
     }
@@ -681,7 +685,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             threadPool,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             adTaskManager
         );
     }
@@ -718,7 +722,7 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         stateManager = new NodeStateManager(
             client,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             settings,
             clientUtil,
             clock,
@@ -740,7 +744,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             adCircuitBreakerService,
             adStats,
             mockThreadPool,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             adTaskManager
         );
 
@@ -1080,7 +1084,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             0,
             10,
             detector,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             client,
             100,
             clock,
@@ -1106,7 +1110,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             0,
             10,
             detector,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             client,
             100,
             clock,

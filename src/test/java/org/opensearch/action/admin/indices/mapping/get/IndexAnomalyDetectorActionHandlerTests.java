@@ -61,6 +61,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
@@ -94,6 +95,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     private RestRequest.Method method;
     private ADTaskManager adTaskManager;
     private SearchFeatureDao searchFeatureDao;
+
+    private SDKNamedXContentRegistry mockSdkXContentRegistry;
 
     @BeforeClass
     public static void beforeClass() {
@@ -145,6 +148,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
 
         searchFeatureDao = mock(SearchFeatureDao.class);
 
+        this.mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
             clientMock,
@@ -161,7 +167,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao
@@ -209,7 +215,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao
@@ -284,7 +290,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao
@@ -369,7 +375,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao
@@ -466,7 +472,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao
@@ -570,7 +576,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             method,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao
@@ -658,7 +664,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao
@@ -740,7 +746,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
             RestRequest.Method.PUT,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             null,
             adTaskManager,
             searchFeatureDao

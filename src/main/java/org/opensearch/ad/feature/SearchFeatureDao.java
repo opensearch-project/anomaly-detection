@@ -51,7 +51,6 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
@@ -944,7 +943,8 @@ public class SearchFeatureDao extends AbstractRetriever {
     private SearchRequest createFeatureSearchRequest(AnomalyDetector detector, long startTime, long endTime, Optional<String> preference) {
         // TODO: FeatureQuery field is planned to be removed and search request creation will migrate to new api.
         try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, xContent.getRegistry());
+            SearchSourceBuilder searchSourceBuilder = ParseUtils
+                .generateInternalFeatureQuery(detector, startTime, endTime, xContent.getRegistry());
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder).preference(preference.orElse(null));
         } catch (IOException e) {
             logger
@@ -1012,7 +1012,8 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     private SearchRequest createColdStartFeatureSearchRequest(AnomalyDetector detector, List<Entry<Long, Long>> ranges, Entity entity) {
         try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateEntityColdStartQuery(detector, ranges, entity, xContent.getRegistry());
+            SearchSourceBuilder searchSourceBuilder = ParseUtils
+                .generateEntityColdStartQuery(detector, ranges, entity, xContent.getRegistry());
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger

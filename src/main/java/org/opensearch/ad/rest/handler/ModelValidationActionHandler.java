@@ -50,7 +50,6 @@ import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;

@@ -57,6 +57,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.SearchModule;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
@@ -85,6 +86,12 @@ public class NodeStateManagerTests extends AbstractADTest {
     protected NamedXContentRegistry xContentRegistry() {
         SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
         return new NamedXContentRegistry(searchModule.getNamedXContents());
+    }
+
+    private SDKNamedXContentRegistry sdkXContentRegistry() {
+        SDKNamedXContentRegistry sdkRegistry = SDKNamedXContentRegistry.EMPTY;
+        sdkRegistry.setRegistry(xContentRegistry());
+        return sdkRegistry;
     }
 
     @BeforeClass
@@ -126,7 +133,7 @@ public class NodeStateManagerTests extends AbstractADTest {
         );
 
         clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
-        stateManager = new NodeStateManager(client, xContentRegistry(), settings, clientUtil, clock, duration, clusterService);
+        stateManager = new NodeStateManager(client, sdkXContentRegistry(), settings, clientUtil, clock, duration, clusterService);
 
         checkpointResponse = mock(GetResponse.class);
         // jobToCheck = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
@@ -235,7 +242,7 @@ public class NodeStateManagerTests extends AbstractADTest {
     public void testHasRunningQuery() throws IOException {
         stateManager = new NodeStateManager(
             client,
-            xContentRegistry(),
+            sdkXContentRegistry(),
             settings,
             new ClientUtil(settings, client, throttler),
             clock,

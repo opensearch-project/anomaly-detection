@@ -44,7 +44,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 
@@ -145,7 +144,9 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             LOG.debug("Fetched anomaly detector: {}", xc);
 
             try (
-                XContentParser parser = XContentType.JSON.xContent().createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
+                XContentParser parser = XContentType.JSON
+                    .xContent()
+                    .createParser(xContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());

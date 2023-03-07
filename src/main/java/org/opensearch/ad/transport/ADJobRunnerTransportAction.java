@@ -20,7 +20,6 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.action.ExtensionActionRequest;
 import org.opensearch.extensions.action.ExtensionActionResponse;
@@ -126,7 +125,11 @@ public class ADJobRunnerTransportAction extends HandledTransportAction<Extension
                     try {
                         XContentParser parser = XContentType.JSON
                             .xContent()
-                            .createParser(namedXContentRegistry.getRegistry(), LoggingDeprecationHandler.INSTANCE, response.getSourceAsString());
+                            .createParser(
+                                namedXContentRegistry.getRegistry(),
+                                LoggingDeprecationHandler.INSTANCE,
+                                response.getSourceAsString()
+                            );
                         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                         listener.onResponse(AnomalyDetectorJob.parse(parser));
                     } catch (IOException e) {

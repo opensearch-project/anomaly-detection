@@ -62,7 +62,6 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.Strings;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -314,7 +313,10 @@ public class GetAnomalyDetectorTransportAction {
                         if (!response.getResponse().isSourceEmpty()) {
                             try (
                                 XContentParser parser = RestHandlerUtils
-                                    .createXContentParserFromRegistry(xContentRegistry.getRegistry(), response.getResponse().getSourceAsBytesRef())
+                                    .createXContentParserFromRegistry(
+                                        xContentRegistry.getRegistry(),
+                                        response.getResponse().getSourceAsBytesRef()
+                                    )
                             ) {
                                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                                 detector = parser.namedObject(AnomalyDetector.class, AnomalyDetector.PARSE_FIELD_NAME, null);
@@ -332,7 +334,10 @@ public class GetAnomalyDetectorTransportAction {
                             && !response.getResponse().isSourceEmpty()) {
                             try (
                                 XContentParser parser = RestHandlerUtils
-                                    .createXContentParserFromRegistry(xContentRegistry.getRegistry(), response.getResponse().getSourceAsBytesRef())
+                                    .createXContentParserFromRegistry(
+                                        xContentRegistry.getRegistry(),
+                                        response.getResponse().getSourceAsBytesRef()
+                                    )
                             ) {
                                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                                 adJob = AnomalyDetectorJob.parse(parser);

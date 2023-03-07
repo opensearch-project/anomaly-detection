@@ -78,6 +78,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
@@ -183,9 +184,12 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         ClusterService clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
 
+        SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+
         stateManager = new NodeStateManager(
             client,
-            xContentRegistry(),
+            mockSdkXContentRegistry,
             settings,
             clientUtil,
             clock,

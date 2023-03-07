@@ -41,6 +41,7 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.transport.TransportService;
 
 public class AbstractProfileRunnerTests extends AbstractADTest {
@@ -164,7 +165,18 @@ public class AbstractProfileRunnerTests extends AbstractADTest {
             function.accept(Optional.of(TestHelpers.randomAdTask()));
             return null;
         }).when(adTaskManager).getAndExecuteOnLatestDetectorLevelTask(any(), any(), any(), any(), anyBoolean(), any());
-        runner = new AnomalyDetectorProfileRunner(client, xContentRegistry(), nodeFilter, requiredSamples, transportService, adTaskManager);
+
+        SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
+        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+
+        runner = new AnomalyDetectorProfileRunner(
+            client,
+            mockSdkXContentRegistry,
+            nodeFilter,
+            requiredSamples,
+            transportService,
+            adTaskManager
+        );
 
         detectorIntervalMin = 3;
         detectorGetReponse = mock(GetResponse.class);

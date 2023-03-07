@@ -39,7 +39,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -122,7 +121,16 @@ public class IndexAnomalyDetectorTransportAction {
                 boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
                 // Update detector request, check if user has permissions to update the detector
                 // Get detector and verify backend roles
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry.getRegistry(), filterByBackendRole);
+                getDetector(
+                    requestedUser,
+                    detectorId,
+                    listener,
+                    function,
+                    client,
+                    clusterService,
+                    xContentRegistry.getRegistry(),
+                    filterByBackendRole
+                );
             } else {
                 // Create Detector. No need to get current detector.
                 function.accept(null);
