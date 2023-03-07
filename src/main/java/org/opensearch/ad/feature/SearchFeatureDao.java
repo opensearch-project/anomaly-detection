@@ -114,15 +114,12 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.interpolator = interpolator;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview;
+
         this.pageSize = pageSize;
-        try {
-            clusterService
-                .getClusterSettings()
-                .addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = (int) it);
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = (int) it);
-        } catch (Exception e) {
-            // FIXME Handle this
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
+
+        if (clusterService != null) {
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
         }
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;

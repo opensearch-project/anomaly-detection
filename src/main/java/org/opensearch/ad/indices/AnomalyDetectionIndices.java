@@ -204,22 +204,15 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.allSettingUpdated = false;
         this.updateRunning = new AtomicBoolean(false);
 
-        try {
-            this.clusterService
-                .getClusterSettings()
-                .addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = (Long) it);
-            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
-                historyRolloverPeriod = (TimeValue) it;
-                rescheduleRollover();
-            });
-            this.clusterService
-                .getClusterSettings()
-                .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> historyRetentionPeriod = (TimeValue) it);
-            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = (int) it);
-        } catch (Exception e) {
-            // FIXME Handle this
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
-        }
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = it);
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
+            historyRolloverPeriod = it;
+            rescheduleRollover();
+        });
+        this.clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
 
         this.settings = Settings.builder().put("index.hidden", true).build();
 
