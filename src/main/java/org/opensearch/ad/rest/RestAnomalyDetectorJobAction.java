@@ -132,8 +132,8 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         request.setJsonEntity(Strings.toString(requestBody));
 
         Response response = client.performRequest(request);
-
         this.jobDetailsAreRegistered = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
+        LOG.info("Job Details Registered : " + jobDetailsAreRegistered);
     }
 
     protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
