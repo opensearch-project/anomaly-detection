@@ -61,6 +61,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
+    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
 
     @Deprecated
     private SDKRestClient sdkRestClient;
