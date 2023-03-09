@@ -13,12 +13,9 @@ package org.opensearch.ad.util;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.admin.indices.stats.IndicesStatsRequest;
-import org.opensearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
@@ -119,6 +116,7 @@ public class IndexUtils {
      * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
      * request fails.
      */
+    /*  @anomaly-detection - commented until we have support for SDKRestClient.stats()
     @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
@@ -128,6 +126,7 @@ public class IndexUtils {
         Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
         return response.map(r -> r.getIndex(indexName).getPrimaries().docs.getCount()).orElse(-1L);
     }
+    */
 
     /**
      * Similar to checkGlobalBlock, we check block on the indices level.

@@ -44,6 +44,7 @@ import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.opensearch.OpenSearchClient;
@@ -51,6 +52,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.sdk.ActionExtension;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -62,7 +64,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
 
-public class AnomalyDetectorExtension extends BaseExtension {
+public class AnomalyDetectorExtension extends BaseExtension implements ActionExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
@@ -90,7 +92,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
-        this.sdkRestClient = createRestClient();
+        this.sdkRestClient = createRestClient(runner.getSdkClient());
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -110,12 +112,14 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
 
+        DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
+
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
             sdkClusterService,
             threadPool,
             environmentSettings,
-            null, // nodeFilter : https://github.com/opensearch-project/opensearch-sdk-java/issues/540
+            nodeFilter,
             AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
         );
 
@@ -125,7 +129,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
             sdkRestClient,
             xContentRegistry,
             anomalyDetectionIndices,
-            null, // nodeFilter : https://github.com/opensearch-project/opensearch-sdk-java/issues/540
+            nodeFilter,
             null, // hashRing
             adTaskCacheManager,
             threadPool
@@ -139,6 +143,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
             sdkClusterService,
             null // indexNameExpressionResolver
         );
+
         AnomalyIndexHandler<AnomalyResult> anomalyResultHandler = new AnomalyIndexHandler<AnomalyResult>(
             restClient(),
             environmentSettings,
@@ -156,8 +161,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
         jobRunner.setAnomalyResultHandler(anomalyResultHandler);
         jobRunner.setSettings(environmentSettings);
         jobRunner.setAnomalyDetectionIndices(anomalyDetectionIndices);
-        // FIXME : https://github.com/opensearch-project/opensearch-sdk-java/issues/540
-        // jobRunner.setNodeFilter(nodeFilter);
+        jobRunner.setNodeFilter(nodeFilter);
         jobRunner.setAdTaskManager(adTaskManager);
 
         return ImmutableList
@@ -239,10 +243,10 @@ public class AnomalyDetectorExtension extends BaseExtension {
     }
 
     @Deprecated
-    private SDKRestClient createRestClient() {
+    private SDKRestClient createRestClient(SDKClient client) {
         @SuppressWarnings("resource")
-        SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
-        return client;
+        SDKRestClient restClient = client.initializeRestClient(getExtensionSettings());
+        return restClient;
     }
 
     @Deprecated

@@ -86,13 +86,11 @@ import org.opensearch.ad.transport.ADBatchTaskRemoteExecutionAction;
 import org.opensearch.ad.transport.ADStatsNodeResponse;
 import org.opensearch.ad.transport.ADStatsNodesAction;
 import org.opensearch.ad.transport.ADStatsRequest;
-import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -127,7 +125,8 @@ public class ADBatchTaskRunner {
     private final FeatureManager featureManager;
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ADTaskManager adTaskManager;
-    private final AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler;
+    // @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
+    // private final AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final SearchFeatureDao searchFeatureDao;
 
@@ -155,7 +154,7 @@ public class ADBatchTaskRunner {
         ADTaskManager adTaskManager,
         AnomalyDetectionIndices anomalyDetectionIndices,
         ADStats adStats,
-        AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler,
+        // AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler,
         ADTaskCacheManager adTaskCacheManager,
         SearchFeatureDao searchFeatureDao,
         HashRing hashRing,
@@ -165,7 +164,7 @@ public class ADBatchTaskRunner {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.client = client;
-        this.anomalyResultBulkIndexHandler = anomalyResultBulkIndexHandler;
+        // this.anomalyResultBulkIndexHandler = anomalyResultBulkIndexHandler;
         this.adStats = adStats;
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.adTaskManager = adTaskManager;
@@ -1140,6 +1139,7 @@ public class ADBatchTaskRunner {
         }
         String resultIndex = adTask.getDetector().getResultIndex();
 
+        /*@anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
         if (resultIndex == null) {
             // if result index is null, store anomaly result directly
             storeAnomalyResultAndRunNextPiece(
@@ -1155,7 +1155,7 @@ public class ADBatchTaskRunner {
             );
             return;
         }
-
+        
         try {
             storeAnomalyResultAndRunNextPiece(
                 adTask,
@@ -1172,8 +1172,10 @@ public class ADBatchTaskRunner {
             logger.error("Failed to inject user roles", exception);
             internalListener.onFailure(exception);
         }
+        */
     }
 
+    /*@anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
     private void storeAnomalyResultAndRunNextPiece(
         ADTask adTask,
         long pieceEndTime,
@@ -1201,7 +1203,6 @@ public class ADBatchTaskRunner {
             }),
             false
         );
-
         anomalyResultBulkIndexHandler
             .bulkIndexAnomalyResult(
                 resultIndex,
@@ -1209,6 +1210,7 @@ public class ADBatchTaskRunner {
                 runBefore == null ? actionListener : ActionListener.runBefore(actionListener, runBefore)
             );
     }
+    */
 
     private void runNextPiece(
         ADTask adTask,

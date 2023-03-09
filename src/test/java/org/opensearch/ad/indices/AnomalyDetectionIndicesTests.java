@@ -54,8 +54,9 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
             .put("plugins.anomaly_detection.ad_result_history_max_docs", 10000L)
             .put("plugins.anomaly_detection.request_timeout", TimeValue.timeValueSeconds(10))
             .build();
-
-        nodeFilter = new DiscoveryNodeFilterer(clusterService());
+        // FIXME: Replace with SDK equivalents when re-enabling tests
+        // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
+        // nodeFilter = new DiscoveryNodeFilterer(clusterService());
 
         indices = new AnomalyDetectionIndices(
             // FIXME: Replace with SDK equivalents when re-enabling tests

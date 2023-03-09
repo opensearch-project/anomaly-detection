@@ -38,9 +38,9 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.sdk.SDKClusterService;
 
 import test.org.opensearch.ad.util.ClusterCreation;
 
@@ -57,7 +57,7 @@ public class HourlyCronTests extends AbstractADTest {
     public void templateHourlyCron(HourlyCronTestExecutionMode mode) {
         super.setUpLog4jForJUnit(HourlyCron.class);
 
-        ClusterService clusterService = mock(ClusterService.class);
+        SDKClusterService clusterService = mock(SDKClusterService.class);
         ClusterState state = ClusterCreation.state(1);
         when(clusterService.state()).thenReturn(state);
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();

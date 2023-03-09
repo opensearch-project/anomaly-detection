@@ -11,44 +11,6 @@
 /* @anomaly-detection Commented until we have support for clustersettings https://github.com/opensearch-project/opensearch-sdk-java/issues/503
 package org.opensearch.ad.transport;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
-
-import java.time.Clock;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.stats.ADStat;
-import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.InternalStatNames;
-import org.opensearch.ad.stats.suppliers.CounterSupplier;
-import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
-import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
-import org.opensearch.ad.stats.suppliers.SettableSupplier;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.monitor.jvm.JvmService;
-import org.opensearch.monitor.jvm.JvmStats;
-import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.transport.TransportService;
 
 public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
 
