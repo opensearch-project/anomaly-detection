@@ -8,7 +8,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly-detection Commented until we have support for clustersettings https://github.com/opensearch-project/opensearch-sdk-java/issues/503
 package org.opensearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
@@ -178,3 +178,4 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
         }
     }
 }
+*/

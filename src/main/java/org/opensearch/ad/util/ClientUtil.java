@@ -41,21 +41,21 @@ import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskId;
 import org.opensearch.tasks.TaskInfo;
 
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
-    private Client client;
+    private SDKRestClient client;
     private final Throttler throttler;
 
     @Inject
-    public ClientUtil(Settings setting, Client client, Throttler throttler) {
+    public ClientUtil(Settings setting, SDKRestClient client, Throttler throttler) {
         this.requestTimeout = REQUEST_TIMEOUT.get(setting);
         this.client = client;
         this.throttler = throttler;
@@ -236,11 +236,11 @@ public class ClientUtil {
 
     /**
      * Cancel long running query for given detectorId
-     * @param client OpenSearch client
+     * @param client SDKRest client
      * @param detectorId Anomaly Detector Id
      * @param LOG Logger
      */
-    private void cancelRunningQuery(Client client, String detectorId, Logger LOG) {
+    private void cancelRunningQuery(SDKRestClient client, String detectorId, Logger LOG) {
         ListTasksRequest listTasksRequest = new ListTasksRequest();
         listTasksRequest.setActions("*search*");
         client

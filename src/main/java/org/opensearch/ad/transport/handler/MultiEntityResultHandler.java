@@ -30,6 +30,8 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.threadpool.ThreadPool;
 
 /**
@@ -49,13 +51,13 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
 
     @Inject
     public MultiEntityResultHandler(
-        Client client,
+        SDKRestClient client,
         Settings settings,
         ThreadPool threadPool,
         AnomalyDetectionIndices anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
-        ClusterService clusterService
+        SDKClusterService clusterService
     ) {
         super(
             client,

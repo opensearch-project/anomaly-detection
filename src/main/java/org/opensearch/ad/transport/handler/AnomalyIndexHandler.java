@@ -33,15 +33,15 @@ import org.opensearch.ad.util.BulkUtil;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.cluster.block.ClusterBlockLevel;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
 
 public class AnomalyIndexHandler<T extends ToXContentObject> {
@@ -51,7 +51,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     static final String CANNOT_SAVE_ERR_MSG = "Cannot save %s due to write block.";
     static final String RETRY_SAVING_ERR_MSG = "Retry in saving %s: ";
 
-    protected final Client client;
+    protected final SDKRestClient client;
 
     protected final ThreadPool threadPool;
     protected final BackoffPolicy savingBackoffPolicy;
@@ -61,7 +61,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     protected boolean fixedDoc;
     protected final ClientUtil clientUtil;
     protected final IndexUtils indexUtils;
-    protected final ClusterService clusterService;
+    protected final SDKClusterService clusterService;
 
     /**
      * Abstract class for index operation.
@@ -76,14 +76,14 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
      * @param clusterService accessor to ES cluster service
      */
     public AnomalyIndexHandler(
-        Client client,
+        SDKRestClient client,
         Settings settings,
         ThreadPool threadPool,
         String indexName,
         AnomalyDetectionIndices anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
-        ClusterService clusterService
+        SDKClusterService clusterService
     ) {
         this.client = client;
         this.threadPool = threadPool;

@@ -8,7 +8,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
 package org.opensearch.ad.transport.handler;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
@@ -55,6 +55,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
         super(client, settings, threadPool, ANOMALY_RESULT_INDEX_ALIAS, anomalyDetectionIndices, clientUtil, indexUtils, clusterService);
         this.anomalyDetectionIndices = anomalyDetectionIndices;
     }
+    */
 
     /**
      * Bulk index anomaly results. Create anomaly result index first if it doesn't exist.
@@ -63,6 +64,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
      * @param anomalyResults anomaly results
      * @param listener action listener
      */
+    /* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
     public void bulkIndexAnomalyResult(String resultIndex, List<AnomalyResult> anomalyResults, ActionListener<BulkResponse> listener) {
         if (anomalyResults == null || anomalyResults.size() == 0) {
             listener.onResponse(null);
@@ -145,3 +147,4 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
     }
 
 }
+*/

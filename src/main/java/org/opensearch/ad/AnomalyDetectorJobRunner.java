@@ -23,6 +23,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -58,20 +60,27 @@ import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileRequest;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.Client;
+import org.opensearch.client.Request;
+import org.opensearch.client.Response;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.jobscheduler.JobSchedulerPlugin;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
-import org.opensearch.jobscheduler.spi.utils.LockService;
+import org.opensearch.jobscheduler.transport.AcquireLockRequest;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.base.Throwables;
@@ -85,7 +94,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private static AnomalyDetectorJobRunner INSTANCE;
     private Settings settings;
     private int maxRetryForEndRunException;
-    private Client client;
+    private SDKRestClient client;
     private ThreadPool threadPool;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
@@ -111,7 +120,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.detectorEndRunExceptionCount = new ConcurrentHashMap<>();
     }
 
-    public void setClient(Client client) {
+    public void setClient(SDKRestClient client) {
         this.client = client;
     }
 
@@ -155,30 +164,16 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         IntervalSchedule schedule = (IntervalSchedule) jobParameter.getSchedule();
         Instant detectionStartTime = executionStartTime.minus(schedule.getInterval(), schedule.getUnit());
 
-        // TODO: modify this workflow and avoid pulling the lockService from the provided JobExecutionContext.
-        // The writeable JobExecutionContext sent from Job Scheduler will set the lockService as null since this is not serializable
-        final LockService lockService = context.getLockService();
-
         Runnable runnable = () -> {
             if (jobParameter.getLockDurationSeconds() != null) {
-                lockService
-                    .acquireLock(
-                        jobParameter,
-                        context,
-                        ActionListener
-                            .wrap(lock -> runAdJob(jobParameter, lockService, lock, detectionStartTime, executionStartTime), exception -> {
-                                indexAnomalyResultException(
-                                    jobParameter,
-                                    lockService,
-                                    null,
-                                    detectionStartTime,
-                                    executionStartTime,
-                                    exception,
-                                    false
-                                );
-                                throw new IllegalStateException("Failed to acquire lock for AD job: " + detectorId);
-                            })
-                    );
+
+                try {
+                    LockModel lock = acquireLock(context, jobParameter.getLockDurationSeconds());
+                    runAdJob(jobParameter, lock, detectionStartTime, executionStartTime);
+                } catch (Exception exception) {
+                    indexAnomalyResultException(jobParameter, null, detectionStartTime, executionStartTime, exception, false);
+                    throw new IllegalStateException("Failed to acquire lock for AD job: " + detectorId);
+                }
             } else {
                 log.warn("Can't get lock for AD job: " + detectorId);
             }
@@ -197,18 +192,11 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
      * @param detectionStartTime detection start time
      * @param executionStartTime detection end time
      */
-    protected void runAdJob(
-        AnomalyDetectorJob jobParameter,
-        LockService lockService,
-        LockModel lock,
-        Instant detectionStartTime,
-        Instant executionStartTime
-    ) {
+    protected void runAdJob(AnomalyDetectorJob jobParameter, LockModel lock, Instant detectionStartTime, Instant executionStartTime) {
         String detectorId = jobParameter.getName();
         if (lock == null) {
             indexAnomalyResultException(
                 jobParameter,
-                lockService,
                 lock,
                 detectionStartTime,
                 executionStartTime,
@@ -243,22 +231,21 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         }
         String resultIndex = jobParameter.getResultIndex();
         if (resultIndex == null) {
-            runAnomalyDetectionJob(jobParameter, lockService, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
+            runAnomalyDetectionJob(jobParameter, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
             return;
         }
         ActionListener<Boolean> listener = ActionListener.wrap(r -> { log.debug("Custom index is valid"); }, e -> {
             Exception exception = new EndRunException(detectorId, e.getMessage(), true);
-            handleAdException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, exception);
+            handleAdException(jobParameter, lock, detectionStartTime, executionStartTime, exception);
         });
         anomalyDetectionIndices.validateCustomIndexForBackendJob(resultIndex, detectorId, user, roles, () -> {
             listener.onResponse(true);
-            runAnomalyDetectionJob(jobParameter, lockService, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
+            runAnomalyDetectionJob(jobParameter, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
         }, listener);
     }
 
     private void runAnomalyDetectionJob(
         AnomalyDetectorJob jobParameter,
-        LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
         Instant executionStartTime,
@@ -278,16 +265,12 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                     request,
                     ActionListener
                         .wrap(
-                            response -> {
-                                indexAnomalyResult(jobParameter, lockService, lock, detectionStartTime, executionStartTime, response);
-                            },
-                            exception -> {
-                                handleAdException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, exception);
-                            }
+                            response -> { indexAnomalyResult(jobParameter, lock, detectionStartTime, executionStartTime, response); },
+                            exception -> { handleAdException(jobParameter, lock, detectionStartTime, executionStartTime, exception); }
                         )
                 );
         } catch (Exception e) {
-            indexAnomalyResultException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, e, true);
+            indexAnomalyResultException(jobParameter, lock, detectionStartTime, executionStartTime, e, true);
             log.error("Failed to execute AD job " + detectorId, e);
         }
     }
@@ -323,7 +306,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
      * our performance, user experience and what we can do currently.
      *
      * @param jobParameter       scheduled job parameter
-     * @param lockService        lock service
      * @param lock               lock to run job
      * @param detectionStartTime detection start time
      * @param executionStartTime detection end time
@@ -331,7 +313,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
      */
     protected void handleAdException(
         AnomalyDetectorJob jobParameter,
-        LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
         Instant executionStartTime,
@@ -344,14 +325,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             if (((EndRunException) exception).isEndNow()) {
                 // Stop AD job if EndRunException shows we should end job now.
                 log.info("JobRunner will stop AD job due to EndRunException for {}", detectorId);
-                stopAdJobForEndRunException(
-                    jobParameter,
-                    lockService,
-                    lock,
-                    detectionStartTime,
-                    executionStartTime,
-                    (EndRunException) exception
-                );
+                stopAdJobForEndRunException(jobParameter, lock, detectionStartTime, executionStartTime, (EndRunException) exception);
             } else {
                 detectorEndRunExceptionCount.compute(detectorId, (k, v) -> {
                     if (v == null) {
@@ -369,25 +343,10 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                             maxRetryForEndRunException,
                             detectorId
                         );
-                    stopAdJobForEndRunException(
-                        jobParameter,
-                        lockService,
-                        lock,
-                        detectionStartTime,
-                        executionStartTime,
-                        (EndRunException) exception
-                    );
+                    stopAdJobForEndRunException(jobParameter, lock, detectionStartTime, executionStartTime, (EndRunException) exception);
                     return;
                 }
-                indexAnomalyResultException(
-                    jobParameter,
-                    lockService,
-                    lock,
-                    detectionStartTime,
-                    executionStartTime,
-                    exception.getMessage(),
-                    true
-                );
+                indexAnomalyResultException(jobParameter, lock, detectionStartTime, executionStartTime, exception.getMessage(), true);
             }
         } else {
             detectorEndRunExceptionCount.remove(detectorId);
@@ -396,13 +355,12 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             } else {
                 log.error("Failed to execute anomaly result action for " + detectorId, exception);
             }
-            indexAnomalyResultException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, exception, true);
+            indexAnomalyResultException(jobParameter, lock, detectionStartTime, executionStartTime, exception, true);
         }
     }
 
     private void stopAdJobForEndRunException(
         AnomalyDetectorJob jobParameter,
-        LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
         Instant executionStartTime,
@@ -418,7 +376,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             detectorId,
             () -> indexAnomalyResultException(
                 jobParameter,
-                lockService,
                 lock,
                 detectionStartTime,
                 executionStartTime,
@@ -484,7 +441,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
     private void indexAnomalyResult(
         AnomalyDetectorJob jobParameter,
-        LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
         Instant executionStartTime,
@@ -527,11 +483,11 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             updateRealtimeTask(response, detectorId);
         } catch (EndRunException e) {
-            handleAdException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, e);
+            handleAdException(jobParameter, lock, detectionStartTime, executionStartTime, e);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
-            releaseLock(jobParameter, lockService, lock);
+            releaseLock(jobParameter, lock);
         }
     }
 
@@ -567,7 +523,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
     private void indexAnomalyResultException(
         AnomalyDetectorJob jobParameter,
-        LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
         Instant executionStartTime,
@@ -578,7 +533,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             String errorMessage = exception instanceof AnomalyDetectionException
                 ? exception.getMessage()
                 : Throwables.getStackTraceAsString(exception);
-            indexAnomalyResultException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, errorMessage, releaseLock);
+            indexAnomalyResultException(jobParameter, lock, detectionStartTime, executionStartTime, errorMessage, releaseLock);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + jobParameter.getName(), e);
         }
@@ -586,28 +541,17 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
     private void indexAnomalyResultException(
         AnomalyDetectorJob jobParameter,
-        LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
         Instant executionStartTime,
         String errorMessage,
         boolean releaseLock
     ) {
-        indexAnomalyResultException(
-            jobParameter,
-            lockService,
-            lock,
-            detectionStartTime,
-            executionStartTime,
-            errorMessage,
-            releaseLock,
-            null
-        );
+        indexAnomalyResultException(jobParameter, lock, detectionStartTime, executionStartTime, errorMessage, releaseLock, null);
     }
 
     private void indexAnomalyResultException(
         AnomalyDetectorJob jobParameter,
-        LockService lockService,
         LockModel lock,
         Instant detectionStartTime,
         Instant executionStartTime,
@@ -649,7 +593,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             log.error("Failed to index anomaly result for " + detectorId, e);
         } finally {
             if (releaseLock) {
-                releaseLock(jobParameter, lockService, lock);
+                releaseLock(jobParameter, lock);
             }
         }
     }
@@ -685,15 +629,70 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             );
     }
 
-    private void releaseLock(AnomalyDetectorJob jobParameter, LockService lockService, LockModel lock) {
-        lockService
-            .release(
-                lock,
-                ActionListener
-                    .wrap(
-                        released -> { log.info("Released lock for AD job {}", jobParameter.getName()); },
-                        exception -> { log.error("Failed to release lock for AD job: " + jobParameter.getName(), exception); }
-                    )
+    private LockModel acquireLock(JobExecutionContext context, Long lockDurationSeconds) throws Exception {
+
+        // Build request body
+        XContentBuilder acquireLockRequestBody = JsonXContent.contentBuilder();
+        acquireLockRequestBody.startObject();
+        acquireLockRequestBody.field(AcquireLockRequest.JOB_ID, context.getJobId());
+        acquireLockRequestBody.field(AcquireLockRequest.JOB_INDEX_NAME, context.getJobIndexName());
+        acquireLockRequestBody.field(AcquireLockRequest.LOCK_DURATION_SECONDS, lockDurationSeconds);
+        acquireLockRequestBody.endObject();
+
+        // Create acquire lock request
+        Request acquireLockRequest = new Request("GET", String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_lock"));
+        acquireLockRequest.setJsonEntity(Strings.toString(acquireLockRequestBody));
+
+        // Parse response map fields for lock model
+        Response acquireLockResponse = client.performRequest(acquireLockRequest);
+        XContentParser parser = XContentType.JSON
+            .xContent()
+            .createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                acquireLockResponse.getEntity().getContent()
             );
+        Map<String, Object> responseMap = parser.map();
+
+        String responseStatus = (String) responseMap.get("response");
+        if (responseStatus == "failed") {
+            throw new Exception("Failed to acquire lock");
+        } else {
+
+            // Parse fields and generate lock model object
+            String jobId = (String) responseMap.get(LockModel.JOB_ID);
+            String jobIndexName = (String) responseMap.get(LockModel.JOB_INDEX_NAME);
+            Instant lockTime = Instant.ofEpochSecond((long) responseMap.get(LockModel.LOCK_TIME));
+            long lockDuration = (long) responseMap.get(LockModel.LOCK_DURATION);
+            boolean released = (boolean) responseMap.get(LockModel.RELEASED);
+            long sequenceNumber = (long) responseMap.get(LockModel.SEQUENCE_NUMBER);
+            long primaryTerm = (long) responseMap.get(LockModel.PRIMARY_TERM);
+
+            return new LockModel(jobIndexName, jobId, lockTime, lockDuration, released, sequenceNumber, primaryTerm);
+        }
+    }
+
+    private void releaseLock(AnomalyDetectorJob jobParameter, LockModel lock) {
+
+        Request releaseLockRequest = new Request(
+            "PUT",
+            String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_release_lock")
+        );
+        releaseLockRequest.addParameter(LockModel.LOCK_ID, lock.getLockId());
+
+        try {
+            Response releaseLockResponse = client.performRequest(releaseLockRequest);
+            boolean lockIsReleased = RestStatus.fromCode(releaseLockResponse.getStatusLine().getStatusCode()) == RestStatus.OK
+                ? true
+                : false;
+
+            if (lockIsReleased) {
+                log.info("Released lock for AD job {}", jobParameter.getName());
+            } else {
+                throw new Exception("Failed to release lock");
+            }
+        } catch (Exception exception) {
+            log.error("Failed to release lock for AD job: " + jobParameter.getName(), exception);
+        }
     }
 }

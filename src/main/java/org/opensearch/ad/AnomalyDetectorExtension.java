@@ -12,6 +12,7 @@ package org.opensearch.ad;
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.stream.Stream;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -40,6 +42,10 @@ import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
+import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
+import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.IndexUtils;
+import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -109,7 +115,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
             sdkClusterService,
             threadPool,
             environmentSettings,
-            null, // nodeFilter
+            null, // nodeFilter : https://github.com/opensearch-project/opensearch-sdk-java/issues/540
             AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
         );
 
@@ -119,14 +125,52 @@ public class AnomalyDetectorExtension extends BaseExtension {
             sdkRestClient,
             xContentRegistry,
             anomalyDetectionIndices,
-            null, // nodeFilter
+            null, // nodeFilter : https://github.com/opensearch-project/opensearch-sdk-java/issues/540
             null, // hashRing
             adTaskCacheManager,
             threadPool
         );
 
+        Throttler throttler = new Throttler(getClock());
+        ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
+        IndexUtils indexUtils = new IndexUtils(
+            restClient(),
+            clientUtil,
+            sdkClusterService,
+            null // indexNameExpressionResolver
+        );
+        AnomalyIndexHandler<AnomalyResult> anomalyResultHandler = new AnomalyIndexHandler<AnomalyResult>(
+            restClient(),
+            environmentSettings,
+            threadPool,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtils,
+            sdkClusterService
+        );
+
+        AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
+        jobRunner.setClient(restClient());
+        jobRunner.setThreadPool(threadPool);
+        jobRunner.setAnomalyResultHandler(anomalyResultHandler);
+        jobRunner.setSettings(environmentSettings);
+        jobRunner.setAnomalyDetectionIndices(anomalyDetectionIndices);
+        // FIXME : https://github.com/opensearch-project/opensearch-sdk-java/issues/540
+        // jobRunner.setNodeFilter(nodeFilter);
+        jobRunner.setAdTaskManager(adTaskManager);
+
         return ImmutableList
-            .of(sdkRestClient, anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
+            .of(
+                sdkRestClient,
+                anomalyDetectionIndices,
+                jvmService,
+                adCircuitBreakerService,
+                adTaskManager,
+                adTaskCacheManager,
+                clientUtil,
+                indexUtils
+            );
     }
 
     @Override
@@ -204,6 +248,15 @@ public class AnomalyDetectorExtension extends BaseExtension {
     @Deprecated
     public SDKRestClient restClient() {
         return this.sdkRestClient;
+    }
+
+    /**
+     * createComponents doesn't work for Clock as ES process cannot start
+     * complaining it cannot find Clock instances for transport actions constructors.
+     * @return a UTC clock
+     */
+    protected Clock getClock() {
+        return Clock.systemUTC();
     }
 
     @Override

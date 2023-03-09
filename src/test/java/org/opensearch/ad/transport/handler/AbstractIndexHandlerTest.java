@@ -42,6 +42,8 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.threadpool.ThreadPool;
 
 public abstract class AbstractIndexHandlerTest extends AbstractADTest {
@@ -59,7 +61,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected String detectorId = "123";
 
     @Mock
-    protected Client client;
+    protected SDKRestClient client;
 
     @Mock
     protected AnomalyDetectionIndices anomalyDetectionIndices;
@@ -68,7 +70,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected Throttler throttler;
 
     @Mock
-    protected ClusterService clusterService;
+    protected SDKClusterService clusterService;
 
     @Mock
     protected IndexNameExpressionResolver indexNameResolver;

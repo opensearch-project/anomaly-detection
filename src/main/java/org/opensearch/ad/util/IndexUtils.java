@@ -20,14 +20,14 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.admin.indices.stats.IndicesStatsRequest;
 import org.opensearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 
 public class IndexUtils {
     /**
@@ -43,9 +43,9 @@ public class IndexUtils {
 
     private static final Logger logger = LogManager.getLogger(IndexUtils.class);
 
-    private Client client;
+    private SDKRestClient client;
     private ClientUtil clientUtil;
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
     /**
@@ -58,9 +58,9 @@ public class IndexUtils {
      */
     @Inject
     public IndexUtils(
-        Client client,
+        SDKRestClient client,
         ClientUtil clientUtil,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         this.client = client;

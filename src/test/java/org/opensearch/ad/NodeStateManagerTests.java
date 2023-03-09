@@ -9,6 +9,7 @@
  * GitHub history for details.
  */
 
+/* @anomaly-detection Commented until we have support for clustersettings https://github.com/opensearch-project/opensearch-sdk-java/issues/503
 package org.opensearch.ad;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -269,20 +270,21 @@ public class NodeStateManagerTests extends AbstractADTest {
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
+    */
 
     /**
      * Test that we caches anomaly detector definition after the first call
      * @throws IOException if client throws exception
      * @throws InterruptedException  if the current thread is interrupted while waiting
      */
-    @SuppressWarnings("unchecked")
+    /*@SuppressWarnings("unchecked")
     public void testRepeatedGetAnomalyDetector() throws IOException, InterruptedException {
         String detectorId = setupDetector();
         final CountDownLatch inProgressLatch = new CountDownLatch(2);
 
         stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
             assertEquals(detectorToCheck, asDetector.get());
-            inProgressLatch.countDown();
+            inProgressLatch.countDown();s
         }, exception -> {
             assertTrue(false);
             inProgressLatch.countDown();
@@ -395,6 +397,7 @@ public class NodeStateManagerTests extends AbstractADTest {
         when(clock.millis()).thenReturn(62000L);
         assertTrue(!stateManager.isMuted(nodeId, adId));
     }
+    */
     // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
     // @SuppressWarnings("unchecked")
     /*private String setupJob() throws IOException {
@@ -456,4 +459,5 @@ public class NodeStateManagerTests extends AbstractADTest {
     //
     // verify(client, times(1)).get(any(), any(ActionListener.class));
     // }
-}
+//}
+
