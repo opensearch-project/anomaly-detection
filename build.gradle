@@ -747,6 +747,8 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.caching.CacheProvider',
         'org.opensearch.ad.util.IndexUtils',
         'org.opensearch.ad.cluster.ClusterManagerEventListener',
+        'org.opensearch.ad.cluster.ClusterManagerEventListener.1',
+        'org.opensearch.ad.cluster.ClusterManagerEventListener.2',
         'org.opensearch.ad.transport.ADStatsNodesAction',
         'org.opensearch.ad.transport.BackPressureRouting',
         'org.opensearch.ad.transport.ADStatsNodesTransportAction',
