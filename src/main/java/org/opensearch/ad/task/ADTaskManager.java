@@ -139,13 +139,18 @@ import org.opensearch.ad.transport.ForwardADTaskAction;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.client.Request;
+import org.opensearch.client.Response;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
@@ -155,6 +160,7 @@ import org.opensearch.index.query.NestedQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.UpdateByQueryAction;
@@ -290,7 +296,8 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         // upgrade index mapping of AD default indices
-        detectionIndices.update();
+        //  FIXME @anomaly.detection - startdetector : uncomment after AnomalyDetectionIndices.updateJobIndexSettingIfNecessary() client execution has been replaced with the java client
+        // detectionIndices.update();
         getDetector(detectorId, (detector) -> {
             if (!detector.isPresent()) {
                 listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
@@ -1492,6 +1499,7 @@ public class ADTaskManager {
         String script = String.format(Locale.ROOT, "ctx._source.%s=%s;", IS_LATEST_FIELD, false);
         updateByQueryRequest.setScript(new Script(script));
 
+        /* Previous UpdateByQueryAction invocation. @vibrantvarun use this as a reference to replace the blocking request below with the java client
         client.execute(UpdateByQueryAction.INSTANCE, updateByQueryRequest, ActionListener.wrap(r -> {
             List<BulkItemResponse.Failure> bulkFailures = r.getBulkFailures();
             if (bulkFailures.isEmpty()) {
@@ -1510,6 +1518,44 @@ public class ADTaskManager {
             logger.error("Failed to reset old tasks as not latest for detector " + detector.getDetectorId(), e);
             listener.onFailure(e);
         }));
+        */
+
+        // FIXME @anomaly.detection - startdetector : Replace with java client UpdateByQueryRequest
+        try {
+            // Create Rest Request
+            Request updateByQueryRestRequest = new Request(
+                "POST",
+                String.format(Locale.ROOT, "%s/%s", DETECTION_STATE_INDEX, "_update_by_query")
+            );
+            updateByQueryRestRequest
+                .setJsonEntity(Strings.toString(updateByQueryRequest.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)));
+
+            // Execute Blocking Request
+            Response r = client.performRequest(updateByQueryRestRequest);
+
+            // Parse request into BulkByScrollResponse
+            XContentParser parser = XContentType.JSON
+                .xContent()
+                .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, r.getEntity().getContent());
+            BulkByScrollResponse bulkByScrollResponse = BulkByScrollResponse.fromXContent(parser);
+
+            List<BulkItemResponse.Failure> bulkFailures = bulkByScrollResponse.getBulkFailures();
+            if (bulkFailures.isEmpty()) {
+                // Realtime AD coordinating node is chosen by job scheduler, we won't know it until realtime AD job
+                // runs. Just set realtime AD coordinating node as null here, and AD job runner will reset correct
+                // coordinating node once realtime job starts.
+                // For historical analysis, this method will be called on coordinating node, so we can set coordinating
+                // node as local node.
+                String coordinatingNode = detectionDateRange == null ? null : clusterService.localNode().getId();
+                createNewADTask(detector, detectionDateRange, user, coordinatingNode, listener);
+            } else {
+                logger.error("Failed to update old task's state for detector: {}, response: {} ", detector.getDetectorId(), r.toString());
+                listener.onFailure(bulkFailures.get(0).getCause());
+            }
+        } catch (Exception e) {
+            logger.error("Failed to reset old tasks as not latest for detector " + detector.getDetectorId(), e);
+            listener.onFailure(e);
+        }
     }
 
     private void createNewADTask(

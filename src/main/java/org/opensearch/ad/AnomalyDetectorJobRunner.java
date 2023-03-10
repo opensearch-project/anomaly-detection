@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -68,8 +67,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.jobscheduler.JobSchedulerPlugin;
@@ -79,6 +78,7 @@ import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.transport.AcquireLockRequest;
+import org.opensearch.jobscheduler.transport.AcquireLockResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.threadpool.ThreadPool;
@@ -632,44 +632,25 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private LockModel acquireLock(JobExecutionContext context, Long lockDurationSeconds) throws Exception {
 
         // Build request body
-        XContentBuilder acquireLockRequestBody = JsonXContent.contentBuilder();
-        acquireLockRequestBody.startObject();
-        acquireLockRequestBody.field(AcquireLockRequest.JOB_ID, context.getJobId());
-        acquireLockRequestBody.field(AcquireLockRequest.JOB_INDEX_NAME, context.getJobIndexName());
-        acquireLockRequestBody.field(AcquireLockRequest.LOCK_DURATION_SECONDS, lockDurationSeconds);
-        acquireLockRequestBody.endObject();
+        AcquireLockRequest acquireLockRequestBody = new AcquireLockRequest(
+            context.getJobId(),
+            context.getJobIndexName(),
+            lockDurationSeconds
+        );
 
         // Create acquire lock request
         Request acquireLockRequest = new Request("GET", String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_lock"));
-        acquireLockRequest.setJsonEntity(Strings.toString(acquireLockRequestBody));
+        acquireLockRequest
+            .setJsonEntity(Strings.toString(acquireLockRequestBody.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)));
 
         // Parse response map fields for lock model
         Response acquireLockResponse = client.performRequest(acquireLockRequest);
         XContentParser parser = XContentType.JSON
             .xContent()
-            .createParser(
-                NamedXContentRegistry.EMPTY,
-                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                acquireLockResponse.getEntity().getContent()
-            );
-        Map<String, Object> responseMap = parser.map();
+            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, acquireLockResponse.getEntity().getContent());
 
-        String responseStatus = (String) responseMap.get("response");
-        if (responseStatus == "failed") {
-            throw new Exception("Failed to acquire lock");
-        } else {
-
-            // Parse fields and generate lock model object
-            String jobId = (String) responseMap.get(LockModel.JOB_ID);
-            String jobIndexName = (String) responseMap.get(LockModel.JOB_INDEX_NAME);
-            Instant lockTime = Instant.ofEpochSecond((long) responseMap.get(LockModel.LOCK_TIME));
-            long lockDuration = (long) responseMap.get(LockModel.LOCK_DURATION);
-            boolean released = (boolean) responseMap.get(LockModel.RELEASED);
-            long sequenceNumber = (long) responseMap.get(LockModel.SEQUENCE_NUMBER);
-            long primaryTerm = (long) responseMap.get(LockModel.PRIMARY_TERM);
-
-            return new LockModel(jobIndexName, jobId, lockTime, lockDuration, released, sequenceNumber, primaryTerm);
-        }
+        AcquireLockResponse acquireLockResponseBody = AcquireLockResponse.parse(parser);
+        return acquireLockResponseBody.getLock();
     }
 
     private void releaseLock(AnomalyDetectorJob jobParameter, LockModel lock) {
