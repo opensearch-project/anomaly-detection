@@ -296,7 +296,8 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         // upgrade index mapping of AD default indices
-        //  FIXME @anomaly.detection - startdetector : uncomment after AnomalyDetectionIndices.updateJobIndexSettingIfNecessary() client execution has been replaced with the java client
+        // FIXME @anomaly.detection - startdetector : uncomment after AnomalyDetectionIndices.updateJobIndexSettingIfNecessary() client
+        // execution has been replaced with the java client
         // detectionIndices.update();
         getDetector(detectorId, (detector) -> {
             if (!detector.isPresent()) {
