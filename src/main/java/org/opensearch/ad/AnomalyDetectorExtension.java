@@ -44,6 +44,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.sdk.ActionExtension;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -55,7 +56,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
 
-public class AnomalyDetectorExtension extends BaseExtension {
+public class AnomalyDetectorExtension extends BaseExtension implements ActionExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
