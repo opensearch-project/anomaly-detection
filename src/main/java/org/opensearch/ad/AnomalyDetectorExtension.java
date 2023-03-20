@@ -47,6 +47,7 @@ import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -73,6 +74,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     @Deprecated
     private SDKRestClient sdkRestClient;
+    private OpenSearchAsyncClient openSearchAsyncClient;
 
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
@@ -93,6 +95,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
         this.sdkRestClient = createRestClient(runner.getSdkClient());
+        this.openSearchAsyncClient = createAsyncClient(runner.getSdkClient());
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -249,9 +252,18 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         return restClient;
     }
 
+    private OpenSearchAsyncClient createAsyncClient(SDKClient client) {
+        OpenSearchAsyncClient asyncClient = client.initializeJavaAsyncClient(getExtensionSettings());
+        return asyncClient;
+    }
+
     @Deprecated
     public SDKRestClient restClient() {
         return this.sdkRestClient;
+    }
+
+    public OpenSearchAsyncClient asyncClient() {
+        return this.openSearchAsyncClient;
     }
 
     /**
