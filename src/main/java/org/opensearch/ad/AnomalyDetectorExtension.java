@@ -190,7 +190,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     // TODO: replace or override client object on BaseExtension
     // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
-    public OpenSearchAsyncClient getClient() {
+    public OpenSearchAsyncClient javaAsyncClient() {
         return this.sdkJavaAsyncClient;
     }
 
