@@ -19,9 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.List;
 
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.alias.Alias;
@@ -36,11 +34,14 @@ import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.routing.RoutingTable;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKIndicesClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.threadpool.ThreadPool;
 
 public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
@@ -73,24 +74,24 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         when(nodeFilter.getNumberOfEligibleDataNodes()).thenReturn(numberOfHotNodes);
 
         Settings settings = Settings.EMPTY;
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
-                            )
-                    )
-                )
-        );
+        List<Setting<?>> settingsList = List
+            .of(
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
+            );
 
         clusterName = new ClusterName("test");
-        // when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
         clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 

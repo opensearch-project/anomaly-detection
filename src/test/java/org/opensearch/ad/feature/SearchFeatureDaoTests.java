@@ -38,7 +38,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -82,8 +81,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -93,6 +91,10 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.script.ScriptService;
 import org.opensearch.script.TemplateScript;
 import org.opensearch.script.TemplateScript.Factory;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
@@ -168,7 +170,7 @@ public class SearchFeatureDaoTests {
     private ThreadPool threadPool;
 
     @Mock
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
 
     @Mock
     private Clock clock;
@@ -199,13 +201,13 @@ public class SearchFeatureDaoTests {
         }).when(executorService).execute(any(Runnable.class));
 
         settings = Settings.EMPTY;
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE))
-                )
-        );
+        List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE);
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         searchFeatureDao = spy(

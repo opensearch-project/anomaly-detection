@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -61,14 +60,17 @@ import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasables;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
@@ -111,7 +113,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private LinearUniformInterpolator interpolator;
     private ClientUtil clientUtil;
     private Settings settings;
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
     private Clock clock;
     private String serviceField, hostField;
     private String detectorId;
@@ -143,15 +145,16 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         clientUtil = mock(ClientUtil.class);
 
         settings = Settings.EMPTY;
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE))
-                )
-        );
-        clusterService = mock(ClusterService.class);
+        List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE);
+        clusterService = mock(SDKClusterService.class);
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
         clock = mock(Clock.class);
 
         this.mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
@@ -165,7 +168,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
             interpolator,
             clientUtil,
             settings,
-            null, // clusterService,
+            clusterService,
             AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
             clock,
             1,
