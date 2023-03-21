@@ -48,7 +48,6 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -57,7 +56,6 @@ import org.opensearch.sdk.ActionExtension;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.SDKClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
@@ -74,7 +72,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     @Deprecated
     private SDKRestClient sdkRestClient;
-    private OpenSearchAsyncClient openSearchAsyncClient;
+    private OpenSearchAsyncClient sdkJavaAsyncClient;
 
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
@@ -84,8 +82,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient(), asyncClient()),
-                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient(), asyncClient()),
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
             );
@@ -94,8 +92,9 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
-        this.sdkRestClient = createRestClient(runner.getSdkClient());
-        this.openSearchAsyncClient = createAsyncClient(runner.getSdkClient());
+        this.sdkRestClient = createRestClient(runner);
+        this.sdkJavaAsyncClient = createJavaAsyncClient(runner);
+
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -119,7 +118,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
-            openSearchAsyncClient,
+            sdkJavaAsyncClient,
             sdkClusterService,
             threadPool,
             environmentSettings,
@@ -131,7 +130,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             environmentSettings,
             sdkClusterService,
             sdkRestClient,
-            openSearchAsyncClient,
+            sdkJavaAsyncClient,
             xContentRegistry,
             anomalyDetectionIndices,
             nodeFilter,
@@ -235,37 +234,28 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             );
     }
 
-    // TODO: replace or override client object on BaseExtension
-    // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
-    public OpenSearchClient getClient() {
+    private OpenSearchAsyncClient createJavaAsyncClient(ExtensionsRunner runner) {
         @SuppressWarnings("resource")
-        OpenSearchClient client = new SDKClient()
-            .initializeJavaClient(
-                getExtensionSettings().getOpensearchAddress(),
-                Integer.parseInt(getExtensionSettings().getOpensearchPort())
-            );
+        OpenSearchAsyncClient client = runner.getSdkClient().initializeJavaAsyncClient();
         return client;
     }
 
-    @Deprecated
-    private SDKRestClient createRestClient(SDKClient client) {
-        @SuppressWarnings("resource")
-        SDKRestClient restClient = client.initializeRestClient(getExtensionSettings());
-        return restClient;
+    // TODO: replace or override client object on BaseExtension
+    // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
+    public OpenSearchAsyncClient javaAsyncClient() {
+        return this.sdkJavaAsyncClient;
     }
 
-    private OpenSearchAsyncClient createAsyncClient(SDKClient client) {
-        OpenSearchAsyncClient asyncClient = client.initializeJavaAsyncClient(getExtensionSettings());
-        return asyncClient;
+    @Deprecated
+    private SDKRestClient createRestClient(ExtensionsRunner runner) {
+        @SuppressWarnings("resource")
+        SDKRestClient client = runner.getSdkClient().initializeRestClient();
+        return client;
     }
 
     @Deprecated
     public SDKRestClient restClient() {
         return this.sdkRestClient;
-    }
-
-    public OpenSearchAsyncClient asyncClient() {
-        return this.openSearchAsyncClient;
     }
 
     /**

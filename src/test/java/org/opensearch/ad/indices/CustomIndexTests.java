@@ -15,10 +15,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.opensearch.Version;
@@ -33,14 +32,17 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 
 public class CustomIndexTests extends AbstractADTest {
     AnomalyDetectionIndices adIndices;
     Client client;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
     DiscoveryNodeFilterer nodeFilter;
     ClusterState clusterState;
     String customIndexName;
@@ -52,31 +54,28 @@ public class CustomIndexTests extends AbstractADTest {
 
         client = mock(Client.class);
 
-        clusterService = mock(ClusterService.class);
+        clusterService = mock(SDKClusterService.class);
 
         clusterName = new ClusterName("test");
 
         customIndexName = "opensearch-ad-plugin-result-a";
-        // clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
+        clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
         Settings settings = Settings.EMPTY;
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-                                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
-                            )
-                    )
-                )
-        );
-
+        List<Setting<?>> settingsList = List
+            .of(
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
+            );
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         nodeFilter = mock(DiscoveryNodeFilterer.class);
@@ -86,7 +85,7 @@ public class CustomIndexTests extends AbstractADTest {
             // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
             null, // client,
             null, // opensearchAsyncClient
-            null, // clusterService,
+            clusterService,
             threadPool,
             settings,
             nodeFilter,

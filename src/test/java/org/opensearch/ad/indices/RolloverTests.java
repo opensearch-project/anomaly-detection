@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.opensearch.action.ActionListener;
@@ -35,11 +36,15 @@ import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKClusterAdminClient;
 import org.opensearch.sdk.SDKClient.SDKIndicesClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.threadpool.ThreadPool;
 
 public class RolloverTests extends AbstractADTest {
@@ -60,30 +65,26 @@ public class RolloverTests extends AbstractADTest {
         indicesClient = mock(SDKIndicesClient.class);
         SDKRestClient adminClient = mock(SDKRestClient.class);
         clusterService = mock(SDKClusterService.class);
-        // FIXME: Improve Cluster Settings
-        // https://github.com/opensearch-project/opensearch-sdk-java/issues/354
-        // ClusterSettings clusterSettings = new ClusterSettings(
-        // Settings.EMPTY,
-        // Collections
-        // .unmodifiableSet(
-        // new HashSet<>(
-        // Arrays
-        // .asList(
-        // AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
-        // AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
-        // AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-        // AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
-        // )
-        // )
-        // )
-        // );
+
+        Settings settings = Settings.EMPTY;
+        List<Setting<?>> settingsList = List
+            .of(
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
+            );
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         clusterName = new ClusterName("test");
 
-        // when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-
         ThreadPool threadPool = mock(ThreadPool.class);
-        Settings settings = Settings.EMPTY;
         when(client.admin()).thenReturn(adminClient);
         when(adminClient.indices()).thenReturn(indicesClient);
 
