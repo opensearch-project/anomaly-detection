@@ -61,7 +61,7 @@ public class RolloverTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
         SDKRestClient client = mock(SDKRestClient.class);
-        OpenSearchAsyncClient openSearchAsyncClient = mock(OpenSearchAsyncClient.class);
+        OpenSearchAsyncClient sdkJavaAsyncClient = mock(OpenSearchAsyncClient.class);
         indicesClient = mock(SDKIndicesClient.class);
         SDKRestClient adminClient = mock(SDKRestClient.class);
         clusterService = mock(SDKClusterService.class);
@@ -96,7 +96,7 @@ public class RolloverTests extends AbstractADTest {
             // FIXME: Replace with SDK equivalents when re-enabling tests
             // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
             client,
-            openSearchAsyncClient,
+            sdkJavaAsyncClient,
             clusterService,
             threadPool,
             settings,

@@ -69,20 +69,20 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     private Settings environmentSettings;
     private TransportService transportService;
     private SDKRestClient restClient;
-    private OpenSearchAsyncClient openSearchAsyncClient;
+    private OpenSearchAsyncClient sdkJavaAsyncClient;
     private SDKClusterService sdkClusterService;
 
     public RestIndexAnomalyDetectorAction(
         ExtensionsRunner extensionsRunner,
         SDKRestClient restClient,
-        OpenSearchAsyncClient openSearchAsyncClient
+        OpenSearchAsyncClient sdkJavaAsyncClient
     ) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = restClient;
-        this.openSearchAsyncClient = openSearchAsyncClient;
+        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 
@@ -161,7 +161,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             this.environmentSettings, // Settings settings
             new AnomalyDetectionIndices(
                 restClient, // client,
-                openSearchAsyncClient,
+                sdkJavaAsyncClient,
                 sdkClusterService, // clusterService,
                 null, // threadPool,
                 this.environmentSettings, // settings,

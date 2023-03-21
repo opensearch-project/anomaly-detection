@@ -122,7 +122,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private SDKClusterService clusterService;
     private final SDKRestClient client;
     private final SDKRestClient adminClient;
-    private final OpenSearchAsyncClient openSearchAsyncClient;
+    private final OpenSearchAsyncClient sdkJavaAsyncClient;
     private final ThreadPool threadPool;
 
     private volatile TimeValue historyRolloverPeriod;
@@ -170,7 +170,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * Constructor function
      *
      * @param client         ES client supports administrative actions
-     * @param openSearchAsyncClient Java client
+     * @param sdkJavaAsyncClient Java client
      * @param sdkClusterService ES cluster service
      * @param threadPool     ES thread pool
      * @param settings       ES cluster setting
@@ -179,7 +179,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public AnomalyDetectionIndices(
         SDKRestClient client,
-        OpenSearchAsyncClient openSearchAsyncClient,
+        OpenSearchAsyncClient sdkJavaAsyncClient,
         SDKClusterService sdkClusterService,
         ThreadPool threadPool,
         Settings settings,
@@ -188,7 +188,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     ) {
         this.client = client;
         this.adminClient = client;
-        this.openSearchAsyncClient = openSearchAsyncClient;
+        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.clusterService = sdkClusterService;
         this.threadPool = threadPool;
         // FIXME Implement this
@@ -1096,7 +1096,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
             )
             .build();
 
-        CompletableFuture<GetIndicesSettingsResponse> getIndicesSettingsResponse = openSearchAsyncClient
+        CompletableFuture<GetIndicesSettingsResponse> getIndicesSettingsResponse = sdkJavaAsyncClient
             ._transport()
             .performRequestAsync(getIndicesSettingsRequest, GetIndicesSettingsRequest._ENDPOINT, TransportOptions.builder().build());
 

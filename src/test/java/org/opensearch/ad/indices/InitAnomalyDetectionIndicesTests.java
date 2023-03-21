@@ -47,7 +47,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
     SDKRestClient client;
-    OpenSearchAsyncClient openSearchAsyncClient;
+    OpenSearchAsyncClient sdkJavaAsyncClient;
     SDKClusterService clusterService;
     ThreadPool threadPool;
     Settings settings;
@@ -63,7 +63,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         super.setUp();
 
         client = mock(SDKRestClient.class);
-        openSearchAsyncClient = mock(OpenSearchAsyncClient.class);
+        sdkJavaAsyncClient = mock(OpenSearchAsyncClient.class);
         indicesClient = mock(SDKIndicesClient.class);
         SDKRestClient adminClient = mock(SDKRestClient.class);
         when(client.admin()).thenReturn(adminClient);
@@ -100,7 +100,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
 
         adIndices = new AnomalyDetectionIndices(
             client,
-            openSearchAsyncClient,
+            sdkJavaAsyncClient,
             clusterService,
             threadPool,
             settings,

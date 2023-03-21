@@ -69,7 +69,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
     private Settings environmentSettings;
     private TransportService transportService;
     private SDKRestClient restClient;
-    private OpenSearchAsyncClient openSearchAsyncClient;
+    private OpenSearchAsyncClient sdkJavaAsyncClient;
     private SDKClusterService sdkClusterService;
 
     public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
@@ -81,14 +81,14 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
     public RestValidateAnomalyDetectorAction(
         ExtensionsRunner extensionsRunner,
         SDKRestClient restClient,
-        OpenSearchAsyncClient openSearchAsyncClient
+        OpenSearchAsyncClient sdkJavaAsyncClient
     ) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = restClient;
-        this.openSearchAsyncClient = openSearchAsyncClient;
+        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 
@@ -189,7 +189,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             this.environmentSettings, // Settings settings
             new AnomalyDetectionIndices(
                 restClient, // client,
-                openSearchAsyncClient,
+                sdkJavaAsyncClient,
                 sdkClusterService, // clusterService,
                 null, // threadPool,
                 this.environmentSettings, // settings,

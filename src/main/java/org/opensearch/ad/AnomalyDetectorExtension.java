@@ -171,6 +171,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         return ImmutableList
             .of(
                 sdkRestClient,
+                sdkJavaAsyncClient,
                 anomalyDetectionIndices,
                 jvmService,
                 adCircuitBreakerService,

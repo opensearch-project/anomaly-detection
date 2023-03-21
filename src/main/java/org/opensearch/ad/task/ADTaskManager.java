@@ -193,7 +193,7 @@ public class ADTaskManager {
     static final String STATE_INDEX_NOT_EXIST_MSG = "State index does not exist.";
     private final Set<String> retryableErrors = ImmutableSet.of(EXCEED_HISTORICAL_ANALYSIS_LIMIT, NO_ELIGIBLE_NODE_TO_RUN_DETECTOR);
     private final SDKRestClient client;
-    private final OpenSearchAsyncClient openSearchAsyncClient;
+    private final OpenSearchAsyncClient sdkJavaAsyncClient;
     private final SDKClusterService clusterService;
     private final SDKNamedXContentRegistry xContentRegistry;
     private final AnomalyDetectionIndices detectionIndices;
@@ -219,7 +219,7 @@ public class ADTaskManager {
         Settings settings,
         SDKClusterService clusterService,
         SDKRestClient client,
-        OpenSearchAsyncClient openSearchAsyncClient,
+        OpenSearchAsyncClient sdkJavaAsyncClient,
         SDKNamedXContentRegistry xContentRegistry,
         AnomalyDetectionIndices detectionIndices,
         DiscoveryNodeFilterer nodeFilter,
@@ -228,7 +228,7 @@ public class ADTaskManager {
         ThreadPool threadPool
     ) {
         this.client = client;
-        this.openSearchAsyncClient = openSearchAsyncClient;
+        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.xContentRegistry = xContentRegistry;
         this.detectionIndices = detectionIndices;
         this.nodeFilter = nodeFilter;
@@ -1311,7 +1311,7 @@ public class ADTaskManager {
         }).refresh(true).script(Script.of(s -> s.inline(new InlineScript.Builder().source(script).build()))).build();
 
         try {
-            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = openSearchAsyncClient.updateByQuery(updateByQueryRequest);
+            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest);
             UpdateByQueryResponse queryResponse = updateByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
             List<BulkIndexByScrollFailure> bulkFailures = queryResponse.failures();
             if (isNullOrEmpty(bulkFailures)) {
@@ -1505,7 +1505,7 @@ public class ADTaskManager {
         }).refresh(true).script(Script.of(s -> s.inline(new InlineScript.Builder().source(script).build()))).build();
 
         try {
-            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = openSearchAsyncClient.updateByQuery(updateByQueryRequest);
+            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest);
             UpdateByQueryResponse queryResponse = updateByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
             List<BulkIndexByScrollFailure> bulkFailures = queryResponse.failures();
@@ -1709,7 +1709,7 @@ public class ADTaskManager {
 
                 BulkRequest bulkRequest = new BulkRequest.Builder().operations(operations).build();
                 try {
-                    CompletableFuture<BulkResponse> bulkResponse = openSearchAsyncClient.bulk(bulkRequest);
+                    CompletableFuture<BulkResponse> bulkResponse = sdkJavaAsyncClient.bulk(bulkRequest);
                     BulkResponse res = bulkResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
                     logger.info("Old AD tasks deleted for detector {}", detectorId);
@@ -1763,8 +1763,7 @@ public class ADTaskManager {
                 .query(queryBuilder -> queryBuilder.match(mb -> mb.field(TASK_ID_FIELD).query(vb -> vb.stringValue(taskId))))
                 .build();
             try {
-                CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = openSearchAsyncClient
-                    .deleteByQuery(deleteADResultsRequest);
+                CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient.deleteByQuery(deleteADResultsRequest);
                 DeleteByQueryResponse res = deleteADResultsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
                 logger.debug("Successfully deleted AD results of task " + taskId);
@@ -1773,7 +1772,7 @@ public class ADTaskManager {
                     .query(queryBuilder -> queryBuilder.match(mb -> mb.field(PARENT_TASK_ID_FIELD).query(vb -> vb.stringValue(taskId))))
                     .build();
                 try {
-                    CompletableFuture<DeleteByQueryResponse> deleteChildTasksResponse = openSearchAsyncClient
+                    CompletableFuture<DeleteByQueryResponse> deleteChildTasksResponse = sdkJavaAsyncClient
                         .deleteByQuery(deleteChildTasksRequest);
                     DeleteByQueryResponse r = deleteChildTasksResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
@@ -1947,7 +1946,7 @@ public class ADTaskManager {
             .query(queryBuilder -> queryBuilder.match(mb -> mb.field(DETECTOR_ID_FIELD).query(vb -> vb.stringValue(detectorId))))
             .build();
         try {
-            CompletableFuture<DeleteByQueryResponse> deleteByQueryResponse = openSearchAsyncClient.deleteByQuery(request);
+            CompletableFuture<DeleteByQueryResponse> deleteByQueryResponse = sdkJavaAsyncClient.deleteByQuery(request);
             DeleteByQueryResponse r = deleteByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
             if (r.failures() == null || r.failures().size() == 0) {
@@ -1977,7 +1976,7 @@ public class ADTaskManager {
             .build();
 
         try {
-            CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = openSearchAsyncClient.deleteByQuery(deleteADResultsRequest);
+            CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient.deleteByQuery(deleteADResultsRequest);
             DeleteByQueryResponse r = deleteADResultsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
             logger.debug("Successfully deleted AD results of detector " + detectorId);
         } catch (Exception exception) {
@@ -2976,7 +2975,7 @@ public class ADTaskManager {
         BulkRequest bulkRequest = new BulkRequest.Builder().operations(operations).refresh(Refresh.True).build();
 
         try {
-            CompletableFuture<BulkResponse> bulkResponse = openSearchAsyncClient.bulk(bulkRequest);
+            CompletableFuture<BulkResponse> bulkResponse = sdkJavaAsyncClient.bulk(bulkRequest);
             BulkResponse res = bulkResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
             List<BulkResponseItem> bulkItemResponses = res.items();
