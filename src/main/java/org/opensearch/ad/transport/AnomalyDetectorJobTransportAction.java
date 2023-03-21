@@ -79,6 +79,8 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
 
     @Override
     protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> actionListener) {
+
+        logger.info("TESTING : HIT DO EXECUTE");
         String detectorId = request.getDetectorID();
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         boolean historical = request.isHistorical();

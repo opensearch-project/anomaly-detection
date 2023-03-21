@@ -32,6 +32,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
@@ -45,6 +46,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
     SDKRestClient client;
+    OpenSearchAsyncClient openSearchAsyncClient;
     SDKClusterService clusterService;
     ThreadPool threadPool;
     Settings settings;
@@ -60,6 +62,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         super.setUp();
 
         client = mock(SDKRestClient.class);
+        openSearchAsyncClient = mock(OpenSearchAsyncClient.class);
         indicesClient = mock(SDKIndicesClient.class);
         SDKRestClient adminClient = mock(SDKRestClient.class);
         when(client.admin()).thenReturn(adminClient);
@@ -96,6 +99,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
 
         adIndices = new AnomalyDetectionIndices(
             client,
+            openSearchAsyncClient,
             clusterService,
             threadPool,
             settings,

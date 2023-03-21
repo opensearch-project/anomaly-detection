@@ -42,6 +42,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
@@ -68,6 +69,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
     private Settings environmentSettings;
     private TransportService transportService;
     private SDKRestClient restClient;
+    private OpenSearchAsyncClient openSearchAsyncClient;
     private SDKClusterService sdkClusterService;
 
     public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
@@ -76,12 +78,17 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         .map(aspect -> aspect.getName())
         .collect(Collectors.toSet());
 
-    public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient restClient) {
+    public RestValidateAnomalyDetectorAction(
+        ExtensionsRunner extensionsRunner,
+        SDKRestClient restClient,
+        OpenSearchAsyncClient openSearchAsyncClient
+    ) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = restClient;
+        this.openSearchAsyncClient = openSearchAsyncClient;
         this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 
@@ -182,6 +189,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             this.environmentSettings, // Settings settings
             new AnomalyDetectionIndices(
                 restClient, // client,
+                openSearchAsyncClient,
                 sdkClusterService, // clusterService,
                 null, // threadPool,
                 this.environmentSettings, // settings,

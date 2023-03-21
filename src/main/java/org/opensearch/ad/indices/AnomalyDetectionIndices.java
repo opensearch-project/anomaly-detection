@@ -35,6 +35,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -48,8 +51,6 @@ import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.opensearch.action.admin.indices.settings.get.GetSettingsAction;
-import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.delete.DeleteRequest;
@@ -69,6 +70,10 @@ import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.client.indices.PutMappingRequest;
 import org.opensearch.client.indices.rollover.RolloverRequest;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.client.opensearch.indices.GetIndicesSettingsRequest;
+import org.opensearch.client.opensearch.indices.GetIndicesSettingsResponse;
+import org.opensearch.client.transport.TransportOptions;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -117,6 +122,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private SDKClusterService clusterService;
     private final SDKRestClient client;
     private final SDKRestClient adminClient;
+    private final OpenSearchAsyncClient openSearchAsyncClient;
     private final ThreadPool threadPool;
 
     private volatile TimeValue historyRolloverPeriod;
@@ -164,6 +170,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * Constructor function
      *
      * @param client         ES client supports administrative actions
+     * @param openSearchAsyncClient Java client
      * @param sdkClusterService ES cluster service
      * @param threadPool     ES thread pool
      * @param settings       ES cluster setting
@@ -172,6 +179,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public AnomalyDetectionIndices(
         SDKRestClient client,
+        OpenSearchAsyncClient openSearchAsyncClient,
         SDKClusterService sdkClusterService,
         ThreadPool threadPool,
         Settings settings,
@@ -180,6 +188,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     ) {
         this.client = client;
         this.adminClient = client;
+        this.openSearchAsyncClient = openSearchAsyncClient;
         this.clusterService = sdkClusterService;
         this.threadPool = threadPool;
         // FIXME Implement this
@@ -1075,17 +1084,28 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     private void updateJobIndexSettingIfNecessary(IndexState jobIndexState, ActionListener<Void> listener) {
-        GetSettingsRequest getSettingsRequest = new GetSettingsRequest()
-            .indices(ADIndex.JOB.getIndexName())
-            .names(
-                new String[] {
-                    IndexMetadata.SETTING_NUMBER_OF_SHARDS,
-                    IndexMetadata.SETTING_NUMBER_OF_REPLICAS,
-                    IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS }
-            );
-        client.execute(GetSettingsAction.INSTANCE, getSettingsRequest, ActionListener.wrap(settingResponse -> {
+        GetIndicesSettingsRequest getIndicesSettingsRequest = new GetIndicesSettingsRequest.Builder()
+            .index(List.of(ADIndex.JOB.getIndexName()))
+            .name(
+                List
+                    .of(
+                        IndexMetadata.SETTING_NUMBER_OF_SHARDS,
+                        IndexMetadata.SETTING_NUMBER_OF_REPLICAS,
+                        IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS
+                    )
+            )
+            .build();
+
+        CompletableFuture<GetIndicesSettingsResponse> getIndicesSettingsResponse = openSearchAsyncClient
+            ._transport()
+            .performRequestAsync(getIndicesSettingsRequest, GetIndicesSettingsRequest._ENDPOINT, TransportOptions.builder().build());
+
+        GetIndicesSettingsResponse settingResponse;
+        try {
+            settingResponse = getIndicesSettingsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
             // auto expand setting is a range string like "1-all"
-            String autoExpandReplica = getStringSetting(settingResponse, IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS);
+            org.opensearch.client.opensearch.indices.IndexState indexState = settingResponse.get(ADIndex.JOB.getIndexName());
+            String autoExpandReplica = indexState.settings().autoExpandReplicas();
             // if the auto expand setting is already there, return immediately
             if (autoExpandReplica != null) {
                 jobIndexState.settingUpToDate = true;
@@ -1093,8 +1113,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 listener.onResponse(null);
                 return;
             }
-            Integer primaryShardsNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_SHARDS);
-            Integer replicaNumber = getIntegerSetting(settingResponse, IndexMetadata.SETTING_NUMBER_OF_REPLICAS);
+            Integer primaryShardsNumber = Integer.valueOf(indexState.settings().numberOfShards());
+            Integer replicaNumber = Integer.valueOf(indexState.settings().numberOfReplicas());
             if (primaryShardsNumber == null || replicaNumber == null) {
                 logger
                     .error(
@@ -1124,16 +1144,15 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
                 listener.onResponse(null);
             }, listener::onFailure));
-        }, e -> {
-            if (e instanceof IndexNotFoundException) {
-                // new index will be created with auto expand replica setting
-                jobIndexState.settingUpToDate = true;
-                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
-                listener.onResponse(null);
-            } else {
-                listener.onFailure(e);
-            }
-        }));
+
+        } catch (ExecutionException e) {
+            // new index will be created with auto expand replica setting
+            jobIndexState.settingUpToDate = true;
+            logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+            listener.onResponse(null);
+        } catch (Exception e) {
+            listener.onFailure(e);
+        }
     }
 
     private static Integer getIntegerSetting(GetSettingsResponse settingsResponse, String settingKey) {

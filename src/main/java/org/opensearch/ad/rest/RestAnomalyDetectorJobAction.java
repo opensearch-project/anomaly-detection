@@ -137,14 +137,18 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     }
 
     protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+        LOG.info("TESTING : HIT RESTANOMALYDETECTORJOBACTION");
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
 
+        LOG.info("TESTING : ATTEMPTING TO REGISTER JOB DETAILS");
         // Ensure job details are registered with Job Scheduler prior to creating a job
         if (!jobDetailsAreRegistered) {
             registerJobDetails();
         }
+
+        LOG.info("TESING : SUCCESSFULLY REGISTERED JOB DETAILS");
 
         String detectorId = request.param(DETECTOR_ID);
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);

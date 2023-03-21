@@ -31,6 +31,7 @@ import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
@@ -55,6 +56,7 @@ public class RolloverTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
         SDKRestClient client = mock(SDKRestClient.class);
+        OpenSearchAsyncClient openSearchAsyncClient = mock(OpenSearchAsyncClient.class);
         indicesClient = mock(SDKIndicesClient.class);
         SDKRestClient adminClient = mock(SDKRestClient.class);
         clusterService = mock(SDKClusterService.class);
@@ -93,6 +95,7 @@ public class RolloverTests extends AbstractADTest {
             // FIXME: Replace with SDK equivalents when re-enabling tests
             // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
             client,
+            openSearchAsyncClient,
             clusterService,
             threadPool,
             settings,

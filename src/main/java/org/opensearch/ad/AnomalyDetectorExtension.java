@@ -84,8 +84,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient(), asyncClient()),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient(), asyncClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
             );
@@ -119,6 +119,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
+            openSearchAsyncClient,
             sdkClusterService,
             threadPool,
             environmentSettings,
@@ -130,6 +131,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             environmentSettings,
             sdkClusterService,
             sdkRestClient,
+            openSearchAsyncClient,
             xContentRegistry,
             anomalyDetectionIndices,
             nodeFilter,

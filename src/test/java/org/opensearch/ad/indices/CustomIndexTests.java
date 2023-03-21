@@ -85,6 +85,7 @@ public class CustomIndexTests extends AbstractADTest {
             // FIXME: Replace with SDK equivalents when re-enabling tests
             // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
             null, // client,
+            null, // opensearchAsyncClient
             null, // clusterService,
             threadPool,
             settings,

@@ -146,9 +146,7 @@ public class IndexAnomalyDetectorTransportAction {
         AnomalyDetector currentDetector,
         ActionListener<IndexAnomalyDetectorResponse> listener
     ) {
-        // FIXME @anomaly.detection - startdetector : uncomment after AnomalyDetectionIndices.updateJobIndexSettingIfNecessary() client
-        // execution has been replaced with the java client
-        // anomalyDetectionIndices.update();
+        anomalyDetectionIndices.update();
         String detectorId = request.getDetectorID();
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();
