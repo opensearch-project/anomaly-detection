@@ -39,15 +39,15 @@ import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
-import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.sdk.ActionExtension;
 import org.opensearch.sdk.BaseExtension;
 import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.SDKClient;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
@@ -55,7 +55,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.collect.ImmutableList;
 
-public class AnomalyDetectorExtension extends BaseExtension {
+public class AnomalyDetectorExtension extends BaseExtension implements ActionExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
@@ -63,6 +63,7 @@ public class AnomalyDetectorExtension extends BaseExtension {
 
     @Deprecated
     private SDKRestClient sdkRestClient;
+    private OpenSearchAsyncClient sdkJavaAsyncClient;
 
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
@@ -81,7 +82,9 @@ public class AnomalyDetectorExtension extends BaseExtension {
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
 
-        this.sdkRestClient = createRestClient();
+        this.sdkRestClient = createRestClient(runner);
+        this.sdkJavaAsyncClient = createJavaAsyncClient(runner);
+
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -179,22 +182,22 @@ public class AnomalyDetectorExtension extends BaseExtension {
             );
     }
 
-    // TODO: replace or override client object on BaseExtension
-    // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
-    public OpenSearchClient getClient() {
+    private OpenSearchAsyncClient createJavaAsyncClient(ExtensionsRunner runner) {
         @SuppressWarnings("resource")
-        OpenSearchClient client = new SDKClient()
-            .initializeJavaClient(
-                getExtensionSettings().getOpensearchAddress(),
-                Integer.parseInt(getExtensionSettings().getOpensearchPort())
-            );
+        OpenSearchAsyncClient client = runner.getSdkClient().initializeJavaAsyncClient();
         return client;
     }
 
+    // TODO: replace or override client object on BaseExtension
+    // https://github.com/opensearch-project/opensearch-sdk-java/issues/160
+    public OpenSearchAsyncClient javaAsyncClient() {
+        return this.sdkJavaAsyncClient;
+    }
+
     @Deprecated
-    private SDKRestClient createRestClient() {
+    private SDKRestClient createRestClient(ExtensionsRunner runner) {
         @SuppressWarnings("resource")
-        SDKRestClient client = new SDKClient().initializeRestClient(getExtensionSettings());
+        SDKRestClient client = runner.getSdkClient().initializeRestClient();
         return client;
     }
 
