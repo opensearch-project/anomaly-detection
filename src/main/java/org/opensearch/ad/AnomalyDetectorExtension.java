@@ -166,10 +166,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
-
         this.sdkRestClient = createRestClient(runner);
         this.sdkJavaAsyncClient = createJavaAsyncClient(runner);
-
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
