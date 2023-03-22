@@ -53,9 +53,9 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.google.common.cache.Cache;
@@ -95,7 +95,7 @@ public class PriorityCache implements EntityCache {
         MemoryTracker memoryTracker,
         int numberOfTrees,
         Clock clock,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         Duration modelTtl,
         ThreadPool threadPool,
         CheckpointWriteWorker checkpointWriteQueue,

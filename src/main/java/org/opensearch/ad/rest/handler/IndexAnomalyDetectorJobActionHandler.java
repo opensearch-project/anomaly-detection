@@ -32,11 +32,15 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
+import org.opensearch.ad.transport.StopDetectorAction;
+import org.opensearch.ad.transport.StopDetectorRequest;
+import org.opensearch.ad.transport.StopDetectorResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -264,96 +268,94 @@ public class IndexAnomalyDetectorJobActionHandler {
         }
     }
 
-    // TODO : https://github.com/opensearch-project/opensearch-sdk-java/issues/384
+    /**
+    * Stop anomaly detector job.
+    * 1.If job not exists, return error message
+    * 2.If job exists: a).if job state is disabled, return error message; b).if job state is enabled, disable job.
+    *
+    * @param detectorId detector identifier
+    */
+    public void stopAnomalyDetectorJob(String detectorId) {
+        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
 
-    // /**
-    // * Stop anomaly detector job.
-    // * 1.If job not exists, return error message
-    // * 2.If job exists: a).if job state is disabled, return error message; b).if job state is enabled, disable job.
-    // *
-    // * @param detectorId detector identifier
-    // */
-    // public void stopAnomalyDetectorJob(String detectorId) {
-    // GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        client.get(getRequest, ActionListener.wrap(response -> {
+            if (response.isExists()) {
+                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    if (!job.isEnabled()) {
+                        adTaskManager.stopLatestRealtimeTask(detectorId, ADTaskState.STOPPED, null, transportService, listener);
+                    } else {
+                        AnomalyDetectorJob newJob = new AnomalyDetectorJob(
+                            job.getName(),
+                            job.getSchedule(),
+                            job.getWindowDelay(),
+                            false,
+                            job.getEnabledTime(),
+                            Instant.now(),
+                            Instant.now(),
+                            job.getLockDurationSeconds(),
+                            job.getUser(),
+                            job.getResultIndex()
+                        );
+                        indexAnomalyDetectorJob(
+                            newJob,
+                            () -> client
+                                .execute(
+                                    StopDetectorAction.INSTANCE,
+                                    new StopDetectorRequest(detectorId),
+                                    stopAdDetectorListener(detectorId)
+                                )
+                        );
+                    }
+                } catch (IOException e) {
+                    String message = "Failed to parse anomaly detector job " + detectorId;
+                    logger.error(message, e);
+                    listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
+                }
+            } else {
+                listener.onFailure(new OpenSearchStatusException("Anomaly detector job not exist: " + detectorId, RestStatus.BAD_REQUEST));
+            }
+        }, exception -> listener.onFailure(exception)));
+    }
 
-    // client.get(getRequest, ActionListener.wrap(response -> {
-    // if (response.isExists()) {
-    // try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
-    // ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-    // AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
-    // if (!job.isEnabled()) {
-    // adTaskManager.stopLatestRealtimeTask(detectorId, ADTaskState.STOPPED, null, transportService, listener);
-    // } else {
-    // AnomalyDetectorJob newJob = new AnomalyDetectorJob(
-    // job.getName(),
-    // job.getSchedule(),
-    // job.getWindowDelay(),
-    // false,
-    // job.getEnabledTime(),
-    // Instant.now(),
-    // Instant.now(),
-    // job.getLockDurationSeconds(),
-    // job.getUser(),
-    // job.getResultIndex()
-    // );
-    // indexAnomalyDetectorJob(
-    // newJob,
-    // () -> client
-    // .execute(
-    // StopDetectorAction.INSTANCE,
-    // new StopDetectorRequest(detectorId),
-    // stopAdDetectorListener(detectorId)
-    // )
-    // );
-    // }
-    // } catch (IOException e) {
-    // String message = "Failed to parse anomaly detector job " + detectorId;
-    // logger.error(message, e);
-    // listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
-    // }
-    // } else {
-    // listener.onFailure(new OpenSearchStatusException("Anomaly detector job not exist: " + detectorId, RestStatus.BAD_REQUEST));
-    // }
-    // }, exception -> listener.onFailure(exception)));
-    // }
+    private ActionListener<StopDetectorResponse> stopAdDetectorListener(String detectorId) {
+        return new ActionListener<StopDetectorResponse>() {
+            @Override
+            public void onResponse(StopDetectorResponse stopDetectorResponse) {
+                if (stopDetectorResponse.success()) {
+                    logger.info("AD model deleted successfully for detector {}", detectorId);
+                    // StopDetectorTransportAction will send out DeleteModelAction which will clear all realtime cache.
+                    // Pass null transport service to method "stopLatestRealtimeTask" to not re-clear coordinating node cache.
+                    adTaskManager.stopLatestRealtimeTask(detectorId, ADTaskState.STOPPED, null, null, listener);
+                } else {
+                    logger.error("Failed to delete AD model for detector {}", detectorId);
+                    // If failed to clear all realtime cache, will try to re-clear coordinating node cache.
+                    adTaskManager
+                        .stopLatestRealtimeTask(
+                            detectorId,
+                            ADTaskState.FAILED,
+                            new OpenSearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR),
+                            transportService,
+                            listener
+                        );
+                }
+            }
 
-    // private ActionListener<StopDetectorResponse> stopAdDetectorListener(String detectorId) {
-    // return new ActionListener<StopDetectorResponse>() {
-    // @Override
-    // public void onResponse(StopDetectorResponse stopDetectorResponse) {
-    // if (stopDetectorResponse.success()) {
-    // logger.info("AD model deleted successfully for detector {}", detectorId);
-    // // StopDetectorTransportAction will send out DeleteModelAction which will clear all realtime cache.
-    // // Pass null transport service to method "stopLatestRealtimeTask" to not re-clear coordinating node cache.
-    // adTaskManager.stopLatestRealtimeTask(detectorId, ADTaskState.STOPPED, null, null, listener);
-    // } else {
-    // logger.error("Failed to delete AD model for detector {}", detectorId);
-    // // If failed to clear all realtime cache, will try to re-clear coordinating node cache.
-    // adTaskManager
-    // .stopLatestRealtimeTask(
-    // detectorId,
-    // ADTaskState.FAILED,
-    // new OpenSearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR),
-    // transportService,
-    // listener
-    // );
-    // }
-    // }
-
-    // @Override
-    // public void onFailure(Exception e) {
-    // logger.error("Failed to delete AD model for detector " + detectorId, e);
-    // // If failed to clear all realtime cache, will try to re-clear coordinating node cache.
-    // adTaskManager
-    // .stopLatestRealtimeTask(
-    // detectorId,
-    // ADTaskState.FAILED,
-    // new OpenSearchStatusException("Failed to execute stop detector action", RestStatus.INTERNAL_SERVER_ERROR),
-    // transportService,
-    // listener
-    // );
-    // }
-    // };
-    // }
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("Failed to delete AD model for detector " + detectorId, e);
+                // If failed to clear all realtime cache, will try to re-clear coordinating node cache.
+                adTaskManager
+                    .stopLatestRealtimeTask(
+                        detectorId,
+                        ADTaskState.FAILED,
+                        new OpenSearchStatusException("Failed to execute stop detector action", RestStatus.INTERNAL_SERVER_ERROR),
+                        transportService,
+                        listener
+                    );
+            }
+        };
+    }
 
 }

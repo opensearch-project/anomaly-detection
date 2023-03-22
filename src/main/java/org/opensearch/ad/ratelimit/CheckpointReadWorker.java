@@ -51,10 +51,10 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
 
 /**
@@ -84,7 +84,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
         Setting<Float> maxHeapPercentForQueueSetting,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         Random random,
         ADCircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,

@@ -37,14 +37,14 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.BackPressureRouting;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 
 /**
@@ -56,7 +56,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     private static final Logger LOG = LogManager.getLogger(NodeStateManager.class);
     public static final String NO_ERROR = "no_error";
     private ConcurrentHashMap<String, NodeState> states;
-    private Client client;
+    private SDKRestClient client;
     private SDKNamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
     // map from detector id to the map of ES node id to the node's backpressureMuter
@@ -78,13 +78,13 @@ public class NodeStateManager implements MaintenanceState, CleanState {
      * @param clusterService Cluster service accessor
      */
     public NodeStateManager(
-        Client client,
+        SDKRestClient client,
         SDKNamedXContentRegistry xContentRegistry,
         Settings settings,
         ClientUtil clientUtil,
         Clock clock,
         Duration stateTtl,
-        ClusterService clusterService
+        SDKClusterService clusterService
     ) {
         this.states = new ConcurrentHashMap<>();
         this.client = client;

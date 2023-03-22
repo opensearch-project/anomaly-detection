@@ -39,10 +39,10 @@ import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
 
@@ -192,7 +192,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         long heapSizeInBytes,
         int singleRequestSizeInBytes,
         Setting<Float> maxHeapPercentForQueueSetting,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         Random random,
         ADCircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,

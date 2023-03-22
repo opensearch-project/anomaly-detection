@@ -22,9 +22,9 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
 
 public abstract class SingleRequestWorker<RequestType extends QueuedRequest> extends ConcurrentWorker<RequestType> {
@@ -35,7 +35,7 @@ public abstract class SingleRequestWorker<RequestType extends QueuedRequest> ext
         long heapSize,
         int singleRequestSize,
         Setting<Float> maxHeapPercentForQueueSetting,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         Random random,
         ADCircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,

@@ -831,36 +831,35 @@ public class ADTaskManager {
      * @param transportService transport service
      * @param listener action listener
      */
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // public void stopDetector(
-    // String detectorId,
-    // boolean historical,
-    // IndexAnomalyDetectorJobActionHandler handler,
-    // UserIdentity user,
-    // TransportService transportService,
-    // ActionListener<AnomalyDetectorJobResponse> listener
-    // ) {
-    // getDetector(detectorId, (detector) -> {
-    // if (!detector.isPresent()) {
-    // listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
-    // return;
-    // }
-    // if (historical) {
-    // // stop historical analyis
-    // getAndExecuteOnLatestDetectorLevelTask(
-    // detectorId,
-    // HISTORICAL_DETECTOR_TASK_TYPES,
-    // (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
-    // transportService,
-    // false,// don't need to reset task state when stop detector
-    // listener
-    // );
-    // } else {
-    // // stop realtime detector job
-    // handler.stopAnomalyDetectorJob(detectorId);
-    // }
-    // }, listener);
-    // }
+    public void stopDetector(
+        String detectorId,
+        boolean historical,
+        IndexAnomalyDetectorJobActionHandler handler,
+        UserIdentity user,
+        TransportService transportService,
+        ActionListener<AnomalyDetectorJobResponse> listener
+    ) {
+        getDetector(detectorId, (detector) -> {
+            if (!detector.isPresent()) {
+                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
+                return;
+            }
+            if (historical) {
+                // stop historical analyis
+                getAndExecuteOnLatestDetectorLevelTask(
+                    detectorId,
+                    HISTORICAL_DETECTOR_TASK_TYPES,
+                    (task) -> stopHistoricalAnalysis(detectorId, task, user, listener),
+                    transportService,
+                    false,// don't need to reset task state when stop detector
+                    listener
+                );
+            } else {
+                // stop realtime detector job
+                handler.stopAnomalyDetectorJob(detectorId);
+            }
+        }, listener);
+    }
 
     /**
      * Get anomaly detector and execute consumer function.

@@ -28,6 +28,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.logging.log4j.LogManager;
@@ -37,7 +39,6 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.bulk.BulkAction;
-import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.delete.DeleteRequest;
@@ -49,7 +50,6 @@ import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
@@ -59,13 +59,14 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.client.Client;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
+import org.opensearch.client.opensearch._types.Conflicts;
+import org.opensearch.client.opensearch._types.ExpandWildcard;
+import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
+import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.index.query.MatchQueryBuilder;
-import org.opensearch.index.reindex.BulkByScrollResponse;
-import org.opensearch.index.reindex.DeleteByQueryAction;
-import org.opensearch.index.reindex.DeleteByQueryRequest;
-import org.opensearch.index.reindex.ScrollableHitSource;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -109,7 +110,8 @@ public class CheckpointDao {
     public static final String DETECTOR_ID = "detectorId";
 
     // dependencies
-    private final Client client;
+    private final SDKRestClient client;
+    private final OpenSearchAsyncClient sdkJavaAsyncClient;
     private final ClientUtil clientUtil;
 
     // configuration
@@ -145,6 +147,7 @@ public class CheckpointDao {
      * Constructor with dependencies and configuration.
      *
      * @param client ES search client
+     * @param sdkJavaAsyncClient OpenSearch Async Client
      * @param clientUtil utility with ES client
      * @param indexName name of the index for model checkpoints
      * @param gson accessor to Gson functionality
@@ -160,7 +163,8 @@ public class CheckpointDao {
      * @param anomalyRate anomaly rate
      */
     public CheckpointDao(
-        Client client,
+        SDKRestClient client,
+        OpenSearchAsyncClient sdkJavaAsyncClient,
         ClientUtil clientUtil,
         String indexName,
         Gson gson,
@@ -176,6 +180,7 @@ public class CheckpointDao {
         double anomalyRate
     ) {
         this.client = client;
+        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.clientUtil = clientUtil;
         this.indexName = indexName;
         this.gson = gson;
@@ -436,44 +441,48 @@ public class CheckpointDao {
         // with exponential back off. If the maximum retry limit is reached, processing
         // halts and all failed requests are returned in the response. Any delete
         // requests that completed successfully still stick, they are not rolled back.
-        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME)
-            .setQuery(new MatchQueryBuilder(DETECTOR_ID, detectorID))
-            .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN)
-            .setAbortOnVersionConflict(false) // when current delete happens, previous might not finish.
-                                              // Retry in this case
-            .setRequestsPerSecond(500); // throttle delete requests
+        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest.Builder()
+            .index(CommonName.CHECKPOINT_INDEX_NAME)
+            .query(queryBuilder -> queryBuilder.match(mb -> mb.field(DETECTOR_ID).query(vb -> vb.stringValue(detectorID))))
+            .allowNoIndices(true)
+            .ignoreUnavailable(true)
+            .expandWildcards(ExpandWildcard.Open)
+            .conflicts(Conflicts.Proceed)// when current delete happens, previous might not finish.
+                                         // Retry in this case
+            .requestsPerSecond(500L)// throttle delete request
+            .build();
         logger.info("Delete checkpoints of detector {}", detectorID);
-        client.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
-            if (response.isTimedOut() || !response.getBulkFailures().isEmpty() || !response.getSearchFailures().isEmpty()) {
+        try {
+            CompletableFuture<DeleteByQueryResponse> deleteResponse = sdkJavaAsyncClient.deleteByQuery(deleteRequest);
+            DeleteByQueryResponse response = deleteResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            if (response.timedOut() || !response.failures().isEmpty()) {
                 logFailure(response, detectorID);
             }
             // can return 0 docs get deleted because:
             // 1) we cannot find matching docs
             // 2) bad stats from OpenSearch. In this case, docs are deleted, but
             // OpenSearch says deleted is 0.
-            logger.info("{} " + DOC_GOT_DELETED_LOG_MSG, response.getDeleted());
-        }, exception -> {
+            logger.info("{} " + DOC_GOT_DELETED_LOG_MSG, response.deleted());
+
+        } catch (Exception exception) {
             if (exception instanceof IndexNotFoundException) {
                 logger.info(INDEX_DELETED_LOG_MSG + " {}", detectorID);
             } else {
                 // Gonna eventually delete in daily cron.
                 logger.error(NOT_ABLE_TO_DELETE_LOG_MSG, exception);
             }
-        }));
+        }
     }
 
-    private void logFailure(BulkByScrollResponse response, String detectorID) {
-        if (response.isTimedOut()) {
+    private void logFailure(DeleteByQueryResponse response, String detectorID) {
+        if (response.timedOut()) {
             logger.warn(TIMEOUT_LOG_MSG + " {}", detectorID);
-        } else if (!response.getBulkFailures().isEmpty()) {
-            logger.warn(BULK_FAILURE_LOG_MSG + " {}", detectorID);
-            for (BulkItemResponse.Failure bulkFailure : response.getBulkFailures()) {
-                logger.warn(bulkFailure);
-            }
         } else {
-            logger.warn(SEARCH_FAILURE_LOG_MSG + " {}", detectorID);
-            for (ScrollableHitSource.SearchFailure searchFailure : response.getSearchFailures()) {
-                logger.warn(searchFailure);
+            if (!response.failures().isEmpty()) {
+                logger.warn(BULK_FAILURE_LOG_MSG + " {}", detectorID);
+                for (BulkIndexByScrollFailure bulkFailure : response.failures()) {
+                    logger.warn(bulkFailure);
+                }
             }
         }
     }

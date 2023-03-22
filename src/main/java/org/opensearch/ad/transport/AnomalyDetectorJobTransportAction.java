@@ -80,7 +80,6 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
     @Override
     protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> actionListener) {
 
-        logger.info("TESTING : HIT DO EXECUTE");
         String detectorId = request.getDetectorID();
         DetectionDateRange detectionDateRange = request.getDetectionDateRange();
         boolean historical = request.isHistorical();
@@ -146,10 +145,8 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
             adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, listener);
+        } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
+            adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
         }
-        // TODO : https://github.com/opensearch-project/opensearch-sdk-java/issues/384
-        // else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
-        // adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
-        // }
     }
 }
