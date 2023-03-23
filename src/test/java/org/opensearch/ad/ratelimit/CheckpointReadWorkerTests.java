@@ -61,14 +61,14 @@ import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
 
@@ -81,7 +81,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     CheckpointReadWorker worker;
 
     CheckpointDao checkpoint;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
 
     ModelState<EntityModel> state;
 
@@ -93,15 +93,14 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     CacheProvider cacheProvider;
     EntityCache entityCache;
     EntityFeatureRequest request, request2, request3;
-    ClusterSettings clusterSettings;
+    SDKClusterSettings clusterSettings;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
-        clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
+        clusterService = mock(SDKClusterService.class);
+        clusterSettings = clusterService.new SDKClusterSettings(
+            Settings.EMPTY, Collections
                 .unmodifiableSet(
                     new HashSet<>(
                         Arrays

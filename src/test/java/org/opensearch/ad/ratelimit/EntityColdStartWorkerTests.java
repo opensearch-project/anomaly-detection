@@ -32,24 +32,23 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 
 public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
-    ClusterService clusterService;
+    SDKClusterService clusterService;
     EntityColdStartWorker worker;
     EntityColdStarter entityColdStarter;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
+        clusterService = mock(SDKClusterService.class);
+        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
+            Settings.EMPTY, Collections
                 .unmodifiableSet(
                     new HashSet<>(
                         Arrays

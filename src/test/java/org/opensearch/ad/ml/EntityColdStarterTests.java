@@ -69,7 +69,6 @@ import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.cluster.service.ClusterService;
@@ -78,8 +77,9 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
-import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -151,7 +151,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         settings = Settings.EMPTY;
 
-        Client client = mock(Client.class);
+        SDKRestClient client = mock(SDKRestClient.class);
         clientUtil = mock(ClientUtil.class);
 
         detector = TestHelpers.AnomalyDetectorBuilder
@@ -182,7 +182,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             Version.CURRENT
         );
 
-        ClusterService clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
+        SDKClusterService clusterService = mock(SDKClusterService.class);
 
         SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
         when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());

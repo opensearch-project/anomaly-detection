@@ -43,18 +43,18 @@ import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 
 public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     ResultWriteWorker resultWriteQueue;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
     MultiEntityResultHandler resultHandler;
     AnomalyResult detectResult;
 
@@ -62,10 +62,9 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
+        clusterService = mock(SDKClusterService.class);
+        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
+            Settings.EMPTY, Collections
                 .unmodifiableSet(
                     new HashSet<>(
                         Arrays
