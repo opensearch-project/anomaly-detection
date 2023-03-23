@@ -32,11 +32,12 @@ import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.client.Client;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.ScrollableHitSource;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
@@ -63,7 +64,8 @@ public class CheckpointDeleteTests extends AbstractADTest {
     }
 
     private CheckpointDao checkpointDao;
-    private Client client;
+    private SDKRestClient client;
+    private OpenSearchAsyncClient sdkJavaAsyncClient;
     private ClientUtil clientUtil;
     private Gson gson;
     private AnomalyDetectionIndices indexUtil;
@@ -86,7 +88,8 @@ public class CheckpointDeleteTests extends AbstractADTest {
         super.setUp();
         super.setUpLog4jForJUnit(CheckpointDao.class);
 
-        client = mock(Client.class);
+        client = mock(SDKRestClient.class);
+        sdkJavaAsyncClient = mock(OpenSearchAsyncClient.class);
         clientUtil = mock(ClientUtil.class);
         gson = null;
         indexUtil = mock(AnomalyDetectionIndices.class);
@@ -101,6 +104,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
         anomalyRate = 0.005;
         checkpointDao = new CheckpointDao(
             client,
+            sdkJavaAsyncClient,
             clientUtil,
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,

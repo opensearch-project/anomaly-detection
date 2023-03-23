@@ -29,13 +29,13 @@ import java.util.Random;
 
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 
 public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
-    ClusterService clusterService;
+    SDKClusterService clusterService;
     ColdEntityWorker coldWorker;
     CheckpointReadWorker readWorker;
     EntityFeatureRequest request, request2, invalidRequest;
@@ -44,11 +44,10 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
+        clusterService = mock(SDKClusterService.class);
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), 1).build();
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections
+        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
+            settings, Collections
                 .unmodifiableSet(
                     new HashSet<>(
                         Arrays
@@ -137,9 +136,8 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     }
 
     public void testDelay() {
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
+        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
+            Settings.EMPTY, Collections
                 .unmodifiableSet(
                     new HashSet<>(
                         Arrays

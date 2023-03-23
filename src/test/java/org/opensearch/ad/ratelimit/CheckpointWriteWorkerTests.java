@@ -53,14 +53,14 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.index.Index;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.threadpool.ThreadPool;
 
 import test.org.opensearch.ad.util.MLUtil;
@@ -70,7 +70,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     CheckpointWriteWorker worker;
 
     CheckpointDao checkpoint;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
 
     ModelState<EntityModel> state;
 
@@ -78,10 +78,9 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
+        clusterService = mock(SDKClusterService.class);
+        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
+            Settings.EMPTY, Collections
                 .unmodifiableSet(
                     new HashSet<>(
                         Arrays

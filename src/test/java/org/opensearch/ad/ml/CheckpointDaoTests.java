@@ -95,10 +95,11 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.client.Client;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.shard.ShardId;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.test.OpenSearchTestCase;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
@@ -127,7 +128,10 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
     // dependencies
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-    private Client client;
+    private SDKRestClient client;
+
+    @Mock
+    private OpenSearchAsyncClient sdkJavaAsyncClient;
 
     @Mock
     private ClientUtil clientUtil;
@@ -209,6 +213,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         anomalyRate = 0.005;
         checkpointDao = new CheckpointDao(
             client,
+            sdkJavaAsyncClient,
             clientUtil,
             indexName,
             gson,
@@ -677,6 +682,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     public void test_too_large_checkpoint() throws IOException {
         checkpointDao = new CheckpointDao(
             client,
+            sdkJavaAsyncClient,
             clientUtil,
             indexName,
             gson,
@@ -714,6 +720,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         when(mockSerializeRCFBufferPool.borrowObject()).thenThrow(NoSuchElementException.class);
         checkpointDao = new CheckpointDao(
             client,
+            sdkJavaAsyncClient,
             clientUtil,
             indexName,
             gson,
@@ -739,6 +746,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         checkpointDao = new CheckpointDao(
             client,
+            sdkJavaAsyncClient,
             clientUtil,
             indexName,
             gson,
@@ -787,6 +795,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         trcfSchema = mock(Schema.class);
         checkpointDao = new CheckpointDao(
             client,
+            sdkJavaAsyncClient,
             clientUtil,
             indexName,
             gson,
@@ -926,6 +935,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         Pair<Map<String, Object>, Instant> modelPair = setUp1_0Model("checkpoint_2.json");
         checkpointDao = new CheckpointDao(
             client,
+            sdkJavaAsyncClient,
             clientUtil,
             indexName,
             gson,
