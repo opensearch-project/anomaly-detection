@@ -30,6 +30,9 @@ import org.opensearch.SpecialPermission;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.caching.CacheProvider;
+import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.caching.PriorityCache;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.Interpolator;
@@ -61,6 +64,8 @@ import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
+import org.opensearch.ad.transport.DeleteModelAction;
+import org.opensearch.ad.transport.DeleteModelTransportAction;
 import org.opensearch.ad.transport.StopDetectorAction;
 import org.opensearch.ad.transport.StopDetectorTransportAction;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
@@ -290,7 +295,22 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             stateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
+        EntityCache cache = new PriorityCache(
+            checkpoint,
+            AnomalyDetectorSettings.DEDICATED_CACHE_SIZE.get(environmentSettings),
+            AnomalyDetectorSettings.CHECKPOINT_TTL,
+            AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
+            memoryTracker,
+            AnomalyDetectorSettings.NUM_TREES,
+            getClock(),
+            sdkClusterService,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            checkpointWriteQueue,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT
+        );
 
+        CacheProvider cacheProvider = new CacheProvider(cache);
         EntityColdStarter entityColdStarter = new EntityColdStarter(
             getClock(),
             threadPool,
@@ -377,6 +397,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 adCircuitBreakerService,
                 nodeFilter,
                 checkpoint,
+                cacheProvider,
                 adTaskManager,
                 checkpointWriteQueue,
                 entityColdStarter,
@@ -390,6 +411,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
         List<Setting<?>> systemSetting = ImmutableList
             .of(
+                AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
                 AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                 AnomalyDetectorSettings.PAGE_SIZE,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
@@ -477,8 +499,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
-                new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class)
-                // TODO : Register DeleteModelTransportAction here for stop detector
+                new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
+                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class)
             );
     }
 

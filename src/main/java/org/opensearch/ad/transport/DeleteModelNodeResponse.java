@@ -14,10 +14,10 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.support.nodes.BaseNodeResponse;
-import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.extensions.DiscoveryExtensionNode;
 
 public class DeleteModelNodeResponse extends BaseNodeResponse implements ToXContentObject {
     static String NODE_ID = "node_id";
@@ -26,7 +26,7 @@ public class DeleteModelNodeResponse extends BaseNodeResponse implements ToXCont
         super(in);
     }
 
-    public DeleteModelNodeResponse(DiscoveryNode node) {
+    public DeleteModelNodeResponse(DiscoveryExtensionNode node) {
         super(node);
     }
 
