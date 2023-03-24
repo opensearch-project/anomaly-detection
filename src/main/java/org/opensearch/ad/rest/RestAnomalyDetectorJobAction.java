@@ -123,8 +123,8 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         requestBody.startObject();
         requestBody.field(GetJobDetailsRequest.JOB_INDEX, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
         requestBody.field(GetJobDetailsRequest.JOB_TYPE, AnomalyDetectorExtension.AD_JOB_TYPE);
-        requestBody.field(GetJobDetailsRequest.JOB_PARAMETER_ACTION, ADJobParameterAction.NAME);
-        requestBody.field(GetJobDetailsRequest.JOB_RUNNER_ACTION, ADJobRunnerAction.NAME);
+        requestBody.field(GetJobDetailsRequest.JOB_PARAMETER_ACTION, ADJobParameterAction.class.getName());
+        requestBody.field(GetJobDetailsRequest.JOB_RUNNER_ACTION, ADJobRunnerAction.class.getName());
         requestBody.field(GetJobDetailsRequest.EXTENSION_UNIQUE_ID, extensionsRunner.getUniqueId());
         requestBody.endObject();
 
