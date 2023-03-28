@@ -29,8 +29,8 @@ import java.util.stream.Stream;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.SDKClusterService;
 
 /**
  * ModelsOnNodeSupplier provides a List of ModelStates info for the models the nodes contains
@@ -64,7 +64,7 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
      * @param settings node settings accessor
      * @param clusterService Cluster service accessor
      */
-    public ModelsOnNodeSupplier(ModelManager modelManager, CacheProvider cache, Settings settings, ClusterService clusterService) {
+    public ModelsOnNodeSupplier(ModelManager modelManager, CacheProvider cache, Settings settings, SDKClusterService clusterService) {
         this.modelManager = modelManager;
         this.cache = cache;
         this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
