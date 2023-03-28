@@ -21,11 +21,8 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.action.ExtensionActionRequest;
-import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
-import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
@@ -37,7 +34,7 @@ import com.google.inject.Inject;
 /**
  * Transport Action to execute job runner of anomaly detection.
  */
-public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionRequest, ExtensionActionResponse> {
+public class ADJobRunnerTransportAction extends TransportAction<JobRunnerRequest, JobRunnerResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ADJobRunnerTransportAction.class);
 
@@ -58,14 +55,12 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
     }
 
     @Override
-    protected void doExecute(Task task, ExtensionActionRequest request, ActionListener<ExtensionActionResponse> actionListener) {
+    protected void doExecute(Task task, JobRunnerRequest request, ActionListener<JobRunnerResponse> actionListener) {
         String errorMessage = "Failed to run the Job";
-        ActionListener<ExtensionActionResponse> listener = wrapRestActionListener(actionListener, errorMessage);
-        JobRunnerRequest jobRunnerRequest;
+        ActionListener<JobRunnerResponse> listener = wrapRestActionListener(actionListener, errorMessage);
         try {
-            jobRunnerRequest = new JobRunnerRequest(request.getRequestBytes());
             CompletableFuture<AnomalyDetectorJob> inProgressFuture = new CompletableFuture<>();
-            String jobParameterDocumentId = jobRunnerRequest.getJobParameterDocumentId();
+            String jobParameterDocumentId = request.getJobParameterDocumentId();
             if (jobParameterDocumentId == null || jobParameterDocumentId.isEmpty()) {
                 listener.onFailure(new IllegalArgumentException("jobParameterDocumentId cannot be empty or null"));
             } else {
@@ -95,14 +90,14 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
                     logger.info(" Could not find Job Parameter due to exception ", e);
                 }
 
-                JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
+                JobExecutionContext jobExecutionContext = request.getJobExecutionContext();
                 JobRunnerResponse jobRunnerResponse;
                 if (scheduledJobParameter != null && validateJobExecutionContext(jobExecutionContext)) {
                     jobRunnerResponse = new JobRunnerResponse(true);
                 } else {
                     jobRunnerResponse = new JobRunnerResponse(false);
                 }
-                listener.onResponse(new ExtensionJobActionResponse<>(jobRunnerResponse));
+                listener.onResponse(jobRunnerResponse);
                 if (jobRunnerResponse.getJobRunnerStatus()) {
                     AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter, jobExecutionContext);
                 }
