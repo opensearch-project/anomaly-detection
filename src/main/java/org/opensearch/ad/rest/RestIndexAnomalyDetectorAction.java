@@ -43,7 +43,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestRequest;
@@ -99,7 +98,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             );
     }
 
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -108,7 +107,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         }
     };
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws Exception {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws Exception {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -116,7 +115,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
         logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
 
-        XContentParser parser = request.contentParser(this.namedXContentRegistry.getRegistry());
+        XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         // TODO: check detection interval < modelTTL
         AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
@@ -188,7 +187,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         return indexAnomalyDetectorResponse(request, response);
     }
 
-    private ExtensionRestResponse indexAnomalyDetectorResponse(ExtensionRestRequest request, IndexAnomalyDetectorResponse response)
+    private ExtensionRestResponse indexAnomalyDetectorResponse(RestRequest request, IndexAnomalyDetectorResponse response)
         throws IOException {
         RestStatus restStatus = RestStatus.CREATED;
         if (request.method() == RestRequest.Method.PUT) {

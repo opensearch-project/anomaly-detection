@@ -38,7 +38,6 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
@@ -47,7 +46,6 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -59,7 +57,6 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String GET_ANOMALY_DETECTOR_ACTION = "get_anomaly_detector";
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
-    private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings settings;
     private TransportService transportService;
     private SDKRestClient client;
@@ -68,7 +65,6 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         this.extensionsRunner = extensionsRunner;
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.client = client;
@@ -93,7 +89,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
             );
     }
 
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -102,7 +98,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         }
     };
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -203,7 +199,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
             );
     }*/
 
-    private Entity buildEntity(ExtensionRestRequest request, String detectorId) throws IOException {
+    private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
         if (Strings.isEmpty(detectorId)) {
             throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
         }
@@ -225,7 +221,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
              *      }]
              * }
              */
-            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser(namedXContentRegistry.getRegistry()));
+            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser());
             if (entity.isPresent()) {
                 return entity.get();
             }
@@ -234,8 +230,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         return null;
     }
 
-    private ExtensionRestResponse getAnomalyDetectorResponse(ExtensionRestRequest request, GetAnomalyDetectorResponse response)
-        throws IOException {
+    private ExtensionRestResponse getAnomalyDetectorResponse(RestRequest request, GetAnomalyDetectorResponse response) throws IOException {
         RestStatus restStatus = RestStatus.OK;
         ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
             request,
