@@ -58,6 +58,7 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         when(extensionsRunner.getNamedXContentRegistry()).thenReturn(sdkNamedXContentRegistry);
         when(sdkNamedXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
         action = new ADJobRunnerTransportAction(
+            extensionsRunner,
             mock(ActionFilters.class),
             mock(TaskManager.class),
             sdkNamedXContentRegistry,
