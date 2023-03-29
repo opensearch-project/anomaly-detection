@@ -8,128 +8,9 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/*@anomaly-detection commenting until we have support for ClusterServiceUtils.createClusterService : https://github.com/opensearch-project/opensearch-sdk-java/issues/621 
 package org.opensearch.ad.transport;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
-
-import java.io.IOException;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-
-import org.apache.commons.lang3.tuple.Pair;
-import org.junit.*;
-import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatcher;
-import org.mockito.stubbing.Answer;
-import org.opensearch.OpenSearchTimeoutException;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.search.SearchPhaseExecutionException;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.action.search.SearchResponse.Clusters;
-import org.opensearch.action.search.SearchResponseSections;
-import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.InternalFailure;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.feature.CompositeRetriever;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ThresholdingResult;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.ratelimit.CheckpointReadWorker;
-import org.opensearch.ad.ratelimit.ColdEntityWorker;
-import org.opensearch.ad.ratelimit.EntityFeatureRequest;
-import org.opensearch.ad.ratelimit.ResultWriteWorker;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.stats.ADStat;
-import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
-import org.opensearch.ad.stats.suppliers.CounterSupplier;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.node.DiscoveryNodeRole;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Setting;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
-import org.opensearch.search.DocValueFormat;
-import org.opensearch.search.SearchHits;
-import org.opensearch.search.aggregations.Aggregation;
-import org.opensearch.search.aggregations.Aggregations;
-import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
-import org.opensearch.search.aggregations.metrics.InternalMin;
-import org.opensearch.test.ClusterServiceUtils;
-import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.Transport;
-import org.opensearch.transport.TransportException;
-import org.opensearch.transport.TransportInterceptor;
-import org.opensearch.transport.TransportRequest;
-import org.opensearch.transport.TransportRequestOptions;
-import org.opensearch.transport.TransportResponse;
-import org.opensearch.transport.TransportResponseHandler;
-import org.opensearch.transport.TransportService;
-
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.google.common.collect.ImmutableList;
 
 @Ignore
 public class MultiEntityResultTests extends AbstractADTest {
@@ -451,11 +332,11 @@ public class MultiEntityResultTests extends AbstractADTest {
         );
     }
 
-    /**
-     * Test query error causes EndRunException but not end now
-     * @throws InterruptedException when the await are interrupted
-     * @throws IOException when failing to create anomaly detector
-     */
+    //
+    // Test query error causes EndRunException but not end now
+    // @throws InterruptedException when the await are interrupted
+    // @throws IOException when failing to create anomaly detector
+    // 
     public void testQueryErrorEndRunNotNow() throws InterruptedException, IOException {
         setUpNormlaStateManager();
 
@@ -555,10 +436,10 @@ public class MultiEntityResultTests extends AbstractADTest {
         assertEquals(Double.NaN, response2.getAnomalyGrade(), 0.01);
     }
 
-    /**
-     *
-     * @return an empty response
-     */
+    //
+    // 
+    // @return an empty response
+    //
     private SearchResponse createEmptyResponse() {
         CompositeAggregation emptyComposite = mock(CompositeAggregation.class);
         when(emptyComposite.getName()).thenReturn(CompositeRetriever.AGG_NAME_COMP);
@@ -1215,11 +1096,11 @@ public class MultiEntityResultTests extends AbstractADTest {
         assertTrue(!endRunException.isEndNow());
     }
 
-    /**
-     * Test that in model node, previously recorded exception is OpenSearchTimeoutException,
-     * @throws IOException when failing to set up transport layer
-     * @throws InterruptedException when failing to wait for inProgress to finish
-     */
+    // 
+    // Test that in model node, previously recorded exception is OpenSearchTimeoutException,
+    // @throws IOException when failing to set up transport layer
+    // @throws InterruptedException when failing to wait for inProgress to finish
+    //
     public void testTimeOutExceptionInModelNode() throws IOException, InterruptedException {
         Pair<NodeStateManager, CountDownLatch> preparedFixture = setUpTestExceptionTestingInModelNode();
         NodeStateManager modelNodeStateManager = preparedFixture.getLeft();
@@ -1246,12 +1127,12 @@ public class MultiEntityResultTests extends AbstractADTest {
         assertTrue("actual exception is " + actual, actual instanceof InternalFailure);
     }
 
-    /**
-     * Test that when both previous and current run returns exception, we return more
-     * important exception (EndRunException is more important)
-     * @throws InterruptedException when failing to wait for inProgress to finish
-     * @throws IOException when failing to set up transport layer
-     */
+    //
+    // Test that when both previous and current run returns exception, we return more
+    // important exception (EndRunException is more important)
+    // @throws InterruptedException when failing to wait for inProgress to finish
+    // @throws IOException when failing to set up transport layer
+    // 
     public void testSelectHigherExceptionInModelNode() throws InterruptedException, IOException {
         when(entityCache.get(any(), any())).thenThrow(EndRunException.class);
 
@@ -1280,13 +1161,13 @@ public class MultiEntityResultTests extends AbstractADTest {
         assertTrue(!endRunException.isEndNow());
     }
 
-    /**
-     * A missing index will cause the search result to contain null aggregation
-     * like {"took":0,"timed_out":false,"_shards":{"total":0,"successful":0,"skipped":0,"failed":0},"hits":{"max_score":0.0,"hits":[]}}
-     *
-     * The test verifies we can handle such situation and won't throw exceptions
-     * @throws InterruptedException while waiting for execution gets interruptted
-     */
+    //
+    // A missing index will cause the search result to contain null aggregation
+    // like {"took":0,"timed_out":false,"_shards":{"total":0,"successful":0,"skipped":0,"failed":0},"hits":{"max_score":0.0,"hits":[]}}
+    //
+    // The test verifies we can handle such situation and won't throw exceptions
+    // @throws InterruptedException while waiting for execution gets interruptted
+    //
     public void testMissingIndex() throws InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
@@ -1320,3 +1201,4 @@ public class MultiEntityResultTests extends AbstractADTest {
         verify(stateManager, times(1)).setException(eq(detectorId), any(EndRunException.class));
     }
 }
+*/
