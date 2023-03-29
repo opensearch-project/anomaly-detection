@@ -1579,7 +1579,6 @@ public class ADTaskManager {
      * @param <T> action listener response type
      */
     public <T> void createADTaskDirectly(ADTask adTask, Consumer<IndexResponse> function, ActionListener<T> listener) {
-        logger.info("TESTING : END OF START DETECTOR CREATING AD TASK DIRECTLY");
         IndexRequest request = new IndexRequest(DETECTION_STATE_INDEX);
         try (XContentBuilder builder = XContentFactory.jsonBuilder()) {
             request

@@ -177,11 +177,11 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         AnomalyDetectorJobResponse response = adJobFutureResponse
             .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
             .join();
-        return new ExtensionRestResponse(
-            request,
-            RestStatus.OK,
-            response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
-        );
+
+        XContentBuilder adJobResponseBuilder = response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
+        LOG.info("Recieved Response : " + Strings.toString(adJobResponseBuilder));
+
+        return new ExtensionRestResponse(request, RestStatus.OK, adJobResponseBuilder);
     }
 
     private DetectionDateRange parseDetectionDateRange(ExtensionRestRequest request) throws IOException {
