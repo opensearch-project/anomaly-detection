@@ -16,17 +16,19 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
 
-public class SearchADTasksTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
+public class SearchADTasksTransportAction extends TransportAction<SearchRequest, SearchResponse> {
     private ADSearchHandler searchHandler;
 
     @Inject
-    public SearchADTasksTransportAction(TransportService transportService, ActionFilters actionFilters, ADSearchHandler searchHandler) {
-        super(SearchADTasksAction.NAME, transportService, actionFilters, SearchRequest::new);
+    public SearchADTasksTransportAction(TaskManager taskManager, ActionFilters actionFilters, ADSearchHandler searchHandler) {
+        super(SearchADTasksAction.NAME, actionFilters, taskManager);
         this.searchHandler = searchHandler;
     }
 

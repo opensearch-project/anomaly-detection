@@ -30,6 +30,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.client.Client;
@@ -43,11 +44,12 @@ import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.annotations.VisibleForTesting;
 
-public class SearchAnomalyResultTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
+public class SearchAnomalyResultTransportAction extends TransportAction<SearchRequest, SearchResponse> {
     public static final String RESULT_INDEX_AGG_NAME = "result_index";
 
     private final Logger logger = LogManager.getLogger(SearchAnomalyResultTransportAction.class);
@@ -58,14 +60,14 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
 
     @Inject
     public SearchAnomalyResultTransportAction(
-        TransportService transportService,
+        TaskManager taskManager,
         ActionFilters actionFilters,
         ADSearchHandler searchHandler,
         ClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
         Client client
     ) {
-        super(SearchAnomalyResultAction.NAME, transportService, actionFilters, SearchRequest::new);
+        super(SearchAnomalyResultAction.NAME, actionFilters, taskManager);
         this.searchHandler = searchHandler;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;

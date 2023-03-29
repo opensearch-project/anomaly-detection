@@ -57,6 +57,9 @@ import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchADTasksAction;
+import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStat;
@@ -165,7 +168,10 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
                 new RestDeleteAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient(), adStats, nodeFilter)
+                new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient(), adStats, nodeFilter),
+                new RestSearchAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestSearchAnomalyResultAction(extensionsRunner(), restClient()),
+                new RestSearchADTasksAction(extensionsRunner(), restClient())
             );
     }
 
