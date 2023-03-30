@@ -14,7 +14,9 @@ package org.opensearch.ad.ratelimit;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
@@ -43,6 +46,7 @@ import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -63,20 +67,23 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
         super.setUp();
 
         clusterService = mock(SDKClusterService.class);
-        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
-            Settings.EMPTY, Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY,
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE
-                            )
+        SDKClusterSettings clusterSettings = spy(
+            clusterService.new SDKClusterSettings(
+                Settings.EMPTY, Collections
+                    .unmodifiableSet(
+                        new HashSet<>(
+                            Arrays
+                                .asList(
+                                    AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                                    AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY,
+                                    AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE
+                                )
+                        )
                     )
-                )
+            )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        doNothing().when(clusterSettings).addSettingsUpdateConsumer(any(Setting.class), any(Consumer.class));
 
         threadPool = mock(ThreadPool.class);
         setUpADThreadPool(threadPool);
