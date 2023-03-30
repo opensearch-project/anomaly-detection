@@ -753,7 +753,21 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.BackPressureRouting',
         'org.opensearch.ad.transport.ADStatsNodesTransportAction',
         'org.opensearch.ad.stats.InternalStatNames',
-        'org.opensearch.ad.NodeState'
+        'org.opensearch.ad.NodeState',
+        'org.opensearch.ad.transport.DeleteModelRequest',
+        'org.opensearch.ad.transport.DeleteModelNodeResponse',
+        'org.opensearch.ad.transport.DeleteModelResponse',
+        'org.opensearch.ad.transport.StopDetectorTransportAction',
+        'org.opensearch.ad.transport.StopDetectorRequest',
+        'org.opensearch.ad.ratelimit.RateLimitedRequestWorker',
+        'org.opensearch.ad.ratelimit.QueuedRequest',
+        'org.opensearch.ad.ratelimit.CheckpointReadWorker',
+        'org.opensearch.ad.ratelimit.ConcurrentWorker',
+        'org.opensearch.ad.ratelimit.EntityFeatureRequest',
+        'org.opensearch.ad.ratelimit.RateLimitedRequestWorker.RequestQueue',
+        'org.opensearch.ad.stats.StatNames',
+        'org.opensearch.ad.stats.ADStats',
+        'org.opensearch.ad.MaintenanceState'
 ]
 
 
