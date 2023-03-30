@@ -51,8 +51,6 @@ import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.AnomalyResultAction;
-import org.opensearch.ad.transport.AnomalyResultRequest;
 import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.AnomalyResultTransportAction;
 import org.opensearch.ad.transport.ProfileAction;
@@ -231,7 +229,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         }
         String resultIndex = jobParameter.getResultIndex();
         if (resultIndex == null) {
-            runAnomalyDetectionJob(jobParameter, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
+            // TODO : https://github.com/opensearch-project/opensearch-sdk-java/issues/626
+            // runAnomalyDetectionJob(jobParameter, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
             return;
         }
         ActionListener<Boolean> listener = ActionListener.wrap(r -> { log.debug("Custom index is valid"); }, e -> {
@@ -240,10 +239,12 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         });
         anomalyDetectionIndices.validateCustomIndexForBackendJob(resultIndex, detectorId, user, roles, () -> {
             listener.onResponse(true);
-            runAnomalyDetectionJob(jobParameter, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
+            // TODO https://github.com/opensearch-project/opensearch-sdk-java/issues/626
+            // runAnomalyDetectionJob(jobParameter, lock, detectionStartTime, executionStartTime, detectorId, user, roles);
         }, listener);
     }
 
+    /* @anomaly.detection - will be handled by https://github.com/opensearch-project/opensearch-sdk-java/issues/626 
     private void runAnomalyDetectionJob(
         AnomalyDetectorJob jobParameter,
         LockModel lock,
@@ -274,6 +275,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             log.error("Failed to execute AD job " + detectorId, e);
         }
     }
+    */
 
     /**
      * Handle exception from anomaly result action.

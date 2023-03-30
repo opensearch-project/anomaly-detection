@@ -79,8 +79,11 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
@@ -91,6 +94,8 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
+import org.opensearch.threadpool.ExecutorBuilder;
+import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
@@ -112,6 +117,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
     public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
+    public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
 
     @Deprecated
@@ -158,15 +164,11 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
         ThreadPool threadPool = runner.getThreadPool();
+        IndexNameExpressionResolver indexNameExpressionResolver = runner.getIndexNameExpressionResolver();
 
         Throttler throttler = new Throttler(getClock());
         ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
-        IndexUtils indexUtils = new IndexUtils(
-            restClient(),
-            clientUtil,
-            sdkClusterService,
-            null // indexNameExpressionResolver
-        );
+        IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver);
         DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
@@ -542,13 +544,37 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     }
 
     @Override
+    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
+        return ImmutableList
+            .of(
+                new ScalingExecutorBuilder(
+                    AD_THREAD_POOL_NAME,
+                    1,
+                    // HCAD can be heavy after supporting 1 million entities.
+                    // Limit to use at most half of the processors.
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 2),
+                    TimeValue.timeValueMinutes(10),
+                    AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
+                )// ,
+                 // new ScalingExecutorBuilder(
+                 // AD_BATCH_TASK_THREAD_POOL_NAME,
+                 // 1,
+                 // Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 8),
+                 // TimeValue.timeValueMinutes(10),
+                 // AD_THREAD_POOL_PREFIX + AD_BATCH_TASK_THREAD_POOL_NAME
+                 // )
+            );
+    }
+
+    @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays
             .asList(
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
-                // TODO : Register AnomalyResultAction/TransportAction here
+                // TODO : Register AnomalyResultAction/TransportAction here :
+                // https://github.com/opensearch-project/opensearch-sdk-java/issues/626
             );
     }
 
