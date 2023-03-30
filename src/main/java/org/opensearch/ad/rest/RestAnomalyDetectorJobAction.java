@@ -48,7 +48,6 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.jobscheduler.JobSchedulerPlugin;
@@ -60,7 +59,6 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
 
 import com.google.common.collect.ImmutableList;
 
@@ -76,7 +74,6 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     private ExtensionsRunner extensionsRunner;
     private SDKRestClient client;
     private SDKClusterService clusterService;
-    private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings settings;
     private volatile TimeValue requestTimeout;
     private boolean jobDetailsAreRegistered;
@@ -85,7 +82,6 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         this.extensionsRunner = extensionsRunner;
         this.client = client;
         this.clusterService = extensionsRunner.getSdkClusterService();
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
@@ -109,7 +105,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             );
     }
 
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -136,7 +132,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         LOG.info("Job Details Registered : " + jobDetailsAreRegistered);
     }
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -184,11 +180,11 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         return new ExtensionRestResponse(request, RestStatus.OK, adJobResponseBuilder);
     }
 
-    private DetectionDateRange parseDetectionDateRange(ExtensionRestRequest request) throws IOException {
+    private DetectionDateRange parseDetectionDateRange(RestRequest request) throws IOException {
         if (!request.hasContent()) {
             return null;
         }
-        XContentParser parser = request.contentParser(namedXContentRegistry.getRegistry());
+        XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         DetectionDateRange dateRange = DetectionDateRange.parse(parser);
         return dateRange;
