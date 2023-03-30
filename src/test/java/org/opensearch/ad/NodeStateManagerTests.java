@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-/* @anomaly-detection Commented until we have support for clustersettings https://github.com/opensearch-project/opensearch-sdk-java/issues/503
+/* @anomaly-detection Commented until we have support for ClusterServiceUtils.createClusterService() https://github.com/opensearch-project/opensearch-sdk-java/issues/621
 package org.opensearch.ad;
 
 

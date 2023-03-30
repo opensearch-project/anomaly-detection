@@ -116,7 +116,7 @@ public class IndexUtils {
      * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
      * request fails.
      */
-    /*  @anomaly-detection - commented until we have support for SDKRestClient.stats()
+    /*  @anomaly-detection - commented until we have support for SDKRestClient.stats() https://github.com/opensearch-project/opensearch-sdk-java/issues/620
     @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {

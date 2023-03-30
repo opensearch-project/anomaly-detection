@@ -8,7 +8,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/* @anomaly-detection Commented until we have support for clustersettings https://github.com/opensearch-project/opensearch-sdk-java/issues/503
+/* @anomaly-detection Commented until ADStatsNodesTransportAction is integrated with the SDK
 package org.opensearch.ad.transport;
 
 
