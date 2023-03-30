@@ -54,8 +54,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient goatClient;
     String lionUser = "lion";
     RestClient lionClient;
+    String tigerUser = "tiger";
+    RestClient tigerClient;
     private String indexAllAccessRole = "index_all_access";
     private String indexSearchAccessRole = "index_all_search";
+    private String adminAllAccessRole = "all_access";
 
     @Before
     public void setupSecureTests() throws IOException {
@@ -102,11 +105,17 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         lionClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), lionUser, lionUser)
             .setSocketTimeout(60000)
             .build();
+        createUser(tigerUser, tigerUser, new ArrayList<>(Arrays.asList("opensearch")));
+        tigerClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), tigerUser, tigerUser)
+            .setSocketTimeout(60000)
+            .build();
 
         createRoleMapping("anomaly_read_access", new ArrayList<>(Arrays.asList(bobUser)));
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
         createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
+        createRoleMapping(adminAllAccessRole, new ArrayList<>(Arrays.asList(tigerUser)));
+
     }
 
     @After
@@ -119,6 +128,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         fishClient.close();
         goatClient.close();
         lionClient.close();
+        tigerClient.close();
         deleteUser(aliceUser);
         deleteUser(bobUser);
         deleteUser(catUser);
@@ -127,6 +137,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         deleteUser(fishUser);
         deleteUser(goatUser);
         deleteUser(lionUser);
+        deleteUser(tigerUser);
     }
 
     public void testCreateAnomalyDetectorWithWriteAccess() throws IOException {
@@ -183,6 +194,63 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert
             .assertTrue(
                 exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
+            );
+    }
+
+    public void testGetApiFilterByEnabledForAdmin() throws IOException {
+        // User Alice has AD full access, should be able to create a detector and has backend role "odfe"
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        enableFilterBy();
+
+        AnomalyDetector detector = getAnomalyDetector(aliceDetector.getDetectorId(), tigerClient);
+        Assert
+            .assertArrayEquals(
+                "User backend role of detector doesn't change",
+                new String[] { "odfe" },
+                detector.getUser().getBackendRoles().toArray(new String[0])
+            );
+    }
+
+    public void testUpdateApiFilterByEnabledForAdmin() throws IOException {
+        // User Alice has AD full access, should be able to create a detector and has backend role "odfe"
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        enableFilterBy();
+
+        AnomalyDetector newDetector = new AnomalyDetector(
+            aliceDetector.getDetectorId(),
+            aliceDetector.getVersion(),
+            aliceDetector.getName(),
+            randomAlphaOfLength(10),
+            aliceDetector.getTimeField(),
+            aliceDetector.getIndices(),
+            aliceDetector.getFeatureAttributes(),
+            aliceDetector.getFilterQuery(),
+            aliceDetector.getDetectionInterval(),
+            aliceDetector.getWindowDelay(),
+            aliceDetector.getShingleSize(),
+            aliceDetector.getUiMetadata(),
+            aliceDetector.getSchemaVersion(),
+            Instant.now(),
+            aliceDetector.getCategoryField(),
+            new User(
+                randomAlphaOfLength(5),
+                ImmutableList.of("odfe", randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5))
+            ),
+            null
+        );
+        enableFilterBy();
+        // User tiger has admin all access, and has "opensearch" backend role so Tiger should be able to update detector
+        // But the detector's backend role should not be replaced as tiger's backend roles.
+        Response response = updateAnomalyDetector(aliceDetector.getDetectorId(), newDetector, tigerClient);
+        Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
+        AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
+        Assert
+            .assertArrayEquals(
+                "odfe is still the backendrole, not opensearch",
+                new String[] { "odfe" },
+                anomalyDetector.getUser().getBackendRoles().toArray(new String[0])
             );
     }
 

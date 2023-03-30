@@ -12,6 +12,7 @@
 package org.opensearch.ad.util;
 
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
+import static org.opensearch.ad.util.ParseUtils.isAdmin;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -286,5 +287,30 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         List<String> fieldNames = ParseUtils.getFeatureFieldNames(detector, TestHelpers.xContentRegistry());
         assertTrue(fieldNames.contains("field-name1"));
         assertTrue(fieldNames.contains("field-name2"));
+    }
+
+    public void testIsAdmin() {
+        User user1 = new User(
+            randomAlphaOfLength(5),
+            ImmutableList.of(),
+            ImmutableList.of("all_access"),
+            ImmutableList.of(randomAlphaOfLength(5))
+        );
+        assertTrue(isAdmin(user1));
+    }
+
+    public void testIsAdminBackendRoleIsAllAccess() {
+        String backendRole1 = "all_access";
+        User user1 = new User(
+            randomAlphaOfLength(5),
+            ImmutableList.of(backendRole1),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            ImmutableList.of(randomAlphaOfLength(5))
+        );
+        assertFalse(isAdmin(user1));
+    }
+
+    public void testIsAdminNull() {
+        assertFalse(isAdmin(null));
     }
 }
