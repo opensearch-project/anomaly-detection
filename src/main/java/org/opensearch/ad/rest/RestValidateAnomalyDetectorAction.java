@@ -46,7 +46,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
@@ -107,7 +106,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             );
     }
 
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -116,7 +115,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         }
     };
 
-    protected ExtensionRestResponse sendAnomalyDetectorValidationParseResponse(ExtensionRestRequest request, DetectorValidationIssue issue)
+    protected ExtensionRestResponse sendAnomalyDetectorValidationParseResponse(RestRequest request, DetectorValidationIssue issue)
         throws IOException {
         return new ExtensionRestResponse(
             request,
@@ -130,11 +129,11 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         return (!Collections.disjoint(typesInRequest, ALL_VALIDATION_ASPECTS_STRS));
     }
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
-        XContentParser parser = request.contentParser(this.namedXContentRegistry.getRegistry());
+        XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         String typesStr = request.param(TYPE);
 
@@ -216,7 +215,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         return validateAnomalyDetectorResponse(request, response);
     }
 
-    private ExtensionRestResponse validateAnomalyDetectorResponse(ExtensionRestRequest request, ValidateAnomalyDetectorResponse response)
+    private ExtensionRestResponse validateAnomalyDetectorResponse(RestRequest request, ValidateAnomalyDetectorResponse response)
         throws IOException {
         RestStatus restStatus = RestStatus.OK;
         ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
