@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,7 +30,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
@@ -45,15 +43,11 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
-import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.rest.action.RestResponseListener;
 import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
@@ -94,7 +88,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         this.extensionsRunner = extensionsRunner;
     }
 
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -103,7 +97,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         }
     };
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -113,10 +107,20 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
         CompletableFuture<SearchResponse> futureResponse = new CompletableFuture<>();
-        client.execute(actionType, searchRequest,  ActionListener
-                .wrap(adSearchResponse -> futureResponse.complete(adSearchResponse), ex -> futureResponse.completeExceptionally(ex)));
+        client
+            .execute(
+                actionType,
+                searchRequest,
+                ActionListener
+                    .wrap(adSearchResponse -> futureResponse.complete(adSearchResponse), ex -> futureResponse.completeExceptionally(ex))
+            );
 
-        SearchResponse searchResponse = futureResponse.orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings()).getMillis(), TimeUnit.MILLISECONDS).join();
+        SearchResponse searchResponse = futureResponse
+            .orTimeout(
+                AnomalyDetectorSettings.REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings()).getMillis(),
+                TimeUnit.MILLISECONDS
+            )
+            .join();
         return search(request, searchResponse);
     }
 
@@ -137,41 +141,42 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         }
     }
 
-    protected ExtensionRestResponse search(ExtensionRestRequest request, SearchResponse response) throws IOException {
-//        return new RestResponseListener<SearchResponse>(channel) {
-//            @Override
-//            public RestResponse buildResponse(SearchResponse response) throws Exception {
-                if (response.isTimedOut()) {
-                    return new ExtensionRestResponse(request, RestStatus.REQUEST_TIMEOUT, response.toString());
-                }
+    protected ExtensionRestResponse search(RestRequest request, SearchResponse response) throws IOException {
+        // return new RestResponseListener<SearchResponse>(channel) {
+        // @Override
+        // public RestResponse buildResponse(SearchResponse response) throws Exception {
+        if (response.isTimedOut()) {
+            return new ExtensionRestResponse(request, RestStatus.REQUEST_TIMEOUT, response.toString());
+        }
 
-                if (clazz == AnomalyDetector.class) {
-                    for (SearchHit hit : response.getHits()) {
-                        XContentParser parser = XContentType.JSON
-                            .xContent()
-                            .createParser(
-                                extensionsRunner.getNamedXContentRegistry().getRegistry(),
-                                LoggingDeprecationHandler.INSTANCE,
-                                hit.getSourceAsString()
-                            );
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+        if (clazz == AnomalyDetector.class) {
+            for (SearchHit hit : response.getHits()) {
+                XContentParser parser = XContentType.JSON
+                    .xContent()
+                    .createParser(
+                        extensionsRunner.getNamedXContentRegistry().getRegistry(),
+                        LoggingDeprecationHandler.INSTANCE,
+                        hit.getSourceAsString()
+                    );
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
 
-                        // write back id and version to anomaly detector object
-                        ToXContentObject xContentObject = AnomalyDetector.parse(parser, hit.getId(), hit.getVersion());
-                        XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
-                        hit.sourceRef(BytesReference.bytes(builder));
-                    }
-                }
+                // write back id and version to anomaly detector object
+                ToXContentObject xContentObject = AnomalyDetector.parse(parser, hit.getId(), hit.getVersion());
+                XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
+                hit.sourceRef(BytesReference.bytes(builder));
+            }
+        }
 
-                return new ExtensionRestResponse(request, RestStatus.OK, response.toXContent(JsonXContent.contentBuilder(), EMPTY_PARAMS));
+        return new ExtensionRestResponse(request, RestStatus.OK, response.toXContent(JsonXContent.contentBuilder(), EMPTY_PARAMS));
     }
 
-
     public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-                .of(
-                        new RouteHandler(RestRequest.Method.GET, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "_search", handleRequest)
-                );
+        List<RouteHandler> routes = new ArrayList<>();
+        for (String path : urlPaths) {
+            routes.add(new RouteHandler(RestRequest.Method.POST, path, handleRequest));
+            routes.add(new RouteHandler(RestRequest.Method.GET, path, handleRequest));
+        }
+        return routes;
     }
 
     /*@Override
@@ -183,7 +188,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         }
         return routes;
     }
-
+    
     @Override
     public List<ReplacedRoute> replacedRoutes() {
         List<ReplacedRoute> replacedRoutes = new ArrayList<>();
@@ -194,7 +199,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
                 );
             replacedRoutes
                 .add(new ReplacedRoute(RestRequest.Method.GET, deprecatedPath.getKey(), RestRequest.Method.GET, deprecatedPath.getValue()));
-
+    
         }
         return replacedRoutes;
     }*/

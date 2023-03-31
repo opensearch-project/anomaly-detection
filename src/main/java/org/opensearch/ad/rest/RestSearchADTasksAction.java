@@ -11,15 +11,18 @@
 
 package org.opensearch.ad.rest;
 
+import java.util.Locale;
+
 import org.apache.commons.lang3.tuple.Pair;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.transport.SearchADTasksAction;
-
-import com.google.common.collect.ImmutableList;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to search AD tasks.
@@ -27,14 +30,14 @@ import org.opensearch.sdk.SDKClient.SDKRestClient;
 public class RestSearchADTasksAction extends AbstractSearchAction<ADTask> {
 
     private static final String LEGACY_URL_PATH = AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/tasks/_search";
-    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/tasks/_search";
+    private static final String URL_PATH = AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/tasks/_search";
     private final String SEARCH_ANOMALY_DETECTION_TASKS = "search_anomaly_detection_tasks";
     private SDKRestClient client;
     private ExtensionsRunner extensionsRunner;
 
     public RestSearchADTasksAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         super(
-            ImmutableList.of(),
+            ImmutableList.of(String.format(Locale.ROOT, "%s", URL_PATH)),
             ImmutableList.of(Pair.of(URL_PATH, LEGACY_URL_PATH)),
             CommonName.DETECTION_STATE_INDEX,
             ADTask.class,

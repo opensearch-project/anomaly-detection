@@ -15,11 +15,14 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonValue;
 
+import com.google.inject.Inject;
+
 public class SearchAnomalyDetectorAction extends ActionType<SearchResponse> {
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/search";
     public static final SearchAnomalyDetectorAction INSTANCE = new SearchAnomalyDetectorAction();
 
+    @Inject
     private SearchAnomalyDetectorAction() {
         super(NAME, SearchResponse::new);
     }

@@ -28,16 +28,14 @@ import org.opensearch.action.search.MultiSearchResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
@@ -45,27 +43,27 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
-import org.opensearch.transport.TransportService;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 
 public class SearchAnomalyResultTransportAction extends TransportAction<SearchRequest, SearchResponse> {
     public static final String RESULT_INDEX_AGG_NAME = "result_index";
 
     private final Logger logger = LogManager.getLogger(SearchAnomalyResultTransportAction.class);
     private ADSearchHandler searchHandler;
-    private final ClusterService clusterService;
+    private final SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
-    private final Client client;
+    private final SDKRestClient client;
 
     @Inject
     public SearchAnomalyResultTransportAction(
         TaskManager taskManager,
         ActionFilters actionFilters,
         ADSearchHandler searchHandler,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        Client client
+        SDKRestClient client
     ) {
         super(SearchAnomalyResultAction.NAME, actionFilters, taskManager);
         this.searchHandler = searchHandler;

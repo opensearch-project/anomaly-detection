@@ -15,11 +15,14 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.CommonValue;
 
+import com.google.inject.Inject;
+
 public class SearchADTasksAction extends ActionType<SearchResponse> {
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "tasks/search";
     public static final SearchADTasksAction INSTANCE = new SearchADTasksAction();
 
+    @Inject
     private SearchADTasksAction() {
         super(NAME, SearchResponse::new);
     }
