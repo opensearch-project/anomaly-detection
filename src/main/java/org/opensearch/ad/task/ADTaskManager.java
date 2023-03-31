@@ -1772,7 +1772,7 @@ public class ADTaskManager {
                 try {
                     CompletableFuture<DeleteByQueryResponse> deleteChildTasksResponse = sdkJavaAsyncClient
                         .deleteByQuery(deleteChildTasksRequest);
-                    DeleteByQueryResponse r = deleteChildTasksResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+                    DeleteByQueryResponse deleteByQueryResponse = deleteChildTasksResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
                     logger.debug("Successfully deleted child tasks of task " + taskId);
                     cleanChildTasksAndADResultsOfDeletedTask();
@@ -1945,9 +1945,9 @@ public class ADTaskManager {
             .build();
         try {
             CompletableFuture<DeleteByQueryResponse> deleteByQueryResponse = sdkJavaAsyncClient.deleteByQuery(request);
-            DeleteByQueryResponse r = deleteByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            DeleteByQueryResponse response = deleteByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
-            if (r.failures() == null || r.failures().size() == 0) {
+            if (response.failures() == null || response.failures().size() == 0) {
                 logger.info("AD tasks deleted for detector {}", detectorId);
                 deleteADResultOfDetector(detectorId);
                 function.execute();
@@ -1975,7 +1975,7 @@ public class ADTaskManager {
 
         try {
             CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient.deleteByQuery(deleteADResultsRequest);
-            DeleteByQueryResponse r = deleteADResultsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            DeleteByQueryResponse deleteByQueryResponse = deleteADResultsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
             logger.debug("Successfully deleted AD results of detector " + detectorId);
         } catch (Exception exception) {
             logger.error("Failed to delete AD results of detector " + detectorId, exception);

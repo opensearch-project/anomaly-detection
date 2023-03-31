@@ -8,7 +8,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
+/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk() https://github.com/opensearch-project/opensearch-sdk-java/issues/635
 package org.opensearch.ad.transport.handler;
 
 
@@ -38,7 +38,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
  * @param anomalyResults anomaly results
  * @param listener action listener
  */
-/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
+/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk() https://github.com/opensearch-project/opensearch-sdk-java/issues/635
 public void bulkIndexAnomalyResult(String resultIndex, List<AnomalyResult> anomalyResults, ActionListener<BulkResponse> listener) {
     if (anomalyResults == null || anomalyResults.size() == 0) {
         listener.onResponse(null);

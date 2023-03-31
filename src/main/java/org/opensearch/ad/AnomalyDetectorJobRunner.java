@@ -672,9 +672,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             if (lockIsReleased) {
                 log.info("Released lock for AD job {}", jobParameter.getName());
             } else {
-                throw new Exception("Failed to release lock");
+                throw new IOException("Failed to release lock");
             }
-        } catch (Exception exception) {
+        } catch (IOException exception) {
             log.error("Failed to release lock for AD job: " + jobParameter.getName(), exception);
         }
     }

@@ -8,7 +8,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
+/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk() https://github.com/opensearch-project/opensearch-sdk-java/issues/635
 package org.opensearch.ad.transport.handler;
 
 

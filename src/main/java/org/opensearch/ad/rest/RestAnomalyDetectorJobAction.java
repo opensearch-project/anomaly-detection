@@ -76,7 +76,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     private SDKClusterService clusterService;
     private Settings settings;
     private volatile TimeValue requestTimeout;
-    private boolean jobDetailsAreRegistered;
+    private boolean registeredJobDetails;
 
     public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         this.extensionsRunner = extensionsRunner;
@@ -85,7 +85,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-        this.jobDetailsAreRegistered = false;
+        this.registeredJobDetails = false;
     }
 
     public String getName() {
@@ -96,12 +96,19 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     public List<RouteHandler> routeHandlers() {
         return ImmutableList
             .of(
-                // start AD Job
+                // Start AD Job
                 new RouteHandler(
                     RestRequest.Method.POST,
                     String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
                     handleRequest
                 )
+            // ,
+            // Stop AD Job
+            // new RouteHandler(
+            // RestRequest.Method.POST,
+            // String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
+            // handleRequest
+            // )
             );
     }
 
@@ -128,8 +135,8 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         request.setJsonEntity(Strings.toString(requestBody));
 
         Response response = client.performRequest(request);
-        this.jobDetailsAreRegistered = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
-        LOG.info("Job Details Registered : " + jobDetailsAreRegistered);
+        this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
+        LOG.info("Job Details Registered : " + registeredJobDetails);
     }
 
     protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
@@ -138,16 +145,16 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         }
 
         // Ensure job details are registered with Job Scheduler prior to creating a job
-        if (!jobDetailsAreRegistered) {
+        if (!registeredJobDetails) {
             registerJobDetails();
         }
 
         String detectorId = request.param(DETECTOR_ID);
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
-        // Passed false until historical analysis workflow is enabled
-        boolean historical = false;
-        String rawPath = request.path();
+        boolean historical = request.paramAsBoolean("historical", false);
+        ;
+        String rawPath = request.rawPath();
         DetectionDateRange detectionDateRange = parseDetectionDateRange(request);
 
         AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(
@@ -189,32 +196,4 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         DetectionDateRange dateRange = DetectionDateRange.parse(parser);
         return dateRange;
     }
-
-    /*
-    @Override
-    public List<Route> routes() {
-        return ImmutableList.of();
-    }
-    
-    @Override
-    public List<ReplacedRoute> replacedRoutes() {
-        return ImmutableList
-            .of(
-                // start AD Job
-                new ReplacedRoute(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, START_JOB)
-                ),
-                // stop AD Job
-                new ReplacedRoute(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, STOP_JOB)
-                )
-            );
-    }
-    */
 }

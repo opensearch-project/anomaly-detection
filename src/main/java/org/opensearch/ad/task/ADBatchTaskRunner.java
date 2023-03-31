@@ -126,6 +126,7 @@ public class ADBatchTaskRunner {
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ADTaskManager adTaskManager;
     // @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
+    // https://github.com/opensearch-project/opensearch-sdk-java/issues/635
     // private final AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler;
     private final AnomalyDetectionIndices anomalyDetectionIndices;
     private final SearchFeatureDao searchFeatureDao;
@@ -1139,7 +1140,7 @@ public class ADBatchTaskRunner {
         }
         String resultIndex = adTask.getDetector().getResultIndex();
 
-        /*@anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
+        /*@anomaly-detection - commented until we have support for SDKRestClient.prepareBulk() https://github.com/opensearch-project/opensearch-sdk-java/issues/635
         if (resultIndex == null) {
             // if result index is null, store anomaly result directly
             storeAnomalyResultAndRunNextPiece(
@@ -1175,7 +1176,7 @@ public class ADBatchTaskRunner {
         */
     }
 
-    /*@anomaly-detection - commented until we have support for SDKRestClient.prepareBulk()
+    /*@anomaly-detection - commented until we have support for SDKRestClient.prepareBulk() https://github.com/opensearch-project/opensearch-sdk-java/issues/635
     private void storeAnomalyResultAndRunNextPiece(
         ADTask adTask,
         long pieceEndTime,

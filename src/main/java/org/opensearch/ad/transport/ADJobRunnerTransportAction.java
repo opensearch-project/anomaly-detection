@@ -119,7 +119,7 @@ public class ADJobRunnerTransportAction extends TransportAction<JobRunnerRequest
         try {
             client.get(getRequest, ActionListener.wrap(response -> {
                 if (!response.isExists()) {
-                    listener.onFailure(null);
+                    listener.onResponse(null);
                 } else {
                     try {
                         XContentParser parser = XContentType.JSON

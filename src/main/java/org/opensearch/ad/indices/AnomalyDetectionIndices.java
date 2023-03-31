@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -1145,13 +1144,15 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 listener.onResponse(null);
             }, listener::onFailure));
 
-        } catch (ExecutionException e) {
-            // new index will be created with auto expand replica setting
-            jobIndexState.settingUpToDate = true;
-            logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
-            listener.onResponse(null);
         } catch (Exception e) {
-            listener.onFailure(e);
+            if (e instanceof IndexNotFoundException) {
+                // new index will be created with auto expand replica setting
+                jobIndexState.settingUpToDate = true;
+                logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
+                listener.onResponse(null);
+            } else {
+                listener.onFailure(e);
+            }
         }
     }
 
