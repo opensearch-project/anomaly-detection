@@ -153,7 +153,6 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
         boolean historical = request.paramAsBoolean("historical", false);
-        ;
         String rawPath = request.rawPath();
         DetectionDateRange detectionDateRange = parseDetectionDateRange(request);
 
