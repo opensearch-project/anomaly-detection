@@ -139,9 +139,13 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
+import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.InlineScript;
 import org.opensearch.client.opensearch._types.Refresh;
 import org.opensearch.client.opensearch._types.Script;
+import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
+import org.opensearch.client.opensearch._types.query_dsl.TermQuery;
+import org.opensearch.client.opensearch._types.query_dsl.TermsQuery;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
@@ -1300,17 +1304,27 @@ public class ADTaskManager {
     private void resetEntityTasksAsStopped(String detectorTaskId) {
 
         String script = String.format(Locale.ROOT, "ctx._source.%s='%s';", STATE_FIELD, ADTaskState.STOPPED.name());
-        UpdateByQueryRequest updateByQueryRequest = new UpdateByQueryRequest.Builder().index(DETECTION_STATE_INDEX).query(queryBuilder -> {
-            queryBuilder.match(mb -> mb.field(PARENT_TASK_ID_FIELD).query(vb -> vb.stringValue(detectorTaskId)));
-            queryBuilder.match(mb -> mb.field(TASK_TYPE_FIELD).query(vb -> vb.stringValue(ADTaskType.HISTORICAL_HC_ENTITY.name())));
-            for (String notEndedStates : NOT_ENDED_STATES) {
-                queryBuilder.match(mb -> mb.field(STATE_FIELD).query(vb -> vb.stringValue(notEndedStates)));
-            }
-            return queryBuilder;
-        }).refresh(true).script(Script.of(s -> s.inline(new InlineScript.Builder().source(script).build()))).build();
+
+        List<FieldValue> notEndedStates = NOT_ENDED_STATES.stream().map(v -> FieldValue.of(v)).collect(Collectors.toList());
+
+        UpdateByQueryRequest.Builder updateByQueryRequest = new UpdateByQueryRequest.Builder();
+        updateByQueryRequest.index(DETECTION_STATE_INDEX);
+        BoolQuery.Builder query = new BoolQuery.Builder();
+        query.filter(bq -> bq.term(new TermQuery.Builder().field(PARENT_TASK_ID_FIELD).value(FieldValue.of(detectorTaskId)).build()));
+        query
+            .filter(
+                bq -> bq
+                    .term(
+                        new TermQuery.Builder().field(TASK_TYPE_FIELD).value(FieldValue.of(ADTaskType.HISTORICAL_HC_ENTITY.name())).build()
+                    )
+            );
+        query.filter(bq -> bq.terms(new TermsQuery.Builder().field(STATE_FIELD).terms(t -> t.value(notEndedStates)).build()));
+        updateByQueryRequest.query(q -> q.bool(query.build()));
+        updateByQueryRequest.refresh(true);
+        updateByQueryRequest.script(Script.of(s -> s.inline(new InlineScript.Builder().source(script).build())));
 
         try {
-            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest);
+            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest.build());
             UpdateByQueryResponse queryResponse = updateByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
             List<BulkIndexByScrollFailure> bulkFailures = queryResponse.failures();
             if (isNullOrEmpty(bulkFailures)) {
@@ -1493,18 +1507,25 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         String script = String.format(Locale.ROOT, "ctx._source.%s=%s;", IS_LATEST_FIELD, false);
-        UpdateByQueryRequest updateByQueryRequest = new UpdateByQueryRequest.Builder().index(DETECTION_STATE_INDEX).query(queryBuilder -> {
-            queryBuilder.match(mb -> mb.field(DETECTOR_ID_FIELD).query(vb -> vb.stringValue(detector.getDetectorId())));
-            queryBuilder.match(mb -> mb.field(IS_LATEST_FIELD).query(vb -> vb.booleanValue(true)));
-            // make sure we reset all latest task as false when user switch from single entity to HC, vice versa.
-            for (String taskTypes : taskTypeToString(getADTaskTypes(detectionDateRange, true))) {
-                queryBuilder.match(mb -> mb.field(TASK_TYPE_FIELD).query(vb -> vb.stringValue(taskTypes)));
-            }
-            return queryBuilder;
-        }).refresh(true).script(Script.of(s -> s.inline(new InlineScript.Builder().source(script).build()))).build();
+
+        List<FieldValue> taskTypes = taskTypeToString(getADTaskTypes(detectionDateRange, true))
+            .stream()
+            .map(v -> FieldValue.of(v))
+            .collect(Collectors.toList());
+
+        UpdateByQueryRequest.Builder updateByQueryRequest = new UpdateByQueryRequest.Builder();
+        updateByQueryRequest.index(DETECTION_STATE_INDEX);
+        BoolQuery.Builder query = new BoolQuery.Builder();
+        query
+            .filter(bq -> bq.term(new TermQuery.Builder().field(DETECTOR_ID_FIELD).value(FieldValue.of(detector.getDetectorId())).build()));
+        query.filter(bq -> bq.term(new TermQuery.Builder().field(IS_LATEST_FIELD).value(FieldValue.of(true)).build()));
+        query.filter(bq -> bq.terms(new TermsQuery.Builder().field(TASK_TYPE_FIELD).terms(t -> t.value(taskTypes)).build()));
+        updateByQueryRequest.query(q -> q.bool(query.build()));
+        updateByQueryRequest.refresh(true);
+        updateByQueryRequest.script(Script.of(s -> s.inline(new InlineScript.Builder().source(script).build())));
 
         try {
-            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest);
+            CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest.build());
             UpdateByQueryResponse queryResponse = updateByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
             List<BulkIndexByScrollFailure> bulkFailures = queryResponse.failures();
