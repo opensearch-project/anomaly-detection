@@ -247,7 +247,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             ),
             null
         );
-        enableFilterBy();
         // User client has admin all access, and has "opensearch" backend role so client should be able to update detector
         // But the detector's backend role should not be replaced as client's backend roles (all_access).
         Response response = updateAnomalyDetector(aliceDetector.getDetectorId(), newDetector, client());
