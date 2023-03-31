@@ -64,6 +64,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -1777,9 +1778,12 @@ public class ADTaskManager {
             if (taskId == null) {
                 return;
             }
+
+            List<FieldValue> taskIdFieldValue = Arrays.asList(FieldValue.of(taskId));
+
             DeleteByQueryRequest deleteADResultsRequest = new DeleteByQueryRequest.Builder()
                 .index(ALL_AD_RESULTS_INDEX_PATTERN)
-                .query(queryBuilder -> queryBuilder.match(mb -> mb.field(TASK_ID_FIELD).query(vb -> vb.stringValue(taskId))))
+                .query(qb -> qb.terms(new TermsQuery.Builder().field(TASK_ID_FIELD).terms(t -> t.value(taskIdFieldValue)).build()))
                 .build();
             try {
                 CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient.deleteByQuery(deleteADResultsRequest);
@@ -1788,7 +1792,9 @@ public class ADTaskManager {
                 logger.debug("Successfully deleted AD results of task " + taskId);
                 DeleteByQueryRequest deleteChildTasksRequest = new DeleteByQueryRequest.Builder()
                     .index(DETECTION_STATE_INDEX)
-                    .query(queryBuilder -> queryBuilder.match(mb -> mb.field(PARENT_TASK_ID_FIELD).query(vb -> vb.stringValue(taskId))))
+                    .query(
+                        qb -> qb.terms(new TermsQuery.Builder().field(PARENT_TASK_ID_FIELD).terms(t -> t.value(taskIdFieldValue)).build())
+                    )
                     .build();
                 try {
                     CompletableFuture<DeleteByQueryResponse> deleteChildTasksResponse = sdkJavaAsyncClient
@@ -1960,12 +1966,13 @@ public class ADTaskManager {
      * @param listener action listener
      */
     public void deleteADTasks(String detectorId, AnomalyDetectorFunction function, ActionListener<DeleteResponse> listener) {
-        DeleteByQueryRequest request = new DeleteByQueryRequest.Builder()
-            .index(DETECTION_STATE_INDEX)
-            .query(queryBuilder -> queryBuilder.match(mb -> mb.field(DETECTOR_ID_FIELD).query(vb -> vb.stringValue(detectorId))))
-            .build();
+        DeleteByQueryRequest.Builder request = new DeleteByQueryRequest.Builder();
+        request.index(DETECTION_STATE_INDEX);
+        BoolQuery.Builder query = new BoolQuery.Builder();
+        query.filter(bq -> bq.term(new TermQuery.Builder().field(DETECTOR_ID_FIELD).value(FieldValue.of(detectorId)).build()));
+        request.query(q -> q.bool(query.build()));
         try {
-            CompletableFuture<DeleteByQueryResponse> deleteByQueryResponse = sdkJavaAsyncClient.deleteByQuery(request);
+            CompletableFuture<DeleteByQueryResponse> deleteByQueryResponse = sdkJavaAsyncClient.deleteByQuery(request.build());
             DeleteByQueryResponse response = deleteByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
 
             if (response.failures() == null || response.failures().size() == 0) {
@@ -1989,13 +1996,14 @@ public class ADTaskManager {
             return;
         }
         logger.info("Start to delete AD results of detector {}", detectorId);
-        DeleteByQueryRequest deleteADResultsRequest = new DeleteByQueryRequest.Builder()
-            .index(ALL_AD_RESULTS_INDEX_PATTERN)
-            .query(queryBuilder -> queryBuilder.match(mb -> mb.field(DETECTOR_ID_FIELD).query(vb -> vb.stringValue(detectorId))))
-            .build();
+        DeleteByQueryRequest.Builder deleteADResultsRequest = new DeleteByQueryRequest.Builder();
+        deleteADResultsRequest.index(ALL_AD_RESULTS_INDEX_PATTERN);
+        deleteADResultsRequest
+            .query(q -> q.term(new TermQuery.Builder().field(DETECTOR_ID_FIELD).value(FieldValue.of(detectorId)).build()));
 
         try {
-            CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient.deleteByQuery(deleteADResultsRequest);
+            CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient
+                .deleteByQuery(deleteADResultsRequest.build());
             DeleteByQueryResponse deleteByQueryResponse = deleteADResultsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
             logger.debug("Successfully deleted AD results of detector " + detectorId);
         } catch (Exception exception) {
