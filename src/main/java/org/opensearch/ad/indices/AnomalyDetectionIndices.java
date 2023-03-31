@@ -619,7 +619,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            CreateIndexRequest request = new CreateIndexRequest(".opendistro-anomaly-detector-jobs")
+            CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
                 .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
             request
                 .settings(
