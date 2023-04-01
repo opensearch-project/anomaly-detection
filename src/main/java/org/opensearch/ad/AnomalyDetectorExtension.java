@@ -555,14 +555,15 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                     Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 2),
                     TimeValue.timeValueMinutes(10),
                     AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
-                )// ,
-                 // new ScalingExecutorBuilder(
-                 // AD_BATCH_TASK_THREAD_POOL_NAME,
-                 // 1,
-                 // Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 8),
-                 // TimeValue.timeValueMinutes(10),
-                 // AD_THREAD_POOL_PREFIX + AD_BATCH_TASK_THREAD_POOL_NAME
-                 // )
+                )/*, 
+                 new ScalingExecutorBuilder(
+                    AD_BATCH_TASK_THREAD_POOL_NAME,
+                    1,
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 8),
+                    TimeValue.timeValueMinutes(10),
+                    AD_THREAD_POOL_PREFIX + AD_BATCH_TASK_THREAD_POOL_NAME
+                 )
+                 */
             );
     }
 
