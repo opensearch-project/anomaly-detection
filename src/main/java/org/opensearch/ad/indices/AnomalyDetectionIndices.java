@@ -186,7 +186,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         int maxUpdateRunningTimes
     ) {
         this.client = client;
-        this.adminClient = client;
+        this.adminClient = client.admin();
         this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.clusterService = sdkClusterService;
         this.threadPool = threadPool;
@@ -637,7 +637,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                         .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
                         .put("index.hidden", true)
                 );
-            client.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
+            adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
         } catch (IOException e) {
             logger.error("Fail to init AD job index", e);
             actionListener.onFailure(e);
@@ -1138,7 +1138,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 .build();
             final UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(ADIndex.JOB.getIndexName())
                 .settings(updatedSettings);
-            client.indices().putSettings(updateSettingsRequest, ActionListener.wrap(response -> {
+            adminClient.indices().putSettings(updateSettingsRequest, ActionListener.wrap(response -> {
                 jobIndexState.settingUpToDate = true;
                 logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
                 listener.onResponse(null);
