@@ -535,7 +535,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     }
 
     /**
-     * createComponents doesn't work for Clock as ES process cannot start
+     * createComponents doesn't work for Clock as OS process cannot start
      * complaining it cannot find Clock instances for transport actions constructors.
      * @return a UTC clock
      */
