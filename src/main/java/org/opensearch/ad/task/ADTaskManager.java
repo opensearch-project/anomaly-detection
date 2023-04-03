@@ -1736,7 +1736,7 @@ public class ADTaskManager {
                     List<BulkResponseItem> bulkItemResponses = res.items();
                     if (bulkItemResponses != null && bulkItemResponses.size() > 0) {
                         for (BulkResponseItem bulkItemResponse : bulkItemResponses) {
-                            if (bulkItemResponse.error() == null) {
+                            if (bulkItemResponse.error() != null) {
                                 logger.debug("Add detector task into cache. Task id: {}", bulkItemResponse.id());
                                 // add deleted task in cache and delete its child tasks and AD results
                                 adTaskCacheManager.addDeletedDetectorTask(bulkItemResponse.id());
