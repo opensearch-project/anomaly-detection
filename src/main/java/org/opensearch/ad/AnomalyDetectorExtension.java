@@ -12,37 +12,80 @@ package org.opensearch.ad;
 import static java.util.Collections.unmodifiableList;
 
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.time.Clock;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.pool2.BasePooledObjectFactory;
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.opensearch.SpecialPermission;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.caching.CacheProvider;
+import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.caching.PriorityCache;
+import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
+import org.opensearch.ad.dataprocessor.Interpolator;
+import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
+import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
+import org.opensearch.ad.feature.FeatureManager;
+import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.ml.CheckpointDao;
+import org.opensearch.ad.ml.EntityColdStarter;
+import org.opensearch.ad.ml.HybridThresholdingModel;
+import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
+import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.stats.ADStat;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
+import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
+import org.opensearch.ad.stats.suppliers.ModelsOnNodeCountSupplier;
+import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
+import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
+import org.opensearch.ad.transport.AnomalyDetectorJobAction;
+import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
+import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
+import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.IndexUtils;
+import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.sdk.ActionExtension;
 import org.opensearch.sdk.BaseExtension;
@@ -51,19 +94,45 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
+import org.opensearch.threadpool.ExecutorBuilder;
+import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
+import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
+import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
+import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import io.protostuff.LinkedBuffer;
+import io.protostuff.Schema;
+import io.protostuff.runtime.RuntimeSchema;
 
 public class AnomalyDetectorExtension extends BaseExtension implements ActionExtension {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
+    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
+    public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
+    public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
 
     @Deprecated
     private SDKRestClient sdkRestClient;
     private OpenSearchAsyncClient sdkJavaAsyncClient;
+    private static Gson gson;
+    // package private for testing
+    GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
+
+    static {
+        SpecialPermission.check();
+        // gson intialization requires "java.lang.RuntimePermission" "accessDeclaredMembers" to
+        // initialize ConstructorConstructor
+        AccessController.doPrivileged((PrivilegedAction<Void>) AnomalyDetectorExtension::initGson);
+    }
 
     public AnomalyDetectorExtension() {
         super(EXTENSION_SETTINGS_PATH);
@@ -73,10 +142,16 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestGetAnomalyDetectorAction(extensionsRunner(), restClient())
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
+                new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
             );
+    }
+
+    private static Void initGson() {
+        gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
+        return null;
     }
 
     @Override
@@ -89,8 +164,41 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
         ThreadPool threadPool = runner.getThreadPool();
+        IndexNameExpressionResolver indexNameExpressionResolver = runner.getIndexNameExpressionResolver();
+
+        Throttler throttler = new Throttler(getClock());
+        ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
+        IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver);
+        DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
+        AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
+            sdkRestClient,
+            sdkJavaAsyncClient,
+            sdkClusterService,
+            threadPool,
+            environmentSettings,
+            nodeFilter,
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        );
+
+        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
+            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
+        Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+        SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
+            sdkRestClient,
+            xContentRegistry,
+            interpolator,
+            clientUtil,
+            environmentSettings,
+            sdkClusterService,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE
+        );
 
         JvmService jvmService = new JvmService(environmentSettings);
+        RandomCutForestMapper mapper = new RandomCutForestMapper();
+        mapper.setSaveExecutorContextEnabled(true);
+        mapper.setSaveTreeStateEnabled(true);
+        mapper.setPartialTreeStateEnabled(true);
+        V1JsonToV3StateConverter converter = new V1JsonToV3StateConverter();
 
         ADCircuitBreakerService adCircuitBreakerService = new ADCircuitBreakerService(jvmService).init();
 
@@ -102,31 +210,250 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             adCircuitBreakerService
         );
 
-        ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
-
-        AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
+        NodeStateManager stateManager = new NodeStateManager(
             sdkRestClient,
-            sdkClusterService,
-            threadPool,
+            xContentRegistry,
             environmentSettings,
-            null, // nodeFilter
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            clientUtil,
+            getClock(),
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            sdkClusterService
         );
 
+        FeatureManager featureManager = new FeatureManager(
+            searchFeatureDao,
+            interpolator,
+            getClock(),
+            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
+            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
+            AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
+            AnomalyDetectorSettings.MIN_TRAIN_SAMPLES,
+            AnomalyDetectorSettings.MAX_SHINGLE_PROPORTION_MISSING,
+            AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
+            AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
+            AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            AD_THREAD_POOL_NAME
+        );
+        long heapSizeBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
+        serializeRCFBufferPool = AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
+            @Override
+            public GenericObjectPool<LinkedBuffer> run() {
+                return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
+                    @Override
+                    public LinkedBuffer create() throws Exception {
+                        return LinkedBuffer.allocate(AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES);
+                    }
+
+                    @Override
+                    public PooledObject<LinkedBuffer> wrap(LinkedBuffer obj) {
+                        return new DefaultPooledObject<>(obj);
+                    }
+                });
+            }
+        });
+        serializeRCFBufferPool.setMaxTotal(AnomalyDetectorSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
+        serializeRCFBufferPool.setMaxIdle(AnomalyDetectorSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
+        serializeRCFBufferPool.setMinIdle(0);
+        serializeRCFBufferPool.setBlockWhenExhausted(false);
+        serializeRCFBufferPool.setTimeBetweenEvictionRuns(AnomalyDetectorSettings.HOURLY_MAINTENANCE);
+        CheckpointDao checkpoint = new CheckpointDao(
+            sdkRestClient,
+            sdkJavaAsyncClient,
+            clientUtil,
+            CommonName.CHECKPOINT_INDEX_NAME,
+            gson,
+            mapper,
+            converter,
+            new ThresholdedRandomCutForestMapper(),
+            AccessController
+                .doPrivileged(
+                    (PrivilegedAction<Schema<ThresholdedRandomCutForestState>>) () -> RuntimeSchema
+                        .getSchema(ThresholdedRandomCutForestState.class)
+                ),
+            HybridThresholdingModel.class,
+            anomalyDetectionIndices,
+            AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES,
+            serializeRCFBufferPool,
+            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE
+        );
+
+        Random random = new Random(42);
+
+        CheckpointWriteWorker checkpointWriteQueue = new CheckpointWriteWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            checkpoint,
+            CommonName.CHECKPOINT_INDEX_NAME,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
+
+        EntityCache cache = new PriorityCache(
+            checkpoint,
+            AnomalyDetectorSettings.DEDICATED_CACHE_SIZE.get(environmentSettings),
+            AnomalyDetectorSettings.CHECKPOINT_TTL,
+            AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
+            memoryTracker,
+            AnomalyDetectorSettings.NUM_TREES,
+            getClock(),
+            sdkClusterService,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            checkpointWriteQueue,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT
+        );
+
+        CacheProvider cacheProvider = new CacheProvider(cache);
+        EntityColdStarter entityColdStarter = new EntityColdStarter(
+            getClock(),
+            threadPool,
+            stateManager,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            AnomalyDetectorSettings.NUM_TREES,
+            AnomalyDetectorSettings.TIME_DECAY,
+            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+            AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
+            AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
+            interpolator,
+            searchFeatureDao,
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            featureManager,
+            environmentSettings,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue,
+            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+        );
+        ModelManager modelManager = new ModelManager(
+            checkpoint,
+            getClock(),
+            AnomalyDetectorSettings.NUM_TREES,
+            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
+            AnomalyDetectorSettings.TIME_DECAY,
+            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            entityColdStarter,
+            featureManager,
+            memoryTracker
+        );
+
+        Map<String, ADStat<?>> stats = ImmutableMap
+            .<String, ADStat<?>>builder()
+            .put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(
+                StatNames.MODEL_INFORMATION.getName(),
+                new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider, environmentSettings, sdkClusterService))
+            )
+            .put(
+                StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX))
+            )
+            .put(
+                StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.ANOMALY_RESULT_INDEX_ALIAS))
+            )
+            .put(
+                StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CHECKPOINT_INDEX_NAME))
+            )
+            .put(
+                StatNames.ANOMALY_DETECTION_JOB_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX))
+            )
+            .put(
+                StatNames.ANOMALY_DETECTION_STATE_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.DETECTION_STATE_INDEX))
+            )
+            .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.MULTI_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.AD_EXECUTING_BATCH_TASK_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_CANCELED_BATCH_TASK_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.MODEL_COUNT.getName(), new ADStat<>(false, new ModelsOnNodeCountSupplier(modelManager, cacheProvider)))
+            .build();
+
+        ADStats adStats = new ADStats(stats);
+
+        ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
         ADTaskManager adTaskManager = new ADTaskManager(
             environmentSettings,
             sdkClusterService,
             sdkRestClient,
+            sdkJavaAsyncClient,
             xContentRegistry,
             anomalyDetectionIndices,
-            null, // nodeFilter
+            nodeFilter,
             null, // hashRing
             adTaskCacheManager,
             threadPool
         );
 
+        AnomalyIndexHandler<AnomalyResult> anomalyResultHandler = new AnomalyIndexHandler<AnomalyResult>(
+            restClient(),
+            environmentSettings,
+            threadPool,
+            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtils,
+            sdkClusterService
+        );
+
+        AnomalyDetectorJobRunner jobRunner = AnomalyDetectorJobRunner.getJobRunnerInstance();
+        jobRunner.setClient(restClient());
+        jobRunner.setThreadPool(threadPool);
+        jobRunner.setAnomalyResultHandler(anomalyResultHandler);
+        jobRunner.setSettings(environmentSettings);
+        jobRunner.setAnomalyDetectionIndices(anomalyDetectionIndices);
+        jobRunner.setNodeFilter(nodeFilter);
+        jobRunner.setAdTaskManager(adTaskManager);
+
         return ImmutableList
-            .of(sdkRestClient, anomalyDetectionIndices, jvmService, adCircuitBreakerService, adTaskManager, adTaskCacheManager);
+            .of(
+                sdkRestClient,
+                sdkJavaAsyncClient,
+                anomalyDetectionIndices,
+                searchFeatureDao,
+                singleFeatureLinearUniformInterpolator,
+                interpolator,
+                gson,
+                jvmService,
+                featureManager,
+                modelManager,
+                stateManager,
+                adCircuitBreakerService,
+                adStats,
+                nodeFilter,
+                checkpoint,
+                cacheProvider,
+                adTaskManager,
+                checkpointWriteQueue,
+                entityColdStarter,
+                adTaskCacheManager
+            );
     }
 
     @Override
@@ -135,6 +462,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
         List<Setting<?>> systemSetting = ImmutableList
             .of(
+                AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
                 AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                 AnomalyDetectorSettings.PAGE_SIZE,
                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
@@ -206,12 +534,49 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         return this.sdkRestClient;
     }
 
-    // @Override
-    public Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> getActionsMap() {
-        Map<String, Class<? extends TransportAction<? extends ActionRequest, ? extends ActionResponse>>> map = new HashMap<>();
-        map.put(ADJobParameterAction.NAME, ADJobParameterTransportAction.class);
-        map.put(ADJobRunnerAction.NAME, ADJobRunnerTransportAction.class);
-        return map;
+    /**
+     * createComponents doesn't work for Clock as OS process cannot start
+     * complaining it cannot find Clock instances for transport actions constructors.
+     * @return a UTC clock
+     */
+    protected Clock getClock() {
+        return Clock.systemUTC();
+    }
+
+    @Override
+    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
+        return ImmutableList
+            .of(
+                new ScalingExecutorBuilder(
+                    AD_THREAD_POOL_NAME,
+                    1,
+                    // HCAD can be heavy after supporting 1 million entities.
+                    // Limit to use at most half of the processors.
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 2),
+                    TimeValue.timeValueMinutes(10),
+                    AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
+                )/*, 
+                 new ScalingExecutorBuilder(
+                    AD_BATCH_TASK_THREAD_POOL_NAME,
+                    1,
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 8),
+                    TimeValue.timeValueMinutes(10),
+                    AD_THREAD_POOL_PREFIX + AD_BATCH_TASK_THREAD_POOL_NAME
+                 )
+                 */
+            );
+    }
+
+    @Override
+    public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
+        return Arrays
+            .asList(
+                new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
+                new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
+                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
+                // TODO : Register AnomalyResultAction/TransportAction here :
+                // https://github.com/opensearch-project/opensearch-sdk-java/issues/626
+            );
     }
 
     public static void main(String[] args) throws IOException {

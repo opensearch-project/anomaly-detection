@@ -42,7 +42,7 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 
 @Ignore
 public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {

@@ -8,80 +8,15 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly-detector commented until we have support for sdkClusterSettings.applySettings() / updateDynamicSettings() https://github.com/opensearch-project/opensearch-sdk-java/issues/631 
 package org.opensearch.ad.ratelimit;
 
-import static java.util.AbstractMap.SimpleImmutableEntry;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.mockito.Mockito;
-import org.opensearch.OpenSearchException;
-import org.opensearch.OpenSearchStatusException;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.get.MultiGetItemResponse;
-import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.ml.CheckpointDao;
-import org.opensearch.ad.ml.EntityModel;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelState;
-import org.opensearch.ad.ml.ThresholdingResult;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
-import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.index.get.GetResult;
-import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.RestStatus;
-import org.opensearch.threadpool.ThreadPoolStats;
-import org.opensearch.threadpool.ThreadPoolStats.Stats;
-
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.fasterxml.jackson.core.JsonParseException;
 
 public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     CheckpointReadWorker worker;
 
     CheckpointDao checkpoint;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
 
     ModelState<EntityModel> state;
 
@@ -93,15 +28,14 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     CacheProvider cacheProvider;
     EntityCache entityCache;
     EntityFeatureRequest request, request2, request3;
-    ClusterSettings clusterSettings;
+    SDKClusterSettings clusterSettings;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
-        clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
+        clusterService = mock(SDKClusterService.class);
+        clusterSettings = clusterService.new SDKClusterSettings(
+            Settings.EMPTY, Collections
                 .unmodifiableSet(
                     new HashSet<>(
                         Arrays
@@ -758,3 +692,4 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         verify(nodeStateManager, never()).setException(eq(detectorId), any(LimitExceededException.class));
     }
 }
+*/

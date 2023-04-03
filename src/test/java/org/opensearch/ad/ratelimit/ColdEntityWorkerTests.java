@@ -13,9 +13,11 @@ package org.opensearch.ad.ratelimit;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,16 +28,18 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Consumer;
 
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 
 public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
-    ClusterService clusterService;
+    SDKClusterService clusterService;
     ColdEntityWorker coldWorker;
     CheckpointReadWorker readWorker;
     EntityFeatureRequest request, request2, invalidRequest;
@@ -44,23 +48,25 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
+        clusterService = mock(SDKClusterService.class);
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), 1).build();
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
-                                AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
-                            )
+        SDKClusterSettings clusterSettings = spy(
+            clusterService.new SDKClusterSettings(
+                settings, Collections
+                    .unmodifiableSet(
+                        new HashSet<>(
+                            Arrays
+                                .asList(
+                                    AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
+                                    AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
+                                    AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
+                                )
+                        )
                     )
-                )
+            )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        doNothing().when(clusterSettings).addSettingsUpdateConsumer(any(Setting.class), any(Consumer.class));
 
         readWorker = mock(CheckpointReadWorker.class);
 
@@ -137,21 +143,23 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     }
 
     public void testDelay() {
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
-                                AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
-                            )
+        SDKClusterSettings clusterSettings = spy(
+            clusterService.new SDKClusterSettings(
+                Settings.EMPTY, Collections
+                    .unmodifiableSet(
+                        new HashSet<>(
+                            Arrays
+                                .asList(
+                                    AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_SECS,
+                                    AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
+                                    AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
+                                )
+                        )
                     )
-                )
+            )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        doNothing().when(clusterSettings).addSettingsUpdateConsumer(any(Setting.class), any(Consumer.class));
 
         // Integer.MAX_VALUE makes a huge heap
         coldWorker = new ColdEntityWorker(

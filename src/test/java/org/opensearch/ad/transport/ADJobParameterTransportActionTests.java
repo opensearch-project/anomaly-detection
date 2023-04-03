@@ -10,7 +10,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
@@ -18,16 +17,13 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.action.ExtensionActionRequest;
-import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobDocVersion;
-import org.opensearch.jobscheduler.transport.request.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.request.JobParameterRequest;
 import org.opensearch.jobscheduler.transport.response.JobParameterResponse;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.transport.TransportService;
 
 public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase {
 
@@ -35,9 +31,9 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
 
     private Task task;
 
-    private ActionListener<ExtensionActionResponse> response;
+    private ActionListener<JobParameterResponse> response;
 
-    private ExtensionActionRequest extensionActionRequest;
+    private JobParameterRequest jobParameterRequest;
 
     private JobDocVersion jobDocVersion;
 
@@ -48,23 +44,19 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
     public void setUp() throws Exception {
         super.setUp();
 
-        SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
-        when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
-        action = new ADJobParameterTransportAction(mock(TransportService.class), mock(ActionFilters.class), mockSdkXContentRegistry);
+        action = new ADJobParameterTransportAction(
+            mock(ActionFilters.class),
+            mock(TaskManager.class),
+            mock(SDKNamedXContentRegistry.class)
+        );
         task = mock(Task.class);
         jobDocVersion = new JobDocVersion(1L, 1L, 1L);
-        response = new ActionListener<>() {
+        response = new ActionListener<JobParameterResponse>() {
 
             @Override
-            public void onResponse(ExtensionActionResponse extensionActionResponse) {
-                assertNotNull(extensionActionResponse);
-                try {
-                    JobParameterResponse jobParameterResponse = new JobParameterResponse(extensionActionResponse.getResponseBytes());
-                    assertNotNull(jobParameterResponse.getJobParameter());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-
+            public void onResponse(JobParameterResponse jobParameterResponse) {
+                assertNotNull(jobParameterResponse);
+                assertNotNull(jobParameterResponse.getJobParameter());
             }
 
             @Override
@@ -77,22 +69,21 @@ public class ADJobParameterTransportActionTests extends OpenSearchIntegTestCase 
     @Test
     public void testJobParameterTransportAction() throws IOException {
         XContentBuilder content = TestHelpers.randomXContent();
-        setExtensionActionRequest(content);
-        action.doExecute(task, extensionActionRequest, response);
+        setJobParameterRequest(content);
+        action.doExecute(task, jobParameterRequest, response);
     }
 
     @Test
     public void testJobParameterTransportActionWithZeroJobSource() throws IOException {
         XContentBuilder content = JsonXContent.contentBuilder().startObject().endObject();
-        setExtensionActionRequest(content);
-        action.doExecute(task, extensionActionRequest, response);
+        setJobParameterRequest(content);
+        action.doExecute(task, jobParameterRequest, response);
     }
 
-    private void setExtensionActionRequest(XContentBuilder content) throws IOException {
+    private void setJobParameterRequest(XContentBuilder content) throws IOException {
         parser = XContentHelper
             .createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, BytesReference.bytes(content), XContentType.JSON);
-        JobParameterRequest jobParamRequest = new JobParameterRequest("token", parser, "id", jobDocVersion);
-        extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_PARAMETER_ACTION_NAME, jobParamRequest);
+        jobParameterRequest = new JobParameterRequest("token", parser, "id", jobDocVersion);
     }
 
 }

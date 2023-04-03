@@ -8,89 +8,9 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly-detection Commented until we have support for ClusterServiceUtils.createClusterService https://github.com/opensearch-project/opensearch-sdk-java/issues/621
 package org.opensearch.ad.ml;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
-
-import java.io.IOException;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Queue;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.ml.ModelManager.ModelType;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.node.DiscoveryNodeRole;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.collect.Tuple;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Setting;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
-import org.opensearch.test.ClusterServiceUtils;
-import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.threadpool.ThreadPool;
-
-import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.MultiDimDataWithTime;
-
-import com.amazon.randomcutforest.config.Precision;
-import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
-import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
-import com.google.common.collect.ImmutableList;
 
 @Ignore
 public class EntityColdStarterTests extends AbstractADTest {
@@ -386,11 +306,11 @@ public class EntityColdStarterTests extends AbstractADTest {
         checkSemaphoreRelease();
     }
 
-    /**
-     * Performan differential testing using trcf model with input cold start data and the modelState
-     * @param modelState an initialized model state
-     * @param coldStartData cold start data that initialized the modelState
-     */
+    //
+    // Performan differential testing using trcf model with input cold start data and the modelState
+    // @param modelState an initialized model state
+    // @param coldStartData cold start data that initialized the modelState
+    // 
     private void diffTesting(ModelState<EntityModel> modelState, List<double[]> coldStartData) {
         int inputDimension = detector.getEnabledFeatureIds().size();
 
@@ -434,14 +354,14 @@ public class EntityColdStarterTests extends AbstractADTest {
         }
     }
 
-    /**
-     * Convert a double array of size numFeatures * numSamples to a double array of
-     * size numSamples * numFeatures
-     * @param interval input array
-     * @param numValsToKeep number of samples to keep in the input array.  Used to
-     *  keep the last sample in the input array out in case of repeated inclusion
-     * @return converted value
-     */
+    // 
+    // Convert a double array of size numFeatures * numSamples to a double array of
+    // size numSamples * numFeatures
+    // @param interval input array
+    // @param numValsToKeep number of samples to keep in the input array.  Used to
+    // keep the last sample in the input array out in case of repeated inclusion
+    // @return converted value
+    //
     private List<double[]> convertToFeatures(double[][] interval, int numValsToKeep) {
         List<double[]> ret = new ArrayList<>();
         for (int j = 0; j < numValsToKeep; j++) {
@@ -1020,3 +940,4 @@ public class EntityColdStarterTests extends AbstractADTest {
         assertTrue(modelState.getModel().getTrcf().isPresent());
     }
 }
+*/

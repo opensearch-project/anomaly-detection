@@ -20,7 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.sdk.SDKClusterService;
 
 /**
  * Util class to filter unwanted node types
@@ -28,10 +28,10 @@ import org.opensearch.cluster.service.ClusterService;
  */
 public class DiscoveryNodeFilterer {
     private static final Logger LOG = LogManager.getLogger(DiscoveryNodeFilterer.class);
-    private final ClusterService clusterService;
+    private final SDKClusterService clusterService;
     private final HotDataNodePredicate eligibleNodeFilter;
 
-    public DiscoveryNodeFilterer(ClusterService clusterService) {
+    public DiscoveryNodeFilterer(SDKClusterService clusterService) {
         this.clusterService = clusterService;
         eligibleNodeFilter = new HotDataNodePredicate();
     }

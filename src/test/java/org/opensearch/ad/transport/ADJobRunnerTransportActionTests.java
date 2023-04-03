@@ -11,22 +11,19 @@ import org.junit.Test;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.extensions.action.ExtensionActionRequest;
-import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobDocVersion;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.utils.LockService;
-import org.opensearch.jobscheduler.transport.request.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
 import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.transport.TransportService;
 
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 
@@ -37,9 +34,11 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
 
     private Task task;
 
-    private ActionListener<ExtensionActionResponse> response;
+    private ActionListener<JobRunnerResponse> response;
 
     private ExtensionActionRequest extensionActionRequest;
+
+    private JobRunnerRequest jobRunnerRequest;
 
     private LockService lockService;
 
@@ -58,27 +57,26 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         SDKNamedXContentRegistry sdkNamedXContentRegistry = mock(SDKNamedXContentRegistry.class);
         when(extensionsRunner.getNamedXContentRegistry()).thenReturn(sdkNamedXContentRegistry);
         when(sdkNamedXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
-        action = new ADJobRunnerTransportAction(mock(TransportService.class), mock(ActionFilters.class), sdkRestClient, extensionsRunner);
+        action = new ADJobRunnerTransportAction(
+            extensionsRunner,
+            mock(ActionFilters.class),
+            mock(TaskManager.class),
+            sdkNamedXContentRegistry,
+            sdkRestClient
+        );
 
         task = mock(Task.class);
         lockService = new LockService(mock(Client.class), clusterService());
         JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
         Instant time = Instant.ofEpochSecond(1L);
         jobExecutionContext = new JobExecutionContext(time, jobDocVersion, null, "jobIndex", "jobId");
-        JobRunnerRequest jobRunnerRequest = new JobRunnerRequest("token", "jobParameterId", jobExecutionContext);
-        extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_RUNNER_ACTION_NAME, jobRunnerRequest);
-        response = new ActionListener<>() {
+        jobRunnerRequest = new JobRunnerRequest("token", "jobParameterId", jobExecutionContext);
+        response = new ActionListener<JobRunnerResponse>() {
 
             @Override
-            public void onResponse(ExtensionActionResponse extensionActionResponse) {
-                assertNotNull(extensionActionResponse);
-                try {
-                    JobRunnerResponse jobRunnerResponse = new JobRunnerResponse(extensionActionResponse.getResponseBytes());
-                    assertEquals(false, jobRunnerResponse.getJobRunnerStatus());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-
+            public void onResponse(JobRunnerResponse jobRunnerResponse) {
+                assertNotNull(jobRunnerResponse);
+                assertEquals(false, jobRunnerResponse.getJobRunnerStatus());
             }
 
             @Override
@@ -90,7 +88,7 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testJobRunnerTransportAction() {
-        action.doExecute(task, extensionActionRequest, response);
+        action.doExecute(task, jobRunnerRequest, response);
     }
 
     @Test
@@ -98,9 +96,7 @@ public class ADJobRunnerTransportActionTests extends OpenSearchIntegTestCase {
         JobDocVersion jobDocVersion = new JobDocVersion(1L, 1L, 1L);
         Instant time = Instant.ofEpochSecond(1L);
         JobExecutionContext jobExecutionContext = new JobExecutionContext(time, jobDocVersion, lockService, "jobIndex", "jobId");
-        JobRunnerRequest jobRunnerRequest = new JobRunnerRequest("token", "", jobExecutionContext);
-        extensionActionRequest = new ExtensionJobActionRequest<>(RestHandlerUtils.EXTENSION_JOB_RUNNER_ACTION_NAME, jobRunnerRequest);
-
-        action.doExecute(task, extensionActionRequest, response);
+        JobRunnerRequest nullJobParameterIdJobRunnerRequest = new JobRunnerRequest("token", "", jobExecutionContext);
+        action.doExecute(task, nullJobParameterIdJobRunnerRequest, response);
     }
 }

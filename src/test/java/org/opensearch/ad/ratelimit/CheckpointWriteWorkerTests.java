@@ -14,9 +14,11 @@ package org.opensearch.ad.ratelimit;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +39,7 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
@@ -53,14 +56,15 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.index.Index;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.threadpool.ThreadPool;
 
 import test.org.opensearch.ad.util.MLUtil;
@@ -70,7 +74,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     CheckpointWriteWorker worker;
 
     CheckpointDao checkpoint;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
 
     ModelState<EntityModel> state;
 
@@ -78,22 +82,24 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void setUp() throws Exception {
         super.setUp();
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE
-                            )
+        clusterService = mock(SDKClusterService.class);
+        SDKClusterSettings clusterSettings = spy(
+            clusterService.new SDKClusterSettings(
+                Settings.EMPTY, Collections
+                    .unmodifiableSet(
+                        new HashSet<>(
+                            Arrays
+                                .asList(
+                                    AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                                    AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
+                                    AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE
+                                )
+                        )
                     )
-                )
+            )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        doNothing().when(clusterSettings).addSettingsUpdateConsumer(any(Setting.class), any(Consumer.class));
 
         checkpoint = mock(CheckpointDao.class);
         Map<String, Object> checkpointMap = new HashMap<>();

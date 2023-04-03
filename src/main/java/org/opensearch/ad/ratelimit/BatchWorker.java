@@ -23,9 +23,9 @@ import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
 
 /**
@@ -44,7 +44,7 @@ public abstract class BatchWorker<RequestType extends QueuedRequest, BatchReques
         long heapSize,
         int singleRequestSize,
         Setting<Float> maxHeapPercentForQueueSetting,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         Random random,
         ADCircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,

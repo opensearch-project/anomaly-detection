@@ -13,21 +13,18 @@ package org.opensearch.ad.util;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.admin.indices.stats.IndicesStatsRequest;
-import org.opensearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 
 public class IndexUtils {
     /**
@@ -43,9 +40,9 @@ public class IndexUtils {
 
     private static final Logger logger = LogManager.getLogger(IndexUtils.class);
 
-    private Client client;
+    private SDKRestClient client;
     private ClientUtil clientUtil;
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
     /**
@@ -58,9 +55,9 @@ public class IndexUtils {
      */
     @Inject
     public IndexUtils(
-        Client client,
+        SDKRestClient client,
         ClientUtil clientUtil,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         this.client = client;
@@ -119,6 +116,7 @@ public class IndexUtils {
      * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
      * request fails.
      */
+    /*  @anomaly-detection - commented until we have support for SDKRestClient.stats() https://github.com/opensearch-project/opensearch-sdk-java/issues/620
     @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
@@ -128,6 +126,7 @@ public class IndexUtils {
         Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
         return response.map(r -> r.getIndex(indexName).getPrimaries().docs.getCount()).orElse(-1L);
     }
+    */
 
     /**
      * Similar to checkGlobalBlock, we check block on the indices level.

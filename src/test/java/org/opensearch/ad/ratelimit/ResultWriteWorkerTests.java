@@ -14,7 +14,9 @@ package org.opensearch.ad.ratelimit;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
@@ -43,18 +46,19 @@ import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 
 public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     ResultWriteWorker resultWriteQueue;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
     MultiEntityResultHandler resultHandler;
     AnomalyResult detectResult;
 
@@ -62,22 +66,24 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            Settings.EMPTY,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY,
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE
-                            )
+        clusterService = mock(SDKClusterService.class);
+        SDKClusterSettings clusterSettings = spy(
+            clusterService.new SDKClusterSettings(
+                Settings.EMPTY, Collections
+                    .unmodifiableSet(
+                        new HashSet<>(
+                            Arrays
+                                .asList(
+                                    AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                                    AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY,
+                                    AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE
+                                )
+                        )
                     )
-                )
+            )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        doNothing().when(clusterSettings).addSettingsUpdateConsumer(any(Setting.class), any(Consumer.class));
 
         threadPool = mock(ThreadPool.class);
         setUpADThreadPool(threadPool);

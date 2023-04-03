@@ -8,47 +8,9 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly-detection - commented until we have support for SDKRestClient.prepareBulk() https://github.com/opensearch-project/opensearch-sdk-java/issues/635
 package org.opensearch.ad.transport.handler;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
-
-import java.io.IOException;
-import java.time.Clock;
-
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.action.bulk.BulkAction;
-import org.opensearch.action.bulk.BulkItemResponse;
-import org.opensearch.action.bulk.BulkRequestBuilder;
-import org.opensearch.action.bulk.BulkResponse;
-import org.opensearch.action.index.IndexResponse;
-import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.index.Index;
-import org.opensearch.index.engine.VersionConflictEngineException;
-import org.opensearch.index.shard.ShardId;
-import org.opensearch.threadpool.ThreadPool;
-
-import com.google.common.collect.ImmutableList;
 
 public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
 
@@ -216,3 +178,4 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         );
     }
 }
+*/

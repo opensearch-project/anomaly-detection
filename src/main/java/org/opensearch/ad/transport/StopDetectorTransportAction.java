@@ -21,30 +21,31 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.common.inject.Inject;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
-public class StopDetectorTransportAction extends HandledTransportAction<ActionRequest, StopDetectorResponse> {
+import com.google.inject.Inject;
+
+public class StopDetectorTransportAction extends TransportAction<ActionRequest, StopDetectorResponse> {
 
     private static final Logger LOG = LogManager.getLogger(StopDetectorTransportAction.class);
 
-    private final Client client;
+    private final SDKRestClient client;
     private final DiscoveryNodeFilterer nodeFilter;
 
     @Inject
     public StopDetectorTransportAction(
-        TransportService transportService,
         DiscoveryNodeFilterer nodeFilter,
         ActionFilters actionFilters,
-        Client client
+        TaskManager taskManager,
+        SDKRestClient client
     ) {
-        super(StopDetectorAction.NAME, transportService, actionFilters, StopDetectorRequest::new);
+        super(StopDetectorAction.NAME, actionFilters, taskManager);
         this.client = client;
         this.nodeFilter = nodeFilter;
     }

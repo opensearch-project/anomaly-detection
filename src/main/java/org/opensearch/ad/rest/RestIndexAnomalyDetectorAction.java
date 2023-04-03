@@ -39,6 +39,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
@@ -67,14 +68,20 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     private Settings environmentSettings;
     private TransportService transportService;
     private SDKRestClient restClient;
+    private OpenSearchAsyncClient sdkJavaAsyncClient;
     private SDKClusterService sdkClusterService;
 
-    public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient restClient) {
+    public RestIndexAnomalyDetectorAction(
+        ExtensionsRunner extensionsRunner,
+        SDKRestClient restClient,
+        OpenSearchAsyncClient sdkJavaAsyncClient
+    ) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.restClient = restClient;
+        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.sdkClusterService = new SDKClusterService(extensionsRunner);
     }
 
@@ -153,6 +160,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             this.environmentSettings, // Settings settings
             new AnomalyDetectionIndices(
                 restClient, // client,
+                sdkJavaAsyncClient,
                 sdkClusterService, // clusterService,
                 null, // threadPool,
                 this.environmentSettings, // settings,
