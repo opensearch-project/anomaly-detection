@@ -37,7 +37,7 @@ import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;

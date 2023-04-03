@@ -48,7 +48,7 @@ import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClusterService;
