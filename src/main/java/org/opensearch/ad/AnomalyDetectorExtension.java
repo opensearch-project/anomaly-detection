@@ -51,10 +51,11 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
-import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStat;
@@ -68,11 +69,13 @@ import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADJobParameterAction;
-import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
-import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
+import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
+import org.opensearch.ad.transport.ADJobParameterTransportAction;
+import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
+import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -127,6 +130,10 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     // package private for testing
     GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
 
+    private ADStats adStats;
+
+    private DiscoveryNodeFilterer nodeFilter;
+
     static {
         SpecialPermission.check();
         // gson intialization requires "java.lang.RuntimePermission" "accessDeclaredMembers" to
@@ -145,7 +152,9 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
+                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
+                    new RestStatsAnomalyDetectorAction(extensionsRunner(),restClient(),adStats,nodeFilter)
+
             );
     }
 
@@ -169,7 +178,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         Throttler throttler = new Throttler(getClock());
         ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
         IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver);
-        DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
+        nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
             sdkJavaAsyncClient,
@@ -395,7 +404,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             .put(StatNames.MODEL_COUNT.getName(), new ADStat<>(false, new ModelsOnNodeCountSupplier(modelManager, cacheProvider)))
             .build();
 
-        ADStats adStats = new ADStats(stats);
+        adStats = new ADStats(stats);
 
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
         ADTaskManager adTaskManager = new ADTaskManager(
@@ -573,7 +582,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             .asList(
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
-                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
+                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
+                new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class)
                 // TODO : Register AnomalyResultAction/TransportAction here :
                 // https://github.com/opensearch-project/opensearch-sdk-java/issues/626
             );
