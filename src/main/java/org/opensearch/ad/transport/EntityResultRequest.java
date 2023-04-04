@@ -29,8 +29,8 @@ import org.opensearch.ad.util.Bwc;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.xcontent.ToXContentObject;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.ToXContentObject;
+import org.opensearch.core.xcontent.XContentBuilder;
 
 public class EntityResultRequest extends ActionRequest implements ToXContentObject {
     private static final Logger LOG = LogManager.getLogger(EntityResultRequest.class);
