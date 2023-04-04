@@ -101,7 +101,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
             );
     }
 
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -110,38 +110,13 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
         }
     };
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
 
         String detectorId = request.param(DETECTOR_ID);
         DeleteAnomalyDetectorRequest deleteAnomalyDetectorRequest = new DeleteAnomalyDetectorRequest(detectorId);
-
-        /*DeleteAnomalyDetectorTransportAction deleteTransportAction = new DeleteAnomalyDetectorTransportAction(
-                transportService,
-                null, // nodeFilter
-                client,
-                clusterService,
-                settings,
-                extensionsRunner.getNamedXContentRegistry().getRegistry(), // TODO:
-                // https://github.com/opensearch-project/opensearch-sdk-java/issues/447
-                null // ADTaskManager adTaskManager,
-        );
-        
-        CompletableFuture<DeleteResponse> futureResponse = new CompletableFuture<>();
-        deleteTransportAction
-                .doExecute(
-                        null, // task
-                        deleteAnomalyDetectorRequest,
-                        ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
-                );
-        
-        DeleteResponse response = futureResponse
-                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
-                .join();
-        
-        return deleteAnomalyDetectorResponse(request, response);*/
         CompletableFuture<DeleteResponse> futureResponse = new CompletableFuture<>();
 
         client
@@ -158,7 +133,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
         return deleteAnomalyDetectorResponse(request, response);
     }
 
-    private ExtensionRestResponse deleteAnomalyDetectorResponse(ExtensionRestRequest request, DeleteResponse response) throws IOException {
+    private ExtensionRestResponse deleteAnomalyDetectorResponse(RestRequest request, DeleteResponse response) throws IOException {
         RestStatus restStatus = RestStatus.OK;
         ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
             request,

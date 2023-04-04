@@ -744,7 +744,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.task.ADBatchTaskCache',
         'org.opensearch.ad.caching.DoorKeeper',
         'org.opensearch.ad.caching.PriorityCache.1',
-<<<<<<< HEAD
         'org.opensearch.ad.caching.CacheProvider',
         'org.opensearch.ad.util.IndexUtils',
         'org.opensearch.ad.cluster.ClusterManagerEventListener',
