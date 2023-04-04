@@ -32,6 +32,7 @@ import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
 import org.opensearch.ad.transport.StatsAnomalyDetectorResponse;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
+import org.opensearch.ad.util.RestHandlerUtils;
 import static org.opensearch.ad.util.RestHandlerUtils.NODE_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.STAT;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -166,7 +167,7 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             }
 
             if (!invalidStats.isEmpty()) {
-                throw new IllegalArgumentException(unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), "stat"));
+                throw new IllegalArgumentException(RestHandlerUtils.unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), STAT));
             }
         }
         return adStatsRequest;

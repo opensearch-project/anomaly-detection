@@ -8,10 +8,39 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/*  @anomaly-detection - commented until we have support for SDKRestClient.stats() https://github.com/opensearch-project/opensearch-sdk-java/issues/620
 package org.opensearch.ad.stats;
 
 
+import com.amazon.randomcutforest.RandomCutForest;
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Collections;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.opensearch.ad.caching.CacheProvider;
+import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.ml.EntityModel;
+import org.opensearch.ad.ml.HybridThresholdingModel;
+import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
+import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
+import org.opensearch.ad.util.IndexUtils;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.test.OpenSearchTestCase;
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class ADStatsTests extends OpenSearchTestCase {
 
@@ -49,20 +78,20 @@ public class ADStatsTests extends OpenSearchTestCase {
                 )
         );
 
-        when(modelManager.getAllModels()).thenReturn(modelsInformation);
+        Mockito.when(modelManager.getAllModels()).thenReturn(modelsInformation);
 
         ModelState<EntityModel> entityModel1 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
         ModelState<EntityModel> entityModel2 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
 
         List<ModelState<?>> entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
-        EntityCache cache = mock(EntityCache.class);
-        when(cacheProvider.get()).thenReturn(cache);
-        when(cache.getAllModels()).thenReturn(entityModelsInformation);
+        EntityCache cache = Mockito.mock(EntityCache.class);
+        Mockito.when(cacheProvider.get()).thenReturn(cache);
+        Mockito.when(cache.getAllModels()).thenReturn(entityModelsInformation);
 
-        IndexUtils indexUtils = mock(IndexUtils.class);
+        IndexUtils indexUtils = Mockito.mock(IndexUtils.class);
 
-        when(indexUtils.getIndexHealthStatus(anyString())).thenReturn("yellow");
-        when(indexUtils.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
+        Mockito.when(indexUtils.getIndexHealthStatus(Mockito.anyString())).thenReturn("yellow");
+        Mockito.when(indexUtils.getNumberOfDocumentsInIndex(Mockito.anyString())).thenReturn(100L);
 
         clusterStatName1 = "clusterStat1";
         clusterStatName2 = "clusterStat2";
@@ -71,11 +100,11 @@ public class ADStatsTests extends OpenSearchTestCase {
         nodeStatName2 = "nodeStat2";
 
         Settings settings = Settings.builder().put(MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
-        SDKClusterService clusterService = mock(SDKClusterService.class);
-        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
+        SDKClusterService clusterService = Mockito.mock(SDKClusterService.class);
+        SDKClusterService.SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
             Settings.EMPTY, Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
         );
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        Mockito.when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         statsMap = new HashMap<String, ADStat<?>>() {
             {
@@ -145,4 +174,3 @@ public class ADStatsTests extends OpenSearchTestCase {
     }
 
 }
-*/
