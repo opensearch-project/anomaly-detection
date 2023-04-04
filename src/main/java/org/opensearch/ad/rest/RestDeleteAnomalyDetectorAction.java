@@ -25,7 +25,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.ad.AnomalyDetectorExtension;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.rest.handler.AnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -34,7 +33,6 @@ import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
@@ -43,11 +41,8 @@ import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
-import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 
 /**
  * This class consists of the REST handler to delete anomaly detector.
@@ -59,24 +54,14 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
     private static final Logger logger = LogManager.getLogger(RestDeleteAnomalyDetectorAction.class);
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
 
-    @Inject
-    private NamedXContentRegistry namedXContentRegistry;
     private Settings settings;
-    private TransportService transportService;
-    @Inject
     private SDKRestClient client;
-    @Inject
-    private SDKClusterService clusterService;
     private ExtensionsRunner extensionsRunner;
 
     public RestDeleteAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         this.extensionsRunner = extensionsRunner;
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry().getRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.transportService = extensionsRunner.getExtensionTransportService();
         this.client = client;
-
-        this.clusterService = new SDKClusterService(extensionsRunner);
     }
 
     public String getName() {
@@ -90,11 +75,6 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
                 new RouteHandler(
                     RestRequest.Method.DELETE,
                     String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    handleRequest
-                ),
-                new RouteHandler(
-                    RestRequest.Method.DELETE,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID),
                     handleRequest
                 )
             );
