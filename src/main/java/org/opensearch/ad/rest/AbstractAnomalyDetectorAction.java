@@ -55,7 +55,7 @@ public abstract class AbstractAnomalyDetectorAction extends BaseExtensionRestHan
         settingToConsumerMap.put(MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, it -> maxSingleEntityDetectors = (Integer) it);
         settingToConsumerMap.put(MAX_MULTI_ENTITY_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = (Integer) it);
         settingToConsumerMap.put(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = (Integer) it);
-        SDKClusterService clusterService = new SDKClusterService(extensionsRunner);
+        SDKClusterService clusterService = extensionsRunner.getSdkClusterService();
         try {
             clusterService.getClusterSettings().addSettingsUpdateConsumer(settingToConsumerMap);
         } catch (Exception e) {

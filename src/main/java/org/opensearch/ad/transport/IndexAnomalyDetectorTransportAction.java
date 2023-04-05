@@ -27,6 +27,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -36,20 +37,22 @@ import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
 
-public class IndexAnomalyDetectorTransportAction {
-    // extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse>
+import com.google.inject.Inject;
+
+public class IndexAnomalyDetectorTransportAction extends TransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
     private final SDKRestClient client;
     private final TransportService transportService;
@@ -59,33 +62,34 @@ public class IndexAnomalyDetectorTransportAction {
     private final ADTaskManager adTaskManager;
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
+    private final Settings settings;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
-        TransportService transportService,
+        ExtensionsRunner extensionsRunner,
+        TaskManager taskManager,
         ActionFilters actionFilters,
         SDKRestClient restClient,
         SDKClusterService sdkClusterService,
-        Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         SDKNamedXContentRegistry namedXContentRegistry,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao
     ) {
-        // super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
+        super(IndexAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.client = restClient;
-        this.transportService = transportService;
+        this.transportService = extensionsRunner.getExtensionTransportService();
         this.clusterService = sdkClusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = namedXContentRegistry;
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;
+        this.settings = extensionsRunner.getEnvironmentSettings();
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
-    // FIXME Investigate whether we should inherit from TransportAction
-    // @Override
+    @Override
     public void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();

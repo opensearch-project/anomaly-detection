@@ -31,9 +31,9 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
-import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
@@ -41,12 +41,11 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.rest.action.RestActions;
 import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
-import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
@@ -58,17 +57,13 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
     private static final String GET_ANOMALY_DETECTOR_ACTION = "get_anomaly_detector";
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
     private Settings settings;
-    private TransportService transportService;
     private SDKRestClient client;
-    private SDKClusterService clusterService;
     private ExtensionsRunner extensionsRunner;
 
     public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         this.extensionsRunner = extensionsRunner;
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.transportService = extensionsRunner.getExtensionTransportService();
         this.client = client;
-        this.clusterService = new SDKClusterService(extensionsRunner);
     }
 
     // @Override
@@ -105,15 +100,13 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         String detectorId = request.param(DETECTOR_ID);
         String typesStr = request.param(TYPE);
 
-        String rawPath = request.path();
-        // FIXME handle this
-        // Passed false until job scheduler is integrated
-        boolean returnJob = false;
-        boolean returnTask = false;
-        boolean all = false;
+        String rawPath = request.rawPath();
+        boolean returnJob = request.paramAsBoolean("job", false);
+        boolean returnTask = request.paramAsBoolean("task", false);
+        boolean all = request.paramAsBoolean("_all", false);
         GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
             detectorId,
-            1, // version. RestActions.parseVersion(request). TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/431
+            RestActions.parseVersion(request),
             returnJob,
             returnTask,
             typesStr,
@@ -122,21 +115,11 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
             buildEntity(request, detectorId)
         );
 
-        GetAnomalyDetectorTransportAction getTransportAction = new GetAnomalyDetectorTransportAction(
-            transportService,
-            null, // nodeFilter
-            null, // ActionFilters actionFilters
-            clusterService,
-            client,
-            settings,
-            extensionsRunner.getNamedXContentRegistry(),
-            null // ADTaskManager adTaskManager
-        );
-
         CompletableFuture<GetAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
-        getTransportAction
-            .doExecute(
-                null, // task
+
+        client
+            .execute(
+                GetAnomalyDetectorAction.INSTANCE,
                 getAnomalyDetectorRequest,
                 ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
             );
@@ -147,7 +130,6 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
         // TODO handle exceptional response
         return getAnomalyDetectorResponse(request, response);
-
     }
 
     /*@Override
