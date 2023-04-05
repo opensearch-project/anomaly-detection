@@ -40,14 +40,13 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.ThreadedActionListener;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ClientException;
 import org.opensearch.ad.common.exception.EndRunException;
@@ -74,14 +73,11 @@ import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
@@ -89,8 +85,12 @@ import org.opensearch.common.transport.NetworkExceptionHelper;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.ActionNotFoundTransportException;
 import org.opensearch.transport.ConnectTransportException;
@@ -99,7 +99,9 @@ import org.opensearch.transport.ReceiveTimeoutTransportException;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
-public class AnomalyResultTransportAction extends HandledTransportAction<ActionRequest, AnomalyResultResponse> {
+import com.google.inject.Inject;
+
+public class AnomalyResultTransportAction extends TransportAction<ActionRequest, AnomalyResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(AnomalyResultTransportAction.class);
     static final String NO_MODEL_ERR_MSG = "No RCF models are available either because RCF"
@@ -113,18 +115,18 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     static final String TROUBLE_QUERYING_ERR_MSG = "Having trouble querying data: ";
     static final String NO_ACK_ERR = "no acknowledgements from model hosting nodes.";
 
+    private final ExtensionsRunner extensionsRunner;
     private final TransportService transportService;
     private final NodeStateManager stateManager;
     private final FeatureManager featureManager;
     private final ModelManager modelManager;
-    private final HashRing hashRing;
     private final TransportRequestOptions option;
-    private final ClusterService clusterService;
+    private final SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
     private final ADStats adStats;
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ThreadPool threadPool;
-    private final Client client;
+    private final SDKRestClient client;
     private final ADTaskManager adTaskManager;
 
     // Cache HC detector id. This is used to count HC failure stats. We can tell a detector
@@ -143,15 +145,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
     @Inject
     public AnomalyResultTransportAction(
+        ExtensionsRunner extensionsRunner,
         ActionFilters actionFilters,
-        TransportService transportService,
-        Settings settings,
-        Client client,
+        TaskManager taskManager,
+        SDKRestClient client,
         NodeStateManager manager,
         FeatureManager featureManager,
         ModelManager modelManager,
-        HashRing hashRing,
-        ClusterService clusterService,
+        SDKClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
@@ -159,14 +160,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         SDKNamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
     ) {
-        super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
-        this.transportService = transportService;
-        this.settings = settings;
+        super(AnomalyResultAction.NAME, actionFilters, taskManager);
+        this.extensionsRunner = extensionsRunner;
+        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.settings = extensionsRunner.getEnvironmentSettings();
         this.client = client;
         this.stateManager = manager;
         this.featureManager = featureManager;
         this.modelManager = modelManager;
-        this.hashRing = hashRing;
         this.option = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
@@ -308,6 +309,24 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
                     try {
 
+                        DiscoveryNode extensionNode = extensionsRunner.getExtensionNode();
+
+                        Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
+                            .getResults()
+                            .entrySet()
+                            .stream()
+                            .collect(
+                                Collectors
+                                    .groupingBy(
+                                        // from entity name to its node
+                                        e -> extensionNode,
+                                        Collectors.toMap(Entry::getKey, Entry::getValue)
+                                    )
+                            )
+                            .entrySet();
+
+                        /* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200 
+                        
                         Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
                             .getResults()
                             .entrySet()
@@ -322,6 +341,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                     )
                             )
                             .entrySet();
+                        */
 
                         Iterator<Entry<DiscoveryNode, Map<Entity, double[]>>> iterator = node2Entities.iterator();
 
@@ -524,13 +544,16 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         // We are going to use only 1 model partition for a single stream detector.
         // That's why we use 0 here.
         String rcfModelID = SingleStreamModelIdMapper.getRcfModelId(adID, 0);
+        /* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200
         Optional<DiscoveryNode> asRCFNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
         if (!asRCFNode.isPresent()) {
             listener.onFailure(new InternalFailure(adID, "RCF model node is not available."));
             return;
         }
-
+        
         DiscoveryNode rcfNode = asRCFNode.get();
+        */
+        DiscoveryNode rcfNode = extensionsRunner.getExtensionNode();
 
         if (!shouldStart(listener, adID, anomalyDetector, rcfNode.getId(), rcfModelID)) {
             return;
@@ -903,7 +926,9 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private void handleConnectionException(String node, String detectorId) {
         final DiscoveryNodes nodes = clusterService.state().nodes();
         if (!nodes.nodeExists(node)) {
+            /* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200
             hashRing.buildCirclesForRealtimeAD();
+            */
             return;
         }
         // rebuilding is not done or node is unresponsive

@@ -11,44 +11,42 @@
 
 package org.opensearch.ad.transport;
 
-import java.net.ConnectException;
-import java.util.Optional;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.common.inject.Inject;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
-public class RCFResultTransportAction extends HandledTransportAction<RCFResultRequest, RCFResultResponse> {
+import com.google.inject.Inject;
+
+public class RCFResultTransportAction extends TransportAction<RCFResultRequest, RCFResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(RCFResultTransportAction.class);
+    private ExtensionsRunner extensionsRunner;
     private ModelManager manager;
     private ADCircuitBreakerService adCircuitBreakerService;
-    private HashRing hashRing;
 
     @Inject
     public RCFResultTransportAction(
+        ExtensionsRunner extensionsRunner,
         ActionFilters actionFilters,
-        TransportService transportService,
+        TaskManager taskManager,
         ModelManager manager,
-        ADCircuitBreakerService adCircuitBreakerService,
-        HashRing hashRing
+        ADCircuitBreakerService adCircuitBreakerService
     ) {
-        super(RCFResultAction.NAME, transportService, actionFilters, RCFResultRequest::new);
+        super(RCFResultAction.NAME, actionFilters, taskManager);
+        this.extensionsRunner = extensionsRunner;
         this.manager = manager;
         this.adCircuitBreakerService = adCircuitBreakerService;
-        this.hashRing = hashRing;
     }
 
     @Override
@@ -57,6 +55,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
             listener.onFailure(new LimitExceededException(request.getAdID(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
             return;
         }
+        /* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200 
         Optional<DiscoveryNode> remoteNode = hashRing.getNodeByAddress(request.remoteAddress());
         if (!remoteNode.isPresent()) {
             listener.onFailure(new ConnectException("Can't find remote node by address"));
@@ -64,6 +63,10 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
         }
         String remoteNodeId = remoteNode.get().getId();
         Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
+        */
+        DiscoveryNode remoteNode = extensionsRunner.getExtensionNode();
+        String remoteNodeId = remoteNode.getId();
+        Version remoteAdVersion = Version.CURRENT;
 
         try {
             LOG.info("Serve rcf request for {}", request.getModelID());

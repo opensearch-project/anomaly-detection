@@ -50,7 +50,11 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
+import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.EntityColdStartWorker;
+import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
@@ -73,7 +77,14 @@ import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
+import org.opensearch.ad.transport.AnomalyResultAction;
+import org.opensearch.ad.transport.AnomalyResultTransportAction;
+import org.opensearch.ad.transport.EntityResultAction;
+import org.opensearch.ad.transport.EntityResultTransportAction;
+import org.opensearch.ad.transport.RCFResultAction;
+import org.opensearch.ad.transport.RCFResultTransportAction;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
+import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
@@ -339,6 +350,26 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             checkpointWriteQueue,
             AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
         );
+        EntityColdStartWorker coldstartQueue = new EntityColdStartWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            entityColdStarter,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager
+        );
+
         ModelManager modelManager = new ModelManager(
             checkpoint,
             getClock(),
@@ -353,6 +384,81 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             entityColdStarter,
             featureManager,
             memoryTracker
+        );
+        MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
+            sdkRestClient,
+            environmentSettings,
+            threadPool,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtils,
+            sdkClusterService
+        );
+
+        ResultWriteWorker resultWriteQueue = new ResultWriteWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            multiEntityResultHandler,
+            xContentRegistry,
+            stateManager,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
+
+        CheckpointReadWorker checkpointReadQueue = new CheckpointReadWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            modelManager,
+            checkpoint,
+            coldstartQueue,
+            resultWriteQueue,
+            stateManager,
+            anomalyDetectionIndices,
+            cacheProvider,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue
+        );
+
+        ColdEntityWorker coldEntityQueue = new ColdEntityWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            checkpointReadQueue,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager
         );
 
         Map<String, ADStat<?>> stats = ImmutableMap
@@ -447,10 +553,15 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 adCircuitBreakerService,
                 adStats,
                 nodeFilter,
+                multiEntityResultHandler,
                 checkpoint,
                 cacheProvider,
                 adTaskManager,
+                coldstartQueue,
+                resultWriteQueue,
+                checkpointReadQueue,
                 checkpointWriteQueue,
+                coldEntityQueue,
                 entityColdStarter,
                 adTaskCacheManager
             );
@@ -573,9 +684,10 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             .asList(
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
-                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class)
-                // TODO : Register AnomalyResultAction/TransportAction here :
-                // https://github.com/opensearch-project/opensearch-sdk-java/issues/626
+                new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
+                new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
+                new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
+                new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class)
             );
     }
 
