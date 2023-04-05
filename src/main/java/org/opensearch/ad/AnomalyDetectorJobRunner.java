@@ -657,9 +657,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
         Request releaseLockRequest = new Request(
             "PUT",
-            String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_release_lock")
+            String.format(Locale.ROOT, "%s/%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_release_lock", lock.getJobId())
         );
-        releaseLockRequest.addParameter(LockModel.LOCK_ID, lock.getLockId());
 
         try {
             Response releaseLockResponse = client.performRequest(releaseLockRequest);
