@@ -33,6 +33,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ExceptionsHelper;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.OpenSearchTimeoutException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
@@ -1106,7 +1107,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
             }
         }, exception -> {
             Throwable cause = ExceptionsHelper.unwrapCause(exception);
-            if (cause instanceof IndexNotFoundException) {
+            if (cause instanceof OpenSearchStatusException) {
                 LOG.info("Trigger cold start for {}", detectorId);
                 coldStart(detector);
             } else {
