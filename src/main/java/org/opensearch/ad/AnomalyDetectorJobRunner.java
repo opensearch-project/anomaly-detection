@@ -25,8 +25,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -61,6 +63,7 @@ import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseListener;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
@@ -630,7 +633,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     private LockModel acquireLock(JobExecutionContext context, Long lockDurationSeconds) throws Exception {
-
         // Build request body
         AcquireLockRequest acquireLockRequestBody = new AcquireLockRequest(
             context.getJobId(),
@@ -643,29 +645,60 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         acquireLockRequest
             .setJsonEntity(Strings.toString(acquireLockRequestBody.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)));
 
-        // Parse response map fields for lock model
-        Response acquireLockResponse = client.performRequest(acquireLockRequest);
+        CompletableFuture<Response> acquireLockResponse = new CompletableFuture<>();
+        client.performRequestAsync(acquireLockRequest, new ResponseListener() {
+
+            @Override
+            public void onSuccess(Response response) {
+                acquireLockResponse.complete(response);
+            }
+
+            @Override
+            public void onFailure(Exception exception) {
+                acquireLockResponse.completeExceptionally(exception);
+            }
+
+        });
+        Response response = acquireLockResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        log.info("Acquired lock for AD job {}", context.getJobId());
+
         XContentParser parser = XContentType.JSON
             .xContent()
-            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, acquireLockResponse.getEntity().getContent());
-
+            .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, response.getEntity().getContent());
         AcquireLockResponse acquireLockResponseBody = AcquireLockResponse.parse(parser);
+
         return acquireLockResponseBody.getLock();
     }
 
     private void releaseLock(AnomalyDetectorJob jobParameter, LockModel lock) {
-
         Request releaseLockRequest = new Request(
             "PUT",
-            String.format(Locale.ROOT, "%s/%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_release_lock", lock.getJobId())
+            String.format(Locale.ROOT, "%s/%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_release_lock", lock.getLockId())
         );
 
         try {
-            Response releaseLockResponse = client.performRequest(releaseLockRequest);
-            boolean lockIsReleased = RestStatus.fromCode(releaseLockResponse.getStatusLine().getStatusCode()) == RestStatus.OK
-                ? true
-                : false;
+            CompletableFuture<Response> releaseLockResponse = new CompletableFuture<>();
+            client.performRequestAsync(releaseLockRequest, new ResponseListener() {
 
+                @Override
+                public void onSuccess(Response response) {
+                    releaseLockResponse.complete(response);
+                }
+
+                @Override
+                public void onFailure(Exception exception) {
+                    releaseLockResponse.completeExceptionally(exception);
+                }
+
+            });
+            Response response = releaseLockResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .join();
+
+            boolean lockIsReleased = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
             if (lockIsReleased) {
                 log.info("Released lock for AD job {}", jobParameter.getName());
             } else {
