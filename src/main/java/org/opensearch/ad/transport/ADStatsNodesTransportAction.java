@@ -11,92 +11,75 @@
 
 package org.opensearch.ad.transport;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_NODE_STATS;
+import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
+import java.io.IOException;
+import java.util.*;
+
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.nodes.TransportNodesAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.monitor.jvm.JvmService;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
+
+import com.google.inject.Inject;
 
 /**
  *  ADStatsNodesTransportAction contains the logic to extract the stats from the nodes
  */
-public class ADStatsNodesTransportAction extends
-    TransportNodesAction<ADStatsRequest, ADStatsNodesResponse, ADStatsNodeRequest, ADStatsNodeResponse> {
-
+public class ADStatsNodesTransportAction extends TransportAction<ADStatsNodeRequest, ADStatsNodesResponse> {
     private ADStats adStats;
     private final JvmService jvmService;
     private final ADTaskManager adTaskManager;
 
+    private final SDKClusterService sdkClusterService;
+
     /**
      * Constructor
      *
-     * @param threadPool ThreadPool to use
-     * @param clusterService ClusterService
-     * @param transportService TransportService
+     * @param sdkClusterService SDK cluster Service
      * @param actionFilters Action Filters
      * @param adStats ADStats object
      * @param jvmService ES JVM Service
      * @param adTaskManager AD task manager
+     * @param taskManager Task manager
      */
     @Inject
     public ADStatsNodesTransportAction(
-        ThreadPool threadPool,
-        ClusterService clusterService,
-        TransportService transportService,
+        SDKClusterService sdkClusterService,
         ActionFilters actionFilters,
         ADStats adStats,
         JvmService jvmService,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        TaskManager taskManager
     ) {
-        super(
-            ADStatsNodesAction.NAME,
-            threadPool,
-            clusterService,
-            transportService,
-            actionFilters,
-            ADStatsRequest::new,
-            ADStatsNodeRequest::new,
-            ThreadPool.Names.MANAGEMENT,
-            ADStatsNodeResponse.class
-        );
+        super(ADStatsNodesAction.NAME, actionFilters, taskManager);
         this.adStats = adStats;
         this.jvmService = jvmService;
         this.adTaskManager = adTaskManager;
+        this.sdkClusterService = sdkClusterService;
     }
 
-    @Override
-    protected ADStatsNodesResponse newResponse(
-        ADStatsRequest request,
-        List<ADStatsNodeResponse> responses,
-        List<FailedNodeException> failures
-    ) {
-        return new ADStatsNodesResponse(clusterService.getClusterName(), responses, failures);
+    public ADStatsNodesResponse newResponse(List<ADStatsNodeResponse> responses, List<FailedNodeException> failures) {
+        return new ADStatsNodesResponse(sdkClusterService.state().getClusterName(), responses, failures);
     }
 
-    @Override
-    protected ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {
+    public ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {
         return new ADStatsNodeRequest(request);
     }
 
-    @Override
-    protected ADStatsNodeResponse newNodeResponse(StreamInput in) throws IOException {
+    public ADStatsNodeResponse newNodeResponse(StreamInput in) throws IOException {
         return new ADStatsNodeResponse(in);
     }
 
-    @Override
     protected ADStatsNodeResponse nodeOperation(ADStatsNodeRequest request) {
         return createADStatsNodeResponse(request.getADStatsRequest());
     }
@@ -126,6 +109,29 @@ public class ADStatsNodesTransportAction extends
             }
         }
 
-        return new ADStatsNodeResponse(clusterService.localNode(), statValues);
+        return new ADStatsNodeResponse(sdkClusterService.localNode(), statValues);
+    }
+
+    @Override
+    protected void doExecute(Task task, ADStatsNodeRequest request, ActionListener<ADStatsNodesResponse> actionListener) {
+        ActionListener<ADStatsNodesResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_NODE_STATS);
+        ADStatsNodeResponse adStatsNodeResponse = null;
+        List<FailedNodeException> failures = new ArrayList<>();
+        try {
+            adStatsNodeResponse = nodeOperation(request);
+        } catch (Exception e) {
+            if (e instanceof FailedNodeException) {
+                failures.add((FailedNodeException) e);
+                logger.info("Failure in get Node stats due to exception", e);
+            } else {
+                logger.info("Could not process get Node stats API due to exception", e);
+            }
+            listener.onFailure(e);
+        }
+        List<ADStatsNodeResponse> responses = new ArrayList<>();
+        if (adStatsNodeResponse != null) {
+            responses.add(adStatsNodeResponse);
+        }
+        listener.onResponse(newResponse(responses, failures));
     }
 }

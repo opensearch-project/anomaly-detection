@@ -51,11 +51,11 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
-import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStat;
@@ -68,14 +68,7 @@ import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.ADJobParameterAction;
-import org.opensearch.ad.transport.ADJobRunnerAction;
-import org.opensearch.ad.transport.AnomalyDetectorJobAction;
-import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
-import org.opensearch.ad.transport.ADJobParameterTransportAction;
-import org.opensearch.ad.transport.ADJobRunnerTransportAction;
-import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
-import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.*;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -153,7 +146,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
-                    new RestStatsAnomalyDetectorAction(extensionsRunner(),restClient(),adStats,nodeFilter)
+                new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient(), adStats, nodeFilter)
 
             );
     }
@@ -177,7 +170,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
         Throttler throttler = new Throttler(getClock());
         ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
-        IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver);
+        IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver, javaAsyncClient());
         nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
@@ -583,7 +576,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
-                new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class)
+                new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(ADStatsNodesAction.INSTANCE, ADStatsNodesTransportAction.class)
                 // TODO : Register AnomalyResultAction/TransportAction here :
                 // https://github.com/opensearch-project/opensearch-sdk-java/issues/626
             );

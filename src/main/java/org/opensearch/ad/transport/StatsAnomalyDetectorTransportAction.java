@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.transport;
 
-import org.opensearch.action.support.TransportAction;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_STATS;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -26,23 +25,24 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.ADStatsResponse;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilders;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
-import org.opensearch.transport.TransportService;
+
+import com.google.inject.Inject;
 
 public class StatsAnomalyDetectorTransportAction extends TransportAction<ADStatsRequest, StatsAnomalyDetectorResponse> {
     public static final String DETECTOR_TYPE_AGG = "detector_type_agg";
@@ -61,7 +61,7 @@ public class StatsAnomalyDetectorTransportAction extends TransportAction<ADStats
         TaskManager taskManager
 
     ) {
-        super(StatsAnomalyDetectorAction.NAME, actionFilters,taskManager);
+        super(StatsAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.sdkRestClient = sdkRestClient;
         this.adStats = adStats;
         this.sdkClusterService = sdkClusterService;
@@ -85,7 +85,11 @@ public class StatsAnomalyDetectorTransportAction extends TransportAction<ADStats
      * @param listener Listener to send response
      * @param adStatsRequest Request containing stats to be retrieved
      */
-    private void getStats(SDKRestClient sdkRestClient, ActionListener<StatsAnomalyDetectorResponse> listener, ADStatsRequest adStatsRequest) {
+    private void getStats(
+        SDKRestClient sdkRestClient,
+        ActionListener<StatsAnomalyDetectorResponse> listener,
+        ADStatsRequest adStatsRequest
+    ) {
         // Use MultiResponsesDelegateActionListener to execute 2 async requests and create the response once they finish
         MultiResponsesDelegateActionListener<ADStatsResponse> delegateListener = new MultiResponsesDelegateActionListener<>(
             getRestStatsListener(listener),
@@ -137,12 +141,12 @@ public class StatsAnomalyDetectorTransportAction extends TransportAction<ADStats
                 .source(new SearchSourceBuilder().aggregation(termsAgg).size(0).trackTotalHits(true));
 
             sdkRestClient.search(request, ActionListener.wrap(r -> {
-                StringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
-                List<StringTerms.Bucket> buckets = aggregation.getBuckets();
+                ParsedStringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
+                List<ParsedStringTerms.ParsedBucket> buckets = (List<ParsedStringTerms.ParsedBucket>) aggregation.getBuckets();
                 long totalDetectors = r.getHits().getTotalHits().value;
                 long totalSingleEntityDetectors = 0;
                 long totalMultiEntityDetectors = 0;
-                for (StringTerms.Bucket b : buckets) {
+                for (ParsedStringTerms.ParsedBucket b : buckets) {
                     if (AnomalyDetectorType.SINGLE_ENTITY.name().equals(b.getKeyAsString())
                         || AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name().equals(b.getKeyAsString())
                         || AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
@@ -203,7 +207,8 @@ public class StatsAnomalyDetectorTransportAction extends TransportAction<ADStats
         MultiResponsesDelegateActionListener<ADStatsResponse> listener,
         ADStatsRequest adStatsRequest
     ) {
-        sdkRestClient.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
+        ADStatsNodeRequest adStatsNodeRequest = new ADStatsNodeRequest(adStatsRequest);
+        sdkRestClient.execute(ADStatsNodesAction.INSTANCE, adStatsNodeRequest, ActionListener.wrap(adStatsResponse -> {
             ADStatsResponse restADStatsResponse = new ADStatsResponse();
             restADStatsResponse.setADStatsNodesResponse(adStatsResponse);
             listener.onResponse(restADStatsResponse);

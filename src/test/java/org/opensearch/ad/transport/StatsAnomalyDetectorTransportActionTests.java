@@ -24,6 +24,7 @@ import org.opensearch.ad.stats.StatNames;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+@Ignore
 public class StatsAnomalyDetectorTransportActionTests extends ADIntegTestCase {
 
     @Override

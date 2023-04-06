@@ -11,17 +11,22 @@
 
 package org.opensearch.ad.rest;
 
+import static org.opensearch.ad.util.RestHandlerUtils.NODE_ID;
+import static org.opensearch.ad.util.RestHandlerUtils.STAT;
+
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.HashSet;
 import java.util.Set;
-import java.util.Arrays;
 import java.util.TreeSet;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -33,8 +38,6 @@ import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
 import org.opensearch.ad.transport.StatsAnomalyDetectorResponse;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
-import static org.opensearch.ad.util.RestHandlerUtils.NODE_ID;
-import static org.opensearch.ad.util.RestHandlerUtils.STAT;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
@@ -44,11 +47,12 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import com.google.common.collect.ImmutableList;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector extension.
@@ -56,6 +60,7 @@ import org.opensearch.sdk.SDKClusterService;
 public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
+    private final Logger logger = LogManager.getLogger(RestStatsAnomalyDetectorAction.class);
     private ADStats adStats;
     private SDKClusterService sdkClusterService;
     private DiscoveryNodeFilterer nodeFilter;
@@ -68,13 +73,18 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
      * @param adStats ADStats object
      * @param nodeFilter util class to get eligible data nodes
      */
-    public RestStatsAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient, ADStats adStats, DiscoveryNodeFilterer nodeFilter) {
+    public RestStatsAnomalyDetectorAction(
+        ExtensionsRunner extensionsRunner,
+        SDKRestClient sdkRestClient,
+        ADStats adStats,
+        DiscoveryNodeFilterer nodeFilter
+    ) {
         super(extensionsRunner);
         this.adStats = adStats;
         this.nodeFilter = nodeFilter;
-        this.sdkRestClient=sdkRestClient;
-        this.sdkClusterService=extensionsRunner.getSdkClusterService();
-        this.settings=extensionsRunner.getEnvironmentSettings();
+        this.sdkRestClient = sdkRestClient;
+        this.sdkClusterService = extensionsRunner.getSdkClusterService();
+        this.settings = extensionsRunner.getEnvironmentSettings();
     }
 
     public String getName() {
@@ -83,12 +93,34 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
 
     @Override
     public List<RouteHandler> routeHandlers() {
-        return ImmutableList.of(
-                new RouteHandler(RestRequest.Method.GET,String.format(Locale.ROOT, "%s/{%s}/stats", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,NODE_ID),handleRequest),
-                new RouteHandler(RestRequest.Method.GET,String.format(Locale.ROOT, "%s/{%s}/stats/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,NODE_ID,STAT),handleRequest),
-                new RouteHandler(RestRequest.Method.GET,String.format(Locale.ROOT, "%s/stats}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI),handleRequest),
-                new RouteHandler(RestRequest.Method.GET,String.format(Locale.ROOT, "%s/stats/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,STAT),handleRequest)
-        );
+        return ImmutableList
+            .of(
+                new RouteHandler(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, "v1", NODE_ID, "stats"),
+                    handleRequest
+                ),
+                new RouteHandler(
+                    RestRequest.Method.GET,
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/%s/{%s}/%s/{%s}",
+                            AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,
+                            "v1",
+                            NODE_ID,
+                            "stats",
+                            STAT
+                        ),
+                    handleRequest
+                ),
+                new RouteHandler(RestRequest.Method.GET, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/stats", handleRequest),
+                new RouteHandler(
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, "stats", STAT),
+                    handleRequest
+                )
+            );
     }
 
     private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
@@ -100,23 +132,29 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         }
     };
 
-
     protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
         ADStatsRequest adStatsRequest = getRequest(request);
-        CompletableFuture<StatsAnomalyDetectorResponse> statsFutureResponse= new CompletableFuture<>();
-        sdkRestClient.execute(StatsAnomalyDetectorAction.INSTANCE,adStatsRequest, ActionListener.wrap(
-                response-> statsFutureResponse.complete(response),ex->statsFutureResponse.completeExceptionally(ex)
-        ));
+        CompletableFuture<StatsAnomalyDetectorResponse> statsFutureResponse = new CompletableFuture<>();
+        sdkRestClient
+            .execute(
+                StatsAnomalyDetectorAction.INSTANCE,
+                adStatsRequest,
+                ActionListener.wrap(response -> statsFutureResponse.complete(response), ex -> statsFutureResponse.completeExceptionally(ex))
+            );
 
-        StatsAnomalyDetectorResponse statsAnomalyDetectorResponse= statsFutureResponse
-                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
-                .join();
+        StatsAnomalyDetectorResponse statsAnomalyDetectorResponse = statsFutureResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
 
-        XContentBuilder statsAnomalyDetectorResponseBuilder=statsAnomalyDetectorResponse.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
-        return new ExtensionRestResponse(request, RestStatus.OK, statsAnomalyDetectorResponseBuilder);
+        logger.info("Stats Response is  **********************  " + statsAnomalyDetectorResponse.toString());
+        XContentBuilder statsAnomalyDetectorResponseBuilder = statsAnomalyDetectorResponse
+            .toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
+        ExtensionRestResponse response = new ExtensionRestResponse(request, RestStatus.OK, statsAnomalyDetectorResponseBuilder);
+
+        return response;
     }
 
     /**
@@ -127,10 +165,10 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
      */
     private ADStatsRequest getRequest(RestRequest request) {
         // parse the nodes the user wants to query the stats for
-        String nodesIdsStr = request.param("nodeId");
+        String nodesIdsStr = request.param(NODE_ID);
         Set<String> validStats = adStats.getStats().keySet();
 
-        ADStatsRequest adStatsRequest = null;
+        ADStatsRequest adStatsRequest;
         if (!Strings.isEmpty(nodesIdsStr)) {
             String[] nodeIdsArr = nodesIdsStr.split(",");
             adStatsRequest = new ADStatsRequest(nodeIdsArr);
@@ -167,7 +205,9 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             }
 
             if (!invalidStats.isEmpty()) {
-                throw new IllegalArgumentException(RestHandlerUtils.unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), STAT));
+                throw new IllegalArgumentException(
+                    RestHandlerUtils.unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), STAT)
+                );
             }
         }
         return adStatsRequest;

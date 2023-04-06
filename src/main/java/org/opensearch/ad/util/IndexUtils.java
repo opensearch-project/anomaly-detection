@@ -13,10 +13,16 @@ package org.opensearch.ad.util;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.client.opensearch.indices.IndicesStatsRequest;
+import org.opensearch.client.opensearch.indices.IndicesStatsResponse;
+import org.opensearch.client.transport.TransportOptions;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.health.ClusterIndexHealth;
@@ -45,6 +51,8 @@ public class IndexUtils {
     private SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
+    private final OpenSearchAsyncClient openSearchAsyncClient;
+
     /**
      * Inject annotation required by Guice to instantiate EntityResultTransportAction (transitive dependency)
      *
@@ -58,12 +66,14 @@ public class IndexUtils {
         SDKRestClient client,
         ClientUtil clientUtil,
         SDKClusterService clusterService,
-        IndexNameExpressionResolver indexNameExpressionResolver
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        OpenSearchAsyncClient openSearchAsyncClient
     ) {
         this.client = client;
         this.clientUtil = clientUtil;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
+        this.openSearchAsyncClient = openSearchAsyncClient;
     }
 
     /**
@@ -116,17 +126,27 @@ public class IndexUtils {
      * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
      * request fails.
      */
-    /*  @anomaly-detection - commented until we have support for SDKRestClient.stats() https://github.com/opensearch-project/opensearch-sdk-java/issues/620
-    @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
             return 0L;
         }
-        IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest();
-        Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
-        return response.map(r -> r.getIndex(indexName).getPrimaries().docs.getCount()).orElse(-1L);
+        IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest.Builder().build();
+
+        CompletableFuture<IndicesStatsResponse> indicesStatsFutureResponse = openSearchAsyncClient
+            ._transport()
+            .performRequestAsync(indicesStatsRequest, IndicesStatsRequest._ENDPOINT, TransportOptions.builder().build());
+        // Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
+
+        IndicesStatsResponse indicesStatsResponse;
+        Long numberOfDocumentsInIndex = -1L;
+        try {
+            indicesStatsResponse = indicesStatsFutureResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            numberOfDocumentsInIndex = indicesStatsResponse.indices().get(indexName).primaries().docs().count();
+        } catch (Exception e) {
+            logger.info("Could not fetch indicesStats count due to ", e);
+        }
+        return numberOfDocumentsInIndex;
     }
-    */
 
     /**
      * Similar to checkGlobalBlock, we check block on the indices level.

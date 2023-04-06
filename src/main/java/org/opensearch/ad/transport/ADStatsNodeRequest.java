@@ -13,14 +13,15 @@ package org.opensearch.ad.transport;
 
 import java.io.IOException;
 
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.transport.TransportRequest;
 
 /**
  *  ADStatsNodeRequest to get a nodes stat
  */
-public class ADStatsNodeRequest extends TransportRequest {
+public class ADStatsNodeRequest extends ActionRequest {
     private ADStatsRequest request;
 
     /**
@@ -33,6 +34,11 @@ public class ADStatsNodeRequest extends TransportRequest {
     public ADStatsNodeRequest(StreamInput in) throws IOException {
         super(in);
         this.request = new ADStatsRequest(in);
+    }
+
+    @Override
+    public ActionRequestValidationException validate() {
+        return null;
     }
 
     /**

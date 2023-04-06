@@ -10,21 +10,23 @@
  */
 package org.opensearch.ad.stats;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
 
-import com.amazon.randomcutforest.RandomCutForest;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Set;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.Collections;
+import java.util.Set;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -32,15 +34,22 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import org.opensearch.ad.util.IndexUtils;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.test.OpenSearchTestCase;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
+
+import com.amazon.randomcutforest.RandomCutForest;
 
 public class ADStatsTests extends OpenSearchTestCase {
 
@@ -78,20 +87,20 @@ public class ADStatsTests extends OpenSearchTestCase {
                 )
         );
 
-        Mockito.when(modelManager.getAllModels()).thenReturn(modelsInformation);
+        when(modelManager.getAllModels()).thenReturn(modelsInformation);
 
         ModelState<EntityModel> entityModel1 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
         ModelState<EntityModel> entityModel2 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
 
         List<ModelState<?>> entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
-        EntityCache cache = Mockito.mock(EntityCache.class);
-        Mockito.when(cacheProvider.get()).thenReturn(cache);
-        Mockito.when(cache.getAllModels()).thenReturn(entityModelsInformation);
+        EntityCache cache = mock(EntityCache.class);
+        when(cacheProvider.get()).thenReturn(cache);
+        when(cache.getAllModels()).thenReturn(entityModelsInformation);
 
-        IndexUtils indexUtils = Mockito.mock(IndexUtils.class);
+        IndexUtils indexUtils = mock(IndexUtils.class);
 
-        Mockito.when(indexUtils.getIndexHealthStatus(Mockito.anyString())).thenReturn("yellow");
-        Mockito.when(indexUtils.getNumberOfDocumentsInIndex(Mockito.anyString())).thenReturn(100L);
+        when(indexUtils.getIndexHealthStatus(anyString())).thenReturn("yellow");
+        when(indexUtils.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
 
         clusterStatName1 = "clusterStat1";
         clusterStatName2 = "clusterStat2";
@@ -100,16 +109,22 @@ public class ADStatsTests extends OpenSearchTestCase {
         nodeStatName2 = "nodeStat2";
 
         Settings settings = Settings.builder().put(MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
-        SDKClusterService clusterService = Mockito.mock(SDKClusterService.class);
-        SDKClusterService.SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
-            Settings.EMPTY, Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
-        );
-        Mockito.when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE);
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterService sdkClusterService = new SDKClusterService(mockRunner);
+        // SDKClusterService.SDKClusterSettings clusterSettings = sdkClusterService.new SDKClusterSettings(
+        // Settings.EMPTY, Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
+        // );
+        // when(sdkClusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         statsMap = new HashMap<String, ADStat<?>>() {
             {
                 put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
-                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService)));
+                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider, settings, sdkClusterService)));
                 put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
                 put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
             }

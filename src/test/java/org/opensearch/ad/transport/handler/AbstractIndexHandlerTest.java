@@ -35,6 +35,7 @@ import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -73,6 +74,9 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     @Mock
     protected IndexNameExpressionResolver indexNameResolver;
 
+    @Mock
+    protected OpenSearchAsyncClient openSearchAsyncClient;
+
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyResultTests.class.getSimpleName());
@@ -96,7 +100,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
         clientUtil = new ClientUtil(settings, client, throttler);
-        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
+        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver, openSearchAsyncClient);
     }
 
     protected void setWriteBlockAdResultIndex(boolean blocked) {
