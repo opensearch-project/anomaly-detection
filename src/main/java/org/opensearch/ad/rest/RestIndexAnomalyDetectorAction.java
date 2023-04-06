@@ -31,15 +31,12 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
-import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
-import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
@@ -51,7 +48,6 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
-import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.transport.TransportService;
 
@@ -67,22 +63,14 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
     private TransportService transportService;
-    private SDKRestClient restClient;
-    private OpenSearchAsyncClient sdkJavaAsyncClient;
-    private SDKClusterService sdkClusterService;
+    private SDKRestClient client;
 
-    public RestIndexAnomalyDetectorAction(
-        ExtensionsRunner extensionsRunner,
-        SDKRestClient restClient,
-        OpenSearchAsyncClient sdkJavaAsyncClient
-    ) {
+    public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
-        this.restClient = restClient;
-        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
-        this.sdkClusterService = new SDKClusterService(extensionsRunner);
+        this.client = client;
     }
 
     // @Override
@@ -152,38 +140,11 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         // IndexAnomalyDetectorAction is the key to the getActions map
         // IndexAnomalyDetectorTransportAction is the value, execute() calls doExecute()
 
-        IndexAnomalyDetectorTransportAction indexAction = new IndexAnomalyDetectorTransportAction(
-            transportService,
-            null, // ActionFilters actionFilters
-            restClient, // Client client
-            sdkClusterService, // ClusterService clusterService,
-            this.environmentSettings, // Settings settings
-            new AnomalyDetectionIndices(
-                restClient, // client,
-                sdkJavaAsyncClient,
-                sdkClusterService, // clusterService,
-                null, // threadPool,
-                this.environmentSettings, // settings,
-                null, // nodeFilter,
-                AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
-            ), // AnomalyDetectionIndices anomalyDetectionIndices
-            this.namedXContentRegistry,
-            null, // ADTaskManager adTaskManager
-            new SearchFeatureDao(
-                restClient,
-                namedXContentRegistry,
-                null, // interpolator
-                null, // clientUtil,
-                environmentSettings,
-                sdkClusterService,
-                maxAnomalyFeatures
-            )
-        );
-
         CompletableFuture<IndexAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
-        indexAction
-            .doExecute(
-                null,
+
+        client
+            .execute(
+                IndexAnomalyDetectorAction.INSTANCE,
                 indexAnomalyDetectorRequest,
                 ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
             );

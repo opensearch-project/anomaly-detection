@@ -26,6 +26,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
@@ -39,20 +40,22 @@ import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
-public class ValidateAnomalyDetectorTransportAction {
-    // extends HandledTransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
+import com.google.inject.Inject;
+
+public class ValidateAnomalyDetectorTransportAction extends
+    TransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
     private static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
 
     private final SDKRestClient client;
@@ -62,36 +65,32 @@ public class ValidateAnomalyDetectorTransportAction {
     private final SearchFeatureDao searchFeatureDao;
     private volatile Boolean filterByEnabled;
     private Clock clock;
+    private final Settings settings;
 
     @Inject
     public ValidateAnomalyDetectorTransportAction(
+        ExtensionsRunner extensionsRunner,
         SDKRestClient client,
         SDKClusterService clusterService,
+        TaskManager taskManager,
         SDKNamedXContentRegistry namedXContentRegistry,
-        Settings settings,
         AnomalyDetectionIndices anomalyDetectionIndices,
         ActionFilters actionFilters,
-        TransportService transportService,
         SearchFeatureDao searchFeatureDao
     ) {
-        // super(ValidateAnomalyDetectorAction.NAME, transportService, actionFilters, ValidateAnomalyDetectorRequest::new);
+        super(ValidateAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.client = client;
         this.clusterService = clusterService;
         this.xContentRegistry = namedXContentRegistry;
+        this.settings = extensionsRunner.getEnvironmentSettings();
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        try {
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
-        } catch (Exception e) {
-            // FIXME Handle this
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
-        }
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.searchFeatureDao = searchFeatureDao;
         this.clock = Clock.systemUTC();
     }
 
-    // FIXME Investigate whether we should inherit from TransportAction
-    // @Override
+    @Override
     public void doExecute(Task task, ValidateAnomalyDetectorRequest request, ActionListener<ValidateAnomalyDetectorResponse> listener) {
         // Temporary null user for AD extension without security. Will always execute detector.
         UserIdentity user = getNullUser();
