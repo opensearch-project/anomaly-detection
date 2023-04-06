@@ -58,10 +58,8 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
     private Settings settings;
     private SDKRestClient client;
-    private ExtensionsRunner extensionsRunner;
 
     public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
-        this.extensionsRunner = extensionsRunner;
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.client = client;
     }
