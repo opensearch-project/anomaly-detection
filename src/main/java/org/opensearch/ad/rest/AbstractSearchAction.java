@@ -176,6 +176,10 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
             routes.add(new RouteHandler(RestRequest.Method.POST, path, handleRequest));
             routes.add(new RouteHandler(RestRequest.Method.GET, path, handleRequest));
         }
+        for (Pair<String, String> deprecatedPath : deprecatedPaths) {
+            routes.add(new RouteHandler(RestRequest.Method.POST, deprecatedPath.getValue(), handleRequest));
+            routes.add(new RouteHandler(RestRequest.Method.GET, deprecatedPath.getValue(), handleRequest));
+        }
         return routes;
     }
 

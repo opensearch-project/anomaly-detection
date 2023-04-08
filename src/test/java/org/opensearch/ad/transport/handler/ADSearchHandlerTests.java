@@ -30,10 +30,10 @@ import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 
 public class ADSearchHandlerTests extends ADUnitTestCase {

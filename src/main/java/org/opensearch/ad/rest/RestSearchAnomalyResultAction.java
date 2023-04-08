@@ -32,7 +32,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -61,13 +60,16 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
             client,
             extensionsRunner
         );
+        this.client = client;
+        this.extensionsRunner = extensionsRunner;
     }
 
     public String getName() {
         return SEARCH_ANOMALY_RESULT_ACTION;
     }
 
-    protected ExtensionRestResponse prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    @Override
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
