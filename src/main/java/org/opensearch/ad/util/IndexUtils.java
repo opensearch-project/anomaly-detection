@@ -28,9 +28,10 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+
+import com.google.inject.Inject;
 
 public class IndexUtils {
     /**
@@ -51,7 +52,7 @@ public class IndexUtils {
     private SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
-    private final OpenSearchAsyncClient openSearchAsyncClient;
+    private final OpenSearchAsyncClient javaAsyncClient;
 
     /**
      * Inject annotation required by Guice to instantiate EntityResultTransportAction (transitive dependency)
@@ -67,13 +68,13 @@ public class IndexUtils {
         ClientUtil clientUtil,
         SDKClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        OpenSearchAsyncClient openSearchAsyncClient
+        OpenSearchAsyncClient javaAsyncClient
     ) {
         this.client = client;
         this.clientUtil = clientUtil;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
-        this.openSearchAsyncClient = openSearchAsyncClient;
+        this.javaAsyncClient = javaAsyncClient;
     }
 
     /**
@@ -132,7 +133,7 @@ public class IndexUtils {
         }
         IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest.Builder().build();
 
-        CompletableFuture<IndicesStatsResponse> indicesStatsFutureResponse = openSearchAsyncClient
+        CompletableFuture<IndicesStatsResponse> indicesStatsFutureResponse = javaAsyncClient
             ._transport()
             .performRequestAsync(indicesStatsRequest, IndicesStatsRequest._ENDPOINT, TransportOptions.builder().build());
 
