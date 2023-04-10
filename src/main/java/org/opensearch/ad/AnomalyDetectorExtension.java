@@ -56,6 +56,7 @@ import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.EntityColdStartWorker;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
@@ -81,6 +82,8 @@ import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultTransportAction;
 import org.opensearch.ad.transport.EntityResultAction;
 import org.opensearch.ad.transport.EntityResultTransportAction;
+import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
+import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
@@ -162,7 +165,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
+                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
+                new RestDeleteAnomalyDetectorAction(extensionsRunner(), restClient())
             );
     }
 
@@ -173,10 +177,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
-
         this.sdkRestClient = createRestClient(runner);
         this.sdkJavaAsyncClient = createJavaAsyncClient(runner);
-
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
@@ -696,7 +698,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
                 new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
-                new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class)
+                new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
+                new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class)
             );
     }
 
