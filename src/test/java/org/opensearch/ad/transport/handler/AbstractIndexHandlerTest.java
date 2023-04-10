@@ -75,7 +75,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected IndexNameExpressionResolver indexNameResolver;
 
     @Mock
-    protected OpenSearchAsyncClient openSearchAsyncClient;
+    protected OpenSearchAsyncClient javaAsyncClient;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -100,7 +100,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
         clientUtil = new ClientUtil(settings, client, throttler);
-        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver, openSearchAsyncClient);
+        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver, javaAsyncClient);
     }
 
     protected void setWriteBlockAdResultIndex(boolean blocked) {
