@@ -135,7 +135,6 @@ public class IndexUtils {
         CompletableFuture<IndicesStatsResponse> indicesStatsFutureResponse = openSearchAsyncClient
             ._transport()
             .performRequestAsync(indicesStatsRequest, IndicesStatsRequest._ENDPOINT, TransportOptions.builder().build());
-        // Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
 
         IndicesStatsResponse indicesStatsResponse;
         Long numberOfDocumentsInIndex = -1L;

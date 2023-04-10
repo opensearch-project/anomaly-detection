@@ -47,6 +47,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -57,7 +58,7 @@ import com.google.common.collect.ImmutableList;
 /**
  * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector extension.
  */
-public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
+public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
     private final Logger logger = LogManager.getLogger(RestStatsAnomalyDetectorAction.class);
@@ -79,7 +80,6 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         ADStats adStats,
         DiscoveryNodeFilterer nodeFilter
     ) {
-        super(extensionsRunner);
         this.adStats = adStats;
         this.nodeFilter = nodeFilter;
         this.sdkRestClient = sdkRestClient;
@@ -97,7 +97,7 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             .of(
                 new RouteHandler(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, "v1", NODE_ID, "stats"),
+                    String.format(Locale.ROOT, "/{%s}/%s", NODE_ID, "stats"),
                     handleRequest
                 ),
                 new RouteHandler(
@@ -105,19 +105,17 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
                     String
                         .format(
                             Locale.ROOT,
-                            "%s/%s/{%s}/%s/{%s}",
-                            AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,
-                            "v1",
+                            "/{%s}/%s/{%s}",
                             NODE_ID,
                             "stats",
                             STAT
                         ),
                     handleRequest
                 ),
-                new RouteHandler(RestRequest.Method.GET, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/stats", handleRequest),
+                new RouteHandler(RestRequest.Method.GET, "/stats", handleRequest),
                 new RouteHandler(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, "stats", STAT),
+                    String.format(Locale.ROOT, "/%s/{%s}", "stats", STAT),
                     handleRequest
                 )
             );
@@ -149,7 +147,6 @@ public class RestStatsAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
             .join();
 
-        logger.info("Stats Response is  **********************  " + statsAnomalyDetectorResponse.toString());
         XContentBuilder statsAnomalyDetectorResponseBuilder = statsAnomalyDetectorResponse
             .toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
         ExtensionRestResponse response = new ExtensionRestResponse(request, RestStatus.OK, statsAnomalyDetectorResponseBuilder);
