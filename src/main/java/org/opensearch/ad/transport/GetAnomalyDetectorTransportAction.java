@@ -42,6 +42,7 @@ import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.AnomalyDetectorProfileRunner;
 import org.opensearch.ad.EntityProfileRunner;
 import org.opensearch.ad.Name;
@@ -60,20 +61,21 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.Strings;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
+import com.google.inject.Inject;
 
-public class GetAnomalyDetectorTransportAction {
-    // extends HandledTransportAction<GetAnomalyDetectorRequest, GetAnomalyDetectorResponse> {
+public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomalyDetectorRequest, GetAnomalyDetectorResponse> {
 
     private static final Logger LOG = LogManager.getLogger(GetAnomalyDetectorTransportAction.class);
 
@@ -91,21 +93,23 @@ public class GetAnomalyDetectorTransportAction {
     private final TransportService transportService;
     private volatile Boolean filterByEnabled;
     private final ADTaskManager adTaskManager;
+    private final Settings settings;
 
     @Inject
     public GetAnomalyDetectorTransportAction(
-        TransportService transportService,
+        ExtensionsRunner extensionsRunner,
+        TaskManager taskManager,
         DiscoveryNodeFilterer nodeFilter,
         ActionFilters actionFilters,
         SDKClusterService clusterService,
         SDKRestClient client,
-        Settings settings,
         SDKNamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
     ) {
-        // super(GetAnomalyDetectorAction.NAME, transportService, actionFilters, GetAnomalyDetectorRequest::new);
+        super(GetAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.clusterService = clusterService;
         this.client = client;
+        this.settings = extensionsRunner.getEnvironmentSettings();
 
         List<DetectorProfileName> allProfiles = Arrays.asList(DetectorProfileName.values());
         this.allProfileTypes = EnumSet.copyOf(allProfiles);
@@ -123,10 +127,11 @@ public class GetAnomalyDetectorTransportAction {
         this.nodeFilter = nodeFilter;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
-        this.transportService = transportService;
+        this.transportService = extensionsRunner.getExtensionTransportService();
         this.adTaskManager = adTaskManager;
     }
 
+    @Override
     public void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> actionListener) {
         String detectorID = request.getDetectorID();
         // Temporary null user for AD extension without security. Will always execute detector.

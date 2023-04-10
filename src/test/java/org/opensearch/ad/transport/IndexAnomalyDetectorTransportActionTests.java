@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 import org.junit.Assert;
@@ -44,9 +45,12 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
@@ -54,8 +58,8 @@ import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -70,6 +74,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private SDKRestClient client = mock(SDKRestClient.class);
     private SearchFeatureDao searchFeatureDao;
     private SDKNamedXContentRegistry mockSdkXContentRegistry;
+    private ExtensionsRunner mockRunner;
+    private Extension mockExtension;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -77,13 +83,22 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(SDKClusterService.class);
-        clusterSettings = mock(SDKClusterSettings.class);
+        mockExtension = mock(Extension.class);
+
+        mockRunner = mock(ExtensionsRunner.class);
         /*-
         clusterSettings = new ClusterSettings(
             Settings.EMPTY,
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
         );
         */
+        Settings settings = Settings.EMPTY;
+        List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES, AnomalyDetectorSettings.PAGE_SIZE);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterService.SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         ClusterName clusterName = new ClusterName("test");
@@ -109,11 +124,11 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
 
         action = new IndexAnomalyDetectorTransportAction(
-            mock(TransportService.class),
+            mockRunner,
+            mock(TaskManager.class),
             mock(ActionFilters.class),
             client, // client(),
             clusterService,
-            indexSettings(),
             mock(AnomalyDetectionIndices.class),
             mockSdkXContentRegistry,
             adTaskManager,
@@ -199,14 +214,19 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     @Test
     public void testIndexTransportActionWithUserAndFilterOn() {
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         IndexAnomalyDetectorTransportAction transportAction = new IndexAnomalyDetectorTransportAction(
-            mock(TransportService.class),
+            mockRunner,
+            mock(TaskManager.class),
             mock(ActionFilters.class),
             client,
             clusterService,
-            settings,
             mock(AnomalyDetectionIndices.class),
             mockSdkXContentRegistry,
             adTaskManager,
@@ -219,14 +239,18 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     @Test
     public void testIndexTransportActionWithUserAndFilterOff() {
         Settings settings = Settings.builder().build();
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         IndexAnomalyDetectorTransportAction transportAction = new IndexAnomalyDetectorTransportAction(
-            mock(TransportService.class),
+            mockRunner,
+            mock(TaskManager.class),
             mock(ActionFilters.class),
             client,
             clusterService,
-            settings,
             mock(AnomalyDetectionIndices.class),
             mockSdkXContentRegistry,
             adTaskManager,

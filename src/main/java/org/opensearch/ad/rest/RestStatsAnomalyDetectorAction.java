@@ -28,7 +28,6 @@ import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
@@ -51,9 +50,9 @@ import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
-import org.opensearch.sdk.SDKClusterService;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 
 /**
  * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector extension.
@@ -62,28 +61,16 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
     private final Logger logger = LogManager.getLogger(RestStatsAnomalyDetectorAction.class);
+    @Inject
     private ADStats adStats;
-    private SDKClusterService sdkClusterService;
     private DiscoveryNodeFilterer nodeFilter;
     private SDKRestClient sdkRestClient;
     private Settings settings;
+    @Inject
+    private DiscoveryNodeFilterer discoveryNodeFilterer;
 
-    /**
-     * Constructor
-     *
-     * @param adStats ADStats object
-     * @param nodeFilter util class to get eligible data nodes
-     */
-    public RestStatsAnomalyDetectorAction(
-        ExtensionsRunner extensionsRunner,
-        SDKRestClient sdkRestClient,
-        ADStats adStats,
-        DiscoveryNodeFilterer nodeFilter
-    ) {
-        this.adStats = adStats;
-        this.nodeFilter = nodeFilter;
+    public RestStatsAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.sdkRestClient = sdkRestClient;
-        this.sdkClusterService = extensionsRunner.getSdkClusterService();
         this.settings = extensionsRunner.getEnvironmentSettings();
     }
 
@@ -95,29 +82,14 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
     public List<RouteHandler> routeHandlers() {
         return ImmutableList
             .of(
+                new RouteHandler(RestRequest.Method.GET, String.format(Locale.ROOT, "/{%s}/%s", NODE_ID, "stats"), handleRequest),
                 new RouteHandler(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "/{%s}/%s", NODE_ID, "stats"),
-                    handleRequest
-                ),
-                new RouteHandler(
-                    RestRequest.Method.GET,
-                    String
-                        .format(
-                            Locale.ROOT,
-                            "/{%s}/%s/{%s}",
-                            NODE_ID,
-                            "stats",
-                            STAT
-                        ),
+                    String.format(Locale.ROOT, "/{%s}/%s/{%s}", NODE_ID, "stats", STAT),
                     handleRequest
                 ),
                 new RouteHandler(RestRequest.Method.GET, "/stats", handleRequest),
-                new RouteHandler(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "/%s/{%s}", "stats", STAT),
-                    handleRequest
-                )
+                new RouteHandler(RestRequest.Method.GET, String.format(Locale.ROOT, "/%s/{%s}", "stats", STAT), handleRequest)
             );
     }
 
