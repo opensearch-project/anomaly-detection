@@ -559,7 +559,7 @@ public final class ParseUtils {
                 AnomalyDetector detector = AnomalyDetector.parse(parser);
                 User resourceUser = detector.getUser();
 
-                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, detectorId)) {
+                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, detectorId) || isAdmin(requestUser)) {
                     function.accept(detector);
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
@@ -571,6 +571,16 @@ public final class ParseUtils {
         } else {
             listener.onFailure(new ResourceNotFoundException(detectorId, FAIL_TO_FIND_DETECTOR_MSG + detectorId));
         }
+    }
+
+    /**
+     *  'all_access' role users are treated as admins.
+     */
+    public static boolean isAdmin(User user) {
+        if (user == null) {
+            return false;
+        }
+        return user.getRoles().contains("all_access");
     }
 
     private static boolean checkUserPermissions(User requestedUser, User resourceUser, String detectorId) throws Exception {

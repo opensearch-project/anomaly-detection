@@ -15,6 +15,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_SEARCH;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.ad.util.ParseUtils.isAdmin;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -62,13 +63,14 @@ public class ADSearchHandler {
     }
 
     private void validateRole(SearchRequest request, User user, ActionListener<SearchResponse> listener) {
-        if (user == null || !filterEnabled) {
+        if (user == null || !filterEnabled || isAdmin(user)) {
             // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
             // Case 2: If Security is enabled and filter is disabled, proceed with search as
             // user is already authenticated to hit this API.
+            // case 3: user is admin which means we don't have to check backend role filtering
             client.search(request, listener);
         } else {
-            // Security is enabled and filter is enabled
+            // Security is enabled, filter is enabled and user isn't admin
             try {
                 addUserBackendRolesFilter(user, request.source());
                 logger.debug("Filtering result by " + user.getBackendRoles());
