@@ -18,7 +18,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpHost;
+import org.apache.http.message.BasicHeader;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
