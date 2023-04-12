@@ -8,127 +8,9 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200
 package org.opensearch.ad.transport;
 
-import static org.hamcrest.CoreMatchers.startsWith;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
-import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
-
-import java.io.IOException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.function.Function;
-
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.mockito.ArgumentCaptor;
-import org.opensearch.OpenSearchTimeoutException;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.InternalFailure;
-import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SinglePointFeatures;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.SingleStreamModelIdMapper;
-import org.opensearch.ad.ml.ThresholdingResult;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.stats.ADStat;
-import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
-import org.opensearch.ad.stats.suppliers.CounterSupplier;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterName;
-import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.block.ClusterBlocks;
-import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
-import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.transport.TransportAddress;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.core.xcontent.ToXContent;
-import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.index.Index;
-import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.index.shard.ShardId;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.NodeNotConnectedException;
-import org.opensearch.transport.RemoteTransportException;
-import org.opensearch.transport.Transport;
-import org.opensearch.transport.TransportException;
-import org.opensearch.transport.TransportInterceptor;
-import org.opensearch.transport.TransportRequest;
-import org.opensearch.transport.TransportRequestOptions;
-import org.opensearch.transport.TransportResponse;
-import org.opensearch.transport.TransportResponseHandler;
-import org.opensearch.transport.TransportService;
-
-import test.org.opensearch.ad.util.JsonDeserializer;
-
-import com.google.gson.JsonElement;
 
 @Ignore
 public class AnomalyResultTests extends AbstractADTest {
@@ -383,11 +265,11 @@ public class AnomalyResultTests extends AbstractADTest {
         assertEquals(featureName, responseFeature.getFeatureName());
     }
 
-    /**
-     * Create handler that would return a failure
-     * @param handler callback handler
-     * @return handler that would return a failure
-     */
+    
+    //  Create handler that would return a failure
+    //  @param handler callback handler
+    //  @return handler that would return a failure
+    
     private <T extends TransportResponse> TransportResponseHandler<T> rcfFailureHandler(
         TransportResponseHandler<T> handler,
         Exception exception
@@ -749,16 +631,16 @@ public class AnomalyResultTests extends AbstractADTest {
         assertException(listener, LimitExceededException.class);
     }
 
-    /**
-     * Test whether we can handle NodeNotConnectedException when sending requests to
-     * remote nodes.
-     *
-     * @param isRCF             whether RCF model node throws node connection
-     *                          exception or not
-     * @param temporary         whether node has only temporary connection issue. If
-     *                          yes, we should not trigger hash ring rebuilding.
-     * @param numberOfBuildCall the number of expected hash ring build call
-     */
+    
+    //  Test whether we can handle NodeNotConnectedException when sending requests to
+    //  remote nodes.
+    
+    //  @param isRCF             whether RCF model node throws node connection
+    //                           exception or not
+    //  @param temporary         whether node has only temporary connection issue. If
+    //                           yes, we should not trigger hash ring rebuilding.
+    //  @param numberOfBuildCall the number of expected hash ring build call
+    
     private void nodeNotConnectedExceptionTemplate(boolean isRCF, boolean temporary, int numberOfBuildCall) {
         ClusterService hackedClusterService = spy(clusterService);
 
@@ -1827,3 +1709,4 @@ public class AnomalyResultTests extends AbstractADTest {
         verify(featureQuery, never()).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
     }
 }
+*/

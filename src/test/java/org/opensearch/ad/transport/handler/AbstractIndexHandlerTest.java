@@ -31,7 +31,6 @@ import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
@@ -75,7 +74,9 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
 
     @BeforeClass
     public static void setUpBeforeClass() {
+        /* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200
         setUpThreadPool(AnomalyResultTests.class.getSimpleName());
+        */
         settings = Settings
             .builder()
             .put("plugins.anomaly_detection.max_retry_for_backoff", 2)
