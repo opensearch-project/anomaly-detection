@@ -90,7 +90,7 @@ def create_index(os, INDEX_NAME, shard_number):
           "number_of_shards":shard_number,
           "number_of_replicas": 0, # increase this number after indexing
           "translog.durability":"async", # default: request
-          "refresh_interval":-1, # default: 1, remember to change this after finishing indexing process or just _refresh once at least if index wont be changed again
+          "refresh_interval": "1s", # default: 1, remember to change this after finishing indexing process or just _refresh once at least if index wont be changed again
        },
        "mappings":{
           "properties":{

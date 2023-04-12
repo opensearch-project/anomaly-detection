@@ -36,6 +36,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ExceptionsHelper;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.bulk.BulkAction;
@@ -690,7 +691,7 @@ public class CheckpointDao {
                         response -> deserializeTRCFModel(response, modelId, listener),
                         exception -> {
                             // expected exception, don't print stack trace
-                            if (exception instanceof IndexNotFoundException) {
+                            if (exception instanceof OpenSearchStatusException) {
                                 listener.onResponse(Optional.empty());
                             } else {
                                 listener.onFailure(exception);

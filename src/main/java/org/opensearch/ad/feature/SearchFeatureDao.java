@@ -67,6 +67,7 @@ import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange.Bucket;
+import org.opensearch.search.aggregations.bucket.range.ParsedDateRange;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Min;
@@ -621,8 +622,8 @@ public class SearchFeatureDao extends AbstractRetriever {
                     aggs
                         .asList()
                         .stream()
-                        .filter(InternalDateRange.class::isInstance)
-                        .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+                        .filter(ParsedDateRange.class::isInstance)
+                        .flatMap(agg -> ((ParsedDateRange) agg).getBuckets().stream())
                         .map(bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()))
                         .collect(Collectors.toList())
                 );

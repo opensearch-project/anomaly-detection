@@ -25,6 +25,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -631,6 +634,23 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
                 adID
             );
 
+            try {
+                CompletableFuture<RCFResultResponse> rcfResultFuture = new CompletableFuture<>();
+                client
+                    .execute(
+                        RCFResultAction.INSTANCE,
+                        new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
+                        ActionListener.wrap(response -> rcfResultFuture.complete(response), ex -> rcfResultFuture.completeExceptionally(ex))
+                    );
+                RCFResultResponse rcfResultResponse = rcfResultFuture
+                    .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                    .join();
+
+                rcfListener.onResponse(rcfResultResponse);
+            } catch (Exception ex) {
+                rcfListener.onFailure(ex);
+            }
+            /*
             transportService
                 .sendRequest(
                     rcfNode,
@@ -639,6 +659,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
                     option,
                     new ActionListenerResponseHandler<>(rcfListener, RCFResultResponse::new)
                 );
+            */
         }, exception -> { handleQueryFailure(exception, listener, adID); });
     }
 
@@ -867,6 +888,9 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
         @Override
         public void onFailure(Exception e) {
             try {
+                if (e instanceof CompletionException) {
+                    e = new ResourceNotFoundException(e.getMessage());
+                }
                 handlePredictionFailure(e, adID, rcfNodeID, failure);
                 Exception exception = coldStartIfNoModel(failure, detector);
                 if (exception != null) {
