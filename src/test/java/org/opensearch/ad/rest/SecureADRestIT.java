@@ -16,8 +16,11 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
 
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpHost;
+import org.apache.http.message.BasicHeader;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -181,6 +184,77 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert
             .assertTrue(
                 exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getDetectorId())
+            );
+    }
+
+    private void confirmingClientIsAdmin() throws IOException {
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                "_plugins/_security/api/account",
+                null,
+                "",
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "admin"))
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        ArrayList<String> roles = (ArrayList<String>) responseMap.get("roles");
+        assertTrue(roles.contains("all_access"));
+    }
+
+    public void testGetApiFilterByEnabledForAdmin() throws IOException {
+        // User Alice has AD full access, should be able to create a detector and has backend role "odfe"
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        enableFilterBy();
+        confirmingClientIsAdmin();
+        AnomalyDetector detector = getAnomalyDetector(aliceDetector.getDetectorId(), client());
+        Assert
+            .assertArrayEquals(
+                "User backend role of detector doesn't change",
+                new String[] { "odfe" },
+                detector.getUser().getBackendRoles().toArray(new String[0])
+            );
+    }
+
+    public void testUpdateApiFilterByEnabledForAdmin() throws IOException {
+        // User Alice has AD full access, should be able to create a detector and has backend role "odfe"
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        enableFilterBy();
+
+        AnomalyDetector newDetector = new AnomalyDetector(
+            aliceDetector.getDetectorId(),
+            aliceDetector.getVersion(),
+            aliceDetector.getName(),
+            randomAlphaOfLength(10),
+            aliceDetector.getTimeField(),
+            aliceDetector.getIndices(),
+            aliceDetector.getFeatureAttributes(),
+            aliceDetector.getFilterQuery(),
+            aliceDetector.getDetectionInterval(),
+            aliceDetector.getWindowDelay(),
+            aliceDetector.getShingleSize(),
+            aliceDetector.getUiMetadata(),
+            aliceDetector.getSchemaVersion(),
+            Instant.now(),
+            aliceDetector.getCategoryField(),
+            new User(
+                randomAlphaOfLength(5),
+                ImmutableList.of("odfe", randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5)),
+                ImmutableList.of(randomAlphaOfLength(5))
+            ),
+            null
+        );
+        // User client has admin all access, and has "opensearch" backend role so client should be able to update detector
+        // But the detector's backend role should not be replaced as client's backend roles (all_access).
+        Response response = updateAnomalyDetector(aliceDetector.getDetectorId(), newDetector, client());
+        Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
+        AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
+        Assert
+            .assertArrayEquals(
+                "odfe is still the backendrole, not opensearch",
+                new String[] { "odfe" },
+                anomalyDetector.getUser().getBackendRoles().toArray(new String[0])
             );
     }
 
