@@ -38,7 +38,7 @@ import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregations;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
@@ -133,8 +133,8 @@ public class SearchAnomalyResultTransportAction extends TransportAction<SearchRe
         List<String> targetIndices
     ) {
         Aggregations aggregations = allResultIndicesResponse.getAggregations();
-        StringTerms resultIndicesAgg = aggregations.get(RESULT_INDEX_AGG_NAME);
-        List<StringTerms.Bucket> buckets = resultIndicesAgg.getBuckets();
+        ParsedStringTerms resultIndicesAgg = aggregations.get(RESULT_INDEX_AGG_NAME);
+        List<ParsedStringTerms.ParsedBucket> buckets = (List<ParsedStringTerms.ParsedBucket>) resultIndicesAgg.getBuckets();
         Set<String> resultIndicesOfDetector = new HashSet<>();
         if (buckets == null) {
             searchHandler.search(request, listener);
