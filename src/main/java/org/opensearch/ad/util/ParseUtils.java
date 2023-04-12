@@ -574,7 +574,9 @@ public final class ParseUtils {
     }
 
     /**
-     *  'all_access' role users are treated as admins.
+     * 'all_access' role users are treated as admins.
+     * @param user of the current role
+     * @return boolean if the role is admin
      */
     public static boolean isAdmin(User user) {
         if (user == null) {

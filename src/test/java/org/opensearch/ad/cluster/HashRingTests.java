@@ -276,6 +276,7 @@ public class HashRingTests extends ADUnitTestCase {
             pluginsAndModules,
             null,
             null,
+            null,
             null
         );
     }
