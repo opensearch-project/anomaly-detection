@@ -88,6 +88,8 @@ import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.ProfileAction;
+import org.opensearch.ad.transport.ProfileTransportAction;
 import org.opensearch.ad.transport.RCFResultAction;
 import org.opensearch.ad.transport.RCFResultTransportAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
@@ -699,6 +701,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
                 new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
                 new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
+                new ActionHandler<>(ProfileAction.INSTANCE, ProfileTransportAction.class),
                 new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class)
             );
     }

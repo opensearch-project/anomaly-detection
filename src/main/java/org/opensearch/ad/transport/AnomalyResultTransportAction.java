@@ -39,7 +39,6 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.OpenSearchTimeoutException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
@@ -372,25 +371,24 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
                         AtomicInteger responseCount = new AtomicInteger();
                         node2Entities.stream().forEach(nodeEntity -> {
                             DiscoveryNode node = nodeEntity.getKey();
-                            transportService
-                                .sendRequest(
-                                    node,
-                                    EntityResultAction.NAME,
+                            EntityResultListener entityResultListener = new EntityResultListener(
+                                node.getId(),
+                                detectorId,
+                                failure,
+                                nodeCount,
+                                pageIterator,
+                                this,
+                                responseCount
+                            );
+                            client
+                                .execute(
+                                    EntityResultAction.INSTANCE,
                                     new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
-                                    option,
-                                    new ActionListenerResponseHandler<>(
-                                        new EntityResultListener(
-                                            node.getId(),
-                                            detectorId,
-                                            failure,
-                                            nodeCount,
-                                            pageIterator,
-                                            this,
-                                            responseCount
-                                        ),
-                                        AcknowledgedResponse::new,
-                                        ThreadPool.Names.SAME
-                                    )
+                                    ActionListener
+                                        .wrap(
+                                            response -> entityResultListener.onResponse(response),
+                                            ex -> entityResultListener.onFailure(ex)
+                                        )
                                 );
                         });
 

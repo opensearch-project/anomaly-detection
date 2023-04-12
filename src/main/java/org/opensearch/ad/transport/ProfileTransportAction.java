@@ -13,36 +13,39 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.nodes.TransportNodesAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
-import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
+
+import com.google.inject.Inject;
 
 /**
  *  This class contains the logic to extract the stats from the nodes
  */
-public class ProfileTransportAction extends TransportNodesAction<ProfileRequest, ProfileResponse, ProfileNodeRequest, ProfileNodeResponse> {
+public class ProfileTransportAction extends TransportAction<ProfileRequest, ProfileResponse> {
     private static final Logger LOG = LogManager.getLogger(ProfileTransportAction.class);
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
+    private SDKClusterService clusterService;
     // the number of models to return. Defaults to 10.
     private volatile int numModelsToReturn;
 
@@ -60,50 +63,30 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
      */
     @Inject
     public ProfileTransportAction(
-        ThreadPool threadPool,
-        ClusterService clusterService,
-        TransportService transportService,
+        ExtensionsRunner extensionsRunner,
         ActionFilters actionFilters,
+        TaskManager taskManager,
+        SDKClusterService clusterService,
         ModelManager modelManager,
         FeatureManager featureManager,
-        CacheProvider cacheProvider,
-        Settings settings
+        CacheProvider cacheProvider
     ) {
-        super(
-            ProfileAction.NAME,
-            threadPool,
-            clusterService,
-            transportService,
-            actionFilters,
-            ProfileRequest::new,
-            ProfileNodeRequest::new,
-            ThreadPool.Names.MANAGEMENT,
-            ProfileNodeResponse.class
-        );
+        super(ProfileAction.NAME, actionFilters, taskManager);
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
+        this.clusterService = clusterService;
+        Settings settings = extensionsRunner.getEnvironmentSettings();
         this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
     }
 
-    @Override
-    protected ProfileResponse newResponse(ProfileRequest request, List<ProfileNodeResponse> responses, List<FailedNodeException> failures) {
-        return new ProfileResponse(clusterService.getClusterName(), responses, failures);
+    private ProfileResponse newResponse(ProfileRequest request, List<ProfileNodeResponse> responses, List<FailedNodeException> failures) {
+        return new ProfileResponse(clusterService.state().getClusterName(), responses, failures);
     }
 
     @Override
-    protected ProfileNodeRequest newNodeRequest(ProfileRequest request) {
-        return new ProfileNodeRequest(request);
-    }
-
-    @Override
-    protected ProfileNodeResponse newNodeResponse(StreamInput in) throws IOException {
-        return new ProfileNodeResponse(in);
-    }
-
-    @Override
-    protected ProfileNodeResponse nodeOperation(ProfileNodeRequest request) {
+    protected void doExecute(Task task, ProfileRequest request, ActionListener<ProfileResponse> actionListener) {
         String detectorId = request.getDetectorId();
         Set<DetectorProfileName> profiles = request.getProfilesToBeRetrieved();
         int shingleSize = -1;
@@ -142,14 +125,26 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
             }
         }
 
-        return new ProfileNodeResponse(
-            clusterService.localNode(),
-            modelSize,
-            shingleSize,
-            activeEntity,
-            totalUpdates,
-            modelProfiles,
-            modelCount
-        );
+        actionListener
+            .onResponse(
+                newResponse(
+                    request,
+                    new ArrayList<>(
+                        List
+                            .of(
+                                new ProfileNodeResponse(
+                                    clusterService.localNode(),
+                                    modelSize,
+                                    shingleSize,
+                                    activeEntity,
+                                    totalUpdates,
+                                    modelProfiles,
+                                    modelCount
+                                )
+                            )
+                    ),
+                    new ArrayList<>() // empty failures
+                )
+            );
     }
 }

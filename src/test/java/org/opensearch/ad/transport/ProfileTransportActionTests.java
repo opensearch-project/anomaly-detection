@@ -8,42 +8,9 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
+/* @anomaly.detection commented until we have support for TransportNodesAction for extensions
 package org.opensearch.ad.transport;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.opensearch.action.FailedNodeException;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.plugins.Plugin;
-import org.opensearch.test.OpenSearchIntegTestCase;
-import org.opensearch.transport.TransportService;
 
 @Ignore // Transport action does not exist
 public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
@@ -232,3 +199,4 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
         assertEquals(1, response.getModelProfiles().size());
     }
 }
+*/
