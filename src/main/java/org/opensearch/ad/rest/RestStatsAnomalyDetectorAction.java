@@ -60,17 +60,16 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
     private final Logger logger = LogManager.getLogger(RestStatsAnomalyDetectorAction.class);
-    @Inject
     private ADStats adStats;
     private DiscoveryNodeFilterer nodeFilter;
     private SDKRestClient sdkRestClient;
     private Settings settings;
-    @Inject
-    private DiscoveryNodeFilterer discoveryNodeFilterer;
 
-    public RestStatsAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
+    public RestStatsAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient, ADStats adStats, DiscoveryNodeFilterer nodeFilter) {
         this.sdkRestClient = sdkRestClient;
         this.settings = extensionsRunner.getEnvironmentSettings();
+        this.adStats= adStats;
+        this.nodeFilter=nodeFilter;
     }
 
     public String getName() {
@@ -87,7 +86,7 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
                     String.format(Locale.ROOT, "/{%s}/%s/{%s}", NODE_ID, "stats", STAT),
                     handleRequest
                 ),
-                new RouteHandler(RestRequest.Method.GET, "/stats", handleRequest),
+                new RouteHandler(RestRequest.Method.GET, "/detectors/stats", handleRequest),
                 new RouteHandler(RestRequest.Method.GET, String.format(Locale.ROOT, "/%s/{%s}", "stats", STAT), handleRequest)
             );
     }

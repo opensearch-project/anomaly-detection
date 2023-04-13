@@ -140,6 +140,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     private static Gson gson;
     // package private for testing
     GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
+    private ADStats adStats;
+    private DiscoveryNodeFilterer nodeFilter;
 
     static {
         SpecialPermission.check();
@@ -161,7 +163,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
                 new RestDeleteAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient())
+                new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient(),adStats,nodeFilter)
             );
     }
 
@@ -183,7 +185,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         Throttler throttler = new Throttler(getClock());
         ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
         IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver, javaAsyncClient());
-        DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
+        nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
             sdkJavaAsyncClient,
@@ -409,7 +411,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             .put(StatNames.MODEL_COUNT.getName(), new ADStat<>(false, new ModelsOnNodeCountSupplier(modelManager, cacheProvider)))
             .build();
 
-        ADStats adStats = new ADStats(stats);
+        adStats = new ADStats(stats);
 
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
         ADTaskManager adTaskManager = new ADTaskManager(
