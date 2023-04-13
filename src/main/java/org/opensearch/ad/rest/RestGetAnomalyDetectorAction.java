@@ -45,6 +45,7 @@ import org.opensearch.rest.action.RestActions;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
@@ -67,28 +68,6 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
     public String getName() {
         return GET_ANOMALY_DETECTOR_ACTION;
     }
-
-    @Override
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // GET
-                new RouteHandler(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    handleRequest
-                )
-            );
-    }
-
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
-        try {
-            return prepareRequest(request);
-        } catch (Exception e) {
-            // TODO: handle the AD-specific exceptions separately
-            return exceptionalRequest(request, e);
-        }
-    };
 
     protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
@@ -128,6 +107,22 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         // TODO handle exceptional response
         return getAnomalyDetectorResponse(request, response);
     }
+
+    @Override
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
+        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        return ImmutableList.of(new ReplacedRouteHandler(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path, handleRequest));
+    }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
 
     /*@Override
     public List<Route> routes() {

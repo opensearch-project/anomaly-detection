@@ -28,7 +28,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -48,6 +47,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -76,30 +76,6 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     public String getName() {
         return INDEX_ANOMALY_DETECTOR_ACTION;
     }
-
-    @Override
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // Create
-                new RouteHandler(RestRequest.Method.POST, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, handleRequest),
-                // Update
-                new RouteHandler(
-                    RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    handleRequest
-                )
-            );
-    }
-
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
-        try {
-            return prepareRequest(request);
-        } catch (Exception e) {
-            // TODO: handle the AD-specific exceptions separately
-            return exceptionalRequest(request, e);
-        }
-    };
 
     protected ExtensionRestResponse prepareRequest(RestRequest request) throws Exception {
         if (!EnabledSetting.isADPluginEnabled()) {
@@ -154,6 +130,38 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         // TODO handle exceptional response
         return indexAnomalyDetectorResponse(request, response);
     }
+
+    @Override
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        return ImmutableList
+            .of(
+                // Create
+                new ReplacedRouteHandler(
+                    RestRequest.Method.POST,
+                    AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+                    RestRequest.Method.POST,
+                    AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
+                    handleRequest
+                ),
+                // Update
+                new ReplacedRouteHandler(
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID),
+                    handleRequest
+                )
+            );
+    }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
 
     private ExtensionRestResponse indexAnomalyDetectorResponse(RestRequest request, IndexAnomalyDetectorResponse response)
         throws IOException {

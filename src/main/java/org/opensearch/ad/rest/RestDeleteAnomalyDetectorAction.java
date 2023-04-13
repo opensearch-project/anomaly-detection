@@ -40,6 +40,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
@@ -67,27 +68,6 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
         return DELETE_ANOMALY_DETECTOR_ACTION;
     }
 
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // DELETE
-                new RouteHandler(
-                    RestRequest.Method.DELETE,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    handleRequest
-                )
-            );
-    }
-
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
-        try {
-            return prepareRequest(request);
-        } catch (Exception e) {
-            // TODO: handle the AD-specific exceptions separately
-            return exceptionalRequest(request, e);
-        }
-    };
-
     protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
@@ -110,6 +90,29 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
 
         return deleteAnomalyDetectorResponse(request, response);
     }
+
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        return ImmutableList
+            .of(
+                // delete anomaly detector document
+                new ReplacedRouteHandler(
+                    RestRequest.Method.DELETE,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    RestRequest.Method.DELETE,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID),
+                    handleRequest
+                )
+            );
+    }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
 
     private ExtensionRestResponse deleteAnomalyDetectorResponse(RestRequest request, DeleteResponse response) throws IOException {
         RestStatus restStatus = RestStatus.OK;

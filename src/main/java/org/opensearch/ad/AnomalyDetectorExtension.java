@@ -124,10 +124,12 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
+    public static final String LEGACY_AD_BASE = "/_opendistro/_anomaly_detection";
+    public static final String LEGACY_OPENDISTRO_AD_BASE_URI = LEGACY_AD_BASE + "/detectors";
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
-    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
     public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
+    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
 
     @Deprecated
     private SDKRestClient sdkRestClient;
