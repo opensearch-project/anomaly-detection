@@ -54,11 +54,11 @@ import org.opensearch.jobscheduler.JobSchedulerPlugin;
 import org.opensearch.jobscheduler.rest.request.GetJobDetailsRequest;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
@@ -90,53 +90,6 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
 
     public String getName() {
         return AD_JOB_ACTION;
-    }
-
-    @Override
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // Start AD Job
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
-                    handleRequest
-                )
-            // ,
-            // Stop AD Job
-            // new RouteHandler(
-            // RestRequest.Method.POST,
-            // String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
-            // handleRequest
-            // )
-            );
-    }
-
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
-        try {
-            return prepareRequest(request);
-        } catch (Exception e) {
-            return exceptionalRequest(request, e);
-        }
-    };
-
-    private void registerJobDetails() throws IOException {
-
-        XContentBuilder requestBody = JsonXContent.contentBuilder();
-        requestBody.startObject();
-        requestBody.field(GetJobDetailsRequest.JOB_INDEX, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
-        requestBody.field(GetJobDetailsRequest.JOB_TYPE, AnomalyDetectorExtension.AD_JOB_TYPE);
-        requestBody.field(GetJobDetailsRequest.JOB_PARAMETER_ACTION, ADJobParameterAction.class.getName());
-        requestBody.field(GetJobDetailsRequest.JOB_RUNNER_ACTION, ADJobRunnerAction.class.getName());
-        requestBody.field(GetJobDetailsRequest.EXTENSION_UNIQUE_ID, extensionsRunner.getUniqueId());
-        requestBody.endObject();
-
-        Request request = new Request("PUT", String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_job_details"));
-        request.setJsonEntity(Strings.toString(requestBody));
-
-        Response response = client.performRequest(request);
-        this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
-        LOG.info("Job Details Registered : " + registeredJobDetails);
     }
 
     protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
@@ -194,5 +147,57 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         DetectionDateRange dateRange = DetectionDateRange.parse(parser);
         return dateRange;
+    }
+
+    @Override
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        return ImmutableList
+            .of(
+                // start AD Job
+                new ReplacedRouteHandler(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
+                    RestRequest.Method.POST,
+                    String
+                        .format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, START_JOB),
+                    handleRequest
+                )/* ,
+                 // stop AD Job
+                 new ReplacedRoute(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, STOP_JOB),
+                    handleRequest
+                 )
+                 */
+            );
+    }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            return exceptionalRequest(request, e);
+        }
+    };
+
+    private void registerJobDetails() throws IOException {
+
+        XContentBuilder requestBody = JsonXContent.contentBuilder();
+        requestBody.startObject();
+        requestBody.field(GetJobDetailsRequest.JOB_INDEX, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+        requestBody.field(GetJobDetailsRequest.JOB_TYPE, AnomalyDetectorExtension.AD_JOB_TYPE);
+        requestBody.field(GetJobDetailsRequest.JOB_PARAMETER_ACTION, ADJobParameterAction.class.getName());
+        requestBody.field(GetJobDetailsRequest.JOB_RUNNER_ACTION, ADJobRunnerAction.class.getName());
+        requestBody.field(GetJobDetailsRequest.EXTENSION_UNIQUE_ID, extensionsRunner.getUniqueId());
+        requestBody.endObject();
+
+        Request request = new Request("PUT", String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_job_details"));
+        request.setJsonEntity(Strings.toString(requestBody));
+
+        Response response = client.performRequest(request);
+        this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
+        LOG.info("Job Details Registered : " + registeredJobDetails);
     }
 }

@@ -20,9 +20,9 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT
 
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
 
 public abstract class AbstractAnomalyDetectorAction extends BaseExtensionRestHandler {
 
