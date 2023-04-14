@@ -28,7 +28,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -245,7 +245,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
         // {init_progress={percentage=99%, estimated_minutes_left=2, needed_shingles=2}}
         Map<String, Object> map = TestHelpers.XContentBuilderToMap(builder);
-        Map<String, Object> parsedInitProgress = (Map<String, Object>) (map.get(CommonName.INIT_PROGRESS));
+        Map<String, Object> parsedInitProgress = (Map<String, Object>) (map.get(ADCommonName.INIT_PROGRESS));
         Assert.assertEquals(initProgress.getPercentage(), parsedInitProgress.get(InitProgressProfile.PERCENTAGE).toString());
         assertTrue(initProgress.toString().contains("[percentage=99%,estimated_minutes_left=2,needed_shingles=2]"));
         Assert

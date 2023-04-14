@@ -12,7 +12,6 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_DETECTOR_INFO;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -32,6 +31,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 public class SearchAnomalyDetectorInfoTransportAction extends
@@ -62,7 +62,7 @@ public class SearchAnomalyDetectorInfoTransportAction extends
         String rawPath = request.getRawPath();
         ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR_INFO);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            SearchRequest searchRequest = new SearchRequest().indices(ANOMALY_DETECTORS_INDEX);
+            SearchRequest searchRequest = new SearchRequest().indices(CommonName.CONFIG_INDEX);
             if (rawPath.endsWith(RestHandlerUtils.COUNT)) {
                 // Count detectors
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

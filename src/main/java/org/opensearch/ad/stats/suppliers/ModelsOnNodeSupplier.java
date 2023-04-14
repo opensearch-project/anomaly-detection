@@ -27,10 +27,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * ModelsOnNodeSupplier provides a List of ModelStates info for the models the nodes contains
@@ -47,8 +48,8 @@ public class ModelsOnNodeSupplier implements Supplier<List<Map<String, Object>>>
     public static Set<String> MODEL_STATE_STAT_KEYS = new HashSet<>(
         Arrays
             .asList(
-                CommonName.MODEL_ID_KEY,
-                CommonName.DETECTOR_ID_KEY,
+                CommonName.MODEL_ID_FIELD,
+                ADCommonName.DETECTOR_ID_KEY,
                 MODEL_TYPE_KEY,
                 CommonName.ENTITY_KEY,
                 LAST_USED_TIME_KEY,

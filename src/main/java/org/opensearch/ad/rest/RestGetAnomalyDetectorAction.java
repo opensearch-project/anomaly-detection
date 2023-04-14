@@ -23,8 +23,8 @@ import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
@@ -35,6 +35,7 @@ import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 
@@ -134,7 +135,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
         }
 
-        String entityName = request.param(CommonName.CATEGORICAL_FIELD);
+        String entityName = request.param(ADCommonName.CATEGORICAL_FIELD);
         String entityValue = request.param(CommonName.ENTITY_KEY);
 
         if (entityName != null && entityValue != null) {

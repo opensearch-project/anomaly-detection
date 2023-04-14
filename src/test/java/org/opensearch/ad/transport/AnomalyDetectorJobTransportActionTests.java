@@ -42,7 +42,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobAction;
 import org.opensearch.ad.model.ADTask;
@@ -52,12 +52,13 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.stats.StatNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -313,7 +314,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             ADTask task = randomADTask(randomAlphaOfLength(5), detector, detectorId, dateRange, state);
             createADTask(task);
         }
-        long count = countDocs(CommonName.DETECTION_STATE_INDEX);
+        long count = countDocs(ADCommonName.DETECTION_STATE_INDEX);
         assertEquals(states.size(), count);
 
         AnomalyDetectorJobRequest request = new AnomalyDetectorJobRequest(
@@ -344,15 +345,15 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     public void tearDown() throws Exception {
         super.tearDown();
         // delete index will clear search context, this can avoid in-flight contexts error
-        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-        deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
+        deleteIndexIfExists(CommonName.CONFIG_INDEX);
+        deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
     }
 
     public void testStartRealtimeDetector() throws IOException {
         List<String> realtimeResult = startRealtimeDetector();
         String detectorId = realtimeResult.get(0);
         String jobId = realtimeResult.get(1);
-        GetResponse jobDoc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+        GetResponse jobDoc = getDoc(CommonName.JOB_INDEX, detectorId);
         AnomalyDetectorJob job = toADJob(jobDoc);
         assertTrue(job.isEnabled());
         assertEquals(detectorId, job.getName());
@@ -421,7 +422,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
 
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(detectorId, false);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
-        GetResponse doc = getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+        GetResponse doc = getDoc(CommonName.JOB_INDEX, detectorId);
         AnomalyDetectorJob job = toADJob(doc);
         assertFalse(job.isEnabled());
         assertEquals(detectorId, job.getName());

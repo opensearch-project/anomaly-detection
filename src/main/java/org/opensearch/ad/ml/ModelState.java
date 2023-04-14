@@ -18,7 +18,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.opensearch.ad.ExpiringState;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * A ML model and states such as usage.
@@ -179,8 +180,8 @@ public class ModelState<T> implements ExpiringState {
     public Map<String, Object> getModelStateAsMap() {
         return new HashMap<String, Object>() {
             {
-                put(CommonName.MODEL_ID_KEY, modelId);
-                put(CommonName.DETECTOR_ID_KEY, detectorId);
+                put(CommonName.MODEL_ID_FIELD, modelId);
+                put(ADCommonName.DETECTOR_ID_KEY, detectorId);
                 put(MODEL_TYPE_KEY, modelType);
                 /* A stats API broadcasts requests to all nodes and renders node responses using toXContent.
                  *

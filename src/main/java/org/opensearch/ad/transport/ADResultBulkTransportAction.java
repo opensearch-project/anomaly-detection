@@ -28,7 +28,7 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.util.BulkUtil;
@@ -68,7 +68,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
         this.primaryAndCoordinatingLimits = MAX_INDEXING_BYTES.get(settings).getBytes();
         this.softLimit = INDEX_PRESSURE_SOFT_LIMIT.get(settings);
         this.hardLimit = INDEX_PRESSURE_HARD_LIMIT.get(settings);
-        this.indexName = CommonName.ANOMALY_RESULT_INDEX_ALIAS;
+        this.indexName = ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
         this.client = client;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_SOFT_LIMIT, it -> softLimit = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_HARD_LIMIT, it -> hardLimit = it);

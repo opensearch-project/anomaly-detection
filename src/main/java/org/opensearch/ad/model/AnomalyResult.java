@@ -11,8 +11,7 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.ad.constant.CommonName.DUMMY_DETECTOR_ID;
-import static org.opensearch.ad.constant.CommonName.SCHEMA_VERSION_FIELD;
+import static org.opensearch.ad.constant.ADCommonName.DUMMY_DETECTOR_ID;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -38,6 +37,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.base.Objects;
 
@@ -56,17 +56,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
     public static final String DETECTOR_ID_FIELD = "detector_id";
     public static final String ANOMALY_SCORE_FIELD = "anomaly_score";
     public static final String ANOMALY_GRADE_FIELD = "anomaly_grade";
-    public static final String CONFIDENCE_FIELD = "confidence";
-    public static final String FEATURE_DATA_FIELD = "feature_data";
-    public static final String DATA_START_TIME_FIELD = "data_start_time";
-    public static final String DATA_END_TIME_FIELD = "data_end_time";
-    public static final String EXECUTION_START_TIME_FIELD = "execution_start_time";
-    public static final String EXECUTION_END_TIME_FIELD = "execution_end_time";
-    public static final String ERROR_FIELD = "error";
-    public static final String ENTITY_FIELD = "entity";
-    public static final String USER_FIELD = "user";
     public static final String TASK_ID_FIELD = "task_id";
-    public static final String MODEL_ID_FIELD = "model_id";
     public static final String APPROX_ANOMALY_START_FIELD = "approx_anomaly_start_time";
     public static final String RELEVANT_ATTRIBUTION_FIELD = "relevant_attribution";
     public static final String PAST_VALUES_FIELD = "past_values";
@@ -518,28 +508,28 @@ public class AnomalyResult implements ToXContentObject, Writeable {
         XContentBuilder xContentBuilder = builder
             .startObject()
             .field(DETECTOR_ID_FIELD, detectorId)
-            .field(SCHEMA_VERSION_FIELD, schemaVersion);
+            .field(CommonName.SCHEMA_VERSION_FIELD, schemaVersion);
         // In normal AD result, we always pass data start/end times. In custom result index,
         // we need to write/delete a dummy AD result to verify if user has write permission
         // to the custom result index. Just pass in null start/end time for this dummy anomaly
         // result to make sure it won't be queried by mistake.
         if (dataStartTime != null) {
-            xContentBuilder.field(DATA_START_TIME_FIELD, dataStartTime.toEpochMilli());
+            xContentBuilder.field(CommonName.DATA_START_TIME_FIELD, dataStartTime.toEpochMilli());
         }
         if (dataEndTime != null) {
-            xContentBuilder.field(DATA_END_TIME_FIELD, dataEndTime.toEpochMilli());
+            xContentBuilder.field(CommonName.DATA_END_TIME_FIELD, dataEndTime.toEpochMilli());
         }
         if (featureData != null) {
             // can be null during preview
-            xContentBuilder.field(FEATURE_DATA_FIELD, featureData.toArray());
+            xContentBuilder.field(CommonName.FEATURE_DATA_FIELD, featureData.toArray());
         }
         if (executionStartTime != null) {
             // can be null during preview
-            xContentBuilder.field(EXECUTION_START_TIME_FIELD, executionStartTime.toEpochMilli());
+            xContentBuilder.field(CommonName.EXECUTION_START_TIME_FIELD, executionStartTime.toEpochMilli());
         }
         if (executionEndTime != null) {
             // can be null during preview
-            xContentBuilder.field(EXECUTION_END_TIME_FIELD, executionEndTime.toEpochMilli());
+            xContentBuilder.field(CommonName.EXECUTION_END_TIME_FIELD, executionEndTime.toEpochMilli());
         }
         if (anomalyScore != null && !anomalyScore.isNaN()) {
             xContentBuilder.field(ANOMALY_SCORE_FIELD, anomalyScore);
@@ -548,22 +538,22 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             xContentBuilder.field(ANOMALY_GRADE_FIELD, anomalyGrade);
         }
         if (confidence != null && !confidence.isNaN()) {
-            xContentBuilder.field(CONFIDENCE_FIELD, confidence);
+            xContentBuilder.field(CommonName.CONFIDENCE_FIELD, confidence);
         }
         if (error != null) {
-            xContentBuilder.field(ERROR_FIELD, error);
+            xContentBuilder.field(CommonName.ERROR_FIELD, error);
         }
         if (entity != null) {
-            xContentBuilder.field(ENTITY_FIELD, entity);
+            xContentBuilder.field(CommonName.ENTITY_FIELD, entity);
         }
         if (user != null) {
-            xContentBuilder.field(USER_FIELD, user);
+            xContentBuilder.field(CommonName.USER_FIELD, user);
         }
         if (taskId != null) {
             xContentBuilder.field(TASK_ID_FIELD, taskId);
         }
         if (modelId != null) {
-            xContentBuilder.field(MODEL_ID_FIELD, modelId);
+            xContentBuilder.field(CommonName.MODEL_ID_FIELD, modelId);
         }
 
         // output extra fields such as attribution and expected only when this is an anomaly
@@ -626,43 +616,43 @@ public class AnomalyResult implements ToXContentObject, Writeable {
                 case ANOMALY_GRADE_FIELD:
                     anomalyGrade = parser.doubleValue();
                     break;
-                case CONFIDENCE_FIELD:
+                case CommonName.CONFIDENCE_FIELD:
                     confidence = parser.doubleValue();
                     break;
-                case FEATURE_DATA_FIELD:
+                case CommonName.FEATURE_DATA_FIELD:
                     ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         featureData.add(FeatureData.parse(parser));
                     }
                     break;
-                case DATA_START_TIME_FIELD:
+                case CommonName.DATA_START_TIME_FIELD:
                     dataStartTime = ParseUtils.toInstant(parser);
                     break;
-                case DATA_END_TIME_FIELD:
+                case CommonName.DATA_END_TIME_FIELD:
                     dataEndTime = ParseUtils.toInstant(parser);
                     break;
-                case EXECUTION_START_TIME_FIELD:
+                case CommonName.EXECUTION_START_TIME_FIELD:
                     executionStartTime = ParseUtils.toInstant(parser);
                     break;
-                case EXECUTION_END_TIME_FIELD:
+                case CommonName.EXECUTION_END_TIME_FIELD:
                     executionEndTime = ParseUtils.toInstant(parser);
                     break;
-                case ERROR_FIELD:
+                case CommonName.ERROR_FIELD:
                     error = parser.text();
                     break;
-                case ENTITY_FIELD:
+                case CommonName.ENTITY_FIELD:
                     entity = Entity.parse(parser);
                     break;
-                case USER_FIELD:
+                case CommonName.USER_FIELD:
                     user = User.parse(parser);
                     break;
-                case SCHEMA_VERSION_FIELD:
+                case CommonName.SCHEMA_VERSION_FIELD:
                     schemaVersion = parser.intValue();
                     break;
                 case TASK_ID_FIELD:
                     taskId = parser.text();
                     break;
-                case MODEL_ID_FIELD:
+                case CommonName.MODEL_ID_FIELD:
                     modelId = parser.text();
                     break;
                 case APPROX_ANOMALY_START_FIELD:

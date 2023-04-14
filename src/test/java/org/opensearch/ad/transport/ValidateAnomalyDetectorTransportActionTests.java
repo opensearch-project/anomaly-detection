@@ -20,8 +20,8 @@ import java.util.Locale;
 import org.junit.Test;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssueType;
@@ -261,7 +261,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
 
     @Test
     public void testValidateAnomalyDetectorWithCustomResultIndex() throws IOException {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
         createCustomADResultIndex(resultIndex);
         AnomalyDetector anomalyDetector = TestHelpers
             .randomDetector(
@@ -298,7 +298,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
 
     @Test
     public void testValidateAnomalyDetectorWithCustomResultIndexWithInvalidMapping() throws IOException {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
         URL url = AnomalyDetectionIndices.class.getClassLoader().getResource("mappings/checkpoint.json");
         createIndex(resultIndex, Resources.toString(url, Charsets.UTF_8));
         AnomalyDetector anomalyDetector = TestHelpers
@@ -326,7 +326,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     }
 
     private void testValidateAnomalyDetectorWithCustomResultIndex(boolean resultIndexCreated) throws IOException {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
         if (resultIndexCreated) {
             createCustomADResultIndex(resultIndex);
         }

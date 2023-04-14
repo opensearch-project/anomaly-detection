@@ -55,6 +55,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 public class PreviewAnomalyDetectorTransportAction extends
@@ -209,7 +210,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         ThreadContext.StoredContext context
     ) throws IOException {
         if (!StringUtils.isBlank(detectorId)) {
-            GetRequest getRequest = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+            GetRequest getRequest = new GetRequest(CommonName.CONFIG_INDEX).id(detectorId);
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, context));
         } else {
             anomalyDetectorRunner

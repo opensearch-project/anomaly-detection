@@ -17,7 +17,7 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.transport.ADResultBulkAction;
@@ -61,7 +61,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtils,

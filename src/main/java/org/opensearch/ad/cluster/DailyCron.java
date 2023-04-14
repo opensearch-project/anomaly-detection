@@ -18,13 +18,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.ml.CheckpointDao;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.timeseries.constant.CommonName;
 
 @Deprecated
 public class DailyCron implements Runnable {
@@ -46,15 +46,15 @@ public class DailyCron implements Runnable {
 
     @Override
     public void run() {
-        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME)
+        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(ADCommonName.CHECKPOINT_INDEX_NAME)
             .setQuery(
                 QueryBuilders
                     .boolQuery()
                     .filter(
                         QueryBuilders
-                            .rangeQuery(CheckpointDao.TIMESTAMP)
+                            .rangeQuery(CommonName.TIMESTAMP)
                             .lte(clock.millis() - checkpointTtl.toMillis())
-                            .format(CommonName.EPOCH_MILLIS_FORMAT)
+                            .format(ADCommonName.EPOCH_MILLIS_FORMAT)
                     )
             )
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);

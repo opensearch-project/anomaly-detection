@@ -17,8 +17,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -45,7 +43,7 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -65,6 +63,7 @@ import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 public class MultiEntityProfileRunnerTests extends AbstractADTest {
@@ -150,17 +149,15 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
-                listener
-                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-            } else if (indexName.equals(CommonName.DETECTION_STATE_INDEX)) {
-                listener
-                    .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
-            } else if (indexName.equals(ANOMALY_DETECTOR_JOB_INDEX)) {
+            if (indexName.equals(CommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+            } else if (indexName.equals(ADCommonName.DETECTION_STATE_INDEX)) {
                 listener
                     .onResponse(
-                        TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), ADCommonName.DETECTION_STATE_INDEX)
                     );
+            } else if (indexName.equals(CommonName.JOB_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId(), CommonName.JOB_INDEX));
             }
 
             return null;

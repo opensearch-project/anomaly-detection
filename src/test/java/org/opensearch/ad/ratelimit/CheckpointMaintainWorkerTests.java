@@ -35,7 +35,7 @@ import java.util.Random;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
@@ -84,7 +84,7 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
 
         CacheProvider cache = mock(CacheProvider.class);
         checkpointDao = mock(CheckpointDao.class);
-        String indexName = CommonName.CHECKPOINT_INDEX_NAME;
+        String indexName = ADCommonName.CHECKPOINT_INDEX_NAME;
         Setting<TimeValue> checkpointInterval = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
         EntityCache entityCache = mock(EntityCache.class);
         when(cache.get()).thenReturn(entityCache);

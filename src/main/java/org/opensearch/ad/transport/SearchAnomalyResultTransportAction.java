@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
+import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_DETECTOR_UPPER_LIMIT;
 
@@ -44,6 +44,7 @@ import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -122,7 +123,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
             .field(AnomalyDetector.RESULT_INDEX_FIELD)
             .size(MAX_DETECTOR_UPPER_LIMIT);
         searchResultIndexBuilder.aggregation(aggregation).size(0);
-        return new SearchRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).source(searchResultIndexBuilder);
+        return new SearchRequest(CommonName.CONFIG_INDEX).source(searchResultIndexBuilder);
     }
 
     @VisibleForTesting

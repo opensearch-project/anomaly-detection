@@ -63,7 +63,7 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
@@ -215,7 +215,7 @@ public class SearchFeatureDaoTests {
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
         aggsMap = new HashMap<>();
 
-        when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX_TIME);
+        when(max.getName()).thenReturn(ADCommonName.AGG_NAME_MAX_TIME);
         List<Aggregation> list = new ArrayList<>();
         list.add(max);
         Aggregations aggregations = new Aggregations(list);
@@ -250,11 +250,11 @@ public class SearchFeatureDaoTests {
     @SuppressWarnings("unchecked")
     public void getLatestDataTime_returnExpectedToListener() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(ADCommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
         long epochTime = 100L;
-        aggsMap.put(CommonName.AGG_NAME_MAX_TIME, max);
+        aggsMap.put(ADCommonName.AGG_NAME_MAX_TIME, max);
         when(max.getValue()).thenReturn((double) epochTime);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);

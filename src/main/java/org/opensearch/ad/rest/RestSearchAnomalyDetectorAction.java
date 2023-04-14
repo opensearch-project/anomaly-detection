@@ -11,12 +11,11 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 
@@ -33,7 +32,7 @@ public class RestSearchAnomalyDetectorAction extends AbstractSearchAction<Anomal
         super(
             ImmutableList.of(),
             ImmutableList.of(Pair.of(URL_PATH, LEGACY_URL_PATH)),
-            ANOMALY_DETECTORS_INDEX,
+            CommonName.CONFIG_INDEX,
             AnomalyDetector.class,
             SearchAnomalyDetectorAction.INSTANCE
         );

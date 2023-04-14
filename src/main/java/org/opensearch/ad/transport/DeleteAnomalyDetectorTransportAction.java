@@ -13,7 +13,6 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_DELETE_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
@@ -34,8 +33,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -52,6 +50,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction<DeleteAnomalyDetectorRequest, DeleteResponse> {
@@ -130,7 +129,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
 
     private void deleteAnomalyDetectorJobDoc(String detectorId, ActionListener<DeleteResponse> listener) {
         LOG.info("Delete anomaly detector job {}", detectorId);
-        DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId)
+        DeleteRequest deleteRequest = new DeleteRequest(CommonName.JOB_INDEX, detectorId)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
         client.delete(deleteRequest, ActionListener.wrap(response -> {
             if (response.getResult() == DocWriteResponse.Result.DELETED || response.getResult() == DocWriteResponse.Result.NOT_FOUND) {
@@ -153,7 +152,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
 
     private void deleteDetectorStateDoc(String detectorId, ActionListener<DeleteResponse> listener) {
         LOG.info("Delete detector info {}", detectorId);
-        DeleteRequest deleteRequest = new DeleteRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
+        DeleteRequest deleteRequest = new DeleteRequest(ADCommonName.DETECTION_STATE_INDEX, detectorId);
         client
             .delete(
                 deleteRequest,
@@ -177,7 +176,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
 
     private void deleteAnomalyDetectorDoc(String detectorId, ActionListener<DeleteResponse> listener) {
         LOG.info("Delete anomaly detector {}", detectorId);
-        DeleteRequest deleteRequest = new DeleteRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detectorId)
+        DeleteRequest deleteRequest = new DeleteRequest(CommonName.CONFIG_INDEX, detectorId)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
         client.delete(deleteRequest, new ActionListener<DeleteResponse>() {
             @Override
@@ -193,8 +192,8 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
     }
 
     private void getDetectorJob(String detectorId, ActionListener<DeleteResponse> listener, AnomalyDetectorFunction function) {
-        if (clusterService.state().metadata().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
-            GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        if (clusterService.state().metadata().indices().containsKey(CommonName.JOB_INDEX)) {
+            GetRequest request = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
             client.get(request, ActionListener.wrap(response -> onGetAdJobResponseForWrite(response, listener, function), exception -> {
                 LOG.error("Fail to get anomaly detector job: " + detectorId, exception);
                 listener.onFailure(exception);

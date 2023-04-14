@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.constant;
 
-import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
+import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.MAX_DETECTOR_NAME_SIZE;
 

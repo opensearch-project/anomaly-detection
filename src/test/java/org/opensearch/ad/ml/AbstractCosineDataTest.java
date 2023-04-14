@@ -60,6 +60,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 
@@ -120,7 +121,7 @@ public class AbstractCosineDataTest extends AbstractADTest {
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, CommonName.CONFIG_INDEX));
 
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));

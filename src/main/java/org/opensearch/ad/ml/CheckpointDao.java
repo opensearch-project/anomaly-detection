@@ -56,7 +56,7 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.Entity;
@@ -68,6 +68,7 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ScrollableHitSource;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -98,16 +99,10 @@ public class CheckpointDao {
     static final String INDEX_DELETED_LOG_MSG = "Checkpoint index has been deleted.  Has nothing to do:";
     static final String NOT_ABLE_TO_DELETE_LOG_MSG = "Cannot delete all checkpoints of detector";
 
-    // ======================================
-    // Model serialization/deserialization
-    // ======================================
-    public static final String ENTITY_SAMPLE = "sp";
     public static final String ENTITY_RCF = "rcf";
     public static final String ENTITY_THRESHOLD = "th";
     public static final String ENTITY_TRCF = "trcf";
-    public static final String FIELD_MODEL = "model";
     public static final String FIELD_MODELV2 = "modelV2";
-    public static final String TIMESTAMP = "timestamp";
     public static final String DETECTOR_ID = "detectorId";
 
     // dependencies
@@ -217,7 +212,7 @@ public class CheckpointDao {
         String modelCheckpoint = toCheckpoint(forest);
         if (modelCheckpoint != null) {
             source.put(FIELD_MODELV2, modelCheckpoint);
-            source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+            source.put(CommonName.TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
             putModelCheckpoint(modelId, source, listener);
         } else {
             listener.onFailure(new RuntimeException("Fail to create checkpoint to save"));
@@ -234,8 +229,8 @@ public class CheckpointDao {
     public void putThresholdCheckpoint(String modelId, ThresholdingModel threshold, ActionListener<Void> listener) {
         String modelCheckpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
         Map<String, Object> source = new HashMap<>();
-        source.put(FIELD_MODEL, modelCheckpoint);
-        source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+        source.put(CommonName.FIELD_MODEL, modelCheckpoint);
+        source.put(CommonName.TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
         putModelCheckpoint(modelId, source, listener);
     }
 
@@ -314,7 +309,7 @@ public class CheckpointDao {
         source.put(DETECTOR_ID, detectorId);
         // we cannot pass Optional as OpenSearch does not know how to serialize an Optional value
         source.put(FIELD_MODELV2, serializedModel.get());
-        source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+        source.put(CommonName.TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
         source.put(CommonName.SCHEMA_VERSION_FIELD, indexUtil.getSchemaVersion(ADIndex.CHECKPOINT));
         Optional<Entity> entity = model.getEntity();
         if (entity.isPresent()) {
@@ -339,7 +334,7 @@ public class CheckpointDao {
             try {
                 JsonObject json = new JsonObject();
                 if (model.getSamples() != null && !(model.getSamples().isEmpty())) {
-                    json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
+                    json.add(CommonName.ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
                 }
                 if (model.getTrcf().isPresent()) {
                     json.addProperty(ENTITY_TRCF, toCheckpoint(model.getTrcf().get()));
@@ -439,7 +434,7 @@ public class CheckpointDao {
         // with exponential back off. If the maximum retry limit is reached, processing
         // halts and all failed requests are returned in the response. Any delete
         // requests that completed successfully still stick, they are not rolled back.
-        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME)
+        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(ADCommonName.CHECKPOINT_INDEX_NAME)
             .setQuery(new MatchQueryBuilder(DETECTOR_ID, detectorID))
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN)
             .setAbortOnVersionConflict(false) // when current delete happens, previous might not finish.
@@ -495,7 +490,7 @@ public class CheckpointDao {
                 Object modelObj = checkpoint.get(FIELD_MODELV2);
                 if (modelObj == null) {
                     // in case there is old -format checkpoint
-                    modelObj = checkpoint.get(FIELD_MODEL);
+                    modelObj = checkpoint.get(CommonName.FIELD_MODEL);
                 }
                 if (modelObj == null) {
                     logger.warn(new ParameterizedMessage("Empty model for [{}]", modelId));
@@ -508,10 +503,10 @@ public class CheckpointDao {
                 }
                 JsonObject json = parser.parse(model).getAsJsonObject();
                 ArrayDeque<double[]> samples = null;
-                if (json.has(ENTITY_SAMPLE)) {
+                if (json.has(CommonName.ENTITY_SAMPLE)) {
                     // verified, don't need privileged call to get permission
                     samples = new ArrayDeque<>(
-                        Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
+                        Arrays.asList(this.gson.fromJson(json.getAsJsonArray(CommonName.ENTITY_SAMPLE), new double[0][0].getClass()))
                     );
                 } else {
                     // avoid possible null pointer exception
@@ -545,7 +540,7 @@ public class CheckpointDao {
                     }
                 }
 
-                String lastCheckpointTimeString = (String) (checkpoint.get(TIMESTAMP));
+                String lastCheckpointTimeString = (String) (checkpoint.get(CommonName.TIMESTAMP));
                 Instant timestamp = Instant.parse(lastCheckpointTimeString);
                 Entity entity = null;
                 Object serializedEntity = checkpoint.get(CommonName.ENTITY_KEY);
@@ -612,7 +607,7 @@ public class CheckpointDao {
                 if (model != null) {
                     listener.onResponse(Optional.ofNullable(toTrcf((String) model)));
                 } else {
-                    Object modelV1 = response.getSource().get(FIELD_MODEL);
+                    Object modelV1 = response.getSource().get(CommonName.FIELD_MODEL);
                     Optional<RandomCutForest> forest = deserializeRCFModel((String) modelV1, rcfModelId);
                     if (!forest.isPresent()) {
                         logger.error("Unexpected error when deserializing [{}]", rcfModelId);
@@ -732,7 +727,7 @@ public class CheckpointDao {
             .ofNullable(response)
             .filter(GetResponse::isExists)
             .map(GetResponse::getSource)
-            .map(source -> source.get(FIELD_MODEL));
+            .map(source -> source.get(CommonName.FIELD_MODEL));
     }
 
     private Optional<Map<String, Object>> processRawCheckpoint(GetResponse response) {

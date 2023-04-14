@@ -11,8 +11,6 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.util.List;
@@ -27,8 +25,8 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
@@ -58,6 +56,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class EntityProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(EntityProfileRunner.class);
@@ -94,7 +93,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
             listener.onFailure(new IllegalArgumentException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
-        GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
+        GetRequest getDetectorRequest = new GetRequest(CommonName.CONFIG_INDEX, detectorId);
 
         client.get(getDetectorRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
@@ -220,7 +219,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         EntityProfileResponse entityProfileResponse,
         ActionListener<EntityProfile> listener
     ) {
-        GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+        GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
                 try (
@@ -457,15 +456,15 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
         boolQueryBuilder.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
 
-        boolQueryBuilder.filter(QueryBuilders.rangeQuery(AnomalyResult.EXECUTION_END_TIME_FIELD).gte(enabledTime));
+        boolQueryBuilder.filter(QueryBuilders.rangeQuery(CommonName.EXECUTION_END_TIME_FIELD).gte(enabledTime));
 
         SearchSourceBuilder source = new SearchSourceBuilder()
             .query(boolQueryBuilder)
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(AnomalyResult.EXECUTION_END_TIME_FIELD))
+            .aggregation(AggregationBuilders.max(ADCommonName.AGG_NAME_MAX_TIME).field(CommonName.EXECUTION_END_TIME_FIELD))
             .trackTotalHits(false)
             .size(0);
 
-        SearchRequest request = new SearchRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        SearchRequest request = new SearchRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         request.source(source);
         if (resultIndex != null) {
             request.indices(resultIndex);

@@ -11,13 +11,11 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
+import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.TASK_TYPE_FIELD;
 import static org.opensearch.ad.model.ADTaskType.taskTypeToString;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_DETECTOR_UPPER_LIMIT;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
@@ -39,7 +37,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
@@ -61,6 +59,7 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Migrate AD data to support backward compatibility.
@@ -106,10 +105,10 @@ public class ADDataMigrator {
                 // If detection index doesn't exist, create index and backfill realtime task.
                 detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
-                        logger.info("Created {} with mappings.", CommonName.DETECTION_STATE_INDEX);
+                        logger.info("Created {} with mappings.", ADCommonName.DETECTION_STATE_INDEX);
                         migrateDetectorInternalStateToRealtimeTask();
                     } else {
-                        String error = "Create index " + CommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
+                        String error = "Create index " + ADCommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
                         logger.warn(error);
                     }
                 }, e -> {
@@ -132,7 +131,7 @@ public class ADDataMigrator {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(new MatchAllQueryBuilder())
             .size(MAX_DETECTOR_UPPER_LIMIT);
-        SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTOR_JOB_INDEX).source(searchSourceBuilder);
+        SearchRequest searchRequest = new SearchRequest(CommonName.JOB_INDEX).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(r -> {
             if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
                 logger.info("No anomaly detector job found, no need to migrate");
@@ -240,7 +239,7 @@ public class ADDataMigrator {
         ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs,
         boolean migrateAll
     ) {
-        client.get(new GetRequest(ANOMALY_DETECTORS_INDEX, job.getName()), ActionListener.wrap(r -> {
+        client.get(new GetRequest(CommonName.CONFIG_INDEX, job.getName()), ActionListener.wrap(r -> {
             if (r != null && r.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);

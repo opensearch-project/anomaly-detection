@@ -54,8 +54,8 @@ import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.CompositeRetriever.PageIterator;
 import org.opensearch.ad.feature.FeatureManager;
@@ -69,7 +69,6 @@ import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
@@ -93,6 +92,7 @@ import org.opensearch.node.NodeClosedException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.ActionNotFoundTransportException;
 import org.opensearch.transport.ConnectTransportException;
 import org.opensearch.transport.NodeNotConnectedException;
@@ -734,7 +734,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 failure.set(new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, causeException, false));
             }
         } else if (causeException instanceof IndexNotFoundException
-            && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME)) {
+            && causeException.getMessage().contains(ADCommonName.CHECKPOINT_INDEX_NAME)) {
             // checkpoint index does not exist
             // ResourceNotFoundException will trigger cold start later
             failure.set(new ResourceNotFoundException(adID, causeException.getMessage()));

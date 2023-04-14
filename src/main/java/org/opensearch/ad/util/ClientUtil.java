@@ -38,8 +38,8 @@ import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksAction;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.opensearch.ad.common.exception.InternalFailure;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
@@ -205,7 +205,7 @@ public class ClientUtil {
 
             try (ThreadContext.StoredContext context = threadPool.getThreadContext().stashContext()) {
                 assert context != null;
-                threadPool.getThreadContext().putHeader(Task.X_OPAQUE_ID, CommonName.ANOMALY_DETECTOR + ":" + detectorId);
+                threadPool.getThreadContext().putHeader(Task.X_OPAQUE_ID, ADCommonName.ANOMALY_DETECTOR + ":" + detectorId);
                 consumer.accept(request, new LatchedActionListener<Response>(ActionListener.wrap(response -> {
                     // clear negative cache
                     throttler.clearFilteredQuery(detectorId);
@@ -272,7 +272,7 @@ public class ClientUtil {
         TaskId matchedSingleTaskId = null;
         for (TaskInfo task : tasks) {
             if (!task.getHeaders().isEmpty()
-                && task.getHeaders().get(Task.X_OPAQUE_ID).equals(CommonName.ANOMALY_DETECTOR + ":" + detectorId)) {
+                && task.getHeaders().get(Task.X_OPAQUE_ID).equals(ADCommonName.ANOMALY_DETECTOR + ":" + detectorId)) {
                 if (!task.getParentTaskId().equals(TaskId.EMPTY_TASK_ID)) {
                     // we found the parent task, don't need to check more
                     matchedParentTaskId = task.getParentTaskId();

@@ -16,12 +16,12 @@ import java.io.IOException;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Used to show model information in profile API
@@ -78,7 +78,7 @@ public class ModelProfile implements Writeable, ToXContentObject {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(CommonName.MODEL_ID_KEY, modelId);
+        builder.field(CommonName.MODEL_ID_FIELD, modelId);
         if (entity != null) {
             builder.field(CommonName.ENTITY_KEY, entity);
         }
@@ -114,7 +114,7 @@ public class ModelProfile implements Writeable, ToXContentObject {
     @Override
     public String toString() {
         ToStringBuilder builder = new ToStringBuilder(this);
-        builder.append(CommonName.MODEL_ID_KEY, modelId);
+        builder.append(CommonName.MODEL_ID_FIELD, modelId);
         if (modelSizeInBytes > 0) {
             builder.append(CommonName.MODEL_SIZE_IN_BYTES, modelSizeInBytes);
         }

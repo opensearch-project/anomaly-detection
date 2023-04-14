@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.indices;
 
+import static org.opensearch.ad.constant.ADCommonName.DUMMY_AD_RESULT_ID;
 import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
-import static org.opensearch.ad.constant.CommonName.DUMMY_AD_RESULT_ID;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD;
@@ -60,11 +60,9 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -90,6 +88,7 @@ import org.opensearch.core.xcontent.XContentParser.Token;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
@@ -300,7 +299,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyDetectorIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        return clusterService.state().getRoutingTable().hasIndex(CommonName.CONFIG_INDEX);
     }
 
     /**
@@ -309,7 +308,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @return true if anomaly detector job index exists
      */
     public boolean doesAnomalyDetectorJobIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+        return clusterService.state().getRoutingTable().hasIndex(CommonName.JOB_INDEX);
     }
 
     /**
@@ -318,7 +317,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @return true if anomaly result index exists
      */
     public boolean doesDefaultAnomalyResultIndexExist() {
-        return clusterService.state().metadata().hasAlias(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        return clusterService.state().metadata().hasAlias(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
     }
 
     public boolean doesIndexExist(String indexName) {
@@ -468,7 +467,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @return true if anomaly state index exists
      */
     public boolean doesDetectorStateIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(CommonName.DETECTION_STATE_INDEX);
+        return clusterService.state().getRoutingTable().hasIndex(ADCommonName.DETECTION_STATE_INDEX);
     }
 
     /**
@@ -477,7 +476,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @return true if checkpoint index exists
      */
     public boolean doesCheckpointIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(CommonName.CHECKPOINT_INDEX_NAME);
+        return clusterService.state().getRoutingTable().hasIndex(ADCommonName.CHECKPOINT_INDEX_NAME);
     }
 
     /**
@@ -532,7 +531,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
+        CreateIndexRequest request = new CreateIndexRequest(CommonName.CONFIG_INDEX)
             .mapping(getAnomalyDetectorMappings(), XContentType.JSON)
             .settings(settings);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
@@ -582,7 +581,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyResultMappings}
      */
     public void initDefaultAnomalyResultIndexDirectly(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        initAnomalyResultIndexDirectly(AD_RESULT_HISTORY_INDEX_PATTERN, CommonName.ANOMALY_RESULT_INDEX_ALIAS, true, actionListener);
+        initAnomalyResultIndexDirectly(AD_RESULT_HISTORY_INDEX_PATTERN, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, true, actionListener);
     }
 
     public void initCustomAnomalyResultIndexDirectly(String resultIndex, ActionListener<CreateIndexResponse> actionListener)
@@ -599,7 +598,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         String mapping = getAnomalyResultMappings();
         CreateIndexRequest request = new CreateIndexRequest(resultIndex).mapping(mapping, XContentType.JSON);
         if (alias != null) {
-            request.alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
+            request.alias(new Alias(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS));
         }
         choosePrimaryShards(request, hiddenIndex);
         if (AD_RESULT_HISTORY_INDEX_PATTERN.equals(resultIndex)) {
@@ -616,7 +615,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      */
     public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+            CreateIndexRequest request = new CreateIndexRequest(CommonName.JOB_INDEX)
                 .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
             request
                 .settings(
@@ -648,7 +647,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      */
     public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            CreateIndexRequest request = new CreateIndexRequest(CommonName.DETECTION_STATE_INDEX)
+            CreateIndexRequest request = new CreateIndexRequest(ADCommonName.DETECTION_STATE_INDEX)
                 .mapping(getDetectionStateMappings(), XContentType.JSON)
                 .settings(settings);
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
@@ -671,7 +670,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         } catch (IOException e) {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
-        CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME).mapping(mapping, XContentType.JSON);
+        CreateIndexRequest request = new CreateIndexRequest(ADCommonName.CHECKPOINT_INDEX_NAME).mapping(mapping, XContentType.JSON);
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
     }
@@ -718,7 +717,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         }
 
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
-        RolloverRequest rollOverRequest = new RolloverRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
+        RolloverRequest rollOverRequest = new RolloverRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, null);
         String adResultMapping = null;
         try {
             adResultMapping = getAnomalyResultMappings();
@@ -736,11 +735,15 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         adminClient.indices().rolloverIndex(rollOverRequest, ActionListener.wrap(response -> {
             if (!response.isRolledOver()) {
                 logger
-                    .warn("{} not rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
+                    .warn(
+                        "{} not rolled over. Conditions were: {}",
+                        ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+                        response.getConditionStatus()
+                    );
             } else {
                 IndexState indexStatetate = indexStates.computeIfAbsent(ADIndex.RESULT, IndexState::new);
                 indexStatetate.mappingUpToDate = true;
-                logger.info("{} rolled over. Conditions were: {}", CommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
+                logger.info("{} rolled over. Conditions were: {}", ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, response.getConditionStatus());
                 deleteOldHistoryIndices();
             }
         }, exception -> { logger.error("Fail to roll over result index", exception); }));

@@ -15,7 +15,8 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.opensearch.ad.Name;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Validation Aspect enum. There two types of validation types for validation API,
@@ -28,7 +29,7 @@ import org.opensearch.ad.constant.CommonName;
  * </ul>
  */
 public enum ValidationAspect implements Name {
-    DETECTOR(CommonName.DETECTOR_ASPECT),
+    DETECTOR(ADCommonName.DETECTOR_ASPECT),
     MODEL(CommonName.MODEL_ASPECT);
 
     private String name;
@@ -49,7 +50,7 @@ public enum ValidationAspect implements Name {
 
     public static ValidationAspect getName(String name) {
         switch (name) {
-            case CommonName.DETECTOR_ASPECT:
+            case ADCommonName.DETECTOR_ASPECT:
                 return DETECTOR;
             case CommonName.MODEL_ASPECT:
                 return MODEL;

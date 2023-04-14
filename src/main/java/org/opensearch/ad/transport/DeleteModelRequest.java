@@ -17,8 +17,8 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.nodes.BaseNodesRequest;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
@@ -69,7 +69,7 @@ public class DeleteModelRequest extends BaseNodesRequest<DeleteModelRequest> imp
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(CommonName.ID_JSON_KEY, adID);
+        builder.field(ADCommonName.ID_JSON_KEY, adID);
         builder.endObject();
         return builder;
     }

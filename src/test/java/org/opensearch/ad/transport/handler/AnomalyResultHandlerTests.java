@@ -37,7 +37,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -85,7 +85,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -121,7 +121,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -139,7 +139,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -159,7 +159,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -217,7 +217,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             backoffSettings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,

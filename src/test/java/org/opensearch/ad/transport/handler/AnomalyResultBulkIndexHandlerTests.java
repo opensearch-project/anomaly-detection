@@ -20,7 +20,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
 
 import java.io.IOException;
 import java.time.Clock;

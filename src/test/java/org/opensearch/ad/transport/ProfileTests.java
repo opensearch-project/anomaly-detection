@@ -30,7 +30,7 @@ import org.junit.Test;
 import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.cluster.ClusterName;
@@ -42,6 +42,7 @@ import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.constant.CommonName;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
@@ -162,7 +163,7 @@ public class ProfileTests extends OpenSearchTestCase {
             );
         }
 
-        assertEquals("toXContent has the wrong shingle size", JsonDeserializer.getIntValue(json, CommonName.SHINGLE_SIZE), shingleSize);
+        assertEquals("toXContent has the wrong shingle size", JsonDeserializer.getIntValue(json, ADCommonName.SHINGLE_SIZE), shingleSize);
     }
 
     @Test
@@ -250,8 +251,8 @@ public class ProfileTests extends OpenSearchTestCase {
             JsonElement element = modelsJson.get(i);
             assertTrue(
                 "toXContent has the wrong model id",
-                JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model1Id)
-                    || JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model0Id)
+                JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_FIELD).equals(model1Id)
+                    || JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_FIELD).equals(model0Id)
             );
 
             assertEquals(
@@ -260,7 +261,7 @@ public class ProfileTests extends OpenSearchTestCase {
                 modelSize
             );
 
-            if (JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model1Id)) {
+            if (JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_FIELD).equals(model1Id)) {
                 assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfileOnNode.NODE_ID), node1);
             } else {
                 assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfileOnNode.NODE_ID), node2);

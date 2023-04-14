@@ -19,7 +19,7 @@ import org.junit.Test;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 
 public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
 
@@ -35,7 +35,7 @@ public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
 
     @Test
     public void testNoIndex() {
-        deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
+        deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
         SearchResponse searchResponse = client().execute(SearchADTasksAction.INSTANCE, matchAllRequest()).actionGet(10000);
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
     }
