@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +27,7 @@ import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
@@ -45,13 +45,12 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 
 /**
  * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector extension.
@@ -65,11 +64,16 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
     private SDKRestClient sdkRestClient;
     private Settings settings;
 
-    public RestStatsAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient, ADStats adStats, DiscoveryNodeFilterer nodeFilter) {
+    public RestStatsAnomalyDetectorAction(
+        ExtensionsRunner extensionsRunner,
+        SDKRestClient sdkRestClient,
+        ADStats adStats,
+        DiscoveryNodeFilterer nodeFilter
+    ) {
         this.sdkRestClient = sdkRestClient;
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.adStats= adStats;
-        this.nodeFilter=nodeFilter;
+        this.adStats = adStats;
+        this.nodeFilter = nodeFilter;
     }
 
     public String getName() {
@@ -77,17 +81,37 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
     }
 
     @Override
-    public List<RouteHandler> routeHandlers() {
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
         return ImmutableList
             .of(
-                new RouteHandler(RestRequest.Method.GET, String.format(Locale.ROOT, "/{%s}/%s", NODE_ID, "stats"), handleRequest),
-                new RouteHandler(
+                new ReplacedRouteHandler(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "/{%s}/%s/{%s}", NODE_ID, "stats", STAT),
+                    "/{nodeId}/stats/",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/{nodeId}/stats/",
                     handleRequest
                 ),
-                new RouteHandler(RestRequest.Method.GET, "/detectors/stats", handleRequest),
-                new RouteHandler(RestRequest.Method.GET, String.format(Locale.ROOT, "/%s/{%s}", "stats", STAT), handleRequest)
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    "/{nodeId}/stats/{stat}",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/{nodeId}/stats/{stat}",
+                    handleRequest
+                ),
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    "/stats/",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/stats/",
+                    handleRequest
+                ),
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    "/stats/{stat}",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/stats/{stat}",
+                    handleRequest
+                )
             );
     }
 
@@ -119,9 +143,7 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
 
         XContentBuilder statsAnomalyDetectorResponseBuilder = statsAnomalyDetectorResponse
             .toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
-        ExtensionRestResponse response = new ExtensionRestResponse(request, RestStatus.OK, statsAnomalyDetectorResponseBuilder);
-
-        return response;
+        return new ExtensionRestResponse(request, RestStatus.OK, statsAnomalyDetectorResponseBuilder);
     }
 
     /**

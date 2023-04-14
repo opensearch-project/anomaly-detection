@@ -93,8 +93,7 @@ public class CommonErrorMessages {
     public static String FAIL_TO_DELETE_AD_RESULT = "Fail to delete anomaly result";
     public static String FAIL_TO_GET_STATS = "Fail to get stats";
     public static String FAIL_TO_SEARCH = "Fail to search";
-
-    public static String FAIL_TO_GET_NODE_STATS = "Fail to get node stats";
+    public static String FAIL_TO_GET_NODE_STATS = "Failed to get node stats";
 
     public static String CAN_NOT_FIND_RESULT_INDEX = "Can't find result index ";
     public static String INVALID_RESULT_INDEX_PREFIX = "Result index must start with " + CUSTOM_RESULT_INDEX_PREFIX;
