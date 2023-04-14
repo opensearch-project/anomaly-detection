@@ -197,7 +197,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             .of(
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestPreviewAnomalyDetectorAction(extensionsRunner(), this),
+                new RestPreviewAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
                 new RestDeleteAnomalyDetectorAction(extensionsRunner(), restClient()),

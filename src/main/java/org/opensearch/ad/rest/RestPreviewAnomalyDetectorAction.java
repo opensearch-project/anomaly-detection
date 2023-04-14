@@ -45,7 +45,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.rest.BaseExtensionRestHandler;
-import org.opensearch.sdk.rest.BaseExtensionRestHandler.RouteHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
@@ -58,33 +58,13 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
     private Settings environmentSettings;
     private SDKRestClient client;
 
-    public RestPreviewAnomalyDetectorAction(ExtensionsRunner extensionsRunner, AnomalyDetectorExtension anomalyDetectorExtension) {
+    public RestPreviewAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
-        this.client = anomalyDetectorExtension.restClient();
+        this.client = sdkRestClient;
     }
 
     public String getName() {
         return PREVIEW_ANOMALY_DETECTOR_ACTION;
-    }
-
-    @Override
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // preview detector
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    String
-                        .format(
-                            Locale.ROOT,
-                            "%s/{%s}/%s",
-                            AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,
-                            RestHandlerUtils.DETECTOR_ID,
-                            PREVIEW
-                        ),
-                    handleRequest
-                )
-            );
     }
 
     private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
@@ -157,4 +137,45 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
         return null;
     }
 
+    @Override
+    public List<RouteHandler> routeHandlers() {
+        return ImmutableList
+            .of(
+                // preview detector
+                new RouteHandler(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, PREVIEW),
+                    handleRequest
+                )
+            );
+    }
+
+    @Override
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        return ImmutableList
+            .of(
+                // Preview Detector
+                new ReplacedRouteHandler(
+                    RestRequest.Method.POST,
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s",
+                            AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,
+                            RestHandlerUtils.DETECTOR_ID,
+                            PREVIEW
+                        ),
+                    RestRequest.Method.POST,
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s",
+                            AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI,
+                            RestHandlerUtils.DETECTOR_ID,
+                            PREVIEW
+                        ),
+                    handleRequest
+                )
+            );
+    }
 }

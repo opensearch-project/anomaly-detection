@@ -46,7 +46,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.CheckedConsumer;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
@@ -55,6 +54,8 @@ import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
+
+import com.google.inject.Inject;
 
 public class PreviewAnomalyDetectorTransportAction extends TransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
     private final Logger logger = LogManager.getLogger(PreviewAnomalyDetectorTransportAction.class);

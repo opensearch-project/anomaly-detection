@@ -197,9 +197,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             return null;
         }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
         action.doExecute(task, request, previewResponse);
-        // The latch will never be triggered with mocked client so trigger ourselves here
-        inProgressLatch.countDown();
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // The latch will never be triggered with mocked client
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @Test
@@ -226,9 +225,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
-        // The latch will never be triggered with mocked client so trigger ourselves here
-        inProgressLatch.countDown();
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // The latch will never be triggered with mocked client
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @Test
@@ -249,9 +247,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
-        // The latch will never be triggered with mocked client so trigger ourselves here
-        inProgressLatch.countDown();
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // The latch will never be triggered with mocked client
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @Test
@@ -272,9 +269,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
-        // The latch will never be triggered with mocked client so trigger ourselves here
-        inProgressLatch.countDown();
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // The latch will never be triggered with mocked client
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @Test
@@ -298,9 +294,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
-        // The latch will never be triggered with mocked client so trigger ourselves here
-        inProgressLatch.countDown();
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // The latch will never be triggered with mocked client
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @SuppressWarnings("unchecked")
@@ -365,7 +360,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         // Thread Context User has been replaced with null as part of https://github.com/opensearch-project/opensearch-sdk/issues/23
         // Countdown latch was never decremented on failure, so we expect failure here
         // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-        assertFalse(inProgressLatch.await(100, TimeUnit.SECONDS));
+        assertFalse(inProgressLatch.await(10, TimeUnit.SECONDS));
     }
 
     @SuppressWarnings("unchecked")
@@ -421,9 +416,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             return null;
         }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
         action.doExecute(task, request, previewResponse);
-        // The latch will never be triggered with mocked client so trigger ourselves here
-        inProgressLatch.countDown();
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // The latch will never be triggered with mocked client
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @Test
@@ -454,8 +448,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
         action.doExecute(task, request, previewResponse);
-        // The latch will never be triggered with mocked client so trigger ourselves here
-        inProgressLatch.countDown();
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        // The latch will never be triggered with mocked client
+        // assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 }
