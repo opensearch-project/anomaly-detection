@@ -76,8 +76,8 @@ import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
@@ -89,7 +89,6 @@ import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.SecurityClientUtil;
@@ -115,6 +114,8 @@ import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.NodeNotConnectedException;
 import org.opensearch.transport.RemoteTransportException;
 import org.opensearch.transport.Transport;
@@ -275,7 +276,7 @@ public class AnomalyResultTests extends AbstractADTest {
             }
 
             assertTrue(request != null && listener != null);
-            ShardId shardId = new ShardId(new Index(CommonName.ANOMALY_RESULT_INDEX_ALIAS, randomAlphaOfLength(10)), 0);
+            ShardId shardId = new ShardId(new Index(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, randomAlphaOfLength(10)), 0);
             listener.onResponse(new IndexResponse(shardId, request.id(), 1, 1, 1, true));
 
             return null;
@@ -301,12 +302,14 @@ public class AnomalyResultTests extends AbstractADTest {
             GetRequest request = (GetRequest) args[0];
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
-            if (request.index().equals(CommonName.DETECTION_STATE_INDEX)) {
+            if (request.index().equals(ADCommonName.DETECTION_STATE_INDEX)) {
 
                 DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
 
                 listener
-                    .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
+                    .onResponse(
+                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), ADCommonName.DETECTION_STATE_INDEX)
+                    );
 
             }
 
@@ -1063,7 +1066,7 @@ public class AnomalyResultTests extends AbstractADTest {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = Strings.toString(builder);
-        assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), request.getAdID());
+        assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), request.getAdID());
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.START_JSON_KEY), request.getStart());
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.END_JSON_KEY), request.getEnd());
     }
@@ -1636,7 +1639,7 @@ public class AnomalyResultTests extends AbstractADTest {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             ActionListener<ThresholdingResult> listener = (ActionListener<ThresholdingResult>) args[3];
-            listener.onFailure(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME));
+            listener.onFailure(new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME));
             return null;
         }).when(rcfManager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
@@ -1792,7 +1795,7 @@ public class AnomalyResultTests extends AbstractADTest {
         ThreadPool mockThreadPool = mock(ThreadPool.class);
         setUpColdStart(
             mockThreadPool,
-            new ColdStartConfig.Builder().getCheckpointException(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME)).build()
+            new ColdStartConfig.Builder().getCheckpointException(new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME)).build()
         );
 
         doAnswer(invocation -> {

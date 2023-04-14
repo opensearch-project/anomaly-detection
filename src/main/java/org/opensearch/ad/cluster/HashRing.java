@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME;
-import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME_FOR_TEST;
+import static org.opensearch.ad.constant.ADCommonName.AD_PLUGIN_NAME;
+import static org.opensearch.ad.constant.ADCommonName.AD_PLUGIN_NAME_FOR_TEST;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
 
 import java.time.Clock;

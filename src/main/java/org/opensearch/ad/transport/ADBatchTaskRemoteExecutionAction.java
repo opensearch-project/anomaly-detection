@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonName.AD_TASK_REMOTE;
+import static org.opensearch.ad.constant.ADCommonName.AD_TASK_REMOTE;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.ad.constant.CommonValue;

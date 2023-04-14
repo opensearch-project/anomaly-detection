@@ -40,7 +40,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
@@ -62,6 +62,7 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.test.transport.MockTransportService;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -101,35 +102,35 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public void createDetectors(List<AnomalyDetector> detectors, boolean createIndexFirst) throws IOException {
         if (createIndexFirst) {
-            createIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
+            createIndex(CommonName.CONFIG_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
         }
 
         for (AnomalyDetector detector : detectors) {
-            indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+            indexDoc(CommonName.CONFIG_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
         }
     }
 
     public String createDetector(AnomalyDetector detector) throws IOException {
-        return indexDoc(AnomalyDetector.ANOMALY_DETECTORS_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        return indexDoc(CommonName.CONFIG_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
     }
 
     public String createADResult(AnomalyResult adResult) throws IOException {
-        return indexDoc(CommonName.ANOMALY_RESULT_INDEX_ALIAS, adResult.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        return indexDoc(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, adResult.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
     }
 
     public String createADTask(ADTask adTask) throws IOException {
         if (adTask.getTaskId() != null) {
-            return indexDoc(CommonName.DETECTION_STATE_INDEX, adTask.getTaskId(), adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+            return indexDoc(ADCommonName.DETECTION_STATE_INDEX, adTask.getTaskId(), adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
         }
-        return indexDoc(CommonName.DETECTION_STATE_INDEX, adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        return indexDoc(ADCommonName.DETECTION_STATE_INDEX, adTask.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
     }
 
     public void createDetectorIndex() throws IOException {
-        createIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
+        createIndex(CommonName.CONFIG_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
     }
 
     public void createADResultIndex() throws IOException {
-        createIndex(CommonName.ANOMALY_RESULT_INDEX_ALIAS, AnomalyDetectionIndices.getAnomalyResultMappings());
+        createIndex(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, AnomalyDetectionIndices.getAnomalyResultMappings());
     }
 
     public void createCustomADResultIndex(String indexName) throws IOException {
@@ -137,7 +138,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public void createDetectionStateIndex() throws IOException {
-        createIndex(CommonName.DETECTION_STATE_INDEX, AnomalyDetectionIndices.getDetectionStateMappings());
+        createIndex(ADCommonName.DETECTION_STATE_INDEX, AnomalyDetectionIndices.getDetectionStateMappings());
     }
 
     public void createTestDataIndex(String indexName) {
@@ -159,7 +160,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public AcknowledgedResponse deleteDetectorIndex() {
-        return deleteIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        return deleteIndex(CommonName.CONFIG_INDEX);
     }
 
     public AcknowledgedResponse deleteIndex(String indexName) {
@@ -238,7 +239,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         SearchRequest request = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(new TermQueryBuilder("detector_id", detectorId)).size(10);
-        request.indices(CommonName.DETECTION_STATE_INDEX).source(searchSourceBuilder);
+        request.indices(ADCommonName.DETECTION_STATE_INDEX).source(searchSourceBuilder);
         SearchResponse searchResponse = client().search(request).actionGet(timeout);
         return searchResponse.getHits().getTotalHits().value;
     }

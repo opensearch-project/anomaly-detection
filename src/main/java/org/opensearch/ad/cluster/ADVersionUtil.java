@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_VERSION_FOR_TEST;
+import static org.opensearch.ad.constant.ADCommonName.AD_PLUGIN_VERSION_FOR_TEST;
 
 import org.opensearch.Version;
 

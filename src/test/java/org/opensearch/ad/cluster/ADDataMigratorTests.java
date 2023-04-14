@@ -21,8 +21,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
@@ -48,6 +47,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class ADDataMigratorTests extends ADUnitTestCase {
     private Client client;
@@ -442,7 +442,7 @@ public class ADDataMigratorTests extends ADUnitTestCase {
     public void testMigrateDataWithIndexNotFoundException() {
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            listener.onFailure(new IndexNotFoundException(ANOMALY_DETECTOR_JOB_INDEX));
+            listener.onFailure(new IndexNotFoundException(CommonName.JOB_INDEX));
             return null;
         }).when(client).search(any(), any());
         when(detectionIndices.doesAnomalyDetectorJobIndexExist()).thenReturn(true);

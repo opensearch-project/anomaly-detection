@@ -29,7 +29,7 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.transport.CronAction;
 import org.opensearch.ad.transport.CronNodeResponse;
 import org.opensearch.ad.transport.CronResponse;
@@ -59,7 +59,7 @@ public class HourlyCronTests extends AbstractADTest {
         ClusterState state = ClusterCreation.state(1);
         when(clusterService.state()).thenReturn(state);
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
-        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        ignoredAttributes.put(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE);
         DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
         Client client = mock(Client.class);

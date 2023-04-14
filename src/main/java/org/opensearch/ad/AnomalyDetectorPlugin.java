@@ -42,7 +42,7 @@ import org.opensearch.ad.cluster.ADClusterEventListener;
 import org.opensearch.ad.cluster.ADDataMigrator;
 import org.opensearch.ad.cluster.ClusterManagerEventListener;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
@@ -85,7 +85,6 @@ import org.opensearch.ad.settings.LegacyOpenDistroAnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeCountSupplier;
@@ -195,6 +194,8 @@ import org.opensearch.script.ScriptService;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.watcher.ResourceWatcherService;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
@@ -429,7 +430,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         CheckpointDao checkpoint = new CheckpointDao(
             client,
             clientUtil,
-            CommonName.CHECKPOINT_INDEX_NAME,
+            ADCommonName.CHECKPOINT_INDEX_NAME,
             gson,
             mapper,
             converter,
@@ -454,7 +455,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         CheckPointMaintainRequestAdapter adapter = new CheckPointMaintainRequestAdapter(
             cacheProvider,
             checkpoint,
-            CommonName.CHECKPOINT_INDEX_NAME,
+            ADCommonName.CHECKPOINT_INDEX_NAME,
             AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
             getClock(),
             clusterService,
@@ -477,7 +478,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             checkpoint,
-            CommonName.CHECKPOINT_INDEX_NAME,
+            ADCommonName.CHECKPOINT_INDEX_NAME,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             stateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
@@ -625,23 +626,23 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             )
             .put(
                 StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
             .put(
                 StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.ANOMALY_RESULT_INDEX_ALIAS))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS))
             )
             .put(
                 StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CHECKPOINT_INDEX_NAME))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, ADCommonName.CHECKPOINT_INDEX_NAME))
             )
             .put(
                 StatNames.ANOMALY_DETECTION_JOB_INDEX_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
             )
             .put(
                 StatNames.ANOMALY_DETECTION_STATE_STATUS.getName(),
-                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.DETECTION_STATE_INDEX))
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, ADCommonName.DETECTION_STATE_INDEX))
             )
             .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
             .put(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
@@ -752,7 +753,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             this.clientUtil,
             this.indexUtils,
@@ -1010,7 +1011,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public String getJobIndex() {
-        return AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+        return CommonName.JOB_INDEX;
     }
 
     @Override

@@ -13,7 +13,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 
 import java.time.Instant;
@@ -58,6 +57,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
@@ -200,7 +200,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
         Map<String, IndexMetadata> immutableOpenMap = new HashMap<>();
         immutableOpenMap
             .put(
-                ANOMALY_DETECTOR_JOB_INDEX,
+                CommonName.JOB_INDEX,
                 IndexMetadata
                     .builder("test")
                     .settings(
@@ -280,7 +280,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
             }
             getResponse = new GetResponse(
                 new GetResult(
-                    AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+                    CommonName.JOB_INDEX,
                     "id",
                     UNASSIGNED_SEQ_NO,
                     0,

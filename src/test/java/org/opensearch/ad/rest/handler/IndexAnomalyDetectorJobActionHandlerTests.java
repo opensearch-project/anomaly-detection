@@ -39,8 +39,8 @@ import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -358,7 +358,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
                 10,
                 MockSimpleLog.TIME_FIELD,
                 null,
-                CommonName.CUSTOM_RESULT_INDEX_PREFIX + "index"
+                ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "index"
             );
         when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
         handler.startAnomalyDetectorJob(detector, listener);

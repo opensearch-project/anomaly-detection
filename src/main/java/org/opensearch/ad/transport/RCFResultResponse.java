@@ -15,7 +15,7 @@ import java.io.IOException;
 
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
@@ -209,7 +209,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(FOREST_SIZE_JSON_KEY, forestSize);
         builder.field(ATTRIBUTION_JSON_KEY, attribution);
         builder.field(TOTAL_UPDATES_JSON_KEY, totalUpdates);
-        builder.field(CommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
+        builder.field(ADCommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
         builder.field(RELATIVE_INDEX_FIELD_JSON_KEY, relativeIndex);
         builder.field(PAST_VALUES_FIELD_JSON_KEY, pastValues);
         builder.field(EXPECTED_VAL_LIST_FIELD_JSON_KEY, expectedValuesList);

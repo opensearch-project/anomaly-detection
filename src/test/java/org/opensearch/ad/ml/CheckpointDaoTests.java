@@ -23,9 +23,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.action.DocWriteResponse.Result.UPDATED;
-import static org.opensearch.ad.ml.CheckpointDao.FIELD_MODEL;
 import static org.opensearch.ad.ml.CheckpointDao.FIELD_MODELV2;
-import static org.opensearch.ad.ml.CheckpointDao.TIMESTAMP;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -96,7 +94,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
@@ -105,6 +103,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.constant.CommonName;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 import test.org.opensearch.ad.util.MLUtil;
@@ -281,10 +280,10 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertEquals(indexName, updateRequest.index());
         assertEquals(modelId, updateRequest.id());
         IndexRequest indexRequest = updateRequest.doc();
-        Set<String> expectedSourceKeys = new HashSet<String>(Arrays.asList(FIELD_MODELV2, CheckpointDao.TIMESTAMP));
+        Set<String> expectedSourceKeys = new HashSet<String>(Arrays.asList(FIELD_MODELV2, CommonName.TIMESTAMP));
         assertEquals(expectedSourceKeys, indexRequest.sourceAsMap().keySet());
         assertTrue(!((String) (indexRequest.sourceAsMap().get(FIELD_MODELV2))).isEmpty());
-        assertNotNull(indexRequest.sourceAsMap().get(CheckpointDao.TIMESTAMP));
+        assertNotNull(indexRequest.sourceAsMap().get(CommonName.TIMESTAMP));
 
         ArgumentCaptor<Void> responseCaptor = ArgumentCaptor.forClass(Void.class);
         verify(listener).onResponse(responseCaptor.capture());
@@ -301,7 +300,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         doAnswer(invocation -> {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onResponse(new CreateIndexResponse(true, true, CommonName.CHECKPOINT_INDEX_NAME));
+            listener.onResponse(new CreateIndexResponse(true, true, ADCommonName.CHECKPOINT_INDEX_NAME));
             return null;
         }).when(indexUtil).initCheckpointIndex(any());
 
@@ -313,7 +312,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         doAnswer(invocation -> {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onFailure(new ResourceAlreadyExistsException(CommonName.CHECKPOINT_INDEX_NAME));
+            listener.onFailure(new ResourceAlreadyExistsException(ADCommonName.CHECKPOINT_INDEX_NAME));
             return null;
         }).when(indexUtil).initCheckpointIndex(any());
 
@@ -341,7 +340,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         // ArgumentCaptor<GetRequest> requestCaptor = ArgumentCaptor.forClass(GetRequest.class);
         UpdateResponse updateResponse = new UpdateResponse(
             new ReplicationResponse.ShardInfo(3, 2),
-            new ShardId(CommonName.CHECKPOINT_INDEX_NAME, "uuid", 2),
+            new ShardId(ADCommonName.CHECKPOINT_INDEX_NAME, "uuid", 2),
             "1",
             7,
             17,
@@ -395,7 +394,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         // ArgumentCaptor<GetRequest> requestCaptor = ArgumentCaptor.forClass(GetRequest.class);
         UpdateResponse updateResponse = new UpdateResponse(
             new ReplicationResponse.ShardInfo(3, 2),
-            new ShardId(CommonName.CHECKPOINT_INDEX_NAME, "uuid", 2),
+            new ShardId(ADCommonName.CHECKPOINT_INDEX_NAME, "uuid", 2),
             "1",
             7,
             17,
@@ -501,7 +500,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         Map<String, Object> source = new HashMap<>();
         source.put(CheckpointDao.DETECTOR_ID, state.getDetectorId());
         source.put(CheckpointDao.FIELD_MODELV2, checkpointDao.toCheckpoint(modelToSave, modelId).get());
-        source.put(CheckpointDao.TIMESTAMP, "2020-10-11T22:58:23.610392Z");
+        source.put(CommonName.TIMESTAMP, "2020-10-11T22:58:23.610392Z");
         when(getResponse.getSource()).thenReturn(source);
 
         doAnswer(invocation -> {
@@ -544,7 +543,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         doAnswer(invocation -> {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onResponse(new CreateIndexResponse(true, true, CommonName.CHECKPOINT_INDEX_NAME));
+            listener.onResponse(new CreateIndexResponse(true, true, ADCommonName.CHECKPOINT_INDEX_NAME));
             return null;
         }).when(indexUtil).initCheckpointIndex(any());
         checkpointDao.batchWrite(new BulkRequest(), null);
@@ -556,7 +555,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         doAnswer(invocation -> {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onResponse(new CreateIndexResponse(false, false, CommonName.CHECKPOINT_INDEX_NAME));
+            listener.onResponse(new CreateIndexResponse(false, false, ADCommonName.CHECKPOINT_INDEX_NAME));
             return null;
         }).when(indexUtil).initCheckpointIndex(any());
 
@@ -603,14 +602,14 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     private BulkResponse createBulkResponse(int succeeded, int failed, String[] failedId) {
         BulkItemResponse[] bulkItemResponses = new BulkItemResponse[succeeded + failed];
 
-        ShardId shardId = new ShardId(CommonName.CHECKPOINT_INDEX_NAME, "", 1);
+        ShardId shardId = new ShardId(ADCommonName.CHECKPOINT_INDEX_NAME, "", 1);
         int i = 0;
         for (; i < failed; i++) {
             bulkItemResponses[i] = new BulkItemResponse(
                 i,
                 DocWriteRequest.OpType.UPDATE,
                 new BulkItemResponse.Failure(
-                    CommonName.CHECKPOINT_INDEX_NAME,
+                    ADCommonName.CHECKPOINT_INDEX_NAME,
                     failedId[i],
                     new VersionConflictEngineException(shardId, "id", "test")
                 )
@@ -657,9 +656,9 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             items[0] = new MultiGetItemResponse(
                 null,
                 new MultiGetResponse.Failure(
-                    CommonName.CHECKPOINT_INDEX_NAME,
+                    ADCommonName.CHECKPOINT_INDEX_NAME,
                     "modelId",
-                    new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME)
+                    new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME)
                 )
             );
             listener.onResponse(new MultiGetResponse(items));
@@ -759,7 +758,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).sampleSize(1).build());
         String json = checkpointDao.toCheckpoint(state.getModel(), modelId).get();
         assertEquals(null, JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_TRCF));
-        assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_SAMPLE));
+        assertTrue(null != JsonDeserializer.getChildNode(json, CommonName.ENTITY_SAMPLE));
         // assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_THRESHOLD));
         // assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_TRCF));
     }
@@ -768,7 +767,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).sampleSize(0).build());
         String json = checkpointDao.toCheckpoint(state.getModel(), modelId).get();
         // assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_TRCF));
-        assertEquals(null, JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_SAMPLE));
+        assertEquals(null, JsonDeserializer.getChildNode(json, CommonName.ENTITY_SAMPLE));
         // assertTrue(null != JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_THRESHOLD));
         assertNotNull(JsonDeserializer.getChildNode(json, CheckpointDao.ENTITY_TRCF));
     }
@@ -842,7 +841,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         Map<String, Object> entity = new HashMap<>();
         entity.put(FIELD_MODELV2, model);
-        entity.put(TIMESTAMP, Instant.now().toString());
+        entity.put(CommonName.TIMESTAMP, Instant.now().toString());
         Optional<Entry<EntityModel, Instant>> result = checkpointDao.fromEntityModelCheckpoint(entity, this.modelId);
 
         assertTrue(result.isPresent());
@@ -859,7 +858,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         Map<String, Object> entity = new HashMap<>();
         entity.put(FIELD_MODELV2, model);
-        entity.put(TIMESTAMP, Instant.now().toString());
+        entity.put(CommonName.TIMESTAMP, Instant.now().toString());
         Optional<Entry<EntityModel, Instant>> result = checkpointDao.fromEntityModelCheckpoint(entity, this.modelId);
 
         assertTrue(result.isPresent());
@@ -884,8 +883,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         Instant now = Instant.now();
         Map<String, Object> entity = new HashMap<>();
-        entity.put(FIELD_MODEL, model);
-        entity.put(TIMESTAMP, now.toString());
+        entity.put(CommonName.FIELD_MODEL, model);
+        entity.put(CommonName.TIMESTAMP, now.toString());
         return Pair.of(entity, now);
     }
 
@@ -949,7 +948,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     // test no model is present in checkpoint
     public void testFromEntityModelCheckpointEmptyModel() throws FileNotFoundException, IOException, URISyntaxException {
         Map<String, Object> entity = new HashMap<>();
-        entity.put(TIMESTAMP, Instant.now().toString());
+        entity.put(CommonName.TIMESTAMP, Instant.now().toString());
 
         Optional<Entry<EntityModel, Instant>> result = checkpointDao.fromEntityModelCheckpoint(entity, this.modelId);
         assertTrue(!result.isPresent());
@@ -989,7 +988,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).entityAttributes(true).build());
         Map<String, Object> content = checkpointDao.toIndexSource(state);
         // Opensearch will convert from java.time.ZonedDateTime to String. Here I am converting to simulate that
-        content.put(TIMESTAMP, "2021-09-23T05:00:37.93195Z");
+        content.put(CommonName.TIMESTAMP, "2021-09-23T05:00:37.93195Z");
 
         Optional<Entry<EntityModel, Instant>> result = checkpointDao.fromEntityModelCheckpoint(content, this.modelId);
 

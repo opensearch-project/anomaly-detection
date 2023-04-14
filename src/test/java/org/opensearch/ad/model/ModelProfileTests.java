@@ -16,10 +16,10 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import java.io.IOException;
 
 import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 

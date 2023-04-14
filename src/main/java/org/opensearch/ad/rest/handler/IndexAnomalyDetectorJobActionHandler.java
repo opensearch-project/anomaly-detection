@@ -13,7 +13,6 @@ package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.action.DocWriteResponse.Result.UPDATED;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -53,6 +52,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.base.Throwables;
@@ -163,14 +163,14 @@ public class IndexAnomalyDetectorJobActionHandler {
         if (!anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()) {
             anomalyDetectionIndices.initAnomalyDetectorJobIndex(ActionListener.wrap(response -> {
                 if (response.isAcknowledged()) {
-                    logger.info("Created {} with mappings.", ANOMALY_DETECTORS_INDEX);
+                    logger.info("Created {} with mappings.", CommonName.CONFIG_INDEX);
                     createJob(detector, startListener);
                 } else {
-                    logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
+                    logger.warn("Created {} with mappings call not acknowledged.", CommonName.CONFIG_INDEX);
                     startListener
                         .onFailure(
                             new OpenSearchStatusException(
-                                "Created " + ANOMALY_DETECTORS_INDEX + " with mappings call not acknowledged.",
+                                "Created " + CommonName.CONFIG_INDEX + " with mappings call not acknowledged.",
                                 RestStatus.INTERNAL_SERVER_ERROR
                             )
                         );
@@ -213,7 +213,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         AnomalyDetectorJob job,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
 
         client
             .get(
@@ -293,7 +293,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         AnomalyDetectorFunction function,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) throws IOException {
-        IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+        IndexRequest indexRequest = new IndexRequest(CommonName.JOB_INDEX)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
             .source(job.toXContent(XContentFactory.jsonBuilder(), RestHandlerUtils.XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
@@ -344,7 +344,7 @@ public class IndexAnomalyDetectorJobActionHandler {
      * @param listener Listener to send responses
      */
     public void stopAnomalyDetectorJob(String detectorId, ActionListener<AnomalyDetectorJobResponse> listener) {
-        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
 
         client.get(getRequest, ActionListener.wrap(response -> {
             if (response.isExists()) {

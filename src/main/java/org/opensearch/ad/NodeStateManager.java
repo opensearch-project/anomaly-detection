@@ -31,8 +31,8 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -48,6 +48,7 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * NodeStateManager is used to manage states shared by transport and ml components
@@ -130,7 +131,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         if (state != null && state.getDetectorDef() != null) {
             listener.onResponse(Optional.of(state.getDetectorDef()));
         } else {
-            GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, adID);
+            GetRequest request = new GetRequest(CommonName.CONFIG_INDEX, adID);
             clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorResponse(adID, listener));
         }
     }
@@ -182,7 +183,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             return;
         }
 
-        GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, SingleStreamModelIdMapper.getRcfModelId(adID, 0));
+        GetRequest request = new GetRequest(ADCommonName.CHECKPOINT_INDEX_NAME, SingleStreamModelIdMapper.getRcfModelId(adID, 0));
 
         clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetCheckpointResponse(adID, listener));
     }
@@ -375,7 +376,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
         if (state != null && state.getDetectorJob() != null) {
             listener.onResponse(Optional.of(state.getDetectorJob()));
         } else {
-            GetRequest request = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, adID);
+            GetRequest request = new GetRequest(CommonName.JOB_INDEX, adID);
             clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorJobResponse(adID, listener));
         }
     }

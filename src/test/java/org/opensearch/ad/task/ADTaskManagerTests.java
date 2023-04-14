@@ -36,9 +36,9 @@ import static org.opensearch.ad.TestHelpers.randomFeature;
 import static org.opensearch.ad.TestHelpers.randomIntervalSchedule;
 import static org.opensearch.ad.TestHelpers.randomIntervalTimeConfiguration;
 import static org.opensearch.ad.TestHelpers.randomUser;
+import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.constant.CommonErrorMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
-import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.model.Entity.createSingleAttributeEntity;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
@@ -129,6 +129,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
@@ -290,7 +291,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                 .onResponse(
                     new GetResponse(
                         new GetResult(
-                            AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+                            CommonName.CONFIG_INDEX,
                             detector.getDetectorId(),
                             UNASSIGNED_SEQ_NO,
                             0,
@@ -636,7 +637,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             ActionListener<GetResponse> listener = invocation.getArgument(1);
             GetResponse response = new GetResponse(
                 new GetResult(
-                    AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+                    CommonName.JOB_INDEX,
                     taskId,
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -692,7 +693,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             ADTask adTask = randomAdTask();
             GetResponse response = new GetResponse(
                 new GetResult(
-                    AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+                    CommonName.JOB_INDEX,
                     taskId,
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -1228,7 +1229,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             ActionListener<GetResponse> getResponselistener = invocation.getArgument(1);
             GetResponse response = new GetResponse(
                 new GetResult(
-                    AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+                    CommonName.JOB_INDEX,
                     detectorId,
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -1551,7 +1552,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             ActionListener<GetResponse> responseListener = invocation.getArgument(1);
             GetResponse response = new GetResponse(
                 new GetResult(
-                    AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+                    CommonName.CONFIG_INDEX,
                     detectorId,
                     UNASSIGNED_SEQ_NO,
                     0,

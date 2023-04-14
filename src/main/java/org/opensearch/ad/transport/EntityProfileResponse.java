@@ -18,7 +18,7 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -128,7 +128,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
             builder.field(TOTAL_UPDATES, totalUpdates);
         }
         if (modelProfile != null) {
-            builder.field(CommonName.MODEL, modelProfile);
+            builder.field(ADCommonName.MODEL, modelProfile);
         }
         builder.endObject();
         return builder;
@@ -140,7 +140,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
         builder.append(ACTIVE, isActive);
         builder.append(LAST_ACTIVE_TS, lastActiveMs);
         builder.append(TOTAL_UPDATES, totalUpdates);
-        builder.append(CommonName.MODEL, modelProfile);
+        builder.append(ADCommonName.MODEL, modelProfile);
 
         return builder.toString();
     }

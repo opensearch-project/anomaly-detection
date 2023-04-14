@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.stats;
+package org.opensearch.timeseries.stats;
 
 import java.util.HashSet;
 import java.util.Set;

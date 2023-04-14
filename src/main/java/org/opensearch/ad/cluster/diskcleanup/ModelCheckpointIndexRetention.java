@@ -17,10 +17,10 @@ import java.time.Duration;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.ml.CheckpointDao;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Model checkpoints cleanup of multi-entity detectors.
@@ -57,14 +57,14 @@ public class ModelCheckpointIndexRetention implements Runnable {
     public void run() {
         indexCleanup
             .deleteDocsByQuery(
-                CommonName.CHECKPOINT_INDEX_NAME,
+                ADCommonName.CHECKPOINT_INDEX_NAME,
                 QueryBuilders
                     .boolQuery()
                     .filter(
                         QueryBuilders
-                            .rangeQuery(CheckpointDao.TIMESTAMP)
+                            .rangeQuery(CommonName.TIMESTAMP)
                             .lte(clock.millis() - defaultCheckpointTtl.toMillis())
-                            .format(CommonName.EPOCH_MILLIS_FORMAT)
+                            .format(ADCommonName.EPOCH_MILLIS_FORMAT)
                     ),
                 ActionListener
                     .wrap(
@@ -79,15 +79,15 @@ public class ModelCheckpointIndexRetention implements Runnable {
     private void cleanupBasedOnShardSize(Duration cleanUpTtl) {
         indexCleanup
             .deleteDocsBasedOnShardSize(
-                CommonName.CHECKPOINT_INDEX_NAME,
+                ADCommonName.CHECKPOINT_INDEX_NAME,
                 MAX_SHARD_SIZE_IN_BYTE,
                 QueryBuilders
                     .boolQuery()
                     .filter(
                         QueryBuilders
-                            .rangeQuery(CheckpointDao.TIMESTAMP)
+                            .rangeQuery(CommonName.TIMESTAMP)
                             .lte(clock.millis() - cleanUpTtl.toMillis())
-                            .format(CommonName.EPOCH_MILLIS_FORMAT)
+                            .format(ADCommonName.EPOCH_MILLIS_FORMAT)
                     ),
                 ActionListener.wrap(cleanupNeeded -> {
                     if (cleanupNeeded) {

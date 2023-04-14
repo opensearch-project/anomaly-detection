@@ -27,7 +27,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
@@ -101,7 +101,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(20000);
-        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+        GetResponse doc = getDoc(ADCommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(ADTask.STATE_FIELD)));
     }
 
@@ -121,7 +121,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         for (int i = 0; i < totalDataNodes; i++) {
             client().execute(ADBatchAnomalyResultAction.INSTANCE, adBatchAnomalyResultRequest(dateRange)).actionGet(5000);
         }
-        waitUntil(() -> countDocs(CommonName.DETECTION_STATE_INDEX) >= totalDataNodes, 10, TimeUnit.SECONDS);
+        waitUntil(() -> countDocs(ADCommonName.DETECTION_STATE_INDEX) >= totalDataNodes, 10, TimeUnit.SECONDS);
 
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
         try {
@@ -164,7 +164,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         );
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(25000);
-        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+        GetResponse doc = getDoc(ADCommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(doc.getSourceAsMap().get(ADTask.STATE_FIELD)));
         updateTransientSettings(ImmutableMap.of(MAX_BATCH_TASK_PER_NODE.getKey(), 1));
     }
@@ -189,7 +189,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
         ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(dateRange);
         client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(5000);
         Thread.sleep(5000);
-        GetResponse doc = getDoc(CommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
+        GetResponse doc = getDoc(ADCommonName.DETECTION_STATE_INDEX, request.getAdTask().getTaskId());
         assertEquals(error, doc.getSourceAsMap().get(ADTask.ERROR_FIELD));
     }
 }

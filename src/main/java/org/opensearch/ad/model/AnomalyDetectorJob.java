@@ -51,7 +51,6 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         it -> parse(it)
     );
 
-    public static final String ANOMALY_DETECTOR_JOB_INDEX = ".opendistro-anomaly-detector-jobs";
     public static final String NAME_FIELD = "name";
     public static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
     public static final String LOCK_DURATION_SECONDS = "lock_duration_seconds";

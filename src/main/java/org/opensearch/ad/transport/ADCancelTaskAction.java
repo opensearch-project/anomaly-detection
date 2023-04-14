@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonName.CANCEL_TASK;
+import static org.opensearch.ad.constant.ADCommonName.CANCEL_TASK;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.ad.constant.CommonValue;

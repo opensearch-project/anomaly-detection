@@ -14,7 +14,7 @@ package org.opensearch.ad;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.client.Client;
@@ -22,6 +22,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class ProfileUtil {
     /**
@@ -35,7 +36,7 @@ public class ProfileUtil {
     private static SearchRequest createRealtimeInittedEverRequest(String detectorId, long enabledTime, String resultIndex) {
         BoolQueryBuilder filterQuery = new BoolQueryBuilder();
         filterQuery.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
-        filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.EXECUTION_END_TIME_FIELD).gte(enabledTime));
+        filterQuery.filter(QueryBuilders.rangeQuery(CommonName.EXECUTION_END_TIME_FIELD).gte(enabledTime));
         filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_SCORE_FIELD).gt(0));
         // Historical analysis result also stored in result index, which has non-null task_id.
         // For realtime detection result, we should filter task_id == null
@@ -44,7 +45,7 @@ public class ProfileUtil {
 
         SearchSourceBuilder source = new SearchSourceBuilder().query(filterQuery).size(1);
 
-        SearchRequest request = new SearchRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        SearchRequest request = new SearchRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         request.source(source);
         if (resultIndex != null) {
             request.indices(resultIndex);
