@@ -78,8 +78,8 @@ import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
-import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -142,8 +142,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
 
         action = new PreviewAnomalyDetectorTransportAction(
-            Settings.EMPTY,
-            mock(TransportService.class),
+            mockRunner,
+            mock(TaskManager.class),
             clusterService,
             mock(ActionFilters.class),
             client,
@@ -303,10 +303,11 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testPreviewTransportActionNoContext() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
         SDKRestClient client = mock(SDKRestClient.class);
         PreviewAnomalyDetectorTransportAction previewAction = new PreviewAnomalyDetectorTransportAction(
-            settings,
-            mock(TransportService.class),
+            mockRunner,
+            mock(TaskManager.class),
             clusterService,
             mock(ActionFilters.class),
             client,

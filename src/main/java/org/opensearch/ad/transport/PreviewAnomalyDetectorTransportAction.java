@@ -49,11 +49,12 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
 import com.google.inject.Inject;
 
@@ -70,8 +71,8 @@ public class PreviewAnomalyDetectorTransportAction extends TransportAction<Previ
 
     @Inject
     public PreviewAnomalyDetectorTransportAction(
-        Settings settings,
-        TransportService transportService,
+        ExtensionsRunner extensionsRunner,
+        TaskManager taskManager,
         SDKClusterService clusterService,
         ActionFilters actionFilters,
         SDKRestClient client,
@@ -80,11 +81,12 @@ public class PreviewAnomalyDetectorTransportAction extends TransportAction<Previ
         ADCircuitBreakerService adCircuitBreakerService
     ) {
         // super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
-        super(PreviewAnomalyDetectorAction.NAME, actionFilters, transportService.getTaskManager());
+        super(PreviewAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.clusterService = clusterService;
         this.client = client;
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.xContentRegistry = xContentRegistry;
+        Settings settings = extensionsRunner.getEnvironmentSettings();
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);

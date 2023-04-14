@@ -549,6 +549,12 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
         adStats = new ADStats(stats);
 
+        AnomalyDetectorRunner anomalyDetectorRunner = new AnomalyDetectorRunner(
+            modelManager,
+            featureManager,
+            AnomalyDetectorSettings.MAX_PREVIEW_RESULTS
+        );
+
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
         ADTaskManager adTaskManager = new ADTaskManager(
             environmentSettings,
@@ -616,6 +622,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 sdkRestClient,
                 sdkJavaAsyncClient,
                 anomalyDetectionIndices,
+                anomalyDetectorRunner,
                 searchFeatureDao,
                 singleFeatureLinearUniformInterpolator,
                 interpolator,
