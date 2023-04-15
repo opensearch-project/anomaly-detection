@@ -28,8 +28,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 
-import com.google.inject.Inject;
-
 /**
  * Handle general search request, check user role and return search response.
  */
@@ -38,7 +36,6 @@ public class ADSearchHandler {
     private final SDKRestClient client;
     private volatile Boolean filterEnabled;
 
-    @Inject
     public ADSearchHandler(Settings settings, SDKClusterService clusterService, SDKRestClient client) {
         this.client = client;
         filterEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);

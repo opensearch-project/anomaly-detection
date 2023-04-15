@@ -59,7 +59,6 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         Settings settings = Settings.EMPTY;
         List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE);
         clusterService = mock(SDKClusterService.class);
-        ;
         Extension mockExtension = mock(Extension.class);
         when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
         when(mockRunner.getExtension()).thenReturn(mockExtension);

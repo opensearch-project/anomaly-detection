@@ -26,7 +26,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.AnomalyDetectorExtension;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -44,7 +43,7 @@ import com.google.common.collect.ImmutableList;
  * This class consists of the REST handler to search anomaly results.
  */
 public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyResult> {
-    private static final String LEGACY_URL_PATH = AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/results/_search";
+    private static final String LEGACY_URL_PATH = AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI + "/results/_search";
     private static final String URL_PATH = AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/results/_search";
     public static final String SEARCH_ANOMALY_RESULT_ACTION = "search_anomaly_result";
     private SDKRestClient client;

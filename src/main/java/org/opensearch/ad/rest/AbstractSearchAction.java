@@ -48,10 +48,10 @@ import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.sdk.BaseExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
@@ -176,35 +176,35 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
             routes.add(new RouteHandler(RestRequest.Method.POST, path, handleRequest));
             routes.add(new RouteHandler(RestRequest.Method.GET, path, handleRequest));
         }
-        for (Pair<String, String> deprecatedPath : deprecatedPaths) {
-            routes.add(new RouteHandler(RestRequest.Method.POST, deprecatedPath.getValue(), handleRequest));
-            routes.add(new RouteHandler(RestRequest.Method.GET, deprecatedPath.getValue(), handleRequest));
-        }
         return routes;
     }
 
-    /*@Override
-    public List<Route> routes() {
-        List<Route> routes = new ArrayList<>();
-        for (String path : urlPaths) {
-            routes.add(new Route(RestRequest.Method.POST, path));
-            routes.add(new Route(RestRequest.Method.GET, path));
-        }
-        return routes;
-    }
-    
     @Override
-    public List<ReplacedRoute> replacedRoutes() {
-        List<ReplacedRoute> replacedRoutes = new ArrayList<>();
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        List<ReplacedRouteHandler> replacedRoutes = new ArrayList<>();
         for (Pair<String, String> deprecatedPath : deprecatedPaths) {
             replacedRoutes
                 .add(
-                    new ReplacedRoute(RestRequest.Method.POST, deprecatedPath.getKey(), RestRequest.Method.POST, deprecatedPath.getValue())
+                    new ReplacedRouteHandler(
+                        RestRequest.Method.POST,
+                        deprecatedPath.getKey(),
+                        RestRequest.Method.POST,
+                        deprecatedPath.getValue(),
+                        handleRequest
+                    )
                 );
             replacedRoutes
-                .add(new ReplacedRoute(RestRequest.Method.GET, deprecatedPath.getKey(), RestRequest.Method.GET, deprecatedPath.getValue()));
-    
+                .add(
+                    new ReplacedRouteHandler(
+                        RestRequest.Method.GET,
+                        deprecatedPath.getKey(),
+                        RestRequest.Method.GET,
+                        deprecatedPath.getValue(),
+                        handleRequest
+                    )
+                );
+
         }
         return replacedRoutes;
-    }*/
+    }
 }
