@@ -12,8 +12,7 @@
 package org.opensearch.ad.transport.handler;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
@@ -75,7 +74,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected IndexNameExpressionResolver indexNameResolver;
 
     @Mock
-    protected OpenSearchAsyncClient javaAsyncClient;
+    protected static OpenSearchAsyncClient sdkJavaAsyncClient;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -85,6 +84,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
             .put("plugins.anomaly_detection.max_retry_for_backoff", 2)
             .put("plugins.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
             .build();
+        sdkJavaAsyncClient = mock(OpenSearchAsyncClient.class);
     }
 
     @AfterClass
@@ -100,7 +100,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
         clientUtil = new ClientUtil(settings, client, throttler);
-        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver, javaAsyncClient);
+        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver, sdkJavaAsyncClient);
     }
 
     protected void setWriteBlockAdResultIndex(boolean blocked) {

@@ -72,15 +72,19 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsNodeRequ
         this.sdkClusterService = sdkClusterService;
     }
 
-    public ADStatsNodesResponse newResponse(List<ADStatsNodeResponse> responses, List<FailedNodeException> failures) {
+    protected ADStatsNodesResponse newResponse(
+        ADStatsRequest request,
+        List<ADStatsNodeResponse> responses,
+        List<FailedNodeException> failures
+    ) {
         return new ADStatsNodesResponse(sdkClusterService.state().getClusterName(), responses, failures);
     }
 
-    public ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {
+    protected ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {
         return new ADStatsNodeRequest(request);
     }
 
-    public ADStatsNodeResponse newNodeResponse(StreamInput in) throws IOException {
+    protected ADStatsNodeResponse newNodeResponse(StreamInput in) throws IOException {
         return new ADStatsNodeResponse(in);
     }
 
@@ -136,6 +140,7 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsNodeRequ
         if (adStatsNodeResponse != null) {
             responses.add(adStatsNodeResponse);
         }
-        listener.onResponse(newResponse(responses, failures));
+        listener.onResponse(newResponse(request.getADStatsRequest(), responses, failures));
+        // TODO https://github.com/opensearch-project/opensearch-sdk-java/issues/683
     }
 }

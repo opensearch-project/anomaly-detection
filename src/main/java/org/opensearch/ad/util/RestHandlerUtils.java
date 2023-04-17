@@ -81,9 +81,7 @@ public final class RestHandlerUtils {
     public static final String RESULTS = "results";
     public static final String TOP_ANOMALIES = "_topAnomalies";
     public static final String VALIDATE = "_validate";
-
     public static final String NODE_ID = "nodeId";
-
     public static final String STAT = "stat";
     public static Long TIME_OUT_FOR_REQUEST = 10L;
 

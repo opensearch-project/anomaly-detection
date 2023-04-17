@@ -116,11 +116,6 @@ public class ADStatsTests extends OpenSearchTestCase {
         when(mockRunner.getExtension()).thenReturn(mockExtension);
         when(mockExtension.getSettings()).thenReturn(settingsList);
         SDKClusterService sdkClusterService = new SDKClusterService(mockRunner);
-        // SDKClusterService.SDKClusterSettings clusterSettings = sdkClusterService.new SDKClusterSettings(
-        // Settings.EMPTY, Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
-        // );
-        // when(sdkClusterService.getClusterSettings()).thenReturn(clusterSettings);
-
         statsMap = new HashMap<String, ADStat<?>>() {
             {
                 put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
