@@ -11,9 +11,6 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_NODE_STATS;
-import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,10 +33,11 @@ import org.opensearch.tasks.TaskManager;
 
 import com.google.inject.Inject;
 
+// TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/683 (multi node support for extensions)
 /**
  *  ADStatsNodesTransportAction contains the logic to extract the stats from the nodes
  */
-public class ADStatsNodesTransportAction extends TransportAction<ADStatsNodeRequest, ADStatsNodesResponse> {
+public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest, ADStatsNodesResponse> {
     private ADStats adStats;
     private final JvmService jvmService;
     private final ADTaskManager adTaskManager;
@@ -88,8 +86,8 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsNodeRequ
         return new ADStatsNodeResponse(in);
     }
 
-    protected ADStatsNodeResponse nodeOperation(ADStatsNodeRequest request) {
-        return createADStatsNodeResponse(request.getADStatsRequest());
+    protected void doExecute(Task task, ADStatsRequest request, ActionListener<ADStatsNodesResponse> actionListener) {
+        actionListener.onResponse(newResponse(request, new ArrayList<>(List.of(createADStatsNodeResponse(request))), new ArrayList<>()));
     }
 
     private ADStatsNodeResponse createADStatsNodeResponse(ADStatsRequest adStatsRequest) {
@@ -118,29 +116,5 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsNodeRequ
         }
 
         return new ADStatsNodeResponse(sdkClusterService.localNode(), statValues);
-    }
-
-    @Override
-    protected void doExecute(Task task, ADStatsNodeRequest request, ActionListener<ADStatsNodesResponse> actionListener) {
-        ActionListener<ADStatsNodesResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_NODE_STATS);
-        ADStatsNodeResponse adStatsNodeResponse = null;
-        List<FailedNodeException> failures = new ArrayList<>();
-        try {
-            adStatsNodeResponse = nodeOperation(request);
-        } catch (Exception e) {
-            if (e instanceof FailedNodeException) {
-                failures.add((FailedNodeException) e);
-                logger.info("Failure in get Node stats due to exception", e);
-            } else {
-                logger.info("Could not process get Node stats API due to exception", e);
-            }
-            listener.onFailure(e);
-        }
-        List<ADStatsNodeResponse> responses = new ArrayList<>();
-        if (adStatsNodeResponse != null) {
-            responses.add(adStatsNodeResponse);
-        }
-        listener.onResponse(newResponse(request.getADStatsRequest(), responses, failures));
-        // TODO https://github.com/opensearch-project/opensearch-sdk-java/issues/683
     }
 }

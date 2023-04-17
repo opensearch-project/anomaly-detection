@@ -207,8 +207,7 @@ public class StatsAnomalyDetectorTransportAction extends TransportAction<ADStats
         MultiResponsesDelegateActionListener<ADStatsResponse> listener,
         ADStatsRequest adStatsRequest
     ) {
-        ADStatsNodeRequest adStatsNodeRequest = new ADStatsNodeRequest(adStatsRequest);
-        sdkRestClient.execute(ADStatsNodesAction.INSTANCE, adStatsNodeRequest, ActionListener.wrap(adStatsResponse -> {
+        sdkRestClient.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
             ADStatsResponse restADStatsResponse = new ADStatsResponse();
             restADStatsResponse.setADStatsNodesResponse(adStatsResponse);
             listener.onResponse(restADStatsResponse);
