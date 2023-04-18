@@ -12,7 +12,9 @@
 package org.opensearch.ad.transport.handler;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
@@ -56,6 +58,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected ClientUtil clientUtil;
     protected ThreadPool context;
     protected IndexUtils indexUtil;
+    protected static OpenSearchAsyncClient sdkJavaAsyncClient;
     protected String detectorId = "123";
 
     @Mock
@@ -72,9 +75,6 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
 
     @Mock
     protected IndexNameExpressionResolver indexNameResolver;
-
-    @Mock
-    protected static OpenSearchAsyncClient sdkJavaAsyncClient;
 
     @BeforeClass
     public static void setUpBeforeClass() {

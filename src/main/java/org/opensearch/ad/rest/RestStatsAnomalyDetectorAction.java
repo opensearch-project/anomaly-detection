@@ -157,7 +157,7 @@ public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
         String nodesIdsStr = request.param(NODE_ID);
         Set<String> validStats = adStats.getStats().keySet();
 
-        ADStatsRequest adStatsRequest;
+        ADStatsRequest adStatsRequest = null;
         if (!Strings.isEmpty(nodesIdsStr)) {
             String[] nodeIdsArr = nodesIdsStr.split(",");
             adStatsRequest = new ADStatsRequest(nodeIdsArr);

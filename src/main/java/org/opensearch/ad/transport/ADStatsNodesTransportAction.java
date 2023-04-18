@@ -33,7 +33,9 @@ import org.opensearch.tasks.TaskManager;
 
 import com.google.inject.Inject;
 
-// TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/683 (multi node support for extensions)
+// TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/683 (multi node support needed for extensions.
+//  Previously, the class used to extend TransportNodesAction by which request is sent to multiple nodes.
+//  For extensions as of now we only have one node support. In order to test multinode feature we need to add multinode support equivalent for SDK )
 /**
  *  ADStatsNodesTransportAction contains the logic to extract the stats from the nodes
  */
