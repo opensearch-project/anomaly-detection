@@ -11,64 +11,139 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BASE_URI;
-import static org.opensearch.ad.AnomalyDetectorPlugin.LEGACY_AD_BASE;
+import static org.opensearch.ad.util.RestHandlerUtils.NODE_ID;
+import static org.opensearch.ad.util.RestHandlerUtils.STAT;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
+import org.opensearch.ad.transport.StatsAnomalyDetectorResponse;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
-import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
 /**
- * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector plugin.
+ * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector extension.
  */
-public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
+public class RestStatsAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
+    private final Logger logger = LogManager.getLogger(RestStatsAnomalyDetectorAction.class);
     private ADStats adStats;
-    private ClusterService clusterService;
     private DiscoveryNodeFilterer nodeFilter;
+    private SDKRestClient sdkRestClient;
+    private Settings settings;
 
-    /**
-     * Constructor
-     *
-     * @param adStats ADStats object
-     * @param nodeFilter util class to get eligible data nodes
-     */
-    public RestStatsAnomalyDetectorAction(ADStats adStats, DiscoveryNodeFilterer nodeFilter) {
+    public RestStatsAnomalyDetectorAction(
+        ExtensionsRunner extensionsRunner,
+        SDKRestClient sdkRestClient,
+        ADStats adStats,
+        DiscoveryNodeFilterer nodeFilter
+    ) {
+        this.sdkRestClient = sdkRestClient;
+        this.settings = extensionsRunner.getEnvironmentSettings();
         this.adStats = adStats;
         this.nodeFilter = nodeFilter;
     }
 
-    @Override
     public String getName() {
         return STATS_ANOMALY_DETECTOR_ACTION;
     }
 
     @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        return ImmutableList
+            .of(
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    "/{nodeId}/stats/",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/{nodeId}/stats/",
+                    handleRequest
+                ),
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    "/{nodeId}/stats/{stat}",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/{nodeId}/stats/{stat}",
+                    handleRequest
+                ),
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    "/stats/",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/stats/",
+                    handleRequest
+                ),
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    "/stats/{stat}",
+                    RestRequest.Method.GET,
+                    AnomalyDetectorExtension.LEGACY_AD_BASE + "/stats/{stat}",
+                    handleRequest
+                )
+            );
+    }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
+
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
         ADStatsRequest adStatsRequest = getRequest(request);
-        return channel -> client.execute(StatsAnomalyDetectorAction.INSTANCE, adStatsRequest, new RestToXContentListener<>(channel));
+        CompletableFuture<StatsAnomalyDetectorResponse> statsFutureResponse = new CompletableFuture<>();
+        sdkRestClient
+            .execute(
+                StatsAnomalyDetectorAction.INSTANCE,
+                adStatsRequest,
+                ActionListener.wrap(response -> statsFutureResponse.complete(response), ex -> statsFutureResponse.completeExceptionally(ex))
+            );
+
+        StatsAnomalyDetectorResponse statsAnomalyDetectorResponse = statsFutureResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        XContentBuilder statsAnomalyDetectorResponseBuilder = statsAnomalyDetectorResponse
+            .toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
+        return new ExtensionRestResponse(request, RestStatus.OK, statsAnomalyDetectorResponseBuilder);
     }
 
     /**
@@ -79,7 +154,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
      */
     private ADStatsRequest getRequest(RestRequest request) {
         // parse the nodes the user wants to query the stats for
-        String nodesIdsStr = request.param("nodeId");
+        String nodesIdsStr = request.param(NODE_ID);
         Set<String> validStats = adStats.getStats().keySet();
 
         ADStatsRequest adStatsRequest = null;
@@ -119,41 +194,10 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
             }
 
             if (!invalidStats.isEmpty()) {
-                throw new IllegalArgumentException(unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), "stat"));
+                throw new IllegalArgumentException(unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), STAT));
             }
         }
         return adStatsRequest;
     }
 
-    @Override
-    public List<Route> routes() {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public List<ReplacedRoute> replacedRoutes() {
-        return ImmutableList
-            .of(
-                // delete anomaly detector document
-                new ReplacedRoute(
-                    RestRequest.Method.GET,
-                    AD_BASE_URI + "/{nodeId}/stats/",
-                    RestRequest.Method.GET,
-                    LEGACY_AD_BASE + "/{nodeId}/stats/"
-                ),
-                new ReplacedRoute(
-                    RestRequest.Method.GET,
-                    AD_BASE_URI + "/{nodeId}/stats/{stat}",
-                    RestRequest.Method.GET,
-                    LEGACY_AD_BASE + "/{nodeId}/stats/{stat}"
-                ),
-                new ReplacedRoute(RestRequest.Method.GET, AD_BASE_URI + "/stats/", RestRequest.Method.GET, LEGACY_AD_BASE + "/stats/"),
-                new ReplacedRoute(
-                    RestRequest.Method.GET,
-                    AD_BASE_URI + "/stats/{stat}",
-                    RestRequest.Method.GET,
-                    LEGACY_AD_BASE + "/stats/{stat}"
-                )
-            );
-    }
 }
