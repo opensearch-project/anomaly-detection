@@ -127,6 +127,7 @@ public class IndexUtils {
      * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
      * request fails.
      */
+    @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
         if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
             return 0L;

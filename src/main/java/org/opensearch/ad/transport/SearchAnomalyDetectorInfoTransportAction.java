@@ -21,32 +21,33 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
+
+import com.google.inject.Inject;
 
 public class SearchAnomalyDetectorInfoTransportAction extends
-    HandledTransportAction<SearchAnomalyDetectorInfoRequest, SearchAnomalyDetectorInfoResponse> {
+    TransportAction<SearchAnomalyDetectorInfoRequest, SearchAnomalyDetectorInfoResponse> {
     private static final Logger LOG = LogManager.getLogger(SearchAnomalyDetectorInfoTransportAction.class);
-    private final Client client;
-    private final ClusterService clusterService;
+    private final SDKRestClient client;
+    private final SDKClusterService clusterService;
 
     @Inject
     public SearchAnomalyDetectorInfoTransportAction(
-        TransportService transportService,
+        TaskManager taskManager,
         ActionFilters actionFilters,
-        Client client,
-        ClusterService clusterService
+        SDKRestClient client,
+        SDKClusterService clusterService
     ) {
-        super(SearchAnomalyDetectorInfoAction.NAME, transportService, actionFilters, SearchAnomalyDetectorInfoRequest::new);
+        super(SearchAnomalyDetectorInfoAction.NAME, actionFilters, taskManager);
         this.client = client;
         this.clusterService = clusterService;
     }
