@@ -21,7 +21,6 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
@@ -64,9 +63,7 @@ public class RCFResultTransportAction extends TransportAction<RCFResultRequest, 
         String remoteNodeId = remoteNode.get().getId();
         Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
         */
-        DiscoveryNode remoteNode = extensionsRunner.getExtensionNode();
-        String remoteNodeId = remoteNode.getId();
-        Version remoteAdVersion = Version.CURRENT;
+        Version adVersion = Version.CURRENT;
 
         try {
             LOG.info("Serve rcf request for {}", request.getModelID());
@@ -86,7 +83,7 @@ public class RCFResultTransportAction extends TransportAction<RCFResultRequest, 
                                         result.getRelevantAttribution(),
                                         result.getTotalUpdates(),
                                         result.getGrade(),
-                                        remoteAdVersion,
+                                        adVersion,
                                         result.getRelativeIndex(),
                                         result.getPastValues(),
                                         result.getExpectedValuesList(),
