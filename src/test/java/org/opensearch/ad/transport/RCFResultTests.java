@@ -48,7 +48,10 @@ import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.extensions.DiscoveryExtensionNode;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
@@ -63,6 +66,8 @@ public class RCFResultTests extends OpenSearchTestCase {
 
     private double[] attribution = new double[] { 1. };
     private HashRing hashRing;
+    private DiscoveryExtensionNode extensionNode;
+    private ExtensionsRunner extensionsRunner;
     private DiscoveryNode node;
     private long totalUpdates = 32;
     private double grade = 0.5;
@@ -75,9 +80,12 @@ public class RCFResultTests extends OpenSearchTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        extensionNode = mock(DiscoveryExtensionNode.class);
+        extensionsRunner = mock(ExtensionsRunner.class);
         hashRing = mock(HashRing.class);
         node = mock(DiscoveryNode.class);
         doReturn(Optional.of(node)).when(hashRing).getNodeByAddress(any());
+        when(extensionsRunner.getExtensionNode()).thenReturn(extensionNode);
     }
 
     @SuppressWarnings("unchecked")
@@ -95,11 +103,11 @@ public class RCFResultTests extends OpenSearchTestCase {
         ModelManager manager = mock(ModelManager.class);
         ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
+            extensionsRunner,
             mock(ActionFilters.class),
-            transportService,
+            mock(TaskManager.class),
             manager,
-            adCircuitBreakerService,
-            hashRing
+            adCircuitBreakerService
         );
 
         double rcfScore = 0.5;
@@ -124,7 +132,6 @@ public class RCFResultTests extends OpenSearchTestCase {
                 );
             return null;
         }).when(manager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
-
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         final PlainActionFuture<RCFResultResponse> future = new PlainActionFuture<>();
@@ -152,11 +159,11 @@ public class RCFResultTests extends OpenSearchTestCase {
         ModelManager manager = mock(ModelManager.class);
         ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
+            extensionsRunner,
             mock(ActionFilters.class),
-            transportService,
+            mock(TaskManager.class),
             manager,
-            adCircuitBreakerService,
-            hashRing
+            adCircuitBreakerService
         );
         doThrow(NullPointerException.class)
             .when(manager)
@@ -267,11 +274,11 @@ public class RCFResultTests extends OpenSearchTestCase {
         ModelManager manager = mock(ModelManager.class);
         ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
+            extensionsRunner,
             mock(ActionFilters.class),
-            transportService,
+            mock(TaskManager.class),
             manager,
-            breakerService,
-            hashRing
+            breakerService
         );
         doAnswer(invocation -> {
             ActionListener<ThresholdingResult> listener = invocation.getArgument(3);

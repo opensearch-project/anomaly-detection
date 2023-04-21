@@ -41,6 +41,7 @@ import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseListener;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -196,7 +197,22 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         Request request = new Request("PUT", String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_job_details"));
         request.setJsonEntity(Strings.toString(requestBody));
 
-        Response response = client.performRequest(request);
+        CompletableFuture<Response> registerJobDetailsResponse = new CompletableFuture<>();
+        client.performRequestAsync(request, new ResponseListener() {
+
+            @Override
+            public void onSuccess(Response response) {
+                registerJobDetailsResponse.complete(response);
+            }
+
+            @Override
+            public void onFailure(Exception exception) {
+                registerJobDetailsResponse.completeExceptionally(exception);
+            }
+
+        });
+
+        Response response = registerJobDetailsResponse.orTimeout(15, TimeUnit.SECONDS).join();
         this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
         LOG.info("Job Details Registered : " + registeredJobDetails);
     }

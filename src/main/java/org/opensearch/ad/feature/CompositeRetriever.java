@@ -31,13 +31,13 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -65,28 +65,28 @@ public class CompositeRetriever extends AbstractRetriever {
     private final long dataEndEpoch;
     private final AnomalyDetector anomalyDetector;
     private final SDKNamedXContentRegistry xContent;
-    private final Client client;
+    private final SDKRestClient client;
     private int totalResults;
     private int maxEntities;
     private final int pageSize;
     private long expirationEpochMs;
     private Clock clock;
     private IndexNameExpressionResolver indexNameExpressionResolver;
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
 
     public CompositeRetriever(
         long dataStartEpoch,
         long dataEndEpoch,
         AnomalyDetector anomalyDetector,
         SDKNamedXContentRegistry xContent,
-        Client client,
+        SDKRestClient client,
         long expirationEpochMs,
         Clock clock,
         Settings settings,
         int maxEntitiesPerInterval,
         int pageSize,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        ClusterService clusterService
+        SDKClusterService clusterService
     ) {
         this.dataStartEpoch = dataStartEpoch;
         this.dataEndEpoch = dataEndEpoch;
@@ -108,13 +108,13 @@ public class CompositeRetriever extends AbstractRetriever {
         long dataEndEpoch,
         AnomalyDetector anomalyDetector,
         SDKNamedXContentRegistry xContent,
-        Client client,
+        SDKRestClient client,
         long expirationEpochMs,
         Settings settings,
         int maxEntitiesPerInterval,
         int pageSize,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        ClusterService clusterService
+        SDKClusterService clusterService
     ) {
         this(
             dataStartEpoch,

@@ -25,7 +25,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
@@ -52,10 +52,11 @@ import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
+
+import com.google.inject.Inject;
 
 /**
  * Entry-point for HCAD workflow.  We have created multiple queues for coordinating
@@ -76,7 +77,7 @@ import org.opensearch.transport.TransportService;
  * 3. We also have the cold entity queue configured for cold entities, and the model
  * training and inference are connected by serial juxtaposition to limit resource usage.
  */
-public class EntityResultTransportAction extends HandledTransportAction<EntityResultRequest, AcknowledgedResponse> {
+public class EntityResultTransportAction extends TransportAction<EntityResultRequest, AcknowledgedResponse> {
 
     private static final Logger LOG = LogManager.getLogger(EntityResultTransportAction.class);
     private ModelManager modelManager;
@@ -92,7 +93,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     @Inject
     public EntityResultTransportAction(
         ActionFilters actionFilters,
-        TransportService transportService,
+        TaskManager taskManager,
         ModelManager manager,
         ADCircuitBreakerService adCircuitBreakerService,
         CacheProvider entityCache,
@@ -103,7 +104,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         ColdEntityWorker coldEntityQueue,
         ThreadPool threadPool
     ) {
-        super(EntityResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
+        super(EntityResultAction.NAME, actionFilters, taskManager);
         this.modelManager = manager;
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.cache = entityCache;

@@ -690,7 +690,7 @@ public class CheckpointDao {
                         response -> deserializeTRCFModel(response, modelId, listener),
                         exception -> {
                             // expected exception, don't print stack trace
-                            if (exception instanceof IndexNotFoundException) {
+                            if (exception.getMessage().contains("index_not_found_exception")) {
                                 listener.onResponse(Optional.empty());
                             } else {
                                 listener.onFailure(exception);
