@@ -17,31 +17,25 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.index.IndexingPressure.MAX_INDEXING_BYTES;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.BulkUtil;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.opensearch.OpenSearchAsyncClient;
-import org.opensearch.client.opensearch.core.BulkRequest;
-import org.opensearch.client.opensearch.core.BulkResponse;
-import org.opensearch.client.opensearch.core.bulk.BulkOperation;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
@@ -58,8 +52,8 @@ public class ADResultBulkTransportAction extends TransportAction<ADResultBulkReq
     private float softLimit;
     private float hardLimit;
     private String indexName;
+    private SDKRestClient client;
     private Settings settings;
-    private OpenSearchAsyncClient sdkJavaAsyncClient;
     private Random random;
 
     @Inject
@@ -67,8 +61,8 @@ public class ADResultBulkTransportAction extends TransportAction<ADResultBulkReq
         ExtensionsRunner extensionsRunner,
         ActionFilters actionFilters,
         TaskManager taskManager,
-        SDKClusterService clusterService,
-        OpenSearchAsyncClient sdkJavaAsyncClient
+        SDKRestClient client,
+        SDKClusterService clusterService
     ) {
         super(ADResultBulkAction.NAME, actionFilters, taskManager);
         this.settings = extensionsRunner.getEnvironmentSettings();
@@ -76,7 +70,7 @@ public class ADResultBulkTransportAction extends TransportAction<ADResultBulkReq
         this.softLimit = INDEX_PRESSURE_SOFT_LIMIT.get(settings);
         this.hardLimit = INDEX_PRESSURE_HARD_LIMIT.get(settings);
         this.indexName = CommonName.ANOMALY_RESULT_INDEX_ALIAS;
-        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
+        this.client = client;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_SOFT_LIMIT, it -> softLimit = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_HARD_LIMIT, it -> hardLimit = it);
         // random seed is 42. Can be any number
@@ -98,10 +92,11 @@ public class ADResultBulkTransportAction extends TransportAction<ADResultBulkReq
         if (results == null || results.size() < 1) {
             listener.onResponse(new ADResultBulkResponse());
         }
-        List<IndexRequest> copyOfIndexRequests = new ArrayList<>();
-        List<BulkOperation> operations = new ArrayList<>();
+
+        BulkRequest bulkRequest = new BulkRequest();
+
         for (ResultWriteRequest resultWriteRequest : results) {
-            addResult(operations, copyOfIndexRequests, resultWriteRequest.getResult(), resultWriteRequest.getResultIndex());
+            addResult(bulkRequest, resultWriteRequest.getResult(), resultWriteRequest.getResultIndex());
         }
         /* @anomaly.detection commented until we have support for indexing pressure : https://github.com/opensearch-project/opensearch-sdk-java/issues/655
         if (indexingPressurePercent <= softLimit) {
@@ -128,42 +123,24 @@ public class ADResultBulkTransportAction extends TransportAction<ADResultBulkReq
         }
         */
 
-        if (operations.size() > 0) {
-            BulkRequest bulkRequest = new BulkRequest.Builder().operations(operations).build();
-            try {
-                CompletableFuture<BulkResponse> response = sdkJavaAsyncClient.bulk(bulkRequest);
-                BulkResponse bulkResponse = response
-                    .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
-                    .get();
-
-                List<IndexRequest> failedRequests = BulkUtil.getFailedIndexRequest(bulkRequest, bulkResponse, copyOfIndexRequests);
+        if (bulkRequest.numberOfActions() > 0) {
+            client.bulk(bulkRequest, ActionListener.wrap(bulkResponse -> {
+                List<IndexRequest> failedRequests = BulkUtil.getFailedIndexRequest(bulkRequest, bulkResponse);
                 listener.onResponse(new ADResultBulkResponse(failedRequests));
-
-            } catch (Exception e) {
+            }, e -> {
                 LOG.error("Failed to bulk index AD result", e);
                 listener.onFailure(e);
-            }
+            }));
         } else {
             listener.onResponse(new ADResultBulkResponse());
         }
     }
 
-    private void addResult(
-        List<BulkOperation> operations,
-        List<IndexRequest> copyOfIndexRequests,
-        AnomalyResult result,
-        String resultIndex
-    ) {
+    private void addResult(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {
         String index = resultIndex == null ? indexName : resultIndex;
-
-        // Create index operation for bulk request
-        BulkOperation operation = new BulkOperation.Builder().index(i -> i.index(index).document(result)).build();
-        operations.add(operation);
-
-        // Create IndexRequest copy of bulk operation for translation
         try (XContentBuilder builder = jsonBuilder()) {
             IndexRequest indexRequest = new IndexRequest(index).source(result.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
-            copyOfIndexRequests.add(indexRequest);
+            bulkRequest.add(indexRequest);
         } catch (IOException e) {
             LOG.error("Failed to prepare bulk index request for index " + index, e);
         }
