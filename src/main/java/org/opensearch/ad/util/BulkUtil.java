@@ -19,15 +19,20 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.bulk.BulkItemResponse;
-import org.opensearch.action.bulk.BulkRequest;
-import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.client.opensearch.core.BulkRequest;
+import org.opensearch.client.opensearch.core.BulkResponse;
+import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
+import org.opensearch.rest.RestStatus;
 
 public class BulkUtil {
     private static final Logger logger = LogManager.getLogger(BulkUtil.class);
 
-    public static List<IndexRequest> getFailedIndexRequest(BulkRequest bulkRequest, BulkResponse bulkResponse) {
+    public static List<IndexRequest> getFailedIndexRequest(
+        BulkRequest bulkRequest,
+        BulkResponse bulkResponse,
+        List<IndexRequest> indexRequests
+    ) {
         List<IndexRequest> res = new ArrayList<>();
 
         if (bulkResponse == null || bulkRequest == null) {
@@ -35,13 +40,13 @@ public class BulkUtil {
         }
 
         Set<String> failedId = new HashSet<>();
-        for (BulkItemResponse response : bulkResponse.getItems()) {
-            if (response.isFailed() && ExceptionUtil.isRetryAble(response.getFailure().getStatus())) {
-                failedId.add(response.getId());
+        for (BulkResponseItem response : bulkResponse.items()) {
+            if (response.error() != null && ExceptionUtil.isRetryAble(RestStatus.fromCode(response.status()))) {
+                failedId.add(response.id());
             }
         }
 
-        for (DocWriteRequest<?> request : bulkRequest.requests()) {
+        for (DocWriteRequest<?> request : indexRequests) {
             try {
                 if (failedId.contains(request.id())) {
                     res.add((IndexRequest) request);

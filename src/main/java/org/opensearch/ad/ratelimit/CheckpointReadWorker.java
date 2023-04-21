@@ -177,7 +177,10 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             for (MultiGetItemResponse itemResponse : itemResponses) {
                 String modelId = itemResponse.getId();
                 if (itemResponse.isFailed()) {
-                    final Exception failure = itemResponse.getFailure().getFailure();
+                    Exception failure = itemResponse.getFailure().getFailure();
+                    if (failure.getMessage().contains("index_not_found_exception")) {
+                        failure = new IndexNotFoundException(failure.getMessage(), CommonName.CHECKPOINT_INDEX_NAME);
+                    }
                     if (failure instanceof IndexNotFoundException) {
                         for (EntityRequest origRequest : toProcess) {
                             // If it is checkpoint index not found exception, I don't
