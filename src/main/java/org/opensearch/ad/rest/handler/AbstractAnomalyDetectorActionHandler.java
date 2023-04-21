@@ -394,18 +394,15 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      */
     protected void prepareAnomalyDetectorIndexing(boolean indexingDryRun) {
         if (method == RestRequest.Method.PUT) {
-            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-            // handler
-            // .getDetectorJob(
-            // clusterService,
-            // client,
-            // detectorId,
-            // listener,
-            // () -> updateAnomalyDetector(detectorId, indexingDryRun),
-            // xContentRegistry
-            // );
-            // FIXME Substitute call for the above, remove when JS work enables above code
-            updateAnomalyDetector(detectorId, indexingDryRun);
+            handler
+                .getDetectorJob(
+                    clusterService,
+                    client,
+                    detectorId,
+                    listener,
+                    () -> updateAnomalyDetector(detectorId, indexingDryRun),
+                    xContentRegistry.getRegistry()
+                );
         } else {
             createAnomalyDetector(indexingDryRun);
         }

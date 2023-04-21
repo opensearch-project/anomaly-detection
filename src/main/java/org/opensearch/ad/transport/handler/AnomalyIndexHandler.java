@@ -37,7 +37,7 @@ import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.sdk.SDKClient.SDKRestClient;

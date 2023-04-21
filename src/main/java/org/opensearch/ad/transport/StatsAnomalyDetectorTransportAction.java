@@ -25,52 +25,53 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.ADStatsResponse;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilders;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
-public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<ADStatsRequest, StatsAnomalyDetectorResponse> {
+import com.google.inject.Inject;
+
+public class StatsAnomalyDetectorTransportAction extends TransportAction<ADStatsRequest, StatsAnomalyDetectorResponse> {
     public static final String DETECTOR_TYPE_AGG = "detector_type_agg";
     private final Logger logger = LogManager.getLogger(StatsAnomalyDetectorTransportAction.class);
 
-    private final Client client;
+    private final SDKRestClient sdkRestClient;
     private final ADStats adStats;
-    private final ClusterService clusterService;
+    private final SDKClusterService sdkClusterService;
 
     @Inject
     public StatsAnomalyDetectorTransportAction(
-        TransportService transportService,
         ActionFilters actionFilters,
-        Client client,
+        SDKRestClient sdkRestClient,
         ADStats adStats,
-        ClusterService clusterService
+        SDKClusterService sdkClusterService,
+        TaskManager taskManager
 
     ) {
-        super(StatsAnomalyDetectorAction.NAME, transportService, actionFilters, ADStatsRequest::new);
-        this.client = client;
+        super(StatsAnomalyDetectorAction.NAME, actionFilters, taskManager);
+        this.sdkRestClient = sdkRestClient;
         this.adStats = adStats;
-        this.clusterService = clusterService;
+        this.sdkClusterService = sdkClusterService;
     }
 
     @Override
     protected void doExecute(Task task, ADStatsRequest request, ActionListener<StatsAnomalyDetectorResponse> actionListener) {
         ActionListener<StatsAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_STATS);
         try {
-            getStats(client, listener, request);
+            getStats(sdkRestClient, listener, request);
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
@@ -80,11 +81,15 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
     /**
      * Make the 2 requests to get the node and cluster statistics
      *
-     * @param client Client
+     * @param sdkRestClient SDKRestClient
      * @param listener Listener to send response
      * @param adStatsRequest Request containing stats to be retrieved
      */
-    private void getStats(Client client, ActionListener<StatsAnomalyDetectorResponse> listener, ADStatsRequest adStatsRequest) {
+    private void getStats(
+        SDKRestClient sdkRestClient,
+        ActionListener<StatsAnomalyDetectorResponse> listener,
+        ADStatsRequest adStatsRequest
+    ) {
         // Use MultiResponsesDelegateActionListener to execute 2 async requests and create the response once they finish
         MultiResponsesDelegateActionListener<ADStatsResponse> delegateListener = new MultiResponsesDelegateActionListener<>(
             getRestStatsListener(listener),
@@ -93,8 +98,8 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
             false
         );
 
-        getClusterStats(client, delegateListener, adStatsRequest);
-        getNodeStats(client, delegateListener, adStatsRequest);
+        getClusterStats(sdkRestClient, delegateListener, adStatsRequest);
+        getNodeStats(sdkRestClient, delegateListener, adStatsRequest);
     }
 
     /**
@@ -115,12 +120,12 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
      * Make async request to get the number of detectors in AnomalyDetector.ANOMALY_DETECTORS_INDEX if necessary
      * and, onResponse, gather the cluster statistics
      *
-     * @param client Client
+     * @param sdkRestClient SDKRestClient
      * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
      * @param adStatsRequest Request containing stats to be retrieved
      */
     private void getClusterStats(
-        Client client,
+        SDKRestClient sdkRestClient,
         MultiResponsesDelegateActionListener<ADStatsResponse> listener,
         ADStatsRequest adStatsRequest
     ) {
@@ -128,20 +133,20 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
         if ((adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())
             || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName())
             || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.MULTI_ENTITY_DETECTOR_COUNT.getName()))
-            && clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
+            && sdkClusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
 
             TermsAggregationBuilder termsAgg = AggregationBuilders.terms(DETECTOR_TYPE_AGG).field(AnomalyDetector.DETECTOR_TYPE_FIELD);
             SearchRequest request = new SearchRequest()
                 .indices(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
                 .source(new SearchSourceBuilder().aggregation(termsAgg).size(0).trackTotalHits(true));
 
-            client.search(request, ActionListener.wrap(r -> {
-                StringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
-                List<StringTerms.Bucket> buckets = aggregation.getBuckets();
+            sdkRestClient.search(request, ActionListener.wrap(r -> {
+                ParsedStringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
+                List<ParsedStringTerms.ParsedBucket> buckets = (List<ParsedStringTerms.ParsedBucket>) aggregation.getBuckets();
                 long totalDetectors = r.getHits().getTotalHits().value;
                 long totalSingleEntityDetectors = 0;
                 long totalMultiEntityDetectors = 0;
-                for (StringTerms.Bucket b : buckets) {
+                for (ParsedStringTerms.ParsedBucket b : buckets) {
                     if (AnomalyDetectorType.SINGLE_ENTITY.name().equals(b.getKeyAsString())
                         || AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name().equals(b.getKeyAsString())
                         || AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
@@ -193,16 +198,16 @@ public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<
      * Make async request to get the Anomaly Detection statistics from each node and, onResponse, set the
      * ADStatsNodesResponse field of ADStatsResponse
      *
-     * @param client Client
+     * @param sdkRestClient SDKRestClient
      * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
      * @param adStatsRequest Request containing stats to be retrieved
      */
     private void getNodeStats(
-        Client client,
+        SDKRestClient sdkRestClient,
         MultiResponsesDelegateActionListener<ADStatsResponse> listener,
         ADStatsRequest adStatsRequest
     ) {
-        client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
+        sdkRestClient.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
             ADStatsResponse restADStatsResponse = new ADStatsResponse();
             restADStatsResponse.setADStatsNodesResponse(adStatsResponse);
             listener.onResponse(restADStatsResponse);

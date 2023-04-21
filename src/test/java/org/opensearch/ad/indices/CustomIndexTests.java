@@ -11,7 +11,10 @@
 
 package org.opensearch.ad.indices;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -19,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.opensearch.Version;
 import org.opensearch.ad.AbstractADTest;
@@ -26,7 +30,7 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.client.Client;
+import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -36,12 +40,14 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 
 public class CustomIndexTests extends AbstractADTest {
     AnomalyDetectionIndices adIndices;
-    Client client;
+    SDKRestClient client;
+    OpenSearchAsyncClient sdkJavaAsyncClient;
     SDKClusterService clusterService;
     DiscoveryNodeFilterer nodeFilter;
     ClusterState clusterState;
@@ -52,7 +58,8 @@ public class CustomIndexTests extends AbstractADTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        client = mock(Client.class);
+        client = mock(SDKRestClient.class);
+        sdkJavaAsyncClient = mock(OpenSearchAsyncClient.class);
 
         clusterService = mock(SDKClusterService.class);
 
@@ -75,16 +82,15 @@ public class CustomIndexTests extends AbstractADTest {
         when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
         when(mockRunner.getExtension()).thenReturn(mockExtension);
         when(mockExtension.getSettings()).thenReturn(settingsList);
-        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
+        SDKClusterSettings clusterSettings = spy(new SDKClusterService(mockRunner).getClusterSettings());
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        doNothing().when(clusterSettings).addSettingsUpdateConsumer(any(Setting.class), any(Consumer.class));
 
         nodeFilter = mock(DiscoveryNodeFilterer.class);
 
         adIndices = new AnomalyDetectionIndices(
-            // FIXME: Replace with SDK equivalents when re-enabling tests
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/288
-            null, // client,
-            null, // sdkJavaAsyncClient
+            client,
+            sdkJavaAsyncClient,
             clusterService,
             threadPool,
             settings,

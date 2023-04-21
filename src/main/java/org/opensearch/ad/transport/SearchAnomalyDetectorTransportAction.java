@@ -15,22 +15,19 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
-public class SearchAnomalyDetectorTransportAction extends HandledTransportAction<SearchRequest, SearchResponse> {
+import com.google.inject.Inject;
+
+public class SearchAnomalyDetectorTransportAction extends TransportAction<SearchRequest, SearchResponse> {
     private ADSearchHandler searchHandler;
 
     @Inject
-    public SearchAnomalyDetectorTransportAction(
-        TransportService transportService,
-        ActionFilters actionFilters,
-        ADSearchHandler searchHandler
-    ) {
-        super(SearchAnomalyDetectorAction.NAME, transportService, actionFilters, SearchRequest::new);
+    public SearchAnomalyDetectorTransportAction(TaskManager taskManager, ActionFilters actionFilters, ADSearchHandler searchHandler) {
+        super(SearchAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.searchHandler = searchHandler;
     }
 

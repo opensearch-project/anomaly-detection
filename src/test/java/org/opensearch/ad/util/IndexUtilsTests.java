@@ -8,7 +8,7 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/*  @anomaly-detection - commented until we have support for IndexNameResolver
+/*  @anomaly-detection -commented until we have support for SDKRestClient.stats() https://github.com/opensearch-project/opensearch-sdk-java/issues/620
 package org.opensearch.ad.util;
 
 

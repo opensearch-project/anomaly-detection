@@ -15,8 +15,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,14 +28,16 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Consumer;
 
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
@@ -47,19 +51,22 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(SDKClusterService.class);
-        SDKClusterSettings clusterSettings = clusterService.new SDKClusterSettings(
-            Settings.EMPTY, Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY
-                            )
+        SDKClusterSettings clusterSettings = spy(
+            clusterService.new SDKClusterSettings(
+                Settings.EMPTY, Collections
+                    .unmodifiableSet(
+                        new HashSet<>(
+                            Arrays
+                                .asList(
+                                    AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
+                                    AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY
+                                )
+                        )
                     )
-                )
+            )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        doNothing().when(clusterSettings).addSettingsUpdateConsumer(any(Setting.class), any(Consumer.class));
 
         entityColdStarter = mock(EntityColdStarter.class);
 

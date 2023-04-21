@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -39,7 +38,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -78,7 +76,6 @@ import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.bytes.BytesArray;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -187,7 +184,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         int maxUpdateRunningTimes
     ) {
         this.client = client;
-        this.adminClient = client;
+        this.adminClient = client.admin();
         this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.clusterService = sdkClusterService;
         this.threadPool = threadPool;
@@ -207,19 +204,18 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.allSettingUpdated = false;
         this.updateRunning = new AtomicBoolean(false);
 
-        Map<Setting<?>, Consumer<?>> settingToConsumerMap = new HashMap<>();
-        settingToConsumerMap.put(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = (Long) it);
-        settingToConsumerMap.put(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
-            historyRolloverPeriod = (TimeValue) it;
-            rescheduleRollover();
-        });
-        settingToConsumerMap.put(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> historyRetentionPeriod = (TimeValue) it);
-        settingToConsumerMap.put(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = (int) it);
-        try {
-            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(settingToConsumerMap);
-        } catch (Exception e) {
-            // FIXME Handle this
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
+        if (clusterService != null) {
+            this.clusterService
+                .getClusterSettings()
+                .addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = it);
+            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
+                historyRolloverPeriod = it;
+                rescheduleRollover();
+            });
+            this.clusterService
+                .getClusterSettings()
+                .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
+            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
         }
 
         this.settings = Settings.builder().put("index.hidden", true).build();
@@ -486,7 +482,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     /**
      * Index exists or not
-     * @param clusterServiceAccessor Cluster service
+     * @param clusterService Cluster service
      * @param name Index name
      * @return true if the index exists
      */
@@ -496,7 +492,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     /**
      * Alias exists or not
-     * @param clusterServiceAccessor Cluster service
+     * @param clusterService Cluster service
      * @param alias Alias name
      * @return true if the alias exists
      */
@@ -620,7 +616,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      */
     public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            CreateIndexRequest request = new CreateIndexRequest(".opendistro-anomaly-detector-jobs")
+            CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
                 .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
             request
                 .settings(
@@ -638,7 +634,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                         .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
                         .put("index.hidden", true)
                 );
-            client.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
+            adminClient.indices().create(request, markMappingUpToDate(ADIndex.JOB, actionListener));
         } catch (IOException e) {
             logger.error("Fail to init AD job index", e);
             actionListener.onFailure(e);
@@ -1139,7 +1135,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 .build();
             final UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(ADIndex.JOB.getIndexName())
                 .settings(updatedSettings);
-            client.indices().putSettings(updateSettingsRequest, ActionListener.wrap(response -> {
+            adminClient.indices().putSettings(updateSettingsRequest, ActionListener.wrap(response -> {
                 jobIndexState.settingUpToDate = true;
                 logger.info(new ParameterizedMessage("Mark [{}]'s mapping up-to-date", ADIndex.JOB.getIndexName()));
                 listener.onResponse(null);

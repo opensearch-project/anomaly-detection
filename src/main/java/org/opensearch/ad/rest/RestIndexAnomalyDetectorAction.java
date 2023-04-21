@@ -29,31 +29,25 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorExtension;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
-import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
-import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
-import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -68,22 +62,14 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
     private TransportService transportService;
-    private SDKRestClient restClient;
-    private OpenSearchAsyncClient sdkJavaAsyncClient;
-    private SDKClusterService sdkClusterService;
+    private SDKRestClient client;
 
-    public RestIndexAnomalyDetectorAction(
-        ExtensionsRunner extensionsRunner,
-        SDKRestClient restClient,
-        OpenSearchAsyncClient sdkJavaAsyncClient
-    ) {
+    public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
-        this.restClient = restClient;
-        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
-        this.sdkClusterService = new SDKClusterService(extensionsRunner);
+        this.client = client;
     }
 
     // @Override
@@ -91,31 +77,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         return INDEX_ANOMALY_DETECTOR_ACTION;
     }
 
-    @Override
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // Create
-                new RouteHandler(RestRequest.Method.POST, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, handleRequest),
-                // Update
-                new RouteHandler(
-                    RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    handleRequest
-                )
-            );
-    }
-
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
-        try {
-            return prepareRequest(request);
-        } catch (Exception e) {
-            // TODO: handle the AD-specific exceptions separately
-            return exceptionalRequest(request, e);
-        }
-    };
-
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws Exception {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws Exception {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
@@ -123,7 +85,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
         logger.info("AnomalyDetector {} action for detectorId {}", request.method(), detectorId);
 
-        XContentParser parser = request.contentParser(this.namedXContentRegistry.getRegistry());
+        XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         // TODO: check detection interval < modelTTL
         AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId, null, detectionInterval, detectionWindowDelay);
@@ -153,38 +115,11 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         // IndexAnomalyDetectorAction is the key to the getActions map
         // IndexAnomalyDetectorTransportAction is the value, execute() calls doExecute()
 
-        IndexAnomalyDetectorTransportAction indexAction = new IndexAnomalyDetectorTransportAction(
-            transportService,
-            null, // ActionFilters actionFilters
-            restClient, // Client client
-            sdkClusterService, // ClusterService clusterService,
-            this.environmentSettings, // Settings settings
-            new AnomalyDetectionIndices(
-                restClient, // client,
-                sdkJavaAsyncClient,
-                sdkClusterService, // clusterService,
-                null, // threadPool,
-                this.environmentSettings, // settings,
-                null, // nodeFilter,
-                AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
-            ), // AnomalyDetectionIndices anomalyDetectionIndices
-            this.namedXContentRegistry,
-            null, // ADTaskManager adTaskManager
-            new SearchFeatureDao(
-                restClient,
-                namedXContentRegistry,
-                null, // interpolator
-                null, // clientUtil,
-                environmentSettings,
-                sdkClusterService,
-                maxAnomalyFeatures
-            )
-        );
-
         CompletableFuture<IndexAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
-        indexAction
-            .doExecute(
-                null,
+
+        client
+            .execute(
+                IndexAnomalyDetectorAction.INSTANCE,
                 indexAnomalyDetectorRequest,
                 ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
             );
@@ -196,7 +131,39 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
         return indexAnomalyDetectorResponse(request, response);
     }
 
-    private ExtensionRestResponse indexAnomalyDetectorResponse(ExtensionRestRequest request, IndexAnomalyDetectorResponse response)
+    @Override
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        return ImmutableList
+            .of(
+                // Create
+                new ReplacedRouteHandler(
+                    RestRequest.Method.POST,
+                    AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,
+                    RestRequest.Method.POST,
+                    AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI,
+                    handleRequest
+                ),
+                // Update
+                new ReplacedRouteHandler(
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    RestRequest.Method.PUT,
+                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID),
+                    handleRequest
+                )
+            );
+    }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
+
+    private ExtensionRestResponse indexAnomalyDetectorResponse(RestRequest request, IndexAnomalyDetectorResponse response)
         throws IOException {
         RestStatus restStatus = RestStatus.CREATED;
         if (request.method() == RestRequest.Method.PUT) {
@@ -210,7 +177,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
         );
         if (restStatus == RestStatus.CREATED) {
-            String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_AD_BASE, response.getId());
+            String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.LEGACY_AD_BASE, response.getId());
             extensionRestResponse.addHeader("Location", location);
         }
         return extensionRestResponse;

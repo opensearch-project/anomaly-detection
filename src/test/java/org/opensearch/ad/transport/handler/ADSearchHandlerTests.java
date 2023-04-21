@@ -16,26 +16,34 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.opensearch.ad.TestHelpers.matchAllRequest;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+
+import java.util.List;
 
 import org.junit.Before;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
 
 public class ADSearchHandlerTests extends ADUnitTestCase {
 
-    private Client client;
+    private SDKRestClient client;
     private Settings settings;
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
     private ADSearchHandler searchHandler;
-    private ClusterSettings clusterSettings;
+    private SDKClusterSettings clusterSettings;
+    private ExtensionsRunner mockRunner;
 
     private SearchRequest request;
 
@@ -47,9 +55,17 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
     public void setUp() throws Exception {
         super.setUp();
         settings = Settings.builder().put(FILTER_BY_BACKEND_ROLES.getKey(), false).build();
-        clusterSettings = clusterSetting(settings, FILTER_BY_BACKEND_ROLES);
-        clusterService = new ClusterService(settings, clusterSettings, null);
-        client = mock(Client.class);
+        mockRunner = mock(ExtensionsRunner.class);
+        Settings settings = Settings.EMPTY;
+        List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW, AnomalyDetectorSettings.PAGE_SIZE);
+        clusterService = mock(SDKClusterService.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        client = mock(SDKRestClient.class);
         searchHandler = new ADSearchHandler(settings, clusterService, client);
 
         request = mock(SearchRequest.class);
@@ -64,7 +80,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
 
     public void testFilterEnabledWithWrongSearch() {
         settings = Settings.builder().put(FILTER_BY_BACKEND_ROLES.getKey(), true).build();
-        clusterService = new ClusterService(settings, clusterSettings, null);
+        clusterService = new SDKClusterService(mockRunner);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client);
         searchHandler.search(request, listener);
@@ -76,7 +92,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
 
     public void testFilterEnabled() {
         settings = Settings.builder().put(FILTER_BY_BACKEND_ROLES.getKey(), true).build();
-        clusterService = new ClusterService(settings, clusterSettings, null);
+        clusterService = new SDKClusterService(mockRunner);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client);
         searchHandler.search(matchAllRequest(), listener);

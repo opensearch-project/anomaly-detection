@@ -32,31 +32,23 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
-import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
-import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
-import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
@@ -65,12 +57,8 @@ import com.google.common.collect.ImmutableList;
  */
 public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
     private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
-    private SDKNamedXContentRegistry namedXContentRegistry;
-    private Settings environmentSettings;
-    private TransportService transportService;
-    private SDKRestClient restClient;
-    private OpenSearchAsyncClient sdkJavaAsyncClient;
-    private SDKClusterService sdkClusterService;
+    private Settings settings;
+    private SDKRestClient client;
 
     public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
         .asList(ValidationAspect.values())
@@ -78,18 +66,10 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         .map(aspect -> aspect.getName())
         .collect(Collectors.toSet());
 
-    public RestValidateAnomalyDetectorAction(
-        ExtensionsRunner extensionsRunner,
-        SDKRestClient restClient,
-        OpenSearchAsyncClient sdkJavaAsyncClient
-    ) {
+    public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         super(extensionsRunner);
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
-        this.environmentSettings = extensionsRunner.getEnvironmentSettings();
-        this.transportService = extensionsRunner.getExtensionTransportService();
-        this.restClient = restClient;
-        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
-        this.sdkClusterService = new SDKClusterService(extensionsRunner);
+        this.settings = extensionsRunner.getEnvironmentSettings();
+        this.client = client;
     }
 
     // @Override
@@ -114,7 +94,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             );
     }
 
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -123,7 +103,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         }
     };
 
-    protected ExtensionRestResponse sendAnomalyDetectorValidationParseResponse(ExtensionRestRequest request, DetectorValidationIssue issue)
+    protected ExtensionRestResponse sendAnomalyDetectorValidationParseResponse(RestRequest request, DetectorValidationIssue issue)
         throws IOException {
         return new ExtensionRestResponse(
             request,
@@ -137,11 +117,11 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         return (!Collections.disjoint(typesInRequest, ALL_VALIDATION_ASPECTS_STRS));
     }
 
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
-        XContentParser parser = request.contentParser(this.namedXContentRegistry.getRegistry());
+        XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         String typesStr = request.param(TYPE);
 
@@ -177,54 +157,22 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             requestTimeout
         );
 
-        // Here we would call client.execute(action, request, responseListener)
-        // This delegates to transportAction(action).execute(request, responseListener)
-        // ValidateAnomalyDetectorAction is the key to the getActions map
-        // ValidateAnomalyDetectorTransportAction is the value, execute() calls doExecute()
-
-        ValidateAnomalyDetectorTransportAction validateAction = new ValidateAnomalyDetectorTransportAction(
-            restClient, // Client client
-            sdkClusterService, // ClusterService clusterService,
-            this.namedXContentRegistry,
-            this.environmentSettings, // Settings settings
-            new AnomalyDetectionIndices(
-                restClient, // client,
-                sdkJavaAsyncClient,
-                sdkClusterService, // clusterService,
-                null, // threadPool,
-                this.environmentSettings, // settings,
-                null, // nodeFilter,
-                AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
-            ), // AnomalyDetectionIndices anomalyDetectionIndices
-            null, // ActionFilters actionFilters
-            transportService,
-            new SearchFeatureDao(
-                restClient,
-                namedXContentRegistry,
-                null, // interpolator
-                null, // clientUtil,
-                environmentSettings,
-                sdkClusterService,
-                maxAnomalyFeatures
-            )
-        );
-
         CompletableFuture<ValidateAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
-        validateAction
-            .doExecute(
-                null,
+        client
+            .execute(
+                ValidateAnomalyDetectorAction.INSTANCE,
                 validateAnomalyDetectorRequest,
                 ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
             );
 
         ValidateAnomalyDetectorResponse response = futureResponse
-            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
             .join();
         // TODO handle exceptional response
         return validateAnomalyDetectorResponse(request, response);
     }
 
-    private ExtensionRestResponse validateAnomalyDetectorResponse(ExtensionRestRequest request, ValidateAnomalyDetectorResponse response)
+    private ExtensionRestResponse validateAnomalyDetectorResponse(RestRequest request, ValidateAnomalyDetectorResponse response)
         throws IOException {
         RestStatus restStatus = RestStatus.OK;
         ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(

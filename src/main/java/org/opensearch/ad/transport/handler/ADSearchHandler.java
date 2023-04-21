@@ -24,19 +24,19 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 
 /**
  * Handle general search request, check user role and return search response.
  */
 public class ADSearchHandler {
     private final Logger logger = LogManager.getLogger(ADSearchHandler.class);
-    private final Client client;
+    private final SDKRestClient client;
     private volatile Boolean filterEnabled;
 
-    public ADSearchHandler(Settings settings, ClusterService clusterService, Client client) {
+    public ADSearchHandler(Settings settings, SDKClusterService clusterService, SDKRestClient client) {
         this.client = client;
         filterEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);

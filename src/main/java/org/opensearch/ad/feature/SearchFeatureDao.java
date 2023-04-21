@@ -33,7 +33,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -49,7 +48,6 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -67,8 +65,7 @@ import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
-import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
-import org.opensearch.search.aggregations.bucket.range.InternalDateRange.Bucket;
+import org.opensearch.search.aggregations.bucket.range.ParsedDateRange;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Min;
@@ -116,15 +113,12 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.interpolator = interpolator;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview;
+
         this.pageSize = pageSize;
-        try {
-            Map<Setting<?>, Consumer<?>> settingsUpdateConsumers = new HashMap<>();
-            settingsUpdateConsumers.put(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = (int) it);
-            settingsUpdateConsumers.put(PAGE_SIZE, it -> this.pageSize = (int) it);
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(settingsUpdateConsumers);
-        } catch (Exception e) {
-            // FIXME Handle this
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/422
+
+        if (clusterService != null) {
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
         }
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
@@ -626,8 +620,8 @@ public class SearchFeatureDao extends AbstractRetriever {
                     aggs
                         .asList()
                         .stream()
-                        .filter(InternalDateRange.class::isInstance)
-                        .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+                        .filter(ParsedDateRange.class::isInstance)
+                        .flatMap(agg -> ((ParsedDateRange) agg).getBuckets().stream())
                         .map(bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()))
                         .collect(Collectors.toList())
                 );
@@ -999,11 +993,11 @@ public class SearchFeatureDao extends AbstractRetriever {
                     aggs
                         .asList()
                         .stream()
-                        .filter(InternalDateRange.class::isInstance)
-                        .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+                        .filter(ParsedDateRange.class::isInstance)
+                        .flatMap(agg -> ((ParsedDateRange) agg).getBuckets().stream())
                         .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
                         .filter(bucket -> bucket.getDocCount() > docCountThreshold)
-                        .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
+                        .sorted(Comparator.comparing(bucket -> (ZonedDateTime) bucket.getFrom()))
                         .map(bucket -> parseBucket(bucket, detector.getEnabledFeatureIds()))
                         .collect(Collectors.toList())
                 );

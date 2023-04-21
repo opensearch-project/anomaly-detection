@@ -31,24 +31,21 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
-import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
-import org.opensearch.extensions.rest.ExtensionRestRequest;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.sdk.BaseExtensionRestHandler;
+import org.opensearch.rest.action.RestActions;
 import org.opensearch.sdk.ExtensionsRunner;
-import org.opensearch.sdk.RouteHandler;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
-import org.opensearch.sdk.SDKClusterService;
-import org.opensearch.sdk.SDKNamedXContentRegistry;
-import org.opensearch.transport.TransportService;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
@@ -59,20 +56,12 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     private static final String GET_ANOMALY_DETECTOR_ACTION = "get_anomaly_detector";
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
-    private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings settings;
-    private TransportService transportService;
     private SDKRestClient client;
-    private SDKClusterService clusterService;
-    private ExtensionsRunner extensionsRunner;
 
     public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
-        this.extensionsRunner = extensionsRunner;
-        this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.transportService = extensionsRunner.getExtensionTransportService();
         this.client = client;
-        this.clusterService = new SDKClusterService(extensionsRunner);
     }
 
     // @Override
@@ -80,44 +69,20 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         return GET_ANOMALY_DETECTOR_ACTION;
     }
 
-    @Override
-    public List<RouteHandler> routeHandlers() {
-        return ImmutableList
-            .of(
-                // GET
-                new RouteHandler(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID),
-                    handleRequest
-                )
-            );
-    }
-
-    private Function<ExtensionRestRequest, ExtensionRestResponse> handleRequest = (request) -> {
-        try {
-            return prepareRequest(request);
-        } catch (Exception e) {
-            // TODO: handle the AD-specific exceptions separately
-            return exceptionalRequest(request, e);
-        }
-    };
-
-    protected ExtensionRestResponse prepareRequest(ExtensionRestRequest request) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
         String detectorId = request.param(DETECTOR_ID);
         String typesStr = request.param(TYPE);
 
-        String rawPath = request.path();
-        // FIXME handle this
-        // Passed false until job scheduler is integrated
-        boolean returnJob = false;
-        boolean returnTask = false;
-        boolean all = false;
+        String rawPath = request.rawPath();
+        boolean returnJob = request.paramAsBoolean("job", false);
+        boolean returnTask = request.paramAsBoolean("task", false);
+        boolean all = request.paramAsBoolean("_all", false);
         GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
             detectorId,
-            1, // version. RestActions.parseVersion(request). TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/431
+            RestActions.parseVersion(request),
             returnJob,
             returnTask,
             typesStr,
@@ -126,21 +91,11 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
             buildEntity(request, detectorId)
         );
 
-        GetAnomalyDetectorTransportAction getTransportAction = new GetAnomalyDetectorTransportAction(
-            transportService,
-            null, // nodeFilter
-            null, // ActionFilters actionFilters
-            clusterService,
-            client,
-            settings,
-            extensionsRunner.getNamedXContentRegistry(),
-            null // ADTaskManager adTaskManager
-        );
-
         CompletableFuture<GetAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
-        getTransportAction
-            .doExecute(
-                null, // task
+
+        client
+            .execute(
+                GetAnomalyDetectorAction.INSTANCE,
                 getAnomalyDetectorRequest,
                 ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
             );
@@ -151,8 +106,23 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
         // TODO handle exceptional response
         return getAnomalyDetectorResponse(request, response);
-
     }
+
+    @Override
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
+        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        return ImmutableList.of(new ReplacedRouteHandler(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path, handleRequest));
+    }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
 
     /*@Override
     public List<Route> routes() {
@@ -203,7 +173,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
             );
     }*/
 
-    private Entity buildEntity(ExtensionRestRequest request, String detectorId) throws IOException {
+    private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
         if (Strings.isEmpty(detectorId)) {
             throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
         }
@@ -225,7 +195,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
              *      }]
              * }
              */
-            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser(namedXContentRegistry.getRegistry()));
+            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser());
             if (entity.isPresent()) {
                 return entity.get();
             }
@@ -234,8 +204,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         return null;
     }
 
-    private ExtensionRestResponse getAnomalyDetectorResponse(ExtensionRestRequest request, GetAnomalyDetectorResponse response)
-        throws IOException {
+    private ExtensionRestResponse getAnomalyDetectorResponse(RestRequest request, GetAnomalyDetectorResponse response) throws IOException {
         RestStatus restStatus = RestStatus.OK;
         ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
             request,

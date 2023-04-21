@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -49,43 +50,97 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
+import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.EntityColdStartWorker;
+import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchADTasksAction;
+import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
+import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.stats.ADStat;
+import org.opensearch.ad.stats.ADStats;
+import org.opensearch.ad.stats.StatNames;
+import org.opensearch.ad.stats.suppliers.CounterSupplier;
+import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
+import org.opensearch.ad.stats.suppliers.ModelsOnNodeCountSupplier;
+import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
+import org.opensearch.ad.stats.suppliers.SettableSupplier;
+import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
+import org.opensearch.ad.transport.ADResultBulkAction;
+import org.opensearch.ad.transport.ADResultBulkTransportAction;
+import org.opensearch.ad.transport.ADStatsNodesAction;
+import org.opensearch.ad.transport.ADStatsNodesTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
+import org.opensearch.ad.transport.AnomalyResultAction;
+import org.opensearch.ad.transport.AnomalyResultTransportAction;
+import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
+import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.DeleteModelAction;
 import org.opensearch.ad.transport.DeleteModelTransportAction;
+import org.opensearch.ad.transport.EntityResultAction;
+import org.opensearch.ad.transport.EntityResultTransportAction;
+import org.opensearch.ad.transport.GetAnomalyDetectorAction;
+import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
+import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.ProfileAction;
+import org.opensearch.ad.transport.ProfileTransportAction;
+import org.opensearch.ad.transport.RCFResultAction;
+import org.opensearch.ad.transport.RCFResultTransportAction;
+import org.opensearch.ad.transport.SearchADTasksAction;
+import org.opensearch.ad.transport.SearchADTasksTransportAction;
+import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
+import org.opensearch.ad.transport.SearchAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.SearchAnomalyResultAction;
+import org.opensearch.ad.transport.SearchAnomalyResultTransportAction;
+import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
+import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.StopDetectorAction;
 import org.opensearch.ad.transport.StopDetectorTransportAction;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
+import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
+import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
-import org.opensearch.sdk.ActionExtension;
 import org.opensearch.sdk.BaseExtension;
-import org.opensearch.sdk.ExtensionRestHandler;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
+import org.opensearch.sdk.api.ActionExtension;
+import org.opensearch.sdk.rest.ExtensionRestHandler;
+import org.opensearch.threadpool.ExecutorBuilder;
+import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
@@ -93,6 +148,7 @@ import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestS
 import com.amazon.randomcutforest.serialize.json.v1.V1JsonToV3StateConverter;
 import com.amazon.randomcutforest.state.RandomCutForestMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -104,9 +160,13 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
+    public static final String LEGACY_AD_BASE = "/_opendistro/_anomaly_detection";
+    public static final String LEGACY_OPENDISTRO_AD_BASE_URI = LEGACY_AD_BASE + "/detectors";
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
-    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
+    public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
+    public static final String AD_BATCH_TASK_THREAD_POOL_NAME = "ad-batch-task-threadpool";
+    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
 
     @Deprecated
     private SDKRestClient sdkRestClient;
@@ -114,6 +174,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     private static Gson gson;
     // package private for testing
     GenericObjectPool<LinkedBuffer> serializeRCFBufferPool;
+    private ADStats adStats;
+    private DiscoveryNodeFilterer nodeFilter;
 
     static {
         SpecialPermission.check();
@@ -130,10 +192,15 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     public List<ExtensionRestHandler> getExtensionRestHandlers() {
         return List
             .of(
-                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
-                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient(), javaAsyncClient()),
+                new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
-                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient())
+                new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
+                new RestDeleteAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient(), adStats, nodeFilter),
+                new RestSearchAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestSearchAnomalyResultAction(extensionsRunner(), restClient()),
+                new RestSearchADTasksAction(extensionsRunner(), restClient())
             );
     }
 
@@ -144,24 +211,18 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
     @Override
     public Collection<Object> createComponents(ExtensionsRunner runner) {
-
         this.sdkRestClient = createRestClient(runner);
         this.sdkJavaAsyncClient = createJavaAsyncClient(runner);
-
         SDKClusterService sdkClusterService = runner.getSdkClusterService();
         Settings environmentSettings = runner.getEnvironmentSettings();
         SDKNamedXContentRegistry xContentRegistry = runner.getNamedXContentRegistry();
         ThreadPool threadPool = runner.getThreadPool();
+        IndexNameExpressionResolver indexNameExpressionResolver = runner.getIndexNameExpressionResolver();
 
         Throttler throttler = new Throttler(getClock());
         ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
-        IndexUtils indexUtils = new IndexUtils(
-            restClient(),
-            clientUtil,
-            sdkClusterService,
-            null // indexNameExpressionResolver
-        );
-        DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
+        IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver, javaAsyncClient());
+        nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
             sdkJavaAsyncClient,
@@ -295,6 +356,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             stateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
         );
+
         EntityCache cache = new PriorityCache(
             checkpoint,
             AnomalyDetectorSettings.DEDICATED_CACHE_SIZE.get(environmentSettings),
@@ -330,6 +392,26 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             checkpointWriteQueue,
             AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
         );
+        EntityColdStartWorker coldstartQueue = new EntityColdStartWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            entityColdStarter,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager
+        );
+
         ModelManager modelManager = new ModelManager(
             checkpoint,
             getClock(),
@@ -345,9 +427,125 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             featureManager,
             memoryTracker
         );
+        MultiEntityResultHandler multiEntityResultHandler = new MultiEntityResultHandler(
+            sdkRestClient,
+            environmentSettings,
+            threadPool,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtils,
+            sdkClusterService
+        );
+
+        ResultWriteWorker resultWriteQueue = new ResultWriteWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            multiEntityResultHandler,
+            xContentRegistry,
+            stateManager,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+        );
+
+        CheckpointReadWorker checkpointReadQueue = new CheckpointReadWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            modelManager,
+            checkpoint,
+            coldstartQueue,
+            resultWriteQueue,
+            stateManager,
+            anomalyDetectionIndices,
+            cacheProvider,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            checkpointWriteQueue
+        );
+
+        ColdEntityWorker coldEntityQueue = new ColdEntityWorker(
+            heapSizeBytes,
+            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
+            sdkClusterService,
+            random,
+            adCircuitBreakerService,
+            threadPool,
+            environmentSettings,
+            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            getClock(),
+            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
+            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            checkpointReadQueue,
+            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            stateManager
+        );
+
+        Map<String, ADStat<?>> stats = ImmutableMap
+            .<String, ADStat<?>>builder()
+            .put(StatNames.AD_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(
+                StatNames.MODEL_INFORMATION.getName(),
+                new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider, environmentSettings, sdkClusterService))
+            )
+            .put(
+                StatNames.ANOMALY_DETECTORS_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyDetector.ANOMALY_DETECTORS_INDEX))
+            )
+            .put(
+                StatNames.ANOMALY_RESULTS_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.ANOMALY_RESULT_INDEX_ALIAS))
+            )
+            .put(
+                StatNames.MODELS_CHECKPOINT_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CHECKPOINT_INDEX_NAME))
+            )
+            .put(
+                StatNames.ANOMALY_DETECTION_JOB_INDEX_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX))
+            )
+            .put(
+                StatNames.ANOMALY_DETECTION_STATE_STATUS.getName(),
+                new ADStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.DETECTION_STATE_INDEX))
+            )
+            .put(StatNames.DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.SINGLE_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.MULTI_ENTITY_DETECTOR_COUNT.getName(), new ADStat<>(true, new SettableSupplier()))
+            .put(StatNames.AD_EXECUTING_BATCH_TASK_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_CANCELED_BATCH_TASK_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName(), new ADStat<>(false, new CounterSupplier()))
+            .put(StatNames.MODEL_COUNT.getName(), new ADStat<>(false, new ModelsOnNodeCountSupplier(modelManager, cacheProvider)))
+            .build();
+
+        adStats = new ADStats(stats);
 
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
-
         ADTaskManager adTaskManager = new ADTaskManager(
             environmentSettings,
             sdkClusterService,
@@ -359,6 +557,32 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             null, // hashRing
             adTaskCacheManager,
             threadPool
+        );
+        AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
+            sdkRestClient,
+            sdkJavaAsyncClient,
+            environmentSettings,
+            threadPool,
+            clientUtil,
+            indexUtils,
+            sdkClusterService,
+            anomalyDetectionIndices
+        );
+        ADBatchTaskRunner adBatchTaskRunner = new ADBatchTaskRunner(
+            environmentSettings,
+            threadPool,
+            sdkClusterService,
+            sdkRestClient,
+            adCircuitBreakerService,
+            featureManager,
+            adTaskManager,
+            anomalyDetectionIndices,
+            adStats,
+            anomalyResultBulkIndexHandler,
+            adTaskCacheManager,
+            searchFeatureDao,
+            null,
+            modelManager
         );
 
         AnomalyIndexHandler<AnomalyResult> anomalyResultHandler = new AnomalyIndexHandler<AnomalyResult>(
@@ -381,6 +605,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         jobRunner.setNodeFilter(nodeFilter);
         jobRunner.setAdTaskManager(adTaskManager);
 
+        ADSearchHandler adSearchHandler = new ADSearchHandler(environmentSettings, sdkClusterService, sdkRestClient);
+
         return ImmutableList
             .of(
                 sdkRestClient,
@@ -395,11 +621,19 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 modelManager,
                 stateManager,
                 adCircuitBreakerService,
+                adStats,
                 nodeFilter,
+                multiEntityResultHandler,
                 checkpoint,
                 cacheProvider,
                 adTaskManager,
+                adBatchTaskRunner,
+                coldstartQueue,
+                resultWriteQueue,
+                checkpointReadQueue,
+                adSearchHandler,
                 checkpointWriteQueue,
+                coldEntityQueue,
                 entityColdStarter,
                 adTaskCacheManager
             );
@@ -484,7 +718,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     }
 
     /**
-     * createComponents doesn't work for Clock as ES process cannot start
+     * createComponents doesn't work for Clock as OS process cannot start
      * complaining it cannot find Clock instances for transport actions constructors.
      * @return a UTC clock
      */
@@ -493,12 +727,49 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     }
 
     @Override
+    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
+        return ImmutableList
+            .of(
+                new ScalingExecutorBuilder(
+                    AD_THREAD_POOL_NAME,
+                    1,
+                    // HCAD can be heavy after supporting 1 million entities.
+                    // Limit to use at most half of the processors.
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 2),
+                    TimeValue.timeValueMinutes(10),
+                    AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
+                ),
+                new ScalingExecutorBuilder(
+                    AD_BATCH_TASK_THREAD_POOL_NAME,
+                    1,
+                    Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 8),
+                    TimeValue.timeValueMinutes(10),
+                    AD_THREAD_POOL_PREFIX + AD_BATCH_TASK_THREAD_POOL_NAME
+                )
+            );
+    }
+
+    @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays
             .asList(
+                new ActionHandler<>(IndexAnomalyDetectorAction.INSTANCE, IndexAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
+                new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
+                new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
+                new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class),
+                new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
+                new ActionHandler<>(ProfileAction.INSTANCE, ProfileTransportAction.class),
+                new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(StatsAnomalyDetectorAction.INSTANCE, StatsAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(ADStatsNodesAction.INSTANCE, ADStatsNodesTransportAction.class),
+                new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
+                new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class)
             );

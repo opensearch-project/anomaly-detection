@@ -10,6 +10,7 @@ import org.junit.Test;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
@@ -20,7 +21,6 @@ import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.jobscheduler.transport.request.ExtensionJobActionRequest;
 import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
-import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
@@ -62,12 +62,24 @@ public class ADJobRunnerActionTests extends OpenSearchSingleNodeTestCase {
 
     @Test
     public void testExtensionActionResponse() throws Exception {
-        BytesStreamOutput out = new BytesStreamOutput();
+
         JobRunnerResponse jobRunnerResponse = new JobRunnerResponse(true);
-        ExtensionActionResponse response = new ExtensionJobActionResponse<>(jobRunnerResponse);
-        response.writeTo(out);
-        out.flush();
-        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
+
+        // Convert response to bytes
+        BytesStreamOutput jobRunnerResponseOutput = new BytesStreamOutput();
+        jobRunnerResponse.writeTo(jobRunnerResponseOutput);
+        jobRunnerResponseOutput.flush();
+        byte[] bytes = BytesReference.toBytes(jobRunnerResponseOutput.bytes());
+
+        // Create ExtensionActionResponse
+        BytesStreamOutput extensionActionResponseOutput = new BytesStreamOutput();
+        ExtensionActionResponse response = new ExtensionActionResponse(bytes);
+        response.writeTo(extensionActionResponseOutput);
+        extensionActionResponseOutput.flush();
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(
+            extensionActionResponseOutput.bytes().streamInput(),
+            writableRegistry()
+        );
         ExtensionActionResponse newResponse = new ExtensionActionResponse(input);
         Assert.assertEquals(response.getResponseBytes().length, newResponse.getResponseBytes().length);
     }

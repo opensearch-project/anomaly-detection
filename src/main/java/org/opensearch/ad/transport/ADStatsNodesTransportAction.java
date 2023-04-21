@@ -12,93 +12,84 @@
 package org.opensearch.ad.transport;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.nodes.TransportNodesAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.monitor.jvm.JvmService;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 
+import com.google.inject.Inject;
+
+// TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/683 (multi node support needed for extensions.
+//  Previously, the class used to extend TransportNodesAction by which request is sent to multiple nodes.
+//  For extensions as of now we only have one node support. In order to test multinode feature we need to add multinode support equivalent for SDK )
 /**
  *  ADStatsNodesTransportAction contains the logic to extract the stats from the nodes
  */
-public class ADStatsNodesTransportAction extends
-    TransportNodesAction<ADStatsRequest, ADStatsNodesResponse, ADStatsNodeRequest, ADStatsNodeResponse> {
-
+public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest, ADStatsNodesResponse> {
     private ADStats adStats;
     private final JvmService jvmService;
     private final ADTaskManager adTaskManager;
 
+    private final SDKClusterService sdkClusterService;
+
     /**
      * Constructor
      *
-     * @param threadPool ThreadPool to use
-     * @param clusterService ClusterService
-     * @param transportService TransportService
+     * @param sdkClusterService SDK cluster Service
      * @param actionFilters Action Filters
      * @param adStats ADStats object
      * @param jvmService ES JVM Service
      * @param adTaskManager AD task manager
+     * @param taskManager Task manager
      */
     @Inject
     public ADStatsNodesTransportAction(
-        ThreadPool threadPool,
-        ClusterService clusterService,
-        TransportService transportService,
+        SDKClusterService sdkClusterService,
         ActionFilters actionFilters,
         ADStats adStats,
         JvmService jvmService,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        TaskManager taskManager
     ) {
-        super(
-            ADStatsNodesAction.NAME,
-            threadPool,
-            clusterService,
-            transportService,
-            actionFilters,
-            ADStatsRequest::new,
-            ADStatsNodeRequest::new,
-            ThreadPool.Names.MANAGEMENT,
-            ADStatsNodeResponse.class
-        );
+        super(ADStatsNodesAction.NAME, actionFilters, taskManager);
         this.adStats = adStats;
         this.jvmService = jvmService;
         this.adTaskManager = adTaskManager;
+        this.sdkClusterService = sdkClusterService;
     }
 
-    @Override
     protected ADStatsNodesResponse newResponse(
         ADStatsRequest request,
         List<ADStatsNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADStatsNodesResponse(clusterService.getClusterName(), responses, failures);
+        return new ADStatsNodesResponse(sdkClusterService.state().getClusterName(), responses, failures);
     }
 
-    @Override
     protected ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {
         return new ADStatsNodeRequest(request);
     }
 
-    @Override
     protected ADStatsNodeResponse newNodeResponse(StreamInput in) throws IOException {
         return new ADStatsNodeResponse(in);
     }
 
-    @Override
-    protected ADStatsNodeResponse nodeOperation(ADStatsNodeRequest request) {
-        return createADStatsNodeResponse(request.getADStatsRequest());
+    protected void doExecute(Task task, ADStatsRequest request, ActionListener<ADStatsNodesResponse> actionListener) {
+        actionListener.onResponse(newResponse(request, new ArrayList<>(List.of(createADStatsNodeResponse(request))), new ArrayList<>()));
     }
 
     private ADStatsNodeResponse createADStatsNodeResponse(ADStatsRequest adStatsRequest) {
@@ -126,6 +117,6 @@ public class ADStatsNodesTransportAction extends
             }
         }
 
-        return new ADStatsNodeResponse(clusterService.localNode(), statValues);
+        return new ADStatsNodeResponse(sdkClusterService.localNode(), statValues);
     }
 }

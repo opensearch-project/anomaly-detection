@@ -17,16 +17,15 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.AnomalyDetectorJobRunner;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.extensions.action.ExtensionActionRequest;
-import org.opensearch.extensions.action.ExtensionActionResponse;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.transport.request.JobRunnerRequest;
-import org.opensearch.jobscheduler.transport.response.ExtensionJobActionResponse;
 import org.opensearch.jobscheduler.transport.response.JobRunnerResponse;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
 import org.opensearch.tasks.Task;
@@ -37,16 +36,17 @@ import com.google.inject.Inject;
 /**
  * Transport Action to execute job runner of anomaly detection.
  */
-public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionRequest, ExtensionActionResponse> {
+public class ADJobRunnerTransportAction extends TransportAction<JobRunnerRequest, JobRunnerResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ADJobRunnerTransportAction.class);
 
     private SDKRestClient client;
     private final SDKNamedXContentRegistry xContentRegistry;
-    private AnomalyDetectorJob scheduledJobParameter;
+    private final Settings settings;
 
     @Inject
     protected ADJobRunnerTransportAction(
+        ExtensionsRunner extensionsRunner,
         ActionFilters actionFilters,
         TaskManager taskManager,
         SDKNamedXContentRegistry xContentRegistry,
@@ -55,25 +55,24 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
         super(ADJobRunnerAction.NAME, actionFilters, taskManager);
         this.client = client;
         this.xContentRegistry = xContentRegistry;
+        this.settings = extensionsRunner.getEnvironmentSettings();
     }
 
     @Override
-    protected void doExecute(Task task, ExtensionActionRequest request, ActionListener<ExtensionActionResponse> actionListener) {
+    protected void doExecute(Task task, JobRunnerRequest request, ActionListener<JobRunnerResponse> actionListener) {
         String errorMessage = "Failed to run the Job";
-        ActionListener<ExtensionActionResponse> listener = wrapRestActionListener(actionListener, errorMessage);
-        JobRunnerRequest jobRunnerRequest;
+        ActionListener<JobRunnerResponse> listener = wrapRestActionListener(actionListener, errorMessage);
         try {
-            jobRunnerRequest = new JobRunnerRequest(request.getRequestBytes());
-            CompletableFuture<AnomalyDetectorJob> inProgressFuture = new CompletableFuture<>();
-            String jobParameterDocumentId = jobRunnerRequest.getJobParameterDocumentId();
+            JobExecutionContext jobExecutionContext = request.getJobExecutionContext();
+            String jobParameterDocumentId = jobExecutionContext.getJobId();
             if (jobParameterDocumentId == null || jobParameterDocumentId.isEmpty()) {
                 listener.onFailure(new IllegalArgumentException("jobParameterDocumentId cannot be empty or null"));
             } else {
+                CompletableFuture<AnomalyDetectorJob> inProgressFuture = new CompletableFuture<>();
                 findById(jobParameterDocumentId, new ActionListener<>() {
                     @Override
                     public void onResponse(AnomalyDetectorJob anomalyDetectorJob) {
-                        scheduledJobParameter = anomalyDetectorJob;
-                        inProgressFuture.complete(scheduledJobParameter);
+                        inProgressFuture.complete(anomalyDetectorJob);
                     }
 
                     @Override
@@ -84,7 +83,20 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
                 });
 
                 try {
-                    inProgressFuture.orTimeout(RestHandlerUtils.TIME_OUT_FOR_REQUEST, TimeUnit.SECONDS).join();
+                    AnomalyDetectorJob scheduledJobParameter = inProgressFuture
+                        .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                        .join();
+
+                    JobRunnerResponse jobRunnerResponse;
+                    if (scheduledJobParameter != null && validateJobExecutionContext(jobExecutionContext)) {
+                        jobRunnerResponse = new JobRunnerResponse(true);
+                    } else {
+                        jobRunnerResponse = new JobRunnerResponse(false);
+                    }
+                    listener.onResponse(jobRunnerResponse);
+                    if (jobRunnerResponse.getJobRunnerStatus()) {
+                        AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter, jobExecutionContext);
+                    }
                 } catch (CompletionException e) {
                     if (e.getCause() instanceof TimeoutException) {
                         logger.info(" Request timed out with an exception ", e);
@@ -95,28 +107,15 @@ public class ADJobRunnerTransportAction extends TransportAction<ExtensionActionR
                     logger.info(" Could not find Job Parameter due to exception ", e);
                 }
 
-                JobExecutionContext jobExecutionContext = jobRunnerRequest.getJobExecutionContext();
-                JobRunnerResponse jobRunnerResponse;
-                if (scheduledJobParameter != null && validateJobExecutionContext(jobExecutionContext)) {
-                    jobRunnerResponse = new JobRunnerResponse(true);
-                } else {
-                    jobRunnerResponse = new JobRunnerResponse(false);
-                }
-                listener.onResponse(new ExtensionJobActionResponse<>(jobRunnerResponse));
-                if (jobRunnerResponse.getJobRunnerStatus()) {
-                    AnomalyDetectorJobRunner.getJobRunnerInstance().runJob(scheduledJobParameter, jobExecutionContext);
-                }
             }
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
         }
-
     }
 
     private void findById(String jobParameterId, ActionListener<AnomalyDetectorJob> listener) {
         GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, jobParameterId);
-
         try {
             client.get(getRequest, ActionListener.wrap(response -> {
                 if (!response.isExists()) {
