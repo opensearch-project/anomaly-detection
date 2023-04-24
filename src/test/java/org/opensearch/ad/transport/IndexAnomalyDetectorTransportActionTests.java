@@ -18,8 +18,10 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -44,7 +46,6 @@ import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -110,10 +111,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             .build();
         final Settings.Builder existingSettings = Settings.builder().put(indexSettings).put(IndexMetadata.SETTING_INDEX_UUID, "test2UUID");
         IndexMetadata indexMetaData = IndexMetadata.builder(AnomalyDetector.ANOMALY_DETECTORS_INDEX).settings(existingSettings).build();
-        final ImmutableOpenMap<String, IndexMetadata> indices = ImmutableOpenMap
-            .<String, IndexMetadata>builder()
-            .fPut(AnomalyDetector.ANOMALY_DETECTORS_INDEX, indexMetaData)
-            .build();
+        final Map<String, IndexMetadata> indices = new HashMap<>();
+        indices.put(AnomalyDetector.ANOMALY_DETECTORS_INDEX, indexMetaData);
         ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().indices(indices).build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
