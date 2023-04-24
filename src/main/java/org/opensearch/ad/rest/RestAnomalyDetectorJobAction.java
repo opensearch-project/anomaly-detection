@@ -164,6 +164,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
                         .format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, START_JOB),
                     handleRequest
                 ),
+                // stop AD Job
                 new ReplacedRouteHandler(
                     RestRequest.Method.POST,
                     String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),

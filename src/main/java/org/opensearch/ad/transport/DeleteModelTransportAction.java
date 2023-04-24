@@ -11,6 +11,7 @@
 
 package org.opensearch.ad.transport;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -103,7 +104,7 @@ public class DeleteModelTransportAction extends TransportAction<DeleteModelReque
 
         LOG.info("Finished deleting {}", adID);
         DeleteModelNodeResponse deleteModelNodeResponse = new DeleteModelNodeResponse(clusterService.localNode());
-        actionListener.onResponse(newResponse(request, List.of(deleteModelNodeResponse), null));
+        actionListener.onResponse(newResponse(request, List.of(deleteModelNodeResponse), new ArrayList<>()));
     }
 
     protected DeleteModelResponse newResponse(
