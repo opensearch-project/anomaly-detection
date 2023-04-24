@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -63,7 +64,6 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -120,10 +120,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             .build();
         final Settings.Builder existingSettings = Settings.builder().put(indexSettings).put(IndexMetadata.SETTING_INDEX_UUID, "test2UUID");
         IndexMetadata indexMetaData = IndexMetadata.builder(AnomalyDetector.ANOMALY_DETECTORS_INDEX).settings(existingSettings).build();
-        final ImmutableOpenMap<String, IndexMetadata> indices = ImmutableOpenMap
-            .<String, IndexMetadata>builder()
-            .fPut(AnomalyDetector.ANOMALY_DETECTORS_INDEX, indexMetaData)
-            .build();
+        final Map<String, IndexMetadata> indices = new HashMap<>();
+        indices.put(AnomalyDetector.ANOMALY_DETECTORS_INDEX, indexMetaData);
         ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().indices(indices).build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 

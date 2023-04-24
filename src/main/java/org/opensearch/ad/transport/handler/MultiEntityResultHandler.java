@@ -13,8 +13,6 @@ package org.opensearch.ad.transport.handler;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ExceptionsHelper;
-import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.CommonName;
@@ -90,7 +88,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
                         listener.onFailure(new AnomalyDetectionException("", "Creating result index with mappings call not acknowledged."));
                     }
                 }, exception -> {
-                    if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                    if (exception.getMessage().contains("resource_already_exists_exception")) {
                         // It is possible the index has been created while we sending the create request
                         bulk(currentBulkRequest, listener);
                     } else {

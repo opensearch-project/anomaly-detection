@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.ml;
 
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -76,7 +75,6 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.action.bulk.BulkAction;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
@@ -84,7 +82,6 @@ import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.get.MultiGetAction;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
@@ -578,12 +575,12 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         doAnswer(invocation -> {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
-            listener.onFailure(new ResourceAlreadyExistsException("blah"));
+            listener.onFailure(new ResourceAlreadyExistsException("resource_already_exists_exception"));
             return null;
         }).when(indexUtil).initCheckpointIndex(any());
 
-        checkpointDao.batchWrite(new BulkRequest(), null);
-        verify(clientUtil, times(1)).execute(any(), any(), any());
+        checkpointDao.batchWrite(new BulkRequest(), ActionListener.wrap(response -> assertTrue(false), ex -> assertTrue(true)));
+        verify(client, times(1)).bulk(any(), any());
     }
 
     public void test_batch_write_init_exception() throws InterruptedException {
@@ -637,11 +634,11 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         when(indexUtil.doesCheckpointIndexExist()).thenReturn(true);
 
         doAnswer(invocation -> {
-            ActionListener<BulkResponse> listener = invocation.getArgument(2);
+            ActionListener<BulkResponse> listener = invocation.getArgument(1);
 
             listener.onResponse(createBulkResponse(2, 0, null));
             return null;
-        }).when(clientUtil).execute(eq(BulkAction.INSTANCE), any(BulkRequest.class), any(ActionListener.class));
+        }).when(client).bulk(any(BulkRequest.class), any(ActionListener.class));
 
         final CountDownLatch processingLatch = new CountDownLatch(1);
         checkpointDao
@@ -649,13 +646,13 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         // we don't expect the waiting time elapsed before the count reached zero
         assertTrue(processingLatch.await(100, TimeUnit.SECONDS));
-        verify(clientUtil, times(1)).execute(any(), any(), any());
+        verify(client, times(1)).bulk(any(), any());
     }
 
     @SuppressWarnings("unchecked")
     public void test_batch_read() throws InterruptedException {
         doAnswer(invocation -> {
-            ActionListener<MultiGetResponse> listener = invocation.getArgument(2);
+            ActionListener<MultiGetResponse> listener = invocation.getArgument(1);
 
             MultiGetItemResponse[] items = new MultiGetItemResponse[1];
             items[0] = new MultiGetItemResponse(
@@ -668,7 +665,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             );
             listener.onResponse(new MultiGetResponse(items));
             return null;
-        }).when(clientUtil).execute(eq(MultiGetAction.INSTANCE), any(MultiGetRequest.class), any(ActionListener.class));
+        }).when(client).multiGet(any(MultiGetRequest.class), any(ActionListener.class));
 
         final CountDownLatch processingLatch = new CountDownLatch(1);
         checkpointDao
@@ -676,7 +673,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
         // we don't expect the waiting time elapsed before the count reached zero
         assertTrue(processingLatch.await(100, TimeUnit.SECONDS));
-        verify(clientUtil, times(1)).execute(any(), any(), any());
+        verify(client, times(1)).multiGet(any(), any());
     }
 
     public void test_too_large_checkpoint() throws IOException {

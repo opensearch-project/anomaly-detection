@@ -74,12 +74,15 @@ import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeCountSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import org.opensearch.ad.stats.suppliers.SettableSupplier;
+import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
 import org.opensearch.ad.transport.ADJobRunnerTransportAction;
+import org.opensearch.ad.transport.ADResultBulkAction;
+import org.opensearch.ad.transport.ADResultBulkTransportAction;
 import org.opensearch.ad.transport.ADStatsNodesAction;
 import org.opensearch.ad.transport.ADStatsNodesTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
@@ -110,6 +113,7 @@ import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
+import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -157,6 +161,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     public static final String AD_BASE_DETECTORS_URI = "/detectors";
     public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
+    public static final String AD_BATCH_TASK_THREAD_POOL_NAME = "ad-batch-task-threadpool";
     public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
 
     @Deprecated
@@ -549,6 +554,32 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             adTaskCacheManager,
             threadPool
         );
+        AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
+            sdkRestClient,
+            sdkJavaAsyncClient,
+            environmentSettings,
+            threadPool,
+            clientUtil,
+            indexUtils,
+            sdkClusterService,
+            anomalyDetectionIndices
+        );
+        ADBatchTaskRunner adBatchTaskRunner = new ADBatchTaskRunner(
+            environmentSettings,
+            threadPool,
+            sdkClusterService,
+            sdkRestClient,
+            adCircuitBreakerService,
+            featureManager,
+            adTaskManager,
+            anomalyDetectionIndices,
+            adStats,
+            anomalyResultBulkIndexHandler,
+            adTaskCacheManager,
+            searchFeatureDao,
+            null,
+            modelManager
+        );
 
         AnomalyIndexHandler<AnomalyResult> anomalyResultHandler = new AnomalyIndexHandler<AnomalyResult>(
             restClient(),
@@ -592,6 +623,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 checkpoint,
                 cacheProvider,
                 adTaskManager,
+                adBatchTaskRunner,
                 coldstartQueue,
                 resultWriteQueue,
                 checkpointReadQueue,
@@ -702,15 +734,14 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                     Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 2),
                     TimeValue.timeValueMinutes(10),
                     AD_THREAD_POOL_PREFIX + AD_THREAD_POOL_NAME
-                )/*, 
-                 new ScalingExecutorBuilder(
+                ),
+                new ScalingExecutorBuilder(
                     AD_BATCH_TASK_THREAD_POOL_NAME,
                     1,
                     Math.max(1, OpenSearchExecutors.allocatedProcessors(settings) / 8),
                     TimeValue.timeValueMinutes(10),
                     AD_THREAD_POOL_PREFIX + AD_BATCH_TASK_THREAD_POOL_NAME
-                 )
-                 */
+                )
             );
     }
 
@@ -726,6 +757,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
                 new ActionHandler<>(AnomalyResultAction.INSTANCE, AnomalyResultTransportAction.class),
                 new ActionHandler<>(RCFResultAction.INSTANCE, RCFResultTransportAction.class),
+                new ActionHandler<>(ADResultBulkAction.INSTANCE, ADResultBulkTransportAction.class),
                 new ActionHandler<>(EntityResultAction.INSTANCE, EntityResultTransportAction.class),
                 new ActionHandler<>(ProfileAction.INSTANCE, ProfileTransportAction.class),
                 new ActionHandler<>(DeleteAnomalyDetectorAction.INSTANCE, DeleteAnomalyDetectorTransportAction.class),
