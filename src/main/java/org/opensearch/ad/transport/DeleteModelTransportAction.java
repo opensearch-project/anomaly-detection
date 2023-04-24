@@ -26,9 +26,6 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.task.ADTaskCacheManager;
-import org.opensearch.cluster.ClusterName;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
@@ -45,11 +42,9 @@ public class DeleteModelTransportAction extends TransportAction<DeleteModelReque
     private ADTaskCacheManager adTaskCacheManager;
     private EntityColdStarter coldStarter;
     private SDKClusterService clusterService;
-    private Settings settings;
 
     @Inject
     public DeleteModelTransportAction(
-        ExtensionsRunner extensionsRunner,
         ThreadPool threadPool,
         SDKClusterService clusterService,
         TaskManager taskManager,
@@ -62,7 +57,6 @@ public class DeleteModelTransportAction extends TransportAction<DeleteModelReque
         EntityColdStarter coldStarter
     ) {
         super(DeleteModelAction.NAME, actionFilters, taskManager);
-        this.settings = extensionsRunner.getEnvironmentSettings();
         this.clusterService = clusterService;
         this.nodeStateManager = nodeStateManager;
         this.modelManager = modelManager;
@@ -112,6 +106,6 @@ public class DeleteModelTransportAction extends TransportAction<DeleteModelReque
         List<DeleteModelNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new DeleteModelResponse(ClusterName.CLUSTER_NAME_SETTING.get(settings), responses, failures);
+        return new DeleteModelResponse(clusterService.state().getClusterName(), responses, failures);
     }
 }
