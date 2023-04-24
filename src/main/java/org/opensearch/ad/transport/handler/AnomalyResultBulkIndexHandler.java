@@ -137,7 +137,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
 
             if (bulkResponse.errors()) {
                 StringBuilder sb = new StringBuilder();
-                sb.append("failure in bulk execution:");
+                sb.append("Failed to prepare request to bulk index anomaly results:");
                 for (int i = 0; i < bulkResponse.items().size(); i++) {
                     BulkResponseItem item = bulkResponse.items().get(i);
                     if (item.error() != null) {

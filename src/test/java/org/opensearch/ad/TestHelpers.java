@@ -1549,8 +1549,8 @@ public class TestHelpers {
     }
 
     public static ClusterState createClusterState() {
-        Map<String, IndexMetadata> immutableOpenMap = new HashMap<>();
-        immutableOpenMap
+        Map<String, IndexMetadata> indexMap = new HashMap<>();
+        indexMap
             .put(
                 ".opendistro-anomaly-detector-jobs",
                 IndexMetadata
@@ -1564,7 +1564,7 @@ public class TestHelpers {
                     )
                     .build()
             );
-        Metadata metaData = Metadata.builder().indices(immutableOpenMap).build();
+        Metadata metaData = Metadata.builder().indices(indexMap).build();
         ClusterState clusterState = new ClusterState(new ClusterName("test_name"), 1l, "uuid", metaData, null, null, null, null, 1, true);
         return clusterState;
     }
