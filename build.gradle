@@ -766,7 +766,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.ratelimit.EntityFeatureRequest',
         'org.opensearch.ad.ratelimit.RateLimitedRequestWorker.RequestQueue',
         'org.opensearch.ad.stats.StatNames',
-        'org.opensearch.ad.stats.ADStats',
         'org.opensearch.ad.MaintenanceState',
         'org.opensearch.ad.AnomalyDetectorExtension.1',
         'org.opensearch.ad.AnomalyDetectorExtension.1.1',
