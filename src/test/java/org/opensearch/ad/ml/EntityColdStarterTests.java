@@ -71,7 +71,7 @@ public class EntityColdStarterTests extends AbstractADTest {
 
         settings = Settings.EMPTY;
 
-        Client client = mock(Client.class);
+        SDKRestClient client = mock(SDKRestClient.class);
         clientUtil = mock(ClientUtil.class);
 
         detector = TestHelpers.AnomalyDetectorBuilder
@@ -102,7 +102,7 @@ public class EntityColdStarterTests extends AbstractADTest {
             Version.CURRENT
         );
 
-        ClusterService clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
+        SDKClusterService clusterService = mock(SDKClusterService.class);
 
         SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
         when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());

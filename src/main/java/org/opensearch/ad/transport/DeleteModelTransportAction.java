@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -19,21 +19,21 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.nodes.TransportNodesAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.task.ADTaskCacheManager;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
-import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
 
-public class DeleteModelTransportAction extends
-    TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
+import com.google.inject.Inject;
+
+public class DeleteModelTransportAction extends TransportAction<DeleteModelRequest, DeleteModelResponse> {
     private static final Logger LOG = LogManager.getLogger(DeleteModelTransportAction.class);
     private NodeStateManager nodeStateManager;
     private ModelManager modelManager;
@@ -41,12 +41,13 @@ public class DeleteModelTransportAction extends
     private CacheProvider cache;
     private ADTaskCacheManager adTaskCacheManager;
     private EntityColdStarter coldStarter;
+    private SDKClusterService clusterService;
 
     @Inject
     public DeleteModelTransportAction(
         ThreadPool threadPool,
-        ClusterService clusterService,
-        TransportService transportService,
+        SDKClusterService clusterService,
+        TaskManager taskManager,
         ActionFilters actionFilters,
         NodeStateManager nodeStateManager,
         ModelManager modelManager,
@@ -55,17 +56,8 @@ public class DeleteModelTransportAction extends
         ADTaskCacheManager adTaskCacheManager,
         EntityColdStarter coldStarter
     ) {
-        super(
-            DeleteModelAction.NAME,
-            threadPool,
-            clusterService,
-            transportService,
-            actionFilters,
-            DeleteModelRequest::new,
-            DeleteModelNodeRequest::new,
-            ThreadPool.Names.MANAGEMENT,
-            DeleteModelNodeResponse.class
-        );
+        super(DeleteModelAction.NAME, actionFilters, taskManager);
+        this.clusterService = clusterService;
         this.nodeStateManager = nodeStateManager;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
@@ -75,35 +67,9 @@ public class DeleteModelTransportAction extends
     }
 
     @Override
-    protected DeleteModelResponse newResponse(
-        DeleteModelRequest request,
-        List<DeleteModelNodeResponse> responses,
-        List<FailedNodeException> failures
-    ) {
-        return new DeleteModelResponse(clusterService.getClusterName(), responses, failures);
-    }
-
-    @Override
-    protected DeleteModelNodeRequest newNodeRequest(DeleteModelRequest request) {
-        return new DeleteModelNodeRequest(request);
-    }
-
-    @Override
-    protected DeleteModelNodeResponse newNodeResponse(StreamInput in) throws IOException {
-        return new DeleteModelNodeResponse(in);
-    }
-
-    /**
-     *
-     * Delete checkpoint document (including both RCF and thresholding model), in-memory models,
-     * buffered shingle data, transport state, and anomaly result
-     *
-     * @param request delete request
-     * @return delete response including local node Id.
-     */
-    @Override
-    protected DeleteModelNodeResponse nodeOperation(DeleteModelNodeRequest request) {
-
+    protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteModelResponse> actionListener) {
+        // Delete checkpoint document (including both RCF and thresholding model), in-memory models,
+        // buffered shingle data, transport state, and anomaly result
         String adID = request.getAdID();
         LOG.info("Delete model for {}", adID);
         // delete in-memory models and model checkpoint
@@ -131,7 +97,15 @@ public class DeleteModelTransportAction extends
         adTaskCacheManager.removeRealtimeTaskCache(adID);
 
         LOG.info("Finished deleting {}", adID);
-        return new DeleteModelNodeResponse(clusterService.localNode());
+        DeleteModelNodeResponse deleteModelNodeResponse = new DeleteModelNodeResponse(clusterService.localNode());
+        actionListener.onResponse(newResponse(request, List.of(deleteModelNodeResponse), new ArrayList<>()));
     }
 
+    protected DeleteModelResponse newResponse(
+        DeleteModelRequest request,
+        List<DeleteModelNodeResponse> responses,
+        List<FailedNodeException> failures
+    ) {
+        return new DeleteModelResponse(clusterService.state().getClusterName(), responses, failures);
+    }
 }

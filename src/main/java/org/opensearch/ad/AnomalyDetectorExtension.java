@@ -91,6 +91,8 @@ import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultTransportAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.DeleteModelAction;
+import org.opensearch.ad.transport.DeleteModelTransportAction;
 import org.opensearch.ad.transport.EntityResultAction;
 import org.opensearch.ad.transport.EntityResultTransportAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
@@ -109,6 +111,8 @@ import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.ad.transport.SearchAnomalyResultTransportAction;
 import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
 import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.StopDetectorAction;
+import org.opensearch.ad.transport.StopDetectorTransportAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
@@ -765,7 +769,9 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(ADStatsNodesAction.INSTANCE, ADStatsNodesTransportAction.class),
                 new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
-                new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class)
+                new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class),
+                new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
+                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class)
             );
     }
 

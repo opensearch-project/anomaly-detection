@@ -1045,7 +1045,7 @@ public class ADTaskManager {
                 function.accept(adTasks);
             }
         }, e -> {
-            if (e instanceof IndexNotFoundException) {
+            if (e.getMessage().contains("index_not_found_exception")) {
                 function.accept(new ArrayList<>());
             } else {
                 logger.error("Failed to search AD task for detector " + detectorId, e);

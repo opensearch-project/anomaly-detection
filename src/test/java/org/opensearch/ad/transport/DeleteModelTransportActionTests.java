@@ -17,14 +17,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Before;
 import org.opensearch.Version;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.AbstractADTest;
@@ -38,16 +40,18 @@ import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.cluster.ClusterName;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.cluster.ClusterState;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.extensions.DiscoveryExtensionNode;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
@@ -63,12 +67,23 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         super.setUp();
         ThreadPool threadPool = mock(ThreadPool.class);
 
-        ClusterService clusterService = mock(ClusterService.class);
+        SDKClusterService clusterService = mock(SDKClusterService.class);
+        ClusterState clusterState = mock(ClusterState.class);
+        when(clusterService.state()).thenReturn(clusterState);
+        when(clusterState.getClusterName()).thenReturn(new ClusterName("clustername"));
         localNodeID = "foo";
-        when(clusterService.localNode()).thenReturn(new DiscoveryNode(localNodeID, buildNewFakeTransportAddress(), Version.CURRENT));
-        when(clusterService.getClusterName()).thenReturn(new ClusterName("test"));
+        DiscoveryExtensionNode discoveryExtensionNode = new DiscoveryExtensionNode(
+            "name",
+            localNodeID,
+            buildNewFakeTransportAddress(),
+            Collections.emptyMap(),
+            Version.CURRENT,
+            Version.CURRENT,
+            Collections.emptyList()
+        );
+        when(clusterService.localNode()).thenReturn(discoveryExtensionNode);
 
-        TransportService transportService = mock(TransportService.class);
+        TaskManager taskManager = mock(TaskManager.class);
         ActionFilters actionFilters = mock(ActionFilters.class);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         ModelManager modelManager = mock(ModelManager.class);
@@ -82,7 +97,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         action = new DeleteModelTransportAction(
             threadPool,
             clusterService,
-            transportService,
+            taskManager,
             actionFilters,
             nodeStateManager,
             modelManager,
@@ -105,10 +120,22 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
 
         DeleteModelNodeRequest nodeResponseRead = new DeleteModelNodeRequest(siNode);
 
-        DeleteModelNodeResponse nodeResponse1 = action.nodeOperation(nodeResponseRead);
-        DeleteModelNodeResponse nodeResponse2 = action.nodeOperation(new DeleteModelNodeRequest(request));
+        List<DeleteModelNodeResponse> nodeResponses = new ArrayList<>();
 
-        DeleteModelResponse response = action.newResponse(request, Arrays.asList(nodeResponse1, nodeResponse2), Collections.emptyList());
+        action
+            .doExecute(
+                mock(Task.class),
+                request,
+                ActionListener.wrap(response -> nodeResponses.add(response.getNodes().get(0)), ex -> assertTrue(false))
+            );
+        action
+            .doExecute(
+                mock(Task.class),
+                request,
+                ActionListener.wrap(response -> nodeResponses.add(response.getNodes().get(0)), ex -> assertTrue(false))
+            );
+
+        DeleteModelResponse response = action.newResponse(request, nodeResponses, Collections.emptyList());
 
         assertEquals(2, response.getNodes().size());
         assertTrue(!response.hasFailures());

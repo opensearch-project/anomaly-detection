@@ -16,6 +16,7 @@ import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
 import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
+import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -162,16 +163,15 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
                     String
                         .format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, START_JOB),
                     handleRequest
-                )/* ,
-                 // stop AD Job
-                 new ReplacedRoute(
+                ),
+                // stop AD Job
+                new ReplacedRouteHandler(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, STOP_JOB),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, STOP_JOB),
                     handleRequest
-                 )
-                 */
+                )
             );
     }
 
