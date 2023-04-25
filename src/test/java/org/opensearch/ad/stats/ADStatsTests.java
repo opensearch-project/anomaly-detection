@@ -100,9 +100,7 @@ public class ADStatsTests extends OpenSearchTestCase {
         IndexUtils indexUtils = mock(IndexUtils.class);
 
         when(indexUtils.getIndexHealthStatus(anyString())).thenReturn("yellow");
-        /*  @anomaly-detection - commented until we have support for SDKRestClient.stats()
         when(indexUtils.getNumberOfDocumentsInIndex(anyString())).thenReturn(100L);
-        */
 
         clusterStatName1 = "clusterStat1";
         clusterStatName2 = "clusterStat2";
