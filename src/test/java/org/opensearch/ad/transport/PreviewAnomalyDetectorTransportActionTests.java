@@ -89,6 +89,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     private Task task;
     private ADCircuitBreakerService circuitBreaker;
     private SDKNamedXContentRegistry mockSdkXContentRegistry;
+    private ExtensionsRunner mockRunner;
 
     @Override
     @Before
@@ -106,7 +107,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
                 AnomalyDetectorSettings.PAGE_SIZE,
                 AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW
             );
-        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        mockRunner = mock(ExtensionsRunner.class);
         Extension mockExtension = mock(Extension.class);
         when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
         when(mockRunner.getExtension()).thenReturn(mockExtension);
@@ -299,7 +300,6 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testPreviewTransportActionNoContext() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
-        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
         SDKRestClient client = mock(SDKRestClient.class);
         PreviewAnomalyDetectorTransportAction previewAction = new PreviewAnomalyDetectorTransportAction(
             mockRunner,
