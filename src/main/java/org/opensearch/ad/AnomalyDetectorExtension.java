@@ -59,6 +59,7 @@ import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestPreviewAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestSearchADTasksAction;
 import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
@@ -99,6 +100,8 @@ import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
+import org.opensearch.ad.transport.PreviewAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileTransportAction;
 import org.opensearch.ad.transport.RCFResultAction;
@@ -194,6 +197,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             .of(
                 new RestIndexAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestValidateAnomalyDetectorAction(extensionsRunner(), restClient()),
+                new RestPreviewAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestGetAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestAnomalyDetectorJobAction(extensionsRunner(), restClient()),
                 new RestDeleteAnomalyDetectorAction(extensionsRunner(), restClient()),
@@ -545,6 +549,12 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
         adStats = new ADStats(stats);
 
+        AnomalyDetectorRunner anomalyDetectorRunner = new AnomalyDetectorRunner(
+            modelManager,
+            featureManager,
+            AnomalyDetectorSettings.MAX_PREVIEW_RESULTS
+        );
+
         ADTaskCacheManager adTaskCacheManager = new ADTaskCacheManager(environmentSettings, sdkClusterService, memoryTracker);
         ADTaskManager adTaskManager = new ADTaskManager(
             environmentSettings,
@@ -612,6 +622,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 sdkRestClient,
                 sdkJavaAsyncClient,
                 anomalyDetectionIndices,
+                anomalyDetectorRunner,
                 searchFeatureDao,
                 singleFeatureLinearUniformInterpolator,
                 interpolator,
@@ -754,8 +765,9 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         return Arrays
             .asList(
                 new ActionHandler<>(IndexAnomalyDetectorAction.INSTANCE, IndexAnomalyDetectorTransportAction.class),
-                new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(PreviewAnomalyDetectorAction.INSTANCE, PreviewAnomalyDetectorTransportAction.class),
+                new ActionHandler<>(GetAnomalyDetectorAction.INSTANCE, GetAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADJobRunnerAction.INSTANCE, ADJobRunnerTransportAction.class),
                 new ActionHandler<>(ADJobParameterAction.INSTANCE, ADJobParameterTransportAction.class),
                 new ActionHandler<>(AnomalyDetectorJobAction.INSTANCE, AnomalyDetectorJobTransportAction.class),
