@@ -19,8 +19,8 @@ import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.task.ADTaskCancellationState;
@@ -55,7 +55,6 @@ public class ADCancelTaskTransportAction extends TransportAction<ADCancelTaskReq
     ) {
         return new ADCancelTaskResponse(clusterService.state().getClusterName(), responses, failures);
     }
-
 
     @Override
     protected void doExecute(Task task, ADCancelTaskRequest request, ActionListener<ADCancelTaskResponse> actionListener) {

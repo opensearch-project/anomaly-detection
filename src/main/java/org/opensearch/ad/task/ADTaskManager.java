@@ -1229,7 +1229,7 @@ public class ADTaskManager {
         }
 
         String taskId = adTask.get().getTaskId();
-        DiscoveryNode[] dataNodes = {clusterService.localNode()};
+        DiscoveryNode[] dataNodes = { clusterService.localNode() };
         String userName = user == null ? null : user.getName();
 
         ADCancelTaskRequest cancelTaskRequest = new ADCancelTaskRequest(detectorId, taskId, userName, dataNodes);
