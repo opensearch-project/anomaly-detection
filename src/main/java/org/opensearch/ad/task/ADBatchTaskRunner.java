@@ -12,8 +12,6 @@
 package org.opensearch.ad.task;
 
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
-import static org.opensearch.ad.breaker.MemoryCircuitBreaker.DEFAULT_JVM_HEAP_USAGE_THRESHOLD;
-import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.constant.CommonName.AGG_NAME_MAX_TIME;
 import static org.opensearch.ad.constant.CommonName.AGG_NAME_MIN_TIME;
 import static org.opensearch.ad.model.ADTask.CURRENT_PIECE_FIELD;
@@ -29,7 +27,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
 import static org.opensearch.ad.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
 
@@ -43,7 +40,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -83,9 +79,6 @@ import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
 import org.opensearch.ad.transport.ADBatchAnomalyResultResponse;
 import org.opensearch.ad.transport.ADBatchTaskRemoteExecutionAction;
-import org.opensearch.ad.transport.ADStatsNodeResponse;
-import org.opensearch.ad.transport.ADStatsNodesAction;
-import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
@@ -100,10 +93,10 @@ import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.opensearch.search.aggregations.metrics.InternalMax;
-import org.opensearch.search.aggregations.metrics.InternalMin;
+import org.opensearch.search.aggregations.metrics.ParsedMax;
+import org.opensearch.search.aggregations.metrics.ParsedMin;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportRequestOptions;
@@ -114,7 +107,6 @@ import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 public class ADBatchTaskRunner {
     private final Logger logger = LogManager.getLogger(ADBatchTaskRunner.class);
@@ -261,32 +253,31 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.setTopEntityInited(detectorId);
             int totalEntities = adTaskCacheManager.getPendingEntityCount(detectorId);
             logger.info("Total top entities: {} for detector {}, task {}", totalEntities, detectorId, taskId);
-            hashRing.getNodesWithSameLocalAdVersion(dataNodes -> {
-                int numberOfEligibleDataNodes = dataNodes.length;
-                // maxAdBatchTaskPerNode means how many task can run on per data node, which is hard limitation per node.
-                // maxRunningEntitiesPerDetector means how many entities can run per detector on whole cluster, which is
-                // soft limit to control how many entities to run in parallel per HC detector.
-                int maxRunningEntitiesLimit = Math
-                    .min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
-                adTaskCacheManager.setDetectorTaskLaneLimit(detectorId, maxRunningEntitiesLimit);
-                // scale down HC detector task slots in case there is less top entities in detection date range
-                int maxRunningEntities = Math.min(maxRunningEntitiesLimit, adTaskCacheManager.getDetectorTaskSlots(detectorId));
-                logger
-                    .debug(
-                        "Calculate task lane for detector {}: totalEntities: {}, numberOfEligibleDataNodes: {}, maxAdBatchTaskPerNode: {}, "
-                            + "maxRunningEntitiesPerDetector: {}, maxRunningEntities: {}, detectorTaskSlots: {}",
-                        detectorId,
-                        totalEntities,
-                        numberOfEligibleDataNodes,
-                        maxAdBatchTaskPerNode,
-                        maxRunningEntitiesPerDetector,
-                        maxRunningEntities,
-                        adTaskCacheManager.getDetectorTaskSlots(detectorId)
-                    );
-                forwardOrExecuteADTask(adTask, transportService, listener);
-                // As we have started one entity task, need to minus 1 for max allowed running entities.
-                adTaskCacheManager.setAllowedRunningEntities(detectorId, maxRunningEntities - 1);
-            }, listener);
+            DiscoveryNode[] dataNodes = { clusterService.localNode() };
+            int numberOfEligibleDataNodes = dataNodes.length;
+            // maxAdBatchTaskPerNode means how many task can run on per data node, which is hard limitation per node.
+            // maxRunningEntitiesPerDetector means how many entities can run per detector on whole cluster, which is
+            // soft limit to control how many entities to run in parallel per HC detector.
+            int maxRunningEntitiesLimit = Math
+                .min(totalEntities, Math.min(numberOfEligibleDataNodes * maxAdBatchTaskPerNode, maxRunningEntitiesPerDetector));
+            adTaskCacheManager.setDetectorTaskLaneLimit(detectorId, maxRunningEntitiesLimit);
+            // scale down HC detector task slots in case there is less top entities in detection date range
+            int maxRunningEntities = Math.min(maxRunningEntitiesLimit, adTaskCacheManager.getDetectorTaskSlots(detectorId));
+            logger
+                .debug(
+                    "Calculate task lane for detector {}: totalEntities: {}, numberOfEligibleDataNodes: {}, maxAdBatchTaskPerNode: {}, "
+                        + "maxRunningEntitiesPerDetector: {}, maxRunningEntities: {}, detectorTaskSlots: {}",
+                    detectorId,
+                    totalEntities,
+                    numberOfEligibleDataNodes,
+                    maxAdBatchTaskPerNode,
+                    maxRunningEntitiesPerDetector,
+                    maxRunningEntities,
+                    adTaskCacheManager.getDetectorTaskSlots(detectorId)
+                );
+            forwardOrExecuteADTask(adTask, transportService, listener);
+            // As we have started one entity task, need to minus 1 for max allowed running entities.
+            adTaskCacheManager.setAllowedRunningEntities(detectorId, maxRunningEntities - 1);
         }, e -> {
             logger.debug("Failed to run task " + taskId, e);
             if (adTask.getTaskType().equals(ADTaskType.HISTORICAL_HC_DETECTOR.name())) {
@@ -438,10 +429,10 @@ public class ADBatchTaskRunner {
         searchRequest.source(sourceBuilder);
         searchRequest.indices(adTask.getDetector().getIndices().toArray(new String[0]));
         client.search(searchRequest, ActionListener.wrap(r -> {
-            StringTerms stringTerms = r.getAggregations().get(topEntitiesAgg);
-            List<StringTerms.Bucket> buckets = stringTerms.getBuckets();
+            ParsedStringTerms stringTerms = r.getAggregations().get(topEntitiesAgg);
+            List<ParsedStringTerms.ParsedBucket> buckets = (List<ParsedStringTerms.ParsedBucket>) stringTerms.getBuckets();
             List<String> topEntities = new ArrayList<>();
-            for (StringTerms.Bucket bucket : buckets) {
+            for (ParsedStringTerms.ParsedBucket bucket : buckets) {
                 String key = bucket.getKeyAsString();
                 topEntities.add(key);
             }
@@ -666,6 +657,7 @@ public class ADBatchTaskRunner {
                 // Execute batch task locally
                 startADBatchTaskOnWorkerNode(adTask, false, transportService, workerNodeResponseListener);
             } else {
+                // For extensions this will never happen as all requests are directed to extension node (clusterService.localNode())
                 // Execute batch task remotely
                 transportService
                     .sendRequest(
@@ -688,17 +680,19 @@ public class ADBatchTaskRunner {
     }
 
     private void dispatchTask(ADTask adTask, ActionListener<DiscoveryNode> listener) {
+        listener.onResponse(clusterService.localNode());
+        /* @anomaly.detection commented until we have support for the hashring, not necessary to query for node stats as all tasks are dispatches to extension node 
         hashRing.getNodesWithSameLocalAdVersion(dataNodes -> {
             ADStatsRequest adStatsRequest = new ADStatsRequest(dataNodes);
             adStatsRequest.addAll(ImmutableSet.of(AD_EXECUTING_BATCH_TASK_COUNT.getName(), JVM_HEAP_USAGE.getName()));
-
+        
             client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
                 List<ADStatsNodeResponse> candidateNodeResponse = adStatsResponse
                     .getNodes()
                     .stream()
                     .filter(stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) < DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
                     .collect(Collectors.toList());
-
+        
                 if (candidateNodeResponse.size() == 0) {
                     StringBuilder errorMessageBuilder = new StringBuilder("All nodes' memory usage exceeds limitation ")
                         .append(DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
@@ -743,6 +737,7 @@ public class ADBatchTaskRunner {
                 listener.onFailure(exception);
             }));
         }, listener);
+        */
     }
 
     /**
@@ -950,8 +945,8 @@ public class ADBatchTaskRunner {
             .source(searchSourceBuilder);
 
         client.search(request, ActionListener.wrap(r -> {
-            InternalMin minAgg = r.getAggregations().get(AGG_NAME_MIN_TIME);
-            InternalMax maxAgg = r.getAggregations().get(AGG_NAME_MAX_TIME);
+            ParsedMin minAgg = r.getAggregations().get(AGG_NAME_MIN_TIME);
+            ParsedMax maxAgg = r.getAggregations().get(AGG_NAME_MAX_TIME);
             double minValue = minAgg.getValue();
             double maxValue = maxAgg.getValue();
             // If time field not exist or there is no value, will return infinity value
