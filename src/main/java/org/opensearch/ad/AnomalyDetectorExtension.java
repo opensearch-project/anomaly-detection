@@ -80,6 +80,8 @@ import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
 import org.opensearch.ad.transport.ADBatchAnomalyResultTransportAction;
+import org.opensearch.ad.transport.ADCancelTaskAction;
+import org.opensearch.ad.transport.ADCancelTaskTransportAction;
 import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
@@ -788,7 +790,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
-                new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class)
+                new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
+                new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class)
             );
     }
 

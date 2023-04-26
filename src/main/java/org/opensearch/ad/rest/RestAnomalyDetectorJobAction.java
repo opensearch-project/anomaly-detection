@@ -99,11 +99,6 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
 
-        // Ensure job details are registered with Job Scheduler prior to creating a job, no-op for historical request
-        if (!registeredJobDetails && !request.hasContent()) {
-            registerJobDetails();
-        }
-
         String detectorId = request.param(DETECTOR_ID);
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
@@ -119,6 +114,11 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             primaryTerm,
             rawPath
         );
+
+        // Ensure job details are registered with Job Scheduler prior to creating a job, no-op for historical request
+        if (rawPath.endsWith(RestHandlerUtils.START_JOB) && !registeredJobDetails && !request.hasContent()) {
+            registerJobDetails();
+        }
 
         // Execute anomaly detector job transport action
         CompletableFuture<AnomalyDetectorJobResponse> adJobFutureResponse = new CompletableFuture<>();
