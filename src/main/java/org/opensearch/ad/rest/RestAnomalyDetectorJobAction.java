@@ -99,8 +99,8 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
 
-        // Ensure job details are registered with Job Scheduler prior to creating a job
-        if (!registeredJobDetails) {
+        // Ensure job details are registered with Job Scheduler prior to creating a job, no-op for historical request
+        if (!registeredJobDetails && !request.hasContent()) {
             registerJobDetails();
         }
 

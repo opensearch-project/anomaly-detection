@@ -90,7 +90,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
@@ -495,13 +494,11 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         logger.debug("Forward AD task to coordinating node, task id: {}, action: {}", adTask.getTaskId(), adTaskAction.name());
-        transportService
-            .sendRequest(
-                getCoordinatingNode(adTask),
-                ForwardADTaskAction.NAME,
+        client
+            .execute(
+                ForwardADTaskAction.INSTANCE,
                 new ForwardADTaskRequest(adTask, adTaskAction),
-                transportRequestOptions,
-                new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+                ActionListener.wrap(response -> listener.onResponse(response), exception -> listener.onFailure(exception))
             );
     }
 
@@ -521,13 +518,11 @@ public class ADTaskManager {
         List<String> staleRunningEntity,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
-        transportService
-            .sendRequest(
-                getCoordinatingNode(adTask),
-                ForwardADTaskAction.NAME,
+        client
+            .execute(
+                ForwardADTaskAction.INSTANCE,
                 new ForwardADTaskRequest(adTask, adTaskAction, staleRunningEntity),
-                transportRequestOptions,
-                new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+                ActionListener.wrap(response -> listener.onResponse(response), exception -> listener.onFailure(exception))
             );
     }
 

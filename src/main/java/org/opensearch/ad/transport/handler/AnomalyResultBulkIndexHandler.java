@@ -13,28 +13,25 @@ package org.opensearch.ad.transport.handler;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
 import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.client.opensearch.OpenSearchAsyncClient;
-import org.opensearch.client.opensearch.core.BulkRequest;
-import org.opensearch.client.opensearch.core.BulkResponse;
-import org.opensearch.client.opensearch.core.bulk.BulkOperation;
-import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
+import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
@@ -43,12 +40,9 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
     private static final Logger LOG = LogManager.getLogger(AnomalyResultBulkIndexHandler.class);
 
     private AnomalyDetectionIndices anomalyDetectionIndices;
-    private OpenSearchAsyncClient sdkJavaAsyncClient;
-    private Settings settings;
 
     public AnomalyResultBulkIndexHandler(
         SDKRestClient client,
-        OpenSearchAsyncClient sdkJavaAsyncClient,
         Settings settings,
         ThreadPool threadPool,
         ClientUtil clientUtil,
@@ -58,8 +52,6 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
     ) {
         super(client, settings, threadPool, ANOMALY_RESULT_INDEX_ALIAS, anomalyDetectionIndices, clientUtil, indexUtils, clusterService);
         this.anomalyDetectionIndices = anomalyDetectionIndices;
-        this.sdkJavaAsyncClient = sdkJavaAsyncClient;
-        this.settings = settings;
     }
 
     /**
@@ -123,47 +115,30 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
     }
 
     private void bulkSaveDetectorResult(String resultIndex, List<AnomalyResult> anomalyResults, ActionListener<BulkResponse> listener) {
-        List<BulkOperation> operations = new ArrayList<>();
+        BulkRequest bulkRequest = new BulkRequest();
         anomalyResults.forEach(anomalyResult -> {
-            BulkOperation operation = new BulkOperation.Builder().index(i -> i.index(resultIndex).document(anomalyResult)).build();
-            operations.add(operation);
+            try (XContentBuilder builder = jsonBuilder()) {
+                IndexRequest indexRequest = new IndexRequest(resultIndex)
+                    .source(anomalyResult.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
+                bulkRequest.add(indexRequest);
+            } catch (Exception e) {
+                String error = "Failed to prepare request to bulk index anomaly results";
+                LOG.error(error, e);
+                throw new AnomalyDetectionException(error);
+            }
         });
-        BulkRequest bulkRequest = new BulkRequest.Builder().operations(operations).build();
-        try {
-            CompletableFuture<BulkResponse> response = sdkJavaAsyncClient.bulk(bulkRequest);
-            BulkResponse bulkResponse = response
-                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
-                .get();
-
-            if (bulkResponse.errors()) {
-                StringBuilder sb = new StringBuilder();
-                sb.append("Failed to prepare request to bulk index anomaly results:");
-                for (int i = 0; i < bulkResponse.items().size(); i++) {
-                    BulkResponseItem item = bulkResponse.items().get(i);
-                    if (item.error() != null) {
-                        sb
-                            .append("\n[")
-                            .append(i)
-                            .append("]: index [")
-                            .append(item.index())
-                            .append("], id [")
-                            .append(item.id())
-                            .append("], message [")
-                            .append(item.error().reason())
-                            .append("]");
-                    }
-                }
-                String failureMessage = sb.toString();
+        client.bulk(bulkRequest, ActionListener.wrap(r -> {
+            if (r.hasFailures()) {
+                String failureMessage = r.buildFailureMessage();
                 LOG.warn("Failed to bulk index AD result " + failureMessage);
                 listener.onFailure(new AnomalyDetectionException(failureMessage));
             } else {
-                listener.onResponse(bulkResponse);
+                listener.onResponse(r);
             }
 
-        } catch (Exception e) {
+        }, e -> {
             LOG.error("bulk index ad result failed", e);
             listener.onFailure(e);
-        }
+        }));
     }
-
 }

@@ -574,7 +574,6 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         );
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             sdkRestClient,
-            sdkJavaAsyncClient,
             environmentSettings,
             threadPool,
             clientUtil,
