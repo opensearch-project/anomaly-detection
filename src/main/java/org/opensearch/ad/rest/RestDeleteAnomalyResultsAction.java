@@ -23,20 +23,17 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
-import org.opensearch.rest.BaseRestHandler;
-import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -92,37 +89,31 @@ public class RestDeleteAnomalyResultsAction extends BaseExtensionRestHandler {
             .setQuery(searchSourceBuilder.query())
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN_HIDDEN);
         CompletableFuture<BulkByScrollResponse> futureResponse = new CompletableFuture<>();
-        client.execute(DeleteAnomalyResultsAction.INSTANCE, deleteRequest, ActionListener.wrap(
-            deleteResponse -> futureResponse.complete(deleteResponse),
-                    ex -> futureResponse.completeExceptionally(ex)
-        ));
+        client
+            .execute(
+                DeleteAnomalyResultsAction.INSTANCE,
+                deleteRequest,
+                ActionListener
+                    .wrap(deleteResponse -> futureResponse.complete(deleteResponse), ex -> futureResponse.completeExceptionally(ex))
+            );
         BulkByScrollResponse deleteByQueryResponse = futureResponse
-                .orTimeout(
-                        AnomalyDetectorSettings.REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings()).getMillis(),
-                        TimeUnit.MILLISECONDS
-                )
-                .join();
-        ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
-                request,
-                RestStatus.OK,
-                deleteByQueryResponse.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
-        );
+            .orTimeout(
+                AnomalyDetectorSettings.REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings()).getMillis(),
+                TimeUnit.MILLISECONDS
+            )
+            .join();
+
+        XContentBuilder contentBuilder = deleteByQueryResponse
+            .toXContent(JsonXContent.contentBuilder().startObject(), ToXContent.EMPTY_PARAMS);
+        contentBuilder.endObject();
+
+        ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(request, RestStatus.OK, contentBuilder);
         return extensionRestResponse;
-//        client.execute(DeleteAnomalyResultsAction.INSTANCE, deleteRequest, ActionListener.wrap(r -> {
-//            XContentBuilder contentBuilder = r.toXContent(channel.newBuilder().startObject(), ToXContent.EMPTY_PARAMS);
-//            contentBuilder.endObject();
-//            channel.sendResponse(new BytesRestResponse(RestStatus.OK, contentBuilder));
-//        }, e -> {
-//            try {
-//                channel.sendResponse(new BytesRestResponse(channel, e));
-//            } catch (IOException exception) {
-//                logger.error("Failed to send back delete anomaly result exception result", exception);
-//            }
-//        }));
     }
 
     @Override
     public List<RouteHandler> routeHandlers() {
-        return ImmutableList.of(new RouteHandler(RestRequest.Method.DELETE, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/results", handleRequest));
+        return ImmutableList
+            .of(new RouteHandler(RestRequest.Method.DELETE, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/results", handleRequest));
     }
 }
