@@ -67,7 +67,7 @@ public class ClusterCreation {
      *
      * TODO: ModelManagerTests has the same method.  Refactor.
      */
-    public static final Map<String, DiscoveryNode> createDataNodes(int numDataNodes) {
+    public static Map<String, DiscoveryNode> createDataNodes(int numDataNodes) {
         final Map<String, DiscoveryNode> dataNodes = new HashMap<>();
         for (int i = 0; i < numDataNodes; i++) {
             dataNodes.put("foo" + i, mock(DiscoveryNode.class));

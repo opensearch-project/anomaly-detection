@@ -250,7 +250,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         return clusterAdmin().updateSettings(updateSettingsRequest).actionGet(timeout);
     }
 
-    public final Map<String, DiscoveryNode> getDataNodes() {
+    public Map<String, DiscoveryNode> getDataNodes() {
         DiscoveryNodes nodes = clusterService().state().getNodes();
         return nodes.getDataNodes();
     }

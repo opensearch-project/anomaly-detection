@@ -62,6 +62,7 @@ import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestPreviewAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestSearchADTasksAction;
 import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchAnomalyDetectorInfoAction;
 import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
 import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
@@ -115,6 +116,8 @@ import org.opensearch.ad.transport.RCFResultTransportAction;
 import org.opensearch.ad.transport.SearchADTasksAction;
 import org.opensearch.ad.transport.SearchADTasksTransportAction;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
+import org.opensearch.ad.transport.SearchAnomalyDetectorInfoAction;
+import org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction;
 import org.opensearch.ad.transport.SearchAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.ad.transport.SearchAnomalyResultTransportAction;
@@ -210,7 +213,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient(), adStats, nodeFilter),
                 new RestSearchAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestSearchAnomalyResultAction(extensionsRunner(), restClient()),
-                new RestSearchADTasksAction(extensionsRunner(), restClient())
+                new RestSearchADTasksAction(extensionsRunner(), restClient()),
+                new RestSearchAnomalyDetectorInfoAction(extensionsRunner(), restClient())
             );
     }
 
@@ -787,6 +791,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
                 new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class),
+                new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
