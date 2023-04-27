@@ -63,7 +63,7 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
-import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
+import org.opensearch.search.aggregations.bucket.composite.ParsedComposite;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.aggregations.bucket.range.ParsedDateRange;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -578,7 +578,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         List<Aggregation> aggregations = response.getAggregations().asList();
         logger.debug("Feature aggregation result size {}", aggregations.size());
         for (Aggregation agg : aggregations) {
-            List<InternalComposite.InternalBucket> buckets = ((InternalComposite) agg).getBuckets();
+            List<ParsedComposite.ParsedBucket> buckets = ((ParsedComposite) agg).getBuckets();
             buckets.forEach(bucket -> {
                 Optional<double[]> featureData = parseAggregations(Optional.ofNullable(bucket.getAggregations()), featureIds);
                 dataPoints.put((Long) bucket.getKey().get(DATE_HISTOGRAM), featureData);

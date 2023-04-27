@@ -22,12 +22,11 @@ import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregations;
-import org.opensearch.search.aggregations.InternalAggregations;
-import org.opensearch.search.aggregations.bucket.InternalSingleBucketAggregation;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.opensearch.search.aggregations.bucket.ParsedSingleBucketAggregation;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
-import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation.SingleValue;
+import org.opensearch.search.aggregations.metrics.ParsedTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
@@ -63,8 +62,8 @@ public abstract class AbstractRetriever {
             InternalCardinality that is also a SingleValue
         */
 
-        if (aggregationToParse instanceof InternalSingleBucketAggregation) {
-            InternalAggregations bucket = ((InternalSingleBucketAggregation) aggregationToParse).getAggregations();
+        if (aggregationToParse instanceof ParsedSingleBucketAggregation) {
+            Aggregations bucket = ((ParsedSingleBucketAggregation) aggregationToParse).getAggregations();
             if (bucket != null) {
                 List<Aggregation> aggrs = bucket.asList();
                 if (aggrs.size() == 1) {
@@ -77,8 +76,8 @@ public abstract class AbstractRetriever {
         final Aggregation aggregation = aggregationToParse;
         if (aggregation instanceof SingleValue) {
             result = ((SingleValue) aggregation).value();
-        } else if (aggregation instanceof InternalTDigestPercentiles) {
-            Iterator<Percentile> percentile = ((InternalTDigestPercentiles) aggregation).iterator();
+        } else if (aggregation instanceof ParsedTDigestPercentiles) {
+            Iterator<Percentile> percentile = ((ParsedTDigestPercentiles) aggregation).iterator();
             if (percentile.hasNext()) {
                 result = percentile.next().getValue();
             }
