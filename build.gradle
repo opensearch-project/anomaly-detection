@@ -776,7 +776,13 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.ratelimit.ResultWriteRequest',
         'org.opensearch.ad.AnomalyDetectorJobRunner.*',
         'org.opensearch.ad.util.RestHandlerUtils',
-        'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction.*'
+        'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction.*',
+        'org.opensearch.ad.transport.RCFPollingAction',
+        'org.opensearch.ad.transport.RCFPollingRequest',
+        'org.opensearch.ad.transport.RCFPollingTransportAction',
+        'org.opensearch.ad.transport.RCFPollingTransportAction.*',
+        'org.opensearch.ad.transport.RCFPollingResponse',
+
 ]
 
 
