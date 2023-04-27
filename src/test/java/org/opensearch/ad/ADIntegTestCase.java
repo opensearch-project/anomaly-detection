@@ -64,7 +64,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.test.transport.MockTransportService;
 
-import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.google.common.collect.ImmutableMap;
 
 public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
@@ -267,7 +266,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public DiscoveryNode[] getDataNodesArray() {
         DiscoveryNodes nodes = clusterService().state().getNodes();
-        Iterator<String, DiscoveryNode> iterator = nodes.getDataNodes().values().iterator();
+        Iterator<DiscoveryNode> iterator = nodes.getDataNodes().values().iterator();
         List<DiscoveryNode> dataNodes = new ArrayList<>();
         while (iterator.hasNext()) {
             dataNodes.add(iterator.next().value);

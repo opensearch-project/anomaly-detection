@@ -72,7 +72,7 @@ public class ClusterCreation {
         for (int i = 0; i < numDataNodes; i++) {
             dataNodes.put("foo" + i, mock(DiscoveryNode.class));
         }
-        return dataNodes.build();
+        return dataNodes;
     }
 
     /**
