@@ -395,6 +395,22 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        hashRing.buildAndGetOwningNodeWithSameLocalAdVersion(AD_TASK_LEAD_NODE_MODEL_ID, node -> {
+            if (!node.isPresent()) {
+                listener.onFailure(new ResourceNotFoundException("Can't find AD task lead node"));
+                return;
+            }
+            transportService
+                .sendRequest(
+                    node.get(),
+                    ForwardADTaskAction.NAME,
+                    forwardADTaskRequest,
+                    transportRequestOptions,
+                    new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+                );
+        }, listener);
+        */
         client
             .execute(
                 ForwardADTaskAction.INSTANCE,
@@ -422,6 +438,26 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         String detectorId = detector.getDetectorId();
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        hashRing.buildAndGetOwningNodeWithSameLocalAdVersion(detectorId, owningNode -> {
+            if (!owningNode.isPresent()) {
+                logger.debug("Can't find eligible node to run as AD task's coordinating node");
+                listener.onFailure(new OpenSearchStatusException("No eligible node to run detector", RestStatus.INTERNAL_SERVER_ERROR));
+                return;
+            }
+            logger.debug("coordinating node is : {} for detector: {}", owningNode.get().getId(), detectorId);
+            forwardDetectRequestToCoordinatingNode(
+                detector,
+                detectionDateRange,
+                user,
+                availableTaskSlots,
+                ADTaskAction.START,
+                transportService,
+                owningNode.get(),
+                listener
+            );
+        }, listener);
+        */
         DiscoveryNode owningNode = clusterService.localNode();
         logger.debug("coordinating node is : {} for detector: {}", owningNode.getId(), detectorId);
         forwardDetectRequestToCoordinatingNode(
@@ -468,6 +504,19 @@ public class ADTaskManager {
         DiscoveryNode node,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        Version adVersion = hashRing.getAdVersion(node.getId());
+        transportService
+            .sendRequest(
+                node,
+                ForwardADTaskAction.NAME,
+                // We need to check AD version of remote node as we may send clean detector cache request to old
+                // node, check ADTaskManager#cleanDetectorCache.
+                new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction, availableTaskSlots, adVersion),
+                transportRequestOptions,
+                new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
         Version adVersion = Version.CURRENT;
         client
             .execute(
@@ -494,6 +543,16 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         logger.debug("Forward AD task to coordinating node, task id: {}, action: {}", adTask.getTaskId(), adTaskAction.name());
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        transportService
+            .sendRequest(
+                getCoordinatingNode(adTask),
+                ForwardADTaskAction.NAME,
+                new ForwardADTaskRequest(adTask, adTaskAction),
+                transportRequestOptions,
+                new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
         client
             .execute(
                 ForwardADTaskAction.INSTANCE,
@@ -518,6 +577,16 @@ public class ADTaskManager {
         List<String> staleRunningEntity,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        transportService
+            .sendRequest(
+                getCoordinatingNode(adTask),
+                ForwardADTaskAction.NAME,
+                new ForwardADTaskRequest(adTask, adTaskAction, staleRunningEntity),
+                transportRequestOptions,
+                new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
         client
             .execute(
                 ForwardADTaskAction.INSTANCE,
@@ -566,7 +635,9 @@ public class ADTaskManager {
             logger.debug("Release checking task slot semaphore on lead node for detector {}", detectorId);
         });
 
-        // Route request to extension node
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        hashRing.getNodesWithSameLocalAdVersion(nodes -> {
+        */
         DiscoveryNode[] extensionNode = { clusterService.localNode() };
 
         int maxAdTaskSlots = extensionNode.length * maxAdBatchTaskPerNode;
@@ -680,6 +751,17 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        DiscoveryNode coordinatingNode = getCoordinatingNode(adTask);
+        transportService
+            .sendRequest(
+                coordinatingNode,
+                ForwardADTaskAction.NAME,
+                new ForwardADTaskRequest(adTask, approvedTaskSlot, ADTaskAction.SCALE_ENTITY_TASK_SLOTS),
+                transportRequestOptions,
+                new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
         client
             .execute(
                 ForwardADTaskAction.INSTANCE,
@@ -1229,6 +1311,9 @@ public class ADTaskManager {
         }
 
         String taskId = adTask.get().getTaskId();
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        DiscoveryNode[] dataNodes = hashRing.getNodesWithSameLocalAdVersion();
+        */
         DiscoveryNode[] dataNodes = { clusterService.localNode() };
         String userName = user == null ? null : user.getName();
 
@@ -2676,6 +2761,9 @@ public class ADTaskManager {
      * @return detector task slots scale delta
      */
     public int detectorTaskSlotScaleDelta(String detectorId) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+        DiscoveryNode[] eligibleDataNodes = hashRing.getNodesWithSameLocalAdVersion();
+        */
         DiscoveryNode[] eligibleDataNodes = { clusterService.localNode() };
         int unfinishedEntities = adTaskCacheManager.getUnfinishedEntityCount(detectorId);
         int totalTaskSlots = eligibleDataNodes.length * maxAdBatchTaskPerNode;

@@ -253,6 +253,12 @@ public class ADBatchTaskRunner {
             adTaskCacheManager.setTopEntityInited(detectorId);
             int totalEntities = adTaskCacheManager.getPendingEntityCount(detectorId);
             logger.info("Total top entities: {} for detector {}, task {}", totalEntities, detectorId, taskId);
+
+            /* @anomaly-detection commented until we have support for the hashring, dataNodes will change once we have multi node support : https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
+             * 
+             *  hashRing.getNodesWithSameLocalAdVersion(dataNodes -> {
+            */
+
             DiscoveryNode[] dataNodes = { clusterService.localNode() };
             int numberOfEligibleDataNodes = dataNodes.length;
             // maxAdBatchTaskPerNode means how many task can run on per data node, which is hard limitation per node.
@@ -681,7 +687,7 @@ public class ADBatchTaskRunner {
 
     private void dispatchTask(ADTask adTask, ActionListener<DiscoveryNode> listener) {
         listener.onResponse(clusterService.localNode());
-        /* @anomaly.detection commented until we have support for the hashring, not necessary to query for node stats as all tasks are dispatches to extension node 
+        /* @anomaly.detection commented until we have support for the hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200 , not necessary to query for node stats as all tasks are dispatched to extension node 
         hashRing.getNodesWithSameLocalAdVersion(dataNodes -> {
             ADStatsRequest adStatsRequest = new ADStatsRequest(dataNodes);
             adStatsRequest.addAll(ImmutableSet.of(AD_EXECUTING_BATCH_TASK_COUNT.getName(), JVM_HEAP_USAGE.getName()));

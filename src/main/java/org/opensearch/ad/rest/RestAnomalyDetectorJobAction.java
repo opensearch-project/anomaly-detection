@@ -100,6 +100,8 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
 
+        registerJobDetailsIfNecessary(request);
+
         String detectorId = request.param(DETECTOR_ID);
         long seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO);
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
@@ -115,11 +117,6 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             primaryTerm,
             rawPath
         );
-
-        // Ensure job details are registered with Job Scheduler prior to creating a job, no-op for historical request
-        if (rawPath.endsWith(RestHandlerUtils.START_JOB) && !registeredJobDetails && !request.hasContent()) {
-            registerJobDetails();
-        }
 
         // Execute anomaly detector job transport action
         CompletableFuture<AnomalyDetectorJobResponse> adJobFutureResponse = new CompletableFuture<>();
@@ -184,37 +181,43 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
         }
     };
 
-    private void registerJobDetails() throws IOException {
+    private void registerJobDetailsIfNecessary(RestRequest request) throws IOException {
 
-        XContentBuilder requestBody = JsonXContent.contentBuilder();
-        requestBody.startObject();
-        requestBody.field(GetJobDetailsRequest.JOB_INDEX, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
-        requestBody.field(GetJobDetailsRequest.JOB_TYPE, AnomalyDetectorExtension.AD_JOB_TYPE);
-        requestBody.field(GetJobDetailsRequest.JOB_PARAMETER_ACTION, ADJobParameterAction.class.getName());
-        requestBody.field(GetJobDetailsRequest.JOB_RUNNER_ACTION, ADJobRunnerAction.class.getName());
-        requestBody.field(GetJobDetailsRequest.EXTENSION_UNIQUE_ID, extensionsRunner.getUniqueId());
-        requestBody.endObject();
+        // Ensure job details are registered with Job Scheduler prior to creating a job, no-op for historical/stop request
+        if (request.rawPath().endsWith(RestHandlerUtils.START_JOB) && !registeredJobDetails && !request.hasContent()) {
+            XContentBuilder requestBody = JsonXContent.contentBuilder();
+            requestBody.startObject();
+            requestBody.field(GetJobDetailsRequest.JOB_INDEX, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+            requestBody.field(GetJobDetailsRequest.JOB_TYPE, AnomalyDetectorExtension.AD_JOB_TYPE);
+            requestBody.field(GetJobDetailsRequest.JOB_PARAMETER_ACTION, ADJobParameterAction.class.getName());
+            requestBody.field(GetJobDetailsRequest.JOB_RUNNER_ACTION, ADJobRunnerAction.class.getName());
+            requestBody.field(GetJobDetailsRequest.EXTENSION_UNIQUE_ID, extensionsRunner.getUniqueId());
+            requestBody.endObject();
 
-        Request request = new Request("PUT", String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_job_details"));
-        request.setJsonEntity(Strings.toString(requestBody));
+            Request registerJobDetailsRequest = new Request(
+                "PUT",
+                String.format(Locale.ROOT, "%s/%s", JobSchedulerPlugin.JS_BASE_URI, "_job_details")
+            );
+            registerJobDetailsRequest.setJsonEntity(Strings.toString(requestBody));
 
-        CompletableFuture<Response> registerJobDetailsResponse = new CompletableFuture<>();
-        client.performRequestAsync(request, new ResponseListener() {
+            CompletableFuture<Response> registerJobDetailsResponse = new CompletableFuture<>();
+            client.performRequestAsync(registerJobDetailsRequest, new ResponseListener() {
 
-            @Override
-            public void onSuccess(Response response) {
-                registerJobDetailsResponse.complete(response);
-            }
+                @Override
+                public void onSuccess(Response response) {
+                    registerJobDetailsResponse.complete(response);
+                }
 
-            @Override
-            public void onFailure(Exception exception) {
-                registerJobDetailsResponse.completeExceptionally(exception);
-            }
+                @Override
+                public void onFailure(Exception exception) {
+                    registerJobDetailsResponse.completeExceptionally(exception);
+                }
 
-        });
+            });
 
-        Response response = registerJobDetailsResponse.orTimeout(15, TimeUnit.SECONDS).join();
-        this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
-        LOG.info("Job Details Registered : " + registeredJobDetails);
+            Response response = registerJobDetailsResponse.orTimeout(15, TimeUnit.SECONDS).join();
+            this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
+            LOG.info("Job Details Registered : " + registeredJobDetails);
+        }
     }
 }
