@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.transport;
 
-import com.google.inject.Inject;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Optional;
@@ -21,14 +20,12 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.TransportAction;
-import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
@@ -38,6 +35,8 @@ import org.opensearch.transport.TransportException;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
+
+import com.google.inject.Inject;
 
 /**
  * Transport action to get total rcf updates from hosted models or checkpoint
@@ -51,23 +50,23 @@ public class RCFPollingTransportAction extends TransportAction<RCFPollingRequest
 
     private final TransportService transportService;
     private final ModelManager modelManager;
-    //private final HashRing hashRing;
+    // private final HashRing hashRing;
     private final TransportRequestOptions option;
     private final SDKClusterService sdkClusterService;
-   // private final DiscoveryNode discoveryNode;
+    // private final DiscoveryNode discoveryNode;
 
     @Inject
     public RCFPollingTransportAction(
         ActionFilters actionFilters,
-        //Settings settings,
+        // Settings settings,
         ModelManager modelManager,
-        //HashRing hashRing,
+        // HashRing hashRing,
         TaskManager taskManager,
         ExtensionsRunner extensionsRunner
     ) {
         super(RCFPollingAction.NAME, actionFilters, taskManager);
         this.modelManager = modelManager;
-       // this.hashRing = hashRing;
+        // this.hashRing = hashRing;
         this.option = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
@@ -75,8 +74,8 @@ public class RCFPollingTransportAction extends TransportAction<RCFPollingRequest
             .build();
         this.sdkClusterService = extensionsRunner.getSdkClusterService();
         this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
-       //Adding the below piece of code as we are not supporting multinode. We need one node which we can fetch from clusterService.
-       // this.discoveryNode=extensionsRunner.getSdkClusterService().localNode();
+        // Adding the below piece of code as we are not supporting multinode. We need one node which we can fetch from clusterService.
+        // this.discoveryNode=extensionsRunner.getSdkClusterService().localNode();
     }
 
     @Override
@@ -87,9 +86,9 @@ public class RCFPollingTransportAction extends TransportAction<RCFPollingRequest
         String rcfModelID = SingleStreamModelIdMapper.getRcfModelId(adID, 0);
 
         /* Commenting the below piece of code as we do not have support for multinode */
-        //Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
+        // Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
 
-        Optional<DiscoveryNode> rcfNode= Optional.ofNullable(sdkClusterService.localNode());
+        Optional<DiscoveryNode> rcfNode = Optional.ofNullable(sdkClusterService.localNode());
         if (!rcfNode.isPresent()) {
             listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
             return;

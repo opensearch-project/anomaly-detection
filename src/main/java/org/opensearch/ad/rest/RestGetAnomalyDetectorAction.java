@@ -11,6 +11,9 @@
 
 package org.opensearch.ad.rest;
 
+import static org.opensearch.ad.util.RestHandlerUtils.*;
+import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
@@ -31,8 +34,6 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
-import static org.opensearch.ad.util.RestHandlerUtils.*;
-import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
@@ -111,24 +112,34 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
     public List<ReplacedRouteHandler> replacedRouteHandlers() {
         String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
         String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID);
-        return ImmutableList.of(
+        return ImmutableList
+            .of(
                 new ReplacedRouteHandler(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path, handleRequest),
-                new ReplacedRouteHandler(RestRequest.Method.HEAD, newPath, RestRequest.Method.HEAD, path,handleRequest),
+                new ReplacedRouteHandler(RestRequest.Method.HEAD, newPath, RestRequest.Method.HEAD, path, handleRequest),
                 new ReplacedRouteHandler(
-                        RestRequest.Method.GET,
-                        String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
-                        RestRequest.Method.GET,
-                        String.format(Locale.ROOT, "%s/{%s}/%s",AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE),
-                        handleRequest
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE),
+                    handleRequest
                 ),
                 new ReplacedRouteHandler(
-                        RestRequest.Method.GET,
-                        String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
-                        RestRequest.Method.GET,
-                        String.format(Locale.ROOT,"%s/{%s}/%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE, TYPE),
-                        handleRequest
+                    RestRequest.Method.GET,
+                    String
+                        .format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
+                    RestRequest.Method.GET,
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s/{%s}",
+                            AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI,
+                            DETECTOR_ID,
+                            PROFILE,
+                            TYPE
+                        ),
+                    handleRequest
                 )
-        );
+            );
     }
 
     private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {

@@ -748,7 +748,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
-                    new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class)
+                new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class)
             );
     }
 

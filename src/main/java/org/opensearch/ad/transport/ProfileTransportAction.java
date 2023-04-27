@@ -128,7 +128,7 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
                         List
                             .of(
                                 new ProfileNodeResponse(
-                                        sdkClusterService.localNode(),
+                                    sdkClusterService.localNode(),
                                     modelSize,
                                     shingleSize,
                                     activeEntity,
