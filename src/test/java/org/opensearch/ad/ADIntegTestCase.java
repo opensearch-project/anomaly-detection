@@ -269,7 +269,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         Iterator<DiscoveryNode> iterator = nodes.getDataNodes().values().iterator();
         List<DiscoveryNode> dataNodes = new ArrayList<>();
         while (iterator.hasNext()) {
-            dataNodes.add(iterator.next().value);
+            dataNodes.add(iterator.next());
         }
         return dataNodes.toArray(new DiscoveryNode[0]);
     }
