@@ -62,6 +62,7 @@ import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestPreviewAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestSearchADTasksAction;
 import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchAnomalyDetectorInfoAction;
 import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
 import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
@@ -165,7 +166,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestStatsAnomalyDetectorAction(extensionsRunner(), restClient(), adStats, nodeFilter),
                 new RestSearchAnomalyDetectorAction(extensionsRunner(), restClient()),
                 new RestSearchAnomalyResultAction(extensionsRunner(), restClient()),
-                new RestSearchADTasksAction(extensionsRunner(), restClient())
+                new RestSearchADTasksAction(extensionsRunner(), restClient()),
+                new RestSearchAnomalyDetectorInfoAction(extensionsRunner(), restClient())
             );
     }
 
@@ -743,10 +745,10 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(SearchAnomalyDetectorAction.INSTANCE, SearchAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
                 new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class),
+                new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                     new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class)
-
             );
     }
 
