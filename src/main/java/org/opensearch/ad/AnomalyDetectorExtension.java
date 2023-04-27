@@ -78,46 +78,7 @@ import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.ADJobParameterAction;
-import org.opensearch.ad.transport.ADJobParameterTransportAction;
-import org.opensearch.ad.transport.ADJobRunnerAction;
-import org.opensearch.ad.transport.ADJobRunnerTransportAction;
-import org.opensearch.ad.transport.ADResultBulkAction;
-import org.opensearch.ad.transport.ADResultBulkTransportAction;
-import org.opensearch.ad.transport.ADStatsNodesAction;
-import org.opensearch.ad.transport.ADStatsNodesTransportAction;
-import org.opensearch.ad.transport.AnomalyDetectorJobAction;
-import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
-import org.opensearch.ad.transport.AnomalyResultAction;
-import org.opensearch.ad.transport.AnomalyResultTransportAction;
-import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
-import org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.DeleteModelAction;
-import org.opensearch.ad.transport.DeleteModelTransportAction;
-import org.opensearch.ad.transport.EntityResultAction;
-import org.opensearch.ad.transport.EntityResultTransportAction;
-import org.opensearch.ad.transport.GetAnomalyDetectorAction;
-import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
-import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
-import org.opensearch.ad.transport.PreviewAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.ProfileAction;
-import org.opensearch.ad.transport.ProfileTransportAction;
-import org.opensearch.ad.transport.RCFResultAction;
-import org.opensearch.ad.transport.RCFResultTransportAction;
-import org.opensearch.ad.transport.SearchADTasksAction;
-import org.opensearch.ad.transport.SearchADTasksTransportAction;
-import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
-import org.opensearch.ad.transport.SearchAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.SearchAnomalyResultAction;
-import org.opensearch.ad.transport.SearchAnomalyResultTransportAction;
-import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
-import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
-import org.opensearch.ad.transport.StopDetectorAction;
-import org.opensearch.ad.transport.StopDetectorTransportAction;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.*;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
@@ -783,7 +744,9 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(SearchAnomalyResultAction.INSTANCE, SearchAnomalyResultTransportAction.class),
                 new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
-                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class)
+                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
+                    new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class)
+
             );
     }
 

@@ -15,6 +15,7 @@ import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECT
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_PARSE_DETECTOR_MSG;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
+import org.opensearch.ad.transport.*;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
@@ -49,10 +50,6 @@ import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.ProfileRequest;
-import org.opensearch.ad.transport.ProfileResponse;
-import org.opensearch.ad.transport.RCFPollingRequest;
-import org.opensearch.ad.transport.RCFPollingResponse;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
@@ -78,7 +75,7 @@ import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorProfileRunner.class);
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private SDKNamedXContentRegistry xContentRegistry;
     private DiscoveryNodeFilterer nodeFilter;
     private final TransportService transportService;
@@ -86,7 +83,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private final int maxTotalEntitiesToTrack;
 
     public AnomalyDetectorProfileRunner(
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         SDKNamedXContentRegistry xContentRegistry,
         DiscoveryNodeFilterer nodeFilter,
         long requiredSamples,
@@ -94,7 +91,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         ADTaskManager adTaskManager
     ) {
         super(requiredSamples);
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
         if (requiredSamples <= 0) {
@@ -119,7 +116,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         ActionListener<DetectorProfile> listener
     ) {
         GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
-        client.get(getDetectorRequest, ActionListener.wrap(getDetectorResponse -> {
+        sdkRestClient.get(getDetectorRequest, ActionListener.wrap(getDetectorResponse -> {
             if (getDetectorResponse != null && getDetectorResponse.isExists()) {
                 try (
                     XContentParser xContentParser = XContentType.JSON
@@ -153,7 +150,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     ) {
         String detectorId = detector.getDetectorId();
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
-        client.get(getRequest, ActionListener.wrap(getResponse -> {
+        sdkRestClient.get(getRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
                 try (
                     XContentParser parser = XContentType.JSON
@@ -298,7 +295,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 searchSourceBuilder.aggregation(aggBuilder);
 
                 SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
-                client.search(request, ActionListener.wrap(searchResponse -> {
+                sdkRestClient.search(request, ActionListener.wrap(searchResponse -> {
                     Map<String, Aggregation> aggMap = searchResponse.getAggregations().asMap();
                     InternalCardinality totalEntities = (InternalCardinality) aggMap.get(CommonName.TOTAL_ENTITIES);
                     long value = totalEntities.getValue();
@@ -321,7 +318,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 SearchRequest searchRequest = new SearchRequest()
                     .indices(detector.getIndices().toArray(new String[0]))
                     .source(searchSourceBuilder);
-                client.search(searchRequest, ActionListener.wrap(searchResponse -> {
+                sdkRestClient.search(searchRequest, ActionListener.wrap(searchResponse -> {
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                     Aggregations aggs = searchResponse.getAggregations();
                     if (aggs == null) {
@@ -383,7 +380,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     ) {
         if (enabled) {
             RCFPollingRequest request = new RCFPollingRequest(detector.getDetectorId());
-            // client.execute(RCFPollingAction.INSTANCE, request, onPollRCFUpdates(detector, profilesToCollect, listener));
+            sdkRestClient.execute(RCFPollingAction.INSTANCE, request, onPollRCFUpdates(detector, profilesToCollect, listener));
         } else {
             DetectorProfile.Builder builder = new DetectorProfile.Builder();
             if (profilesToCollect.contains(DetectorProfileName.STATE)) {
@@ -402,7 +399,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     ) {
         DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
         ProfileRequest profileRequest = new ProfileRequest(detector.getDetectorId(), profiles, forMultiEntityDetector, dataNodes);
-        // client.execute(ProfileAction.INSTANCE, profileRequest, onModelResponse(detector, profiles, job, listener));// get init progress
+        sdkRestClient.execute(ProfileAction.INSTANCE, profileRequest, onModelResponse(detector, profiles, job, listener));// get init progress
     }
 
     private ActionListener<ProfileResponse> onModelResponse(
@@ -482,7 +479,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
         SearchRequest searchLatestResult = createInittedEverRequest(detector.getDetectorId(), enabledTime, detector.getResultIndex());
-        client.search(searchLatestResult, onInittedEver(enabledTime, profile, profilesToCollect, detector, totalUpdates, listener));
+        sdkRestClient.search(searchLatestResult, onInittedEver(enabledTime, profile, profilesToCollect, detector, totalUpdates, listener));
     }
 
     private ActionListener<SearchResponse> onInittedEver(

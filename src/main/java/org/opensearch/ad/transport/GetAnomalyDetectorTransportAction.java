@@ -127,7 +127,7 @@ public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomal
         this.nodeFilter = nodeFilter;
         filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.adTaskManager = adTaskManager;
     }
 
