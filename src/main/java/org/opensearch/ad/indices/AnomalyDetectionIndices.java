@@ -1153,7 +1153,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     private static Integer getIntegerSetting(GetSettingsResponse settingsResponse, String settingKey) {
         Integer value = null;
-        Iterator<Settings> iter = settingsResponse.getIndexToSettings().valuesIt();
+        Iterator<Settings> iter = settingsResponse.getIndexToSettings().values().iterator();
         while (iter.hasNext()) {
             Settings settings = iter.next();
             value = settings.getAsInt(settingKey, null);
@@ -1166,7 +1166,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     private static String getStringSetting(GetSettingsResponse settingsResponse, String settingKey) {
         String value = null;
-        Iterator<Settings> iter = settingsResponse.getIndexToSettings().valuesIt();
+        Iterator<Settings> iter = settingsResponse.getIndexToSettings().values().iterator();
         while (iter.hasNext()) {
             Settings settings = iter.next();
             value = settings.get(settingKey, null);
