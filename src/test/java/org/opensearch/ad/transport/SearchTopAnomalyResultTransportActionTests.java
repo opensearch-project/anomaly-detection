@@ -33,14 +33,14 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.client.Client;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
 import com.google.common.collect.ImmutableList;
 
@@ -87,10 +87,10 @@ public class SearchTopAnomalyResultTransportActionTests extends ADIntegTestCase 
     public void setUp() throws Exception {
         super.setUp();
         action = new SearchTopAnomalyResultTransportAction(
-            mock(TransportService.class),
+            mock(TaskManager.class),
             mock(ActionFilters.class),
             mock(ADSearchHandler.class),
-            mock(Client.class)
+            mock(SDKRestClient.class)
         );
     }
 
