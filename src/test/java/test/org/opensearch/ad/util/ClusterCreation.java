@@ -18,7 +18,9 @@ import static org.opensearch.cluster.node.DiscoveryNodeRole.DATA_ROLE;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterName;
@@ -26,7 +28,6 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.transport.TransportAddress;
 
 public class ClusterCreation {
@@ -66,8 +67,8 @@ public class ClusterCreation {
      *
      * TODO: ModelManagerTests has the same method.  Refactor.
      */
-    public static ImmutableOpenMap<String, DiscoveryNode> createDataNodes(int numDataNodes) {
-        ImmutableOpenMap.Builder<String, DiscoveryNode> dataNodes = ImmutableOpenMap.builder();
+    public static final Map<String, DiscoveryNode> createDataNodes(int numDataNodes) {
+        final Map<String, DiscoveryNode> dataNodes = new HashMap<>();
         for (int i = 0; i < numDataNodes; i++) {
             dataNodes.put("foo" + i, mock(DiscoveryNode.class));
         }

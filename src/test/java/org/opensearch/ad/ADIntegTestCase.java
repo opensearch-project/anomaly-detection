@@ -53,7 +53,6 @@ import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -252,7 +251,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         return clusterAdmin().updateSettings(updateSettingsRequest).actionGet(timeout);
     }
 
-    public ImmutableOpenMap<String, DiscoveryNode> getDataNodes() {
+    public final Map<String, DiscoveryNode> getDataNodes() {
         DiscoveryNodes nodes = clusterService().state().getNodes();
         return nodes.getDataNodes();
     }
@@ -268,7 +267,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public DiscoveryNode[] getDataNodesArray() {
         DiscoveryNodes nodes = clusterService().state().getNodes();
-        Iterator<ObjectObjectCursor<String, DiscoveryNode>> iterator = nodes.getDataNodes().iterator();
+        Iterator<ObjectObjectCursor<String, DiscoveryNode>> iterator = nodes.getDataNodes().values().iterator();
         List<DiscoveryNode> dataNodes = new ArrayList<>();
         while (iterator.hasNext()) {
             dataNodes.add(iterator.next().value);
