@@ -36,7 +36,7 @@ import com.google.inject.Inject;
 
 public class DeleteAnomalyResultsTransportAction extends TransportAction<DeleteByQueryRequest, BulkByScrollResponse> {
 
-    private final SDKRestClient client;
+    private final SDKRestClient sdkRestClient;
     private volatile Boolean filterEnabled;
     private static final Logger logger = LogManager.getLogger(DeleteAnomalyResultsTransportAction.class);
     private final Settings settings;
@@ -46,14 +46,14 @@ public class DeleteAnomalyResultsTransportAction extends TransportAction<DeleteB
         ExtensionsRunner extensionsRunner,
         TaskManager taskManager,
         ActionFilters actionFilters,
-        SDKClusterService clusterService,
-        SDKRestClient client
+        SDKClusterService sdkClusterService,
+        SDKRestClient sdkRestClient
     ) {
         super(DeleteAnomalyResultsAction.NAME, actionFilters, taskManager);
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.settings = extensionsRunner.getEnvironmentSettings();
         filterEnabled = FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
+        sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
 
     @Override
@@ -80,13 +80,13 @@ public class DeleteAnomalyResultsTransportAction extends TransportAction<DeleteB
             // user is already authenticated to hit this API.
             // client.execute(DeleteByQueryAction.INSTANCE, request, listener);
             // client.execute(DeleteByQueryAction.INSTANCE, request, listener);
-            client.deleteByQueryAsync(request, listener);
+            sdkRestClient.deleteByQuery(request, listener);
         } else {
             // Security is enabled and backend role filter is enabled
             try {
                 addUserBackendRolesFilter(user, request.getSearchRequest().source());
                 // client.execute(DeleteByQueryAction.INSTANCE, request, listener);
-                client.deleteByQueryAsync(request, listener);
+                sdkRestClient.deleteByQuery(request, listener);
             } catch (Exception e) {
                 listener.onFailure(e);
             }

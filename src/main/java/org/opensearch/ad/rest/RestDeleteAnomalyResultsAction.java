@@ -60,11 +60,11 @@ public class RestDeleteAnomalyResultsAction extends BaseExtensionRestHandler {
     private static final String DELETE_AD_RESULTS_ACTION = "delete_anomaly_results";
     private static final Logger logger = LogManager.getLogger(RestDeleteAnomalyResultsAction.class);
     private ExtensionsRunner extensionsRunner;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
 
     public RestDeleteAnomalyResultsAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
         this.extensionsRunner = extensionsRunner;
-        this.client = client;
+        this.sdkRestClient = client;
     }
 
     public String getName() {
@@ -89,7 +89,7 @@ public class RestDeleteAnomalyResultsAction extends BaseExtensionRestHandler {
             .setQuery(searchSourceBuilder.query())
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN_HIDDEN);
         CompletableFuture<BulkByScrollResponse> futureResponse = new CompletableFuture<>();
-        client
+        sdkRestClient
             .execute(
                 DeleteAnomalyResultsAction.INSTANCE,
                 deleteRequest,
