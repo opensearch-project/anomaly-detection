@@ -79,6 +79,10 @@ import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
+import org.opensearch.ad.transport.ADBatchAnomalyResultTransportAction;
+import org.opensearch.ad.transport.ADCancelTaskAction;
+import org.opensearch.ad.transport.ADCancelTaskTransportAction;
 import org.opensearch.ad.transport.ADJobParameterAction;
 import org.opensearch.ad.transport.ADJobParameterTransportAction;
 import org.opensearch.ad.transport.ADJobRunnerAction;
@@ -97,6 +101,8 @@ import org.opensearch.ad.transport.DeleteModelAction;
 import org.opensearch.ad.transport.DeleteModelTransportAction;
 import org.opensearch.ad.transport.EntityResultAction;
 import org.opensearch.ad.transport.EntityResultTransportAction;
+import org.opensearch.ad.transport.ForwardADTaskAction;
+import org.opensearch.ad.transport.ForwardADTaskTransportAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
@@ -574,7 +580,6 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         );
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler = new AnomalyResultBulkIndexHandler(
             sdkRestClient,
-            sdkJavaAsyncClient,
             environmentSettings,
             threadPool,
             clientUtil,
@@ -788,8 +793,10 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(SearchADTasksAction.INSTANCE, SearchADTasksTransportAction.class),
                 new ActionHandler<>(SearchAnomalyDetectorInfoAction.INSTANCE, SearchAnomalyDetectorInfoTransportAction.class),
                 new ActionHandler<>(StopDetectorAction.INSTANCE, StopDetectorTransportAction.class),
-                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class)
-
+                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
+                new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
+                new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
+                new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class)
             );
     }
 

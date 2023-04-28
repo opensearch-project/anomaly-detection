@@ -23,7 +23,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.auth.UserIdentity;
 import org.opensearch.ad.feature.FeatureManager;
@@ -34,14 +34,16 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 
-public class ForwardADTaskTransportAction extends HandledTransportAction<ForwardADTaskRequest, AnomalyDetectorJobResponse> {
+public class ForwardADTaskTransportAction extends TransportAction<ForwardADTaskRequest, AnomalyDetectorJobResponse> {
     private final Logger logger = LogManager.getLogger(ForwardADTaskTransportAction.class);
     private final TransportService transportService;
     private final ADTaskManager adTaskManager;
@@ -59,16 +61,17 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
 
     @Inject
     public ForwardADTaskTransportAction(
+        ExtensionsRunner extensionsRunner,
+        TaskManager taskManager,
         ActionFilters actionFilters,
-        TransportService transportService,
         ADTaskManager adTaskManager,
         ADTaskCacheManager adTaskCacheManager,
         FeatureManager featureManager,
         NodeStateManager stateManager
     ) {
-        super(ForwardADTaskAction.NAME, transportService, actionFilters, ForwardADTaskRequest::new);
+        super(ForwardADTaskAction.NAME, actionFilters, taskManager);
         this.adTaskManager = adTaskManager;
-        this.transportService = transportService;
+        this.transportService = extensionsRunner.getExtensionTransportService();
         this.adTaskCacheManager = adTaskCacheManager;
         this.featureManager = featureManager;
         this.stateManager = stateManager;
