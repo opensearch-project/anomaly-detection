@@ -13,77 +13,58 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.HISTORICAL_ANALYSIS_CANCELLED;
 
-import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.nodes.TransportNodesAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.task.ADTaskCancellationState;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 
-public class ADCancelTaskTransportAction extends
-    TransportNodesAction<ADCancelTaskRequest, ADCancelTaskResponse, ADCancelTaskNodeRequest, ADCancelTaskNodeResponse> {
+import com.google.inject.Inject;
+
+public class ADCancelTaskTransportAction extends TransportAction<ADCancelTaskRequest, ADCancelTaskResponse> {
     private final Logger logger = LogManager.getLogger(ADCancelTaskTransportAction.class);
     private ADTaskManager adTaskManager;
+    private SDKClusterService clusterService;
 
     @Inject
     public ADCancelTaskTransportAction(
-        ThreadPool threadPool,
-        ClusterService clusterService,
-        TransportService transportService,
+        TaskManager taskManager,
         ActionFilters actionFilters,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        SDKClusterService clusterService
     ) {
-        super(
-            ADCancelTaskAction.NAME,
-            threadPool,
-            clusterService,
-            transportService,
-            actionFilters,
-            ADCancelTaskRequest::new,
-            ADCancelTaskNodeRequest::new,
-            ThreadPool.Names.MANAGEMENT,
-            ADCancelTaskNodeResponse.class
-        );
+        super(ADCancelTaskAction.NAME, actionFilters, taskManager);
         this.adTaskManager = adTaskManager;
+        this.clusterService = clusterService;
     }
 
-    @Override
     protected ADCancelTaskResponse newResponse(
         ADCancelTaskRequest request,
         List<ADCancelTaskNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADCancelTaskResponse(clusterService.getClusterName(), responses, failures);
+        return new ADCancelTaskResponse(clusterService.state().getClusterName(), responses, failures);
     }
 
     @Override
-    protected ADCancelTaskNodeRequest newNodeRequest(ADCancelTaskRequest request) {
-        return new ADCancelTaskNodeRequest(request);
-    }
-
-    @Override
-    protected ADCancelTaskNodeResponse newNodeResponse(StreamInput in) throws IOException {
-        return new ADCancelTaskNodeResponse(in);
-    }
-
-    @Override
-    protected ADCancelTaskNodeResponse nodeOperation(ADCancelTaskNodeRequest request) {
+    protected void doExecute(Task task, ADCancelTaskRequest request, ActionListener<ADCancelTaskResponse> actionListener) {
         String userName = request.getUserName();
         String detectorId = request.getDetectorId();
         String detectorTaskId = request.getDetectorTaskId();
         String reason = Optional.ofNullable(request.getReason()).orElse(HISTORICAL_ANALYSIS_CANCELLED);
         ADTaskCancellationState state = adTaskManager.cancelLocalTaskByDetectorId(detectorId, detectorTaskId, reason, userName);
         logger.debug("Cancelled AD task for detector: {}", request.getDetectorId());
-        return new ADCancelTaskNodeResponse(clusterService.localNode(), state);
+        ADCancelTaskNodeResponse adCancelTaskNodeResponse = new ADCancelTaskNodeResponse(clusterService.localNode(), state);
+        actionListener.onResponse(newResponse(request, List.of(adCancelTaskNodeResponse), Collections.emptyList()));
     }
 }

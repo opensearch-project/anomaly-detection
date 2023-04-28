@@ -90,7 +90,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
@@ -204,7 +203,6 @@ public class ADTaskManager {
     private final AnomalyDetectionIndices detectionIndices;
     private final DiscoveryNodeFilterer nodeFilter;
     private final ADTaskCacheManager adTaskCacheManager;
-
     private final HashRing hashRing;
     private volatile Integer maxOldAdTaskDocsPerDetector;
     private volatile Integer pieceIntervalSeconds;
@@ -397,6 +395,7 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         hashRing.buildAndGetOwningNodeWithSameLocalAdVersion(AD_TASK_LEAD_NODE_MODEL_ID, node -> {
             if (!node.isPresent()) {
                 listener.onFailure(new ResourceNotFoundException("Can't find AD task lead node"));
@@ -411,6 +410,13 @@ public class ADTaskManager {
                     new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
                 );
         }, listener);
+        */
+        client
+            .execute(
+                ForwardADTaskAction.INSTANCE,
+                forwardADTaskRequest,
+                ActionListener.wrap(response -> listener.onResponse(response), exception -> listener.onFailure(exception))
+            );
     }
 
     /**
@@ -432,6 +438,7 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         String detectorId = detector.getDetectorId();
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         hashRing.buildAndGetOwningNodeWithSameLocalAdVersion(detectorId, owningNode -> {
             if (!owningNode.isPresent()) {
                 logger.debug("Can't find eligible node to run as AD task's coordinating node");
@@ -450,7 +457,19 @@ public class ADTaskManager {
                 listener
             );
         }, listener);
-
+        */
+        DiscoveryNode owningNode = clusterService.localNode();
+        logger.debug("coordinating node is : {} for detector: {}", owningNode.getId(), detectorId);
+        forwardDetectRequestToCoordinatingNode(
+            detector,
+            detectionDateRange,
+            user,
+            availableTaskSlots,
+            ADTaskAction.START,
+            transportService,
+            owningNode,
+            listener
+        );
     }
 
     /**
@@ -485,6 +504,7 @@ public class ADTaskManager {
         DiscoveryNode node,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         Version adVersion = hashRing.getAdVersion(node.getId());
         transportService
             .sendRequest(
@@ -495,6 +515,16 @@ public class ADTaskManager {
                 new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction, availableTaskSlots, adVersion),
                 transportRequestOptions,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
+        Version adVersion = Version.CURRENT;
+        client
+            .execute(
+                ForwardADTaskAction.INSTANCE,
+                // We need to check AD version of remote node as we may send clean detector cache request to old
+                // node, check ADTaskManager#cleanDetectorCache.
+                new ForwardADTaskRequest(detector, detectionDateRange, user, adTaskAction, availableTaskSlots, adVersion),
+                ActionListener.wrap(response -> listener.onResponse(response), exception -> listener.onFailure(exception))
             );
     }
 
@@ -513,6 +543,7 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         logger.debug("Forward AD task to coordinating node, task id: {}, action: {}", adTask.getTaskId(), adTaskAction.name());
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         transportService
             .sendRequest(
                 getCoordinatingNode(adTask),
@@ -520,6 +551,13 @@ public class ADTaskManager {
                 new ForwardADTaskRequest(adTask, adTaskAction),
                 transportRequestOptions,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
+        client
+            .execute(
+                ForwardADTaskAction.INSTANCE,
+                new ForwardADTaskRequest(adTask, adTaskAction),
+                ActionListener.wrap(response -> listener.onResponse(response), exception -> listener.onFailure(exception))
             );
     }
 
@@ -539,6 +577,7 @@ public class ADTaskManager {
         List<String> staleRunningEntity,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         transportService
             .sendRequest(
                 getCoordinatingNode(adTask),
@@ -546,6 +585,13 @@ public class ADTaskManager {
                 new ForwardADTaskRequest(adTask, adTaskAction, staleRunningEntity),
                 transportRequestOptions,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
+        client
+            .execute(
+                ForwardADTaskAction.INSTANCE,
+                new ForwardADTaskRequest(adTask, adTaskAction, staleRunningEntity),
+                ActionListener.wrap(response -> listener.onResponse(response), exception -> listener.onFailure(exception))
             );
     }
 
@@ -588,62 +634,42 @@ public class ADTaskManager {
             checkingTaskSlot.release(1);
             logger.debug("Release checking task slot semaphore on lead node for detector {}", detectorId);
         });
+
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         hashRing.getNodesWithSameLocalAdVersion(nodes -> {
-            int maxAdTaskSlots = nodes.length * maxAdBatchTaskPerNode;
-            ADStatsRequest adStatsRequest = new ADStatsRequest(nodes);
-            adStatsRequest
-                .addAll(ImmutableSet.of(AD_USED_BATCH_TASK_SLOT_COUNT.getName(), AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT.getName()));
-            client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
-                int totalUsedTaskSlots = 0; // Total entity tasks running on worker nodes
-                int totalAssignedTaskSlots = 0; // Total assigned task slots on coordinating nodes
-                for (ADStatsNodeResponse response : adStatsResponse.getNodes()) {
-                    totalUsedTaskSlots += (int) response.getStatsMap().get(AD_USED_BATCH_TASK_SLOT_COUNT.getName());
-                    totalAssignedTaskSlots += (int) response.getStatsMap().get(AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT.getName());
-                }
-                logger
-                    .info(
-                        "Current total used task slots is {}, total detector assigned task slots is {} when start historical "
-                            + "analysis for detector {}",
-                        totalUsedTaskSlots,
-                        totalAssignedTaskSlots,
-                        detectorId
-                    );
-                // In happy case, totalAssignedTaskSlots >= totalUsedTaskSlots. If some coordinating node left, then we can't
-                // get detector task slots cached on it, so it's possible that totalAssignedTaskSlots < totalUsedTaskSlots.
-                int currentUsedTaskSlots = Math.max(totalUsedTaskSlots, totalAssignedTaskSlots);
-                if (currentUsedTaskSlots >= maxAdTaskSlots) {
-                    wrappedActionListener.onFailure(new OpenSearchStatusException("No available task slot", RestStatus.BAD_REQUEST));
-                    return;
-                }
-                int availableAdTaskSlots = maxAdTaskSlots - currentUsedTaskSlots;
-                logger.info("Current available task slots is {} for historical analysis of detector {}", availableAdTaskSlots, detectorId);
+        */
+        DiscoveryNode[] extensionNode = { clusterService.localNode() };
 
-                if (ADTaskAction.SCALE_ENTITY_TASK_SLOTS == afterCheckAction) {
-                    forwardToCoordinatingNode(
-                        adTask,
-                        detector,
-                        detectionDateRange,
-                        user,
-                        afterCheckAction,
-                        transportService,
-                        wrappedActionListener,
-                        availableAdTaskSlots
-                    );
-                    return;
-                }
+        int maxAdTaskSlots = extensionNode.length * maxAdBatchTaskPerNode;
+        ADStatsRequest adStatsRequest = new ADStatsRequest(extensionNode);
+        adStatsRequest
+            .addAll(ImmutableSet.of(AD_USED_BATCH_TASK_SLOT_COUNT.getName(), AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT.getName()));
+        client.execute(ADStatsNodesAction.INSTANCE, adStatsRequest, ActionListener.wrap(adStatsResponse -> {
+            int totalUsedTaskSlots = 0; // Total entity tasks running on worker nodes
+            int totalAssignedTaskSlots = 0; // Total assigned task slots on coordinating nodes
+            for (ADStatsNodeResponse response : adStatsResponse.getNodes()) {
+                totalUsedTaskSlots += (int) response.getStatsMap().get(AD_USED_BATCH_TASK_SLOT_COUNT.getName());
+                totalAssignedTaskSlots += (int) response.getStatsMap().get(AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT.getName());
+            }
+            logger
+                .info(
+                    "Current total used task slots is {}, total detector assigned task slots is {} when start historical "
+                        + "analysis for detector {}",
+                    totalUsedTaskSlots,
+                    totalAssignedTaskSlots,
+                    detectorId
+                );
+            // In happy case, totalAssignedTaskSlots >= totalUsedTaskSlots. If some coordinating node left, then we can't
+            // get detector task slots cached on it, so it's possible that totalAssignedTaskSlots < totalUsedTaskSlots.
+            int currentUsedTaskSlots = Math.max(totalUsedTaskSlots, totalAssignedTaskSlots);
+            if (currentUsedTaskSlots >= maxAdTaskSlots) {
+                wrappedActionListener.onFailure(new OpenSearchStatusException("No available task slot", RestStatus.BAD_REQUEST));
+                return;
+            }
+            int availableAdTaskSlots = maxAdTaskSlots - currentUsedTaskSlots;
+            logger.info("Current available task slots is {} for historical analysis of detector {}", availableAdTaskSlots, detectorId);
 
-                // It takes long time to check top entities especially for multi-category HC. Tested with
-                // 1.8 billion docs for multi-category HC, it took more than 20 seconds and caused timeout.
-                // By removing top entity check, it took about 200ms to return. So just remove it to make
-                // sure REST API can return quickly.
-                // We may assign more task slots. For example, cluster has 4 data nodes, each node can run 2
-                // batch tasks, so the available task slot number is 8. If max running entities per HC is 4,
-                // then we will assign 4 tasks slots to this HC detector (4 is less than 8). The data index
-                // only has 2 entities. So we assign 2 more task slots than actual need. But it's ok as we
-                // will auto tune task slot when historical analysis task starts.
-                int approvedTaskSlots = detector.isMultientityDetector()
-                    ? Math.min(maxRunningEntitiesPerDetector, availableAdTaskSlots)
-                    : 1;
+            if (ADTaskAction.SCALE_ENTITY_TASK_SLOTS == afterCheckAction) {
                 forwardToCoordinatingNode(
                     adTask,
                     detector,
@@ -652,13 +678,36 @@ public class ADTaskManager {
                     afterCheckAction,
                     transportService,
                     wrappedActionListener,
-                    approvedTaskSlots
+                    availableAdTaskSlots
                 );
-            }, exception -> {
-                logger.error("Failed to get node's task stats for detector " + detectorId, exception);
-                wrappedActionListener.onFailure(exception);
-            }));
-        }, wrappedActionListener);
+                return;
+            }
+
+            // It takes long time to check top entities especially for multi-category HC. Tested with
+            // 1.8 billion docs for multi-category HC, it took more than 20 seconds and caused timeout.
+            // By removing top entity check, it took about 200ms to return. So just remove it to make
+            // sure REST API can return quickly.
+            // We may assign more task slots. For example, cluster has 4 data nodes, each node can run 2
+            // batch tasks, so the available task slot number is 8. If max running entities per HC is 4,
+            // then we will assign 4 tasks slots to this HC detector (4 is less than 8). The data index
+            // only has 2 entities. So we assign 2 more task slots than actual need. But it's ok as we
+            // will auto tune task slot when historical analysis task starts.
+            int approvedTaskSlots = detector.isMultientityDetector() ? Math.min(maxRunningEntitiesPerDetector, availableAdTaskSlots) : 1;
+            forwardToCoordinatingNode(
+                adTask,
+                detector,
+                detectionDateRange,
+                user,
+                afterCheckAction,
+                transportService,
+                wrappedActionListener,
+                approvedTaskSlots
+            );
+        }, exception -> {
+            logger.error("Failed to get node's task stats for detector " + detectorId, exception);
+            wrappedActionListener.onFailure(exception);
+        }));
+
     }
 
     private void forwardToCoordinatingNode(
@@ -702,6 +751,7 @@ public class ADTaskManager {
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         DiscoveryNode coordinatingNode = getCoordinatingNode(adTask);
         transportService
             .sendRequest(
@@ -710,6 +760,13 @@ public class ADTaskManager {
                 new ForwardADTaskRequest(adTask, approvedTaskSlot, ADTaskAction.SCALE_ENTITY_TASK_SLOTS),
                 transportRequestOptions,
                 new ActionListenerResponseHandler<>(listener, AnomalyDetectorJobResponse::new)
+            );
+        */
+        client
+            .execute(
+                ForwardADTaskAction.INSTANCE,
+                new ForwardADTaskRequest(adTask, approvedTaskSlot, ADTaskAction.SCALE_ENTITY_TASK_SLOTS),
+                ActionListener.wrap(response -> listener.onResponse(response), exception -> listener.onFailure(exception))
             );
     }
 
@@ -775,7 +832,7 @@ public class ADTaskManager {
                         listener.onFailure(new OpenSearchStatusException(error, RestStatus.INTERNAL_SERVER_ERROR));
                     }
                 }, e -> {
-                    if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
+                    if (e.getMessage().contains("resource_already_exists_exception")) {
                         updateLatestFlagOfOldTasksAndCreateNewTask(detector, detectionDateRange, user, listener);
                     } else {
                         logger.error("Failed to init anomaly detection state index", e);
@@ -1254,7 +1311,10 @@ public class ADTaskManager {
         }
 
         String taskId = adTask.get().getTaskId();
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         DiscoveryNode[] dataNodes = hashRing.getNodesWithSameLocalAdVersion();
+        */
+        DiscoveryNode[] dataNodes = { clusterService.localNode() };
         String userName = user == null ? null : user.getName();
 
         ADCancelTaskRequest cancelTaskRequest = new ADCancelTaskRequest(detectorId, taskId, userName, dataNodes);
@@ -2701,7 +2761,10 @@ public class ADTaskManager {
      * @return detector task slots scale delta
      */
     public int detectorTaskSlotScaleDelta(String detectorId) {
+        /* @anomaly-detection commented until we have support for the hashring: https://github.com/opensearch-project/opensearch-sdk-java/issues/200  
         DiscoveryNode[] eligibleDataNodes = hashRing.getNodesWithSameLocalAdVersion();
+        */
+        DiscoveryNode[] eligibleDataNodes = { clusterService.localNode() };
         int unfinishedEntities = adTaskCacheManager.getUnfinishedEntityCount(detectorId);
         int totalTaskSlots = eligibleDataNodes.length * maxAdBatchTaskPerNode;
         int taskLaneLimit = Math.min(unfinishedEntities, Math.min(totalTaskSlots, maxRunningEntitiesPerDetector));

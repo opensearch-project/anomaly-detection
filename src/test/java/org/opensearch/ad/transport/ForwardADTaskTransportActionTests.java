@@ -39,12 +39,16 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
 public class ForwardADTaskTransportActionTests extends ADUnitTestCase {
+    private ExtensionsRunner extensionsRunner;
+    private TaskManager taskManager;
     private ActionFilters actionFilters;
     private TransportService transportService;
     private ADTaskManager adTaskManager;
@@ -59,15 +63,19 @@ public class ForwardADTaskTransportActionTests extends ADUnitTestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
+        extensionsRunner = mock(ExtensionsRunner.class);
+        taskManager = mock(TaskManager.class);
         actionFilters = mock(ActionFilters.class);
         transportService = mock(TransportService.class);
         adTaskManager = mock(ADTaskManager.class);
         adTaskCacheManager = mock(ADTaskCacheManager.class);
         featureManager = mock(FeatureManager.class);
         stateManager = mock(NodeStateManager.class);
+        when(extensionsRunner.getExtensionTransportService()).thenReturn(transportService);
         forwardADTaskTransportAction = new ForwardADTaskTransportAction(
+            extensionsRunner,
+            taskManager,
             actionFilters,
-            transportService,
             adTaskManager,
             adTaskCacheManager,
             featureManager,
