@@ -200,7 +200,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
         Map<String, IndexMetadata> immutableOpenMap = new HashMap<>();
         immutableOpenMap
             .put(
-                    CommonName.JOB_INDEX,
+                CommonName.JOB_INDEX,
                 IndexMetadata
                     .builder("test")
                     .settings(

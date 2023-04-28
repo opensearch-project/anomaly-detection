@@ -1516,7 +1516,7 @@ public class TestHelpers {
 
         mappings
             .put(
-                    CommonName.JOB_INDEX,
+                CommonName.JOB_INDEX,
                 IndexMetadata
                     .builder("test")
                     .settings(
