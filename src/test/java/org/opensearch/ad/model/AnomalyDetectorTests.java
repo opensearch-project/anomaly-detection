@@ -11,10 +11,10 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
 import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_NAME_SIZE;
 import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_PREFIX;
-import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
 
 import java.io.IOException;
@@ -26,8 +26,8 @@ import java.util.concurrent.TimeUnit;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
@@ -49,7 +49,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     }
 
     public void testParseAnomalyDetectorWithCustomIndex() throws IOException {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
         AnomalyDetector detector = TestHelpers
             .randomDetector(
                 ImmutableList.of(TestHelpers.randomFeature()),
@@ -69,7 +69,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     }
 
     public void testAnomalyDetectorWithInvalidCustomIndex() throws Exception {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test@@";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test@@";
         TestHelpers
             .assertFailWith(
                 ADValidationException.class,

@@ -36,7 +36,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ADResultBulkRequest;
@@ -137,7 +137,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     public void testSingleRetryRequest() throws IOException {
         List<IndexRequest> retryRequests = new ArrayList<>();
         try (XContentBuilder builder = jsonBuilder()) {
-            IndexRequest indexRequest = new IndexRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS)
+            IndexRequest indexRequest = new IndexRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)
                 .source(detectResult.toXContent(builder, RestHandlerUtils.XCONTENT_WITH_TYPE));
             retryRequests.add(indexRequest);
         }

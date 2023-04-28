@@ -17,8 +17,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -42,8 +40,8 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -66,6 +64,7 @@ import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.RemoteTransportException;
 
 public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTests {
@@ -120,16 +119,13 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
             GetRequest request = (GetRequest) args[0];
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
-            if (request.index().equals(ANOMALY_DETECTORS_INDEX)) {
+            if (request.index().equals(CommonName.CONFIG_INDEX)) {
                 switch (detectorStatus) {
                     case EXIST:
-                        listener
-                            .onResponse(
-                                TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-                            );
+                        listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
                         break;
                     case INDEX_NOT_EXIST:
-                        listener.onFailure(new IndexNotFoundException(ANOMALY_DETECTORS_INDEX));
+                        listener.onFailure(new IndexNotFoundException(CommonName.CONFIG_INDEX));
                         break;
                     case NO_DOC:
                         when(detectorGetReponse.isExists()).thenReturn(false);
@@ -139,25 +135,19 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                         assertTrue("should not reach here", false);
                         break;
                 }
-            } else if (request.index().equals(ANOMALY_DETECTOR_JOB_INDEX)) {
+            } else if (request.index().equals(CommonName.JOB_INDEX)) {
                 AnomalyDetectorJob job = null;
                 switch (jobStatus) {
                     case INDEX_NOT_EXIT:
-                        listener.onFailure(new IndexNotFoundException(ANOMALY_DETECTOR_JOB_INDEX));
+                        listener.onFailure(new IndexNotFoundException(CommonName.JOB_INDEX));
                         break;
                     case DISABLED:
                         job = TestHelpers.randomAnomalyDetectorJob(false, jobEnabledTime, null);
-                        listener
-                            .onResponse(
-                                TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                            );
+                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId(), CommonName.JOB_INDEX));
                         break;
                     case ENABLED:
                         job = TestHelpers.randomAnomalyDetectorJob(true, jobEnabledTime, null);
-                        listener
-                            .onResponse(
-                                TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                            );
+                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId(), CommonName.JOB_INDEX));
                         break;
                     default:
                         assertTrue("should not reach here", false);
@@ -165,7 +155,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                 }
             } else {
                 if (errorResultStatus == ErrorResultStatus.INDEX_NOT_EXIT) {
-                    listener.onFailure(new IndexNotFoundException(CommonName.DETECTION_STATE_INDEX));
+                    listener.onFailure(new IndexNotFoundException(ADCommonName.DETECTION_STATE_INDEX));
                     return null;
                 }
                 DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
@@ -175,7 +165,9 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                     result.error(error);
                 }
                 listener
-                    .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
+                    .onResponse(
+                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), ADCommonName.DETECTION_STATE_INDEX)
+                    );
 
             }
 
@@ -479,7 +471,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                         break;
                     case INDEX_NOT_FOUND:
                     case REMOTE_INDEX_NOT_FOUND:
-                        cause = new IndexNotFoundException(detectorId, CommonName.CHECKPOINT_INDEX_NAME);
+                        cause = new IndexNotFoundException(detectorId, ADCommonName.CHECKPOINT_INDEX_NAME);
                         break;
                     default:
                         assertTrue("should not reach here", false);

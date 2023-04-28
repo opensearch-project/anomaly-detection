@@ -13,7 +13,6 @@ package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.ParseUtils.listEqualsWithoutConsideringOrder;
 import static org.opensearch.ad.util.ParseUtils.parseAggregators;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
@@ -55,7 +54,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -87,6 +85,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -418,7 +417,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     }
 
     protected void updateAnomalyDetector(String detectorId, boolean indexingDryRun) {
-        GetRequest request = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
+        GetRequest request = new GetRequest(CommonName.CONFIG_INDEX, detectorId);
         client
             .get(
                 request,
@@ -488,7 +487,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
-            SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+            SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX).source(searchSourceBuilder);
             client
                 .search(
                     searchRequest,
@@ -514,7 +513,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                     QueryBuilder query = QueryBuilders.matchAllQuery();
                     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
-                    SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+                    SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX).source(searchSourceBuilder);
 
                     client
                         .search(
@@ -717,7 +716,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 boolQueryBuilder.mustNot(QueryBuilders.termQuery(RestHandlerUtils._ID, detectorId));
             }
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).timeout(requestTimeout);
-            SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTORS_INDEX).source(searchSourceBuilder);
+            SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX).source(searchSourceBuilder);
             client
                 .search(
                     searchRequest,
@@ -812,7 +811,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             user,
             anomalyDetector.getResultIndex()
         );
-        IndexRequest indexRequest = new IndexRequest(ANOMALY_DETECTORS_INDEX)
+        IndexRequest indexRequest = new IndexRequest(CommonName.CONFIG_INDEX)
             .setRefreshPolicy(refreshPolicy)
             .source(detector.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
@@ -860,14 +859,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     protected void onCreateMappingsResponse(CreateIndexResponse response, boolean indexingDryRun) throws IOException {
         if (response.isAcknowledged()) {
-            logger.info("Created {} with mappings.", ANOMALY_DETECTORS_INDEX);
+            logger.info("Created {} with mappings.", CommonName.CONFIG_INDEX);
             prepareAnomalyDetectorIndexing(indexingDryRun);
         } else {
-            logger.warn("Created {} with mappings call not acknowledged.", ANOMALY_DETECTORS_INDEX);
+            logger.warn("Created {} with mappings call not acknowledged.", CommonName.CONFIG_INDEX);
             listener
                 .onFailure(
                     new OpenSearchStatusException(
-                        "Created " + ANOMALY_DETECTORS_INDEX + "with mappings call not acknowledged.",
+                        "Created " + CommonName.CONFIG_INDEX + "with mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
                     )
                 );

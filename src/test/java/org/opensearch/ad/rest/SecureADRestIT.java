@@ -28,7 +28,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.DetectionDateRange;
@@ -382,14 +382,14 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector anomalyDetector = createRandomAnomalyDetector(false, false, aliceClient);
         // User elk has AD full access, but has no read permission of index
 
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
         AnomalyDetector detector = cloneDetector(anomalyDetector, resultIndex);
         // User goat has no permission to create index
         Exception exception = expectThrows(IOException.class, () -> { createAnomalyDetector(detector, true, goatClient); });
         Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:admin/create]"));
 
         // User cat has permission to create index
-        resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
+        resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
         TestHelpers.createIndexWithTimeField(client(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
         AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(anomalyDetector, resultIndex), true, catClient);
         assertEquals(resultIndex, detectorOfCat.getResultIndex());

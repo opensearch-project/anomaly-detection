@@ -63,6 +63,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
@@ -486,7 +487,7 @@ public class SearchTopAnomalyResultTransportAction extends
 
         // Adding the date range and anomaly grade filters (needed regardless of real-time or historical)
         RangeQueryBuilder dateRangeFilter = QueryBuilders
-            .rangeQuery(AnomalyResult.DATA_END_TIME_FIELD)
+            .rangeQuery(CommonName.DATA_END_TIME_FIELD)
             .gte(request.getStartTime().toEpochMilli())
             .lte(request.getEndTime().toEpochMilli());
         RangeQueryBuilder anomalyGradeFilter = QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_GRADE_FIELD).gt(0);

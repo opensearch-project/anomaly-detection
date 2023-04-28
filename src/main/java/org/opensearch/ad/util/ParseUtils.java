@@ -11,12 +11,12 @@
 
 package org.opensearch.ad.util;
 
+import static org.opensearch.ad.constant.ADCommonName.DATE_HISTOGRAM;
+import static org.opensearch.ad.constant.ADCommonName.EPOCH_MILLIS_FORMAT;
+import static org.opensearch.ad.constant.ADCommonName.FEATURE_AGGS;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_USER_INFO;
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
-import static org.opensearch.ad.constant.CommonName.DATE_HISTOGRAM;
-import static org.opensearch.ad.constant.CommonName.EPOCH_MILLIS_FORMAT;
-import static org.opensearch.ad.constant.CommonName.FEATURE_AGGS;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PIECE_SIZE;
@@ -47,7 +47,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
@@ -82,6 +82,7 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.carrotsearch.hppc.DoubleArrayList;
 import com.google.common.collect.ImmutableList;
@@ -515,8 +516,8 @@ public final class ParseUtils {
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole
     ) {
-        if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
-            GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
+        if (clusterService.state().metadata().indices().containsKey(CommonName.CONFIG_INDEX)) {
+            GetRequest request = new GetRequest(CommonName.CONFIG_INDEX).id(detectorId);
             client
                 .get(
                     request,
@@ -538,7 +539,7 @@ public final class ParseUtils {
                         )
                 );
         } else {
-            listener.onFailure(new IndexNotFoundException(AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            listener.onFailure(new IndexNotFoundException(CommonName.CONFIG_INDEX));
         }
     }
 
@@ -633,7 +634,7 @@ public final class ParseUtils {
             .ofNullable(searchResponse)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
-            .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME))
+            .map(map -> (Max) map.get(ADCommonName.AGG_NAME_MAX_TIME))
             .map(agg -> (long) agg.getValue());
     }
 

@@ -96,7 +96,6 @@ import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ClientUtil;
@@ -123,6 +122,8 @@ import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportException;
 import org.opensearch.transport.TransportInterceptor;
@@ -431,7 +432,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             .build();
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(1);
-            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, CommonName.CONFIG_INDEX));
             return null;
         }).when(client).get(any(GetRequest.class), any(ActionListener.class));
 
@@ -742,7 +743,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         ClientUtil clientUtil = mock(ClientUtil.class);
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
-            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, CommonName.CONFIG_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 

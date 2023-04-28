@@ -29,7 +29,7 @@ import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -119,7 +119,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
 
     public void testIsWarmNode() {
         HashMap<String, String> attributesForNode1 = new HashMap<>();
-        attributesForNode1.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        attributesForNode1.put(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE);
         dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), attributesForNode1, BUILT_IN_ROLES, Version.CURRENT);
 
         ClusterState warmNodeClusterState = ClusterState

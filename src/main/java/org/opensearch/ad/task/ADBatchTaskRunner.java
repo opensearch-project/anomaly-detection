@@ -13,9 +13,9 @@ package org.opensearch.ad.task;
 
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static org.opensearch.ad.breaker.MemoryCircuitBreaker.DEFAULT_JVM_HEAP_USAGE_THRESHOLD;
+import static org.opensearch.ad.constant.ADCommonName.AGG_NAME_MAX_TIME;
+import static org.opensearch.ad.constant.ADCommonName.AGG_NAME_MIN_TIME;
 import static org.opensearch.ad.constant.CommonErrorMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
-import static org.opensearch.ad.constant.CommonName.AGG_NAME_MAX_TIME;
-import static org.opensearch.ad.constant.CommonName.AGG_NAME_MIN_TIME;
 import static org.opensearch.ad.model.ADTask.CURRENT_PIECE_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.INIT_PROGRESS_FIELD;
@@ -30,8 +30,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
-import static org.opensearch.ad.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
+import static org.opensearch.timeseries.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -80,7 +80,6 @@ import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
 import org.opensearch.ad.transport.ADBatchAnomalyResultResponse;
 import org.opensearch.ad.transport.ADBatchTaskRemoteExecutionAction;
@@ -109,6 +108,7 @@ import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 

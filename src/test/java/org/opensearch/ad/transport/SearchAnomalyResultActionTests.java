@@ -41,7 +41,7 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.client.Client;
@@ -299,7 +299,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
 
     @Test
     public void testNoIndex() {
-        deleteIndexIfExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         SearchResponse searchResponse = client()
             .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);

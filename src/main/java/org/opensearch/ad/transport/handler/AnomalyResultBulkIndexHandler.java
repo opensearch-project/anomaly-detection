@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.transport.handler;
 
+import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.util.List;

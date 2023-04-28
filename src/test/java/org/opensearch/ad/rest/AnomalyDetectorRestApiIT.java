@@ -34,8 +34,8 @@ import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -53,6 +53,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -417,7 +418,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null
         );
 
-        deleteIndexWithAdminClient(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexWithAdminClient(CommonName.CONFIG_INDEX);
 
         TestHelpers
             .assertFailWith(
@@ -1670,8 +1671,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Delete any existing result index
-        if (indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        if (indexExistsWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            deleteIndexWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         }
         Response response = searchTopAnomalyResults(
             detector.getDetectorId(),
@@ -1709,8 +1710,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Clear any existing result index, create an empty one
-        if (indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            deleteIndexWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        if (indexExistsWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            deleteIndexWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         }
         TestHelpers.createEmptyAnomalyResultIndex(adminClient());
         Response response = searchTopAnomalyResults(
@@ -1749,7 +1750,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Ingest some sample results
-        if (!indexExistsWithAdminClient(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+        if (!indexExistsWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
             TestHelpers.createEmptyAnomalyResultIndex(adminClient());
         }
         Map<String, Object> entityAttrs1 = new HashMap<String, Object>() {
@@ -1777,9 +1778,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyResult anomalyResult3 = TestHelpers
             .randomHCADAnomalyDetectResult(detector.getDetectorId(), null, entityAttrs3, 0.5, 0.2, null, 5L, 5L);
 
-        TestHelpers.ingestDataToIndex(adminClient(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult1));
-        TestHelpers.ingestDataToIndex(adminClient(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult2));
-        TestHelpers.ingestDataToIndex(adminClient(), CommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult3));
+        TestHelpers.ingestDataToIndex(adminClient(), ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult1));
+        TestHelpers.ingestDataToIndex(adminClient(), ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult2));
+        TestHelpers.ingestDataToIndex(adminClient(), ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, TestHelpers.toHttpEntity(anomalyResult3));
 
         // Sorting by severity
         Response severityResponse = searchTopAnomalyResults(
@@ -1843,7 +1844,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testSearchTopAnomalyResultsWithCustomResultIndex() throws IOException {
         String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
-        String customResultIndexName = CommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
+        String customResultIndexName = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
                 put("keyword-field", "keyword");

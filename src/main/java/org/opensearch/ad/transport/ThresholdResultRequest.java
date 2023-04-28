@@ -17,13 +17,14 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class ThresholdResultRequest extends ActionRequest implements ToXContentObject {
     private String adID;
@@ -84,9 +85,9 @@ public class ThresholdResultRequest extends ActionRequest implements ToXContentO
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(CommonName.ID_JSON_KEY, adID);
-        builder.field(CommonName.MODEL_ID_KEY, modelID);
-        builder.field(CommonName.RCF_SCORE_JSON_KEY, rcfScore);
+        builder.field(ADCommonName.ID_JSON_KEY, adID);
+        builder.field(CommonName.MODEL_ID_FIELD, modelID);
+        builder.field(ADCommonName.RCF_SCORE_JSON_KEY, rcfScore);
         builder.endObject();
         return builder;
     }

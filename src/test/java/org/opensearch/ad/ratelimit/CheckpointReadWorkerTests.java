@@ -52,7 +52,7 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
@@ -64,7 +64,6 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -76,6 +75,7 @@ import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
+import org.opensearch.timeseries.stats.StatNames;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -218,7 +218,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[1];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
+                    new GetResult(ADCommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
@@ -270,9 +270,9 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             items[0] = new MultiGetItemResponse(
                 null,
                 new MultiGetResponse.Failure(
-                    CommonName.CHECKPOINT_INDEX_NAME,
+                    ADCommonName.CHECKPOINT_INDEX_NAME,
                     entity.getModelId(detectorId).get(),
-                    new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME)
+                    new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME)
                 )
             );
             ActionListener<MultiGetResponse> listener = invocation.getArgument(1);
@@ -291,7 +291,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
                     new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
+                        ADCommonName.CHECKPOINT_INDEX_NAME,
                         entity.getModelId(detectorId).get(),
                         SequenceNumbers.UNASSIGNED_SEQ_NO,
                         SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
@@ -307,7 +307,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             items[1] = new MultiGetItemResponse(
                 new GetResponse(
                     new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
+                        ADCommonName.CHECKPOINT_INDEX_NAME,
                         entity2.getModelId(detectorId).get(),
                         SequenceNumbers.UNASSIGNED_SEQ_NO,
                         SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
@@ -339,14 +339,14 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[2];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
+                    new GetResult(ADCommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
             items[1] = new MultiGetItemResponse(
                 new GetResponse(
                     new GetResult(
-                        CommonName.CHECKPOINT_INDEX_NAME,
+                        ADCommonName.CHECKPOINT_INDEX_NAME,
                         entity2.getModelId(detectorId).get(),
                         SequenceNumbers.UNASSIGNED_SEQ_NO,
                         SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
@@ -380,7 +380,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
                 items[0] = new MultiGetItemResponse(
                     null,
                     new MultiGetResponse.Failure(
-                        CommonName.CHECKPOINT_INDEX_NAME,
+                        ADCommonName.CHECKPOINT_INDEX_NAME,
                         entity.getModelId(detectorId).get(),
                         new OpenSearchStatusException("blah", RestStatus.REQUEST_TIMEOUT)
                     )
@@ -388,7 +388,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
                 items[1] = new MultiGetItemResponse(
                     null,
                     new MultiGetResponse.Failure(
-                        CommonName.CHECKPOINT_INDEX_NAME,
+                        ADCommonName.CHECKPOINT_INDEX_NAME,
                         entity2.getModelId(detectorId).get(),
                         new OpenSearchStatusException("blah", RestStatus.CONFLICT)
                     )
@@ -398,7 +398,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
                 items[0] = new MultiGetItemResponse(
                     new GetResponse(
                         new GetResult(
-                            CommonName.CHECKPOINT_INDEX_NAME,
+                            ADCommonName.CHECKPOINT_INDEX_NAME,
                             entity.getModelId(detectorId).get(),
                             1,
                             1,
@@ -414,7 +414,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
                 items[1] = new MultiGetItemResponse(
                     new GetResponse(
                         new GetResult(
-                            CommonName.CHECKPOINT_INDEX_NAME,
+                            ADCommonName.CHECKPOINT_INDEX_NAME,
                             entity2.getModelId(detectorId).get(),
                             1,
                             1,
@@ -450,7 +450,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             items[0] = new MultiGetItemResponse(
                 null,
                 new MultiGetResponse.Failure(
-                    CommonName.CHECKPOINT_INDEX_NAME,
+                    ADCommonName.CHECKPOINT_INDEX_NAME,
                     entity.getModelId(detectorId).get(),
                     new OpenSearchRejectedExecutionException("blah")
                 )
@@ -489,7 +489,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             items[0] = new MultiGetItemResponse(
                 null,
                 new MultiGetResponse.Failure(
-                    CommonName.CHECKPOINT_INDEX_NAME,
+                    ADCommonName.CHECKPOINT_INDEX_NAME,
                     entity.getModelId(detectorId).get(),
                     new IllegalArgumentException("blah")
                 )
@@ -686,7 +686,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[1];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
+                    new GetResult(ADCommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
@@ -748,13 +748,23 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[2];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
+                    new GetResult(ADCommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );
             items[1] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity4.getModelId(detectorId2).get(), 1, 1, 0, true, null, null, null)
+                    new GetResult(
+                        ADCommonName.CHECKPOINT_INDEX_NAME,
+                        entity4.getModelId(detectorId2).get(),
+                        1,
+                        1,
+                        0,
+                        true,
+                        null,
+                        null,
+                        null
+                    )
                 ),
                 null
             );
@@ -781,7 +791,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             MultiGetItemResponse[] items = new MultiGetItemResponse[1];
             items[0] = new MultiGetItemResponse(
                 new GetResponse(
-                    new GetResult(CommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
+                    new GetResult(ADCommonName.CHECKPOINT_INDEX_NAME, entity.getModelId(detectorId).get(), 1, 1, 0, true, null, null, null)
                 ),
                 null
             );

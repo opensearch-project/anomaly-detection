@@ -12,7 +12,7 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.TestHelpers.matchAllRequest;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;

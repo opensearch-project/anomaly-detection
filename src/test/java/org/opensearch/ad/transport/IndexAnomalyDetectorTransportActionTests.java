@@ -61,6 +61,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
@@ -97,10 +98,10 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
             .build();
         final Settings.Builder existingSettings = Settings.builder().put(indexSettings).put(IndexMetadata.SETTING_INDEX_UUID, "test2UUID");
-        IndexMetadata indexMetaData = IndexMetadata.builder(AnomalyDetector.ANOMALY_DETECTORS_INDEX).settings(existingSettings).build();
+        IndexMetadata indexMetaData = IndexMetadata.builder(CommonName.CONFIG_INDEX).settings(existingSettings).build();
         final ImmutableOpenMap<String, IndexMetadata> indices = ImmutableOpenMap
             .<String, IndexMetadata>builder()
-            .fPut(AnomalyDetector.ANOMALY_DETECTORS_INDEX, indexMetaData)
+            .fPut(CommonName.CONFIG_INDEX, indexMetaData)
             .build();
         ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().indices(indices).build()).build();
         when(clusterService.state()).thenReturn(clusterState);
@@ -123,8 +124,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         );
         task = mock(Task.class);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        GetResponse getDetectorResponse = TestHelpers
-            .createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(

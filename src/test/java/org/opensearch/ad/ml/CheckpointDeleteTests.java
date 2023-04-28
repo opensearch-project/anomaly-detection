@@ -28,7 +28,7 @@ import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
@@ -100,7 +100,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
         checkpointDao = new CheckpointDao(
             client,
             clientUtil,
-            CommonName.CHECKPOINT_INDEX_NAME,
+            ADCommonName.CHECKPOINT_INDEX_NAME,
             gson,
             mapper,
             converter,
@@ -140,7 +140,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
 
             assertTrue(listener != null);
             if (mode == DeleteExecutionMode.INDEX_NOT_FOUND) {
-                listener.onFailure(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME));
+                listener.onFailure(new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME));
             } else if (mode == DeleteExecutionMode.FAILURE) {
                 listener.onFailure(new OpenSearchException(""));
             } else {

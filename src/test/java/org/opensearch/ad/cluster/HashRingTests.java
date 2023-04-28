@@ -37,7 +37,7 @@ import org.opensearch.action.admin.cluster.node.info.NodeInfo;
 import org.opensearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
@@ -85,7 +85,7 @@ public class HashRingTests extends ADUnitTestCase {
         newNodeId = "newNode";
         newNode = createNode(newNodeId, "127.0.0.2", 9201, emptyMap());
         warmNodeId = "warmNode";
-        warmNode = createNode(warmNodeId, "127.0.0.3", 9202, ImmutableMap.of(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE));
+        warmNode = createNode(warmNodeId, "127.0.0.3", 9202, ImmutableMap.of(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE));
 
         settings = Settings.builder().put(COOLDOWN_MINUTES.getKey(), TimeValue.timeValueSeconds(5)).build();
         ClusterSettings clusterSettings = clusterSetting(settings, COOLDOWN_MINUTES);
@@ -248,7 +248,7 @@ public class HashRingTests extends ADUnitTestCase {
         plugins
             .add(
                 new PluginInfo(
-                    CommonName.AD_PLUGIN_NAME,
+                    ADCommonName.AD_PLUGIN_NAME,
                     randomAlphaOfLengthBetween(3, 10),
                     version,
                     Version.CURRENT,

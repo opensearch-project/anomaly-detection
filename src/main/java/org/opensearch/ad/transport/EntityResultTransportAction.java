@@ -33,8 +33,8 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.EntityModel;
@@ -52,12 +52,12 @@ import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportService;
 
 /**
@@ -189,7 +189,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     Map<String, String> attrValues = categoricalValues.getAttributes();
                     // handle a request from a version before OpenSearch 1.1.
                     categoricalValues = Entity
-                        .createSingleAttributeEntity(detector.getCategoryField().get(0), attrValues.get(CommonName.EMPTY_FIELD));
+                        .createSingleAttributeEntity(detector.getCategoryField().get(0), attrValues.get(ADCommonName.EMPTY_FIELD));
                 }
 
                 Optional<String> modelIdOptional = categoricalValues.getModelId(detectorId);
@@ -347,6 +347,6 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
      */
     private boolean isEntityFromOldNodeMsg(Entity categoricalValues) {
         Map<String, String> attrValues = categoricalValues.getAttributes();
-        return (attrValues != null && attrValues.containsKey(CommonName.EMPTY_FIELD));
+        return (attrValues != null && attrValues.containsKey(ADCommonName.EMPTY_FIELD));
     }
 }

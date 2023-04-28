@@ -656,6 +656,8 @@ List<String> jacocoExclusions = [
 
         // Class containing just constants. Don't need to test
         'org.opensearch.ad.constant.*',
+        'org.opensearch.forecast.constant.*',
+        'org.opensearch.timeseries.constant.*',
 
         //'org.opensearch.ad.common.exception.AnomalyDetectionException',
         'org.opensearch.ad.util.ClientUtil',

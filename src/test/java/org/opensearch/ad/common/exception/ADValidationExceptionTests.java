@@ -11,10 +11,10 @@
 
 package org.opensearch.ad.common.exception;
 
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class ADValidationExceptionTests extends OpenSearchTestCase {
     public void testConstructorDetector() {

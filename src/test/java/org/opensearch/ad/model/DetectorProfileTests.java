@@ -15,8 +15,8 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.xcontent.XContentParser;
@@ -88,16 +88,16 @@ public class DetectorProfileTests extends OpenSearchTestCase {
     }
 
     public void testDetectorProfileName() throws IllegalArgumentException {
-        assertEquals("ad_task", DetectorProfileName.getName(CommonName.AD_TASK).getName());
-        assertEquals("state", DetectorProfileName.getName(CommonName.STATE).getName());
-        assertEquals("error", DetectorProfileName.getName(CommonName.ERROR).getName());
-        assertEquals("coordinating_node", DetectorProfileName.getName(CommonName.COORDINATING_NODE).getName());
-        assertEquals("shingle_size", DetectorProfileName.getName(CommonName.SHINGLE_SIZE).getName());
-        assertEquals("total_size_in_bytes", DetectorProfileName.getName(CommonName.TOTAL_SIZE_IN_BYTES).getName());
-        assertEquals("models", DetectorProfileName.getName(CommonName.MODELS).getName());
-        assertEquals("init_progress", DetectorProfileName.getName(CommonName.INIT_PROGRESS).getName());
-        assertEquals("total_entities", DetectorProfileName.getName(CommonName.TOTAL_ENTITIES).getName());
-        assertEquals("active_entities", DetectorProfileName.getName(CommonName.ACTIVE_ENTITIES).getName());
+        assertEquals("ad_task", DetectorProfileName.getName(ADCommonName.AD_TASK).getName());
+        assertEquals("state", DetectorProfileName.getName(ADCommonName.STATE).getName());
+        assertEquals("error", DetectorProfileName.getName(ADCommonName.ERROR).getName());
+        assertEquals("coordinating_node", DetectorProfileName.getName(ADCommonName.COORDINATING_NODE).getName());
+        assertEquals("shingle_size", DetectorProfileName.getName(ADCommonName.SHINGLE_SIZE).getName());
+        assertEquals("total_size_in_bytes", DetectorProfileName.getName(ADCommonName.TOTAL_SIZE_IN_BYTES).getName());
+        assertEquals("models", DetectorProfileName.getName(ADCommonName.MODELS).getName());
+        assertEquals("init_progress", DetectorProfileName.getName(ADCommonName.INIT_PROGRESS).getName());
+        assertEquals("total_entities", DetectorProfileName.getName(ADCommonName.TOTAL_ENTITIES).getName());
+        assertEquals("active_entities", DetectorProfileName.getName(ADCommonName.ACTIVE_ENTITIES).getName());
         IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> DetectorProfileName.getName("abc"));
         assertEquals(exception.getMessage(), CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
     }

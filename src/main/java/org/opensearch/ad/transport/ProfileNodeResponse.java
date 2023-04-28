@@ -16,13 +16,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.opensearch.action.support.nodes.BaseNodeResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Profile response on a node
@@ -136,12 +137,12 @@ public class ProfileNodeResponse extends BaseNodeResponse implements ToXContentF
         }
         builder.endObject();
 
-        builder.field(CommonName.SHINGLE_SIZE, shingleSize);
-        builder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
-        builder.field(CommonName.TOTAL_UPDATES, totalUpdates);
+        builder.field(ADCommonName.SHINGLE_SIZE, shingleSize);
+        builder.field(ADCommonName.ACTIVE_ENTITIES, activeEntities);
+        builder.field(ADCommonName.TOTAL_UPDATES, totalUpdates);
 
-        builder.field(CommonName.MODEL_COUNT, modelCount);
-        builder.startArray(CommonName.MODELS);
+        builder.field(ADCommonName.MODEL_COUNT, modelCount);
+        builder.startArray(ADCommonName.MODELS);
         for (ModelProfile modelProfile : modelProfiles) {
             builder.startObject();
             modelProfile.toXContent(builder, params);

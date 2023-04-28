@@ -62,6 +62,7 @@ import org.opensearch.search.SearchModule;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -166,10 +167,7 @@ public class NodeStateManagerTests extends AbstractADTest {
             }
 
             assertTrue(request != null && listener != null);
-            listener
-                .onResponse(
-                    TestHelpers.createGetResponse(detectorToCheck, detectorToCheck.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX)
-                );
+            listener.onResponse(TestHelpers.createGetResponse(detectorToCheck, detectorToCheck.getDetectorId(), CommonName.CONFIG_INDEX));
 
             return null;
         }).when(client).get(any(), any(ActionListener.class));
@@ -399,8 +397,8 @@ public class NodeStateManagerTests extends AbstractADTest {
         doAnswer(invocation -> {
             GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(1);
-            if (request.index().equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(jobToCheck, detectorId, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX));
+            if (request.index().equals(CommonName.JOB_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(jobToCheck, detectorId, CommonName.JOB_INDEX));
             }
             return null;
         }).when(client).get(any(), any(ActionListener.class));
