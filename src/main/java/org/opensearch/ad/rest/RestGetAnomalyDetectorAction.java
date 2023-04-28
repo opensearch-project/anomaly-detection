@@ -11,8 +11,9 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.*;
+import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
+import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
 
 import java.io.IOException;
 import java.util.List;
