@@ -63,6 +63,7 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
         ActionFilters actionFilters,
         TaskManager taskManager,
         ModelManager modelManager,
+        SDKClusterService sdkClusterService,
         FeatureManager featureManager,
         CacheProvider cacheProvider
     ) {
@@ -70,7 +71,7 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
-        this.sdkClusterService = extensionsRunner.getSdkClusterService();
+        this.sdkClusterService = sdkClusterService;
         Settings settings = extensionsRunner.getEnvironmentSettings();
         this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
         this.sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);

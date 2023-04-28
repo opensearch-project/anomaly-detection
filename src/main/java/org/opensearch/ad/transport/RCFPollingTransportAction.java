@@ -53,7 +53,6 @@ public class RCFPollingTransportAction extends TransportAction<RCFPollingRequest
     // private final HashRing hashRing;
     private final TransportRequestOptions option;
     private final SDKClusterService sdkClusterService;
-    // private final DiscoveryNode discoveryNode;
 
     @Inject
     public RCFPollingTransportAction(
@@ -62,6 +61,7 @@ public class RCFPollingTransportAction extends TransportAction<RCFPollingRequest
         ModelManager modelManager,
         // HashRing hashRing,
         TaskManager taskManager,
+        SDKClusterService sdkClusterService,
         ExtensionsRunner extensionsRunner
     ) {
         super(RCFPollingAction.NAME, actionFilters, taskManager);
@@ -72,10 +72,8 @@ public class RCFPollingTransportAction extends TransportAction<RCFPollingRequest
             .withType(TransportRequestOptions.Type.REG)
             .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings()))
             .build();
-        this.sdkClusterService = extensionsRunner.getSdkClusterService();
+        this.sdkClusterService = sdkClusterService;
         this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
-        // Adding the below piece of code as we are not supporting multinode. We need one node which we can fetch from clusterService.
-        // this.discoveryNode=extensionsRunner.getSdkClusterService().localNode();
     }
 
     @Override
@@ -85,7 +83,9 @@ public class RCFPollingTransportAction extends TransportAction<RCFPollingRequest
 
         String rcfModelID = SingleStreamModelIdMapper.getRcfModelId(adID, 0);
 
-        /* Commenting the below piece of code as we do not have support for multinode */
+        /* Commenting the below piece of code as we do not have support for multinode
+             https://github.com/opensearch-project/opensearch-sdk-java/issues/200
+        * */
         // Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
 
         Optional<DiscoveryNode> rcfNode = Optional.ofNullable(sdkClusterService.localNode());
