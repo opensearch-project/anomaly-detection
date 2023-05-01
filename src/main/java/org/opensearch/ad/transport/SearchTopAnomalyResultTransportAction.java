@@ -31,16 +31,14 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.client.Client;
 import org.opensearch.common.Strings;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -49,6 +47,7 @@ import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -63,9 +62,10 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 
 /**
  * Transport action to fetch top anomaly results for some HC detector. Generates a
@@ -171,8 +171,7 @@ import com.google.common.collect.ImmutableMap;
 // }
 // }
 
-public class SearchTopAnomalyResultTransportAction extends
-    HandledTransportAction<SearchTopAnomalyResultRequest, SearchTopAnomalyResultResponse> {
+public class SearchTopAnomalyResultTransportAction extends TransportAction<SearchTopAnomalyResultRequest, SearchTopAnomalyResultResponse> {
     private ADSearchHandler searchHandler;
     // Number of buckets to return per page
     private static final int PAGE_SIZE = 1000;
@@ -184,7 +183,7 @@ public class SearchTopAnomalyResultTransportAction extends
     private static final String BUCKET_SORT_FIELD = "bucket_sort";
     public static final String MULTI_BUCKETS_FIELD = "multi_buckets";
     private static final Logger logger = LogManager.getLogger(SearchTopAnomalyResultTransportAction.class);
-    private final Client client;
+    private final SDKRestClient client;
     private Clock clock;
 
     public enum OrderType {
@@ -204,12 +203,12 @@ public class SearchTopAnomalyResultTransportAction extends
 
     @Inject
     public SearchTopAnomalyResultTransportAction(
-        TransportService transportService,
+        TaskManager taskManager,
         ActionFilters actionFilters,
         ADSearchHandler searchHandler,
-        Client client
+        SDKRestClient client
     ) {
-        super(SearchTopAnomalyResultAction.NAME, transportService, actionFilters, SearchTopAnomalyResultRequest::new);
+        super(SearchTopAnomalyResultAction.NAME, actionFilters, taskManager);
         this.searchHandler = searchHandler;
         this.client = client;
         this.clock = Clock.systemUTC();

@@ -16,46 +16,68 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
-import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.action.ActionListener;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.SearchTopAnomalyResultAction;
 import org.opensearch.ad.transport.SearchTopAnomalyResultRequest;
+import org.opensearch.ad.transport.SearchTopAnomalyResultResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.node.NodeClient;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
 
 import com.google.common.collect.ImmutableList;
 
 /**
  * The REST handler to search top entity anomaly results for HC detectors.
  */
-public class RestSearchTopAnomalyResultAction extends BaseRestHandler {
+public class RestSearchTopAnomalyResultAction extends BaseExtensionRestHandler {
 
+    private SDKRestClient client;
+    private ExtensionsRunner extensionsRunner;
     private static final String URL_PATH = String
         .format(
             Locale.ROOT,
             "%s/{%s}/%s/%s",
-            AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+            AnomalyDetectorExtension.AD_BASE_DETECTORS_URI,
             RestHandlerUtils.DETECTOR_ID,
             RestHandlerUtils.RESULTS,
             RestHandlerUtils.TOP_ANOMALIES
         );
     private final String SEARCH_TOP_ANOMALY_DETECTOR_ACTION = "search_top_anomaly_result";
 
-    public RestSearchTopAnomalyResultAction() {}
+    public RestSearchTopAnomalyResultAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+        this.client = client;
+        this.extensionsRunner = extensionsRunner;
+    }
 
-    @Override
     public String getName() {
         return SEARCH_TOP_ANOMALY_DETECTOR_ACTION;
     }
 
-    @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
+
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
 
         // Throw error if disabled
         if (!EnabledSetting.isADPluginEnabled()) {
@@ -65,8 +87,33 @@ public class RestSearchTopAnomalyResultAction extends BaseRestHandler {
         // Get the typed request
         SearchTopAnomalyResultRequest searchTopAnomalyResultRequest = getSearchTopAnomalyResultRequest(request);
 
-        return channel -> client
-            .execute(SearchTopAnomalyResultAction.INSTANCE, searchTopAnomalyResultRequest, new RestToXContentListener<>(channel));
+        CompletableFuture<SearchTopAnomalyResultResponse> futureResponse = new CompletableFuture<>();
+
+        client
+            .execute(
+                SearchTopAnomalyResultAction.INSTANCE,
+                searchTopAnomalyResultRequest,
+                ActionListener
+                    .wrap(
+                        adSearchTopAnomaliesResponse -> futureResponse.complete(adSearchTopAnomaliesResponse),
+                        ex -> futureResponse.completeExceptionally(ex)
+                    )
+            );
+
+        SearchTopAnomalyResultResponse searchTopAnomalyResultResponse = futureResponse
+            .orTimeout(
+                AnomalyDetectorSettings.REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings()).getMillis(),
+                TimeUnit.MILLISECONDS
+            )
+            .join();
+
+        ExtensionRestResponse extensionRestResponse = new ExtensionRestResponse(
+            request,
+            RestStatus.OK,
+            searchTopAnomalyResultResponse.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        );
+
+        return extensionRestResponse;
 
     }
 
@@ -84,7 +131,11 @@ public class RestSearchTopAnomalyResultAction extends BaseRestHandler {
     }
 
     @Override
-    public List<Route> routes() {
-        return ImmutableList.of(new Route(RestRequest.Method.POST, URL_PATH), new Route(RestRequest.Method.GET, URL_PATH));
+    public List<RouteHandler> routeHandlers() {
+        return ImmutableList
+            .of(
+                new RouteHandler(RestRequest.Method.POST, URL_PATH, handleRequest),
+                new RouteHandler(RestRequest.Method.GET, URL_PATH, handleRequest)
+            );
     }
 }
