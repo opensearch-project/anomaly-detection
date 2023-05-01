@@ -46,7 +46,7 @@ import com.google.common.collect.ImmutableList;
  */
 public class RestSearchTopAnomalyResultAction extends BaseExtensionRestHandler {
 
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private ExtensionsRunner extensionsRunner;
     private static final String URL_PATH = String
         .format(
@@ -59,8 +59,8 @@ public class RestSearchTopAnomalyResultAction extends BaseExtensionRestHandler {
         );
     private final String SEARCH_TOP_ANOMALY_DETECTOR_ACTION = "search_top_anomaly_result";
 
-    public RestSearchTopAnomalyResultAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
-        this.client = client;
+    public RestSearchTopAnomalyResultAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
+        this.sdkRestClient = sdkRestClient;
         this.extensionsRunner = extensionsRunner;
     }
 
@@ -89,7 +89,7 @@ public class RestSearchTopAnomalyResultAction extends BaseExtensionRestHandler {
 
         CompletableFuture<SearchTopAnomalyResultResponse> futureResponse = new CompletableFuture<>();
 
-        client
+        sdkRestClient
             .execute(
                 SearchTopAnomalyResultAction.INSTANCE,
                 searchTopAnomalyResultRequest,

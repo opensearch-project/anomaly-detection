@@ -183,7 +183,8 @@ public class SearchTopAnomalyResultTransportAction extends TransportAction<Searc
     private static final String BUCKET_SORT_FIELD = "bucket_sort";
     public static final String MULTI_BUCKETS_FIELD = "multi_buckets";
     private static final Logger logger = LogManager.getLogger(SearchTopAnomalyResultTransportAction.class);
-    private final SDKRestClient client;
+    private final SDKRestClient sdkRestClient;
+
     private Clock clock;
 
     public enum OrderType {
@@ -206,11 +207,11 @@ public class SearchTopAnomalyResultTransportAction extends TransportAction<Searc
         TaskManager taskManager,
         ActionFilters actionFilters,
         ADSearchHandler searchHandler,
-        SDKRestClient client
+        SDKRestClient sdkRestClient
     ) {
         super(SearchTopAnomalyResultAction.NAME, actionFilters, taskManager);
         this.searchHandler = searchHandler;
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.clock = Clock.systemUTC();
     }
 
@@ -228,7 +229,7 @@ public class SearchTopAnomalyResultTransportAction extends TransportAction<Searc
             false,
             null
         );
-        client.execute(GetAnomalyDetectorAction.INSTANCE, getAdRequest, ActionListener.wrap(getAdResponse -> {
+        sdkRestClient.execute(GetAnomalyDetectorAction.INSTANCE, getAdRequest, ActionListener.wrap(getAdResponse -> {
             // Make sure detector exists
             if (getAdResponse.getDetector() == null) {
                 throw new IllegalArgumentException(
