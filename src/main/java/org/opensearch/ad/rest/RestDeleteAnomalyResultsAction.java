@@ -96,14 +96,14 @@ public class RestDeleteAnomalyResultsAction extends BaseExtensionRestHandler {
                 ActionListener
                     .wrap(deleteResponse -> futureResponse.complete(deleteResponse), ex -> futureResponse.completeExceptionally(ex))
             );
-        BulkByScrollResponse deleteByQueryResponse = futureResponse
+        BulkByScrollResponse bulkByScrollResponse = futureResponse
             .orTimeout(
                 AnomalyDetectorSettings.REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings()).getMillis(),
                 TimeUnit.MILLISECONDS
             )
             .join();
 
-        XContentBuilder contentBuilder = deleteByQueryResponse
+        XContentBuilder contentBuilder = bulkByScrollResponse
             .toXContent(JsonXContent.contentBuilder().startObject(), ToXContent.EMPTY_PARAMS);
         contentBuilder.endObject();
 
