@@ -580,7 +580,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             xContentRegistry,
             anomalyDetectionIndices,
             nodeFilter,
-            null, // hashRing
+            // null, //hashring MultiNode support https://github.com/opensearch-project/opensearch-sdk-java/issues/200
             adTaskCacheManager,
             threadPool
         );
