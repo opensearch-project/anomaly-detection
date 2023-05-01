@@ -585,11 +585,9 @@ public class ADBatchTaskRunner {
                     .updateADTask(
                         adTask.getTaskId(),
                         updatedFields,
-                        ActionListener
-                            .wrap(
-                                r -> forwardOrExecuteEntityTask(adTask, transportService, workerNodeResponseListener),
-                                e -> { workerNodeResponseListener.onFailure(e); }
-                            )
+                        ActionListener.wrap(r -> forwardOrExecuteEntityTask(adTask, transportService, workerNodeResponseListener), e -> {
+                            workerNodeResponseListener.onFailure(e);
+                        })
                     );
             }
         } catch (Exception e) {

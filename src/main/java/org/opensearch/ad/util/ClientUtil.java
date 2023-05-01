@@ -85,14 +85,9 @@ public class ClientUtil {
             consumer
                 .accept(
                     request,
-                    new LatchedActionListener<Response>(
-                        ActionListener
-                            .wrap(
-                                response -> { respReference.set(response); },
-                                exception -> { LOG.error("Cannot get response for request {}, error: {}", request, exception); }
-                            ),
-                        latch
-                    )
+                    new LatchedActionListener<Response>(ActionListener.wrap(response -> { respReference.set(response); }, exception -> {
+                        LOG.error("Cannot get response for request {}, error: {}", request, exception);
+                    }), latch)
                 );
 
             if (!latch.await(requestTimeout.getSeconds(), TimeUnit.SECONDS)) {
@@ -138,12 +133,9 @@ public class ClientUtil {
         Request request,
         ActionListener<Response> listener
     ) {
-        client
-            .execute(
-                action,
-                request,
-                ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> { listener.onFailure(exception); })
-            );
+        client.execute(action, request, ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> {
+            listener.onFailure(exception);
+        }));
     }
 
     /**
@@ -243,15 +235,12 @@ public class ClientUtil {
     private void cancelRunningQuery(SDKRestClient client, String detectorId, Logger LOG) {
         ListTasksRequest listTasksRequest = new ListTasksRequest();
         listTasksRequest.setActions("*search*");
-        client
-            .execute(
-                ListTasksAction.INSTANCE,
-                listTasksRequest,
-                ActionListener.wrap(response -> { onListTaskResponse(response, detectorId, LOG); }, exception -> {
-                    LOG.error("List Tasks failed.", exception);
-                    throw new InternalFailure(detectorId, "Failed to list current tasks", exception);
-                })
-            );
+        client.execute(ListTasksAction.INSTANCE, listTasksRequest, ActionListener.wrap(response -> {
+            onListTaskResponse(response, detectorId, LOG);
+        }, exception -> {
+            LOG.error("List Tasks failed.", exception);
+            throw new InternalFailure(detectorId, "Failed to list current tasks", exception);
+        }));
     }
 
     /**
@@ -294,15 +283,12 @@ public class ClientUtil {
             LOG.info("Start to cancel task for taskId: {}", matchedSingleTaskId.toString());
         }
 
-        client
-            .execute(
-                CancelTasksAction.INSTANCE,
-                cancelTaskRequest,
-                ActionListener.wrap(response -> { onCancelTaskResponse(response, detectorId, LOG); }, exception -> {
-                    LOG.error("Failed to cancel task for detectorId: " + detectorId, exception);
-                    throw new InternalFailure(detectorId, "Failed to cancel current tasks", exception);
-                })
-            );
+        client.execute(CancelTasksAction.INSTANCE, cancelTaskRequest, ActionListener.wrap(response -> {
+            onCancelTaskResponse(response, detectorId, LOG);
+        }, exception -> {
+            LOG.error("Failed to cancel task for detectorId: " + detectorId, exception);
+            throw new InternalFailure(detectorId, "Failed to cancel current tasks", exception);
+        }));
     }
 
     /**

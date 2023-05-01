@@ -636,12 +636,16 @@ public class ModelManager implements DetectorModelSize {
             .entrySet()
             .stream()
             .filter(entry -> SingleStreamModelIdMapper.getDetectorIdForModelId(entry.getKey()).equals(detectorId))
-            .forEach(entry -> { res.put(entry.getKey(), memoryTracker.estimateTRCFModelSize(entry.getValue().getModel())); });
+            .forEach(entry -> {
+                res.put(entry.getKey(), memoryTracker.estimateTRCFModelSize(entry.getValue().getModel()));
+            });
         thresholds
             .entrySet()
             .stream()
             .filter(entry -> SingleStreamModelIdMapper.getDetectorIdForModelId(entry.getKey()).equals(detectorId))
-            .forEach(entry -> { res.put(entry.getKey(), (long) memoryTracker.getThresholdModelBytes()); });
+            .forEach(entry -> {
+                res.put(entry.getKey(), (long) memoryTracker.getThresholdModelBytes());
+            });
         return res;
     }
 

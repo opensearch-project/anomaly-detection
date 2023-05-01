@@ -48,9 +48,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -68,6 +65,9 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ArrayEqMatcher;
 import org.opensearch.threadpool.ThreadPool;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 @RunWith(JUnitParamsRunner.class)
 @SuppressWarnings("unchecked")

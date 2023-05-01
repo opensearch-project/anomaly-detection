@@ -141,19 +141,15 @@ public class PriorityCache implements EntityCache {
 
         // during maintenance period, stop putting new entries
         if (!maintenanceLock.isLocked() && modelState == null) {
-            DoorKeeper doorKeeper = doorKeepers
-                .computeIfAbsent(
-                    detectorId,
-                    id -> {
-                        // reset every 60 intervals
-                        return new DoorKeeper(
-                            AnomalyDetectorSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
-                            AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
-                            detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
-                            clock
-                        );
-                    }
+            DoorKeeper doorKeeper = doorKeepers.computeIfAbsent(detectorId, id -> {
+                // reset every 60 intervals
+                return new DoorKeeper(
+                    AnomalyDetectorSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
+                    AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
+                    detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                    clock
                 );
+            });
 
             // first hit, ignore
             // since door keeper may get reset during maintenance, it is possible

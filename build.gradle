@@ -12,6 +12,7 @@
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.gradle.api.internal.tasks.testing.junit.JUnitTestFramework
 
 buildscript {
     ext {
@@ -65,10 +66,10 @@ buildscript {
 
 plugins {
     id 'java'
-    id 'nebula.ospackage' version "8.3.0" apply false
-    id "com.diffplug.gradle.spotless" version "3.26.1"
+    id 'com.netflix.nebula.ospackage-base' version "11.0.0" apply false
+    id "com.diffplug.spotless" version "6.18.0"
     id 'java-library'
-    id 'org.gradle.test-retry' version '1.3.1'
+    id 'org.gradle.test-retry' version '1.5.1'
 }
 
 tasks.withType(JavaCompile) {
@@ -112,6 +113,20 @@ allprojects {
     group = 'org.opensearch'
 
     version = "${opensearch_build}"
+
+    afterEvaluate {
+        project.tasks.withType(Test) { task ->
+            // This is so hacky: now, by default, test tasks uses JUnit framework and always includes 'junit'
+            // JARs from the Gradle distribution (no ways to override this behavior). It causes JAR hell on test
+            // classpath, example of the report:
+            //
+            //  jar1: /home/ubuntu/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12/junit-4.13.2.jar
+            //  jar2: /home/ubuntu/.gradle/wrapper/dists/gradle-8.0-rc-1-all/2p8rgxxewg8l61n1p3vrzr9s8/gradle-8.0-rc-1/lib/junit-4.13.2.jar
+            //
+            task.getTestFrameworkProperty().convention(getProviderFactory().provider(() -> new JUnitTestFramework(task, task.getFilter(), false)));
+        }
+    }
+
 
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = JavaVersion.VERSION_11
@@ -810,8 +825,8 @@ jacocoTestCoverageVerification {
 
 jacocoTestReport {
     reports {
-        xml.enabled = true
-        html.enabled = true
+        xml.required = true
+        html.required = true
     }
 }
 
@@ -889,7 +904,7 @@ test {
     useJUnitPlatform()
 }
 
-apply plugin: 'nebula.ospackage'
+apply plugin: 'com.netflix.nebula.ospackage'
 
 // Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
 // This is afterEvaluate because the bundlePlugin ZIP task is updated afterEvaluate and changes the ZIP name to match the plugin name
@@ -924,18 +939,6 @@ apply plugin: 'nebula.ospackage'
     '''.stripIndent().replace('\n', ' ').trim()
     }
 
-    buildRpm {
-        arch = 'NOARCH'
-        dependsOn 'assemble'
-        finalizedBy 'renameRpm'
-        task renameRpm(type: Copy) {
-            from("$buildDir/distributions")
-            into("$buildDir/distributions")
-            include archiveName
-            rename archiveName, "${packageName}-${version}.rpm"
-            doLast { delete file("$buildDir/distributions/$archiveName") }
-        }
-    }
 
     buildDeb {
         arch = 'all'
@@ -951,7 +954,7 @@ apply plugin: 'nebula.ospackage'
     }
 
     task buildPackages(type: GradleBuild) {
-        tasks = ['build', 'buildRpm', 'buildDeb']
+        tasks = ['build', 'buildDeb']
     }
 }*/
 
@@ -959,7 +962,9 @@ spotless {
     java {
         removeUnusedImports()
         importOrder 'java', 'javax', 'org', 'com'
-        paddedCell()
+        if (System.getProperty('spotless.paddedcell') != null) {
+            paddedCell()
+        }
         eclipse().configFile rootProject.file('.eclipseformat.xml')
     }
 }

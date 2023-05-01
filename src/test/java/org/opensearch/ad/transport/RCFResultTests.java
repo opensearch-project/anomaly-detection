@@ -56,10 +56,10 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class RCFResultTests extends OpenSearchTestCase {
     Gson gson = new GsonBuilder().create();
