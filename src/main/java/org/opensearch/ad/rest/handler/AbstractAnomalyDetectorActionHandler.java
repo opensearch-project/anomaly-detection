@@ -12,6 +12,7 @@
 package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
+import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
 import static org.opensearch.ad.util.ParseUtils.listEqualsWithoutConsideringOrder;
 import static org.opensearch.ad.util.ParseUtils.parseAggregators;
@@ -39,8 +40,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsRequest;
-import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
@@ -69,6 +68,8 @@ import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.indices.CreateIndexResponse;
+import org.opensearch.client.indices.GetFieldMappingsRequest;
+import org.opensearch.client.indices.GetFieldMappingsResponse;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
@@ -381,10 +382,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });
-        // FIXME Need to implement this; does shard level actions on the cluster
-        // https://github.com/opensearch-project/opensearch-sdk-java/issues/361
-        // client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
-        // For now just skip and go to the next step:
+        client.indices().getFieldMapping(getMappingsRequest, mappingsListener);
         prepareAnomalyDetectorIndexing(indexingDryRun);
     }
 
@@ -448,17 +446,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 return;
             }
 
-            // FIXME: Need to implement ADTaskManager extension point
-            // https://github.com/opensearch-project/opensearch-sdk-java/issues/371
-
-            // adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
-            // if (adTask.isPresent() && !adTask.get().isDone()) {
-            // // can't update detector if there is AD task running
-            // listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
-            // } else {
-            validateExistingDetector(existingDetector, indexingDryRun);
-            // }
-            // }, transportService, true, listener);
+            adTaskManager.getAndExecuteOnLatestDetectorLevelTask(detectorId, HISTORICAL_DETECTOR_TASK_TYPES, (adTask) -> {
+                if (adTask.isPresent() && !adTask.get().isDone()) {
+                    // can't update detector if there is AD task running
+                    listener.onFailure(new OpenSearchStatusException("Detector is running", RestStatus.INTERNAL_SERVER_ERROR));
+                } else {
+                    validateExistingDetector(existingDetector, indexingDryRun);
+                }
+            }, transportService, true, listener);
         } catch (IOException e) {
             String message = "Failed to parse anomaly detector " + detectorId;
             logger.error(message, e);
@@ -670,11 +665,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });
-
-        // FIXME Need to implement this; does shard level actions on the cluster
-        // https://github.com/opensearch-project/opensearch-sdk-java/issues/361
-        // client.execute(GetFieldMappingsAction.INSTANCE, getMappingsRequest, mappingsListener);
-        // For now just skip and go to the next step:
+        client.indices().getFieldMapping(getMappingsRequest, mappingsListener);
         searchAdInputIndices(detectorId, indexingDryRun);
     }
 
