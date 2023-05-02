@@ -21,36 +21,39 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.auth.UserIdentity;
-import org.opensearch.client.Client;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.reindex.BulkByScrollResponse;
-import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
-import org.opensearch.transport.TransportService;
+import org.opensearch.tasks.TaskManager;
 
-public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<DeleteByQueryRequest, BulkByScrollResponse> {
+import com.google.inject.Inject;
 
-    private final Client client;
+public class DeleteAnomalyResultsTransportAction extends TransportAction<DeleteByQueryRequest, BulkByScrollResponse> {
+
+    private final SDKRestClient sdkRestClient;
     private volatile Boolean filterEnabled;
     private static final Logger logger = LogManager.getLogger(DeleteAnomalyResultsTransportAction.class);
+    private final Settings settings;
 
     @Inject
     public DeleteAnomalyResultsTransportAction(
-        TransportService transportService,
+        ExtensionsRunner extensionsRunner,
+        TaskManager taskManager,
         ActionFilters actionFilters,
-        Settings settings,
-        ClusterService clusterService,
-        Client client
+        SDKClusterService sdkClusterService,
+        SDKRestClient sdkRestClient
     ) {
-        super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
-        this.client = client;
+        super(DeleteAnomalyResultsAction.NAME, actionFilters, taskManager);
+        this.sdkRestClient = sdkRestClient;
+        this.settings = extensionsRunner.getEnvironmentSettings();
         filterEnabled = FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
+        sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
 
     @Override
@@ -75,12 +78,15 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
             // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
             // Case 2: If Security is enabled and filter is disabled, proceed with search as
             // user is already authenticated to hit this API.
-            client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+            // client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+            // client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+            sdkRestClient.deleteByQuery(request, listener);
         } else {
             // Security is enabled and backend role filter is enabled
             try {
                 addUserBackendRolesFilter(user, request.getSearchRequest().source());
-                client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+                // client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+                sdkRestClient.deleteByQuery(request, listener);
             } catch (Exception e) {
                 listener.onFailure(e);
             }
