@@ -1508,9 +1508,9 @@ public class TestHelpers {
     }
 
     public static ClusterState createClusterState() {
-        final Map<String, IndexMetadata> immutableOpenMap = new HashMap<>();
+        final Map<String, IndexMetadata> mappings = new HashMap<>();
 
-        immutableOpenMap
+        mappings
             .put(
                 ANOMALY_DETECTOR_JOB_INDEX,
                 IndexMetadata
@@ -1524,7 +1524,11 @@ public class TestHelpers {
                     )
                     .build()
             );
-        Metadata metaData = Metadata.builder().indices(Collections.unmodifiableMap(immutableOpenMap)).build();
+
+        // The usage of Collections.unmodifiableMap is due to replacing ImmutableOpenMap
+        // with java.util.Map in the core (refer to https://tinyurl.com/5fjdccs3 and https://tinyurl.com/5fjdccs3)
+        // The meaning and logic of the code stay the same.
+        Metadata metaData = Metadata.builder().indices(Collections.unmodifiableMap(mappings)).build();
         ClusterState clusterState = new ClusterState(
             new ClusterName("test_name"),
             1l,
