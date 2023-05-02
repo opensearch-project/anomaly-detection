@@ -12,55 +12,6 @@
 package org.opensearch.ad.transport;
 
 /*
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.util.Collections;
-import java.util.Optional;
-
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.SingleStreamModelIdMapper;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.transport.TransportAddress;
-import org.opensearch.core.xcontent.ToXContent;
-import org.opensearch.tasks.Task;
-import org.opensearch.transport.ConnectTransportException;
-import org.opensearch.transport.Transport;
-import org.opensearch.transport.TransportException;
-import org.opensearch.transport.TransportInterceptor;
-import org.opensearch.transport.TransportRequest;
-import org.opensearch.transport.TransportRequestOptions;
-import org.opensearch.transport.TransportResponse;
-import org.opensearch.transport.TransportResponseHandler;
-import org.opensearch.transport.TransportService;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
->>>>>>> d80c0f3 (Updates Gradle to 8.0.2)
-
-import test.org.opensearch.ad.util.FakeNode;
-import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class RCFPollingTests extends AbstractADTest {
     Gson gson = new GsonBuilder().create();

@@ -114,21 +114,21 @@ allprojects {
 
     version = "${opensearch_build}"
 
-    afterEvaluate {
-        project.tasks.withType(Test) { task ->
-            // This is so hacky: now, by default, test tasks uses JUnit framework and always includes 'junit'
-            // JARs from the Gradle distribution (no ways to override this behavior). It causes JAR hell on test
-            // classpath, example of the report:
-            //
-            //  jar1: /home/ubuntu/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12/junit-4.13.2.jar
-            //  jar2: /home/ubuntu/.gradle/wrapper/dists/gradle-8.0-rc-1-all/2p8rgxxewg8l61n1p3vrzr9s8/gradle-8.0-rc-1/lib/junit-4.13.2.jar
-            //
-            task.getTestFrameworkProperty().convention(getProviderFactory().provider(() -> new JUnitTestFramework(task, task.getFilter(), false)));
-        }
-    }
+//    afterEvaluate {
+//        project.tasks.withType(Test) { task ->
+//            // This is so hacky: now, by default, test tasks uses JUnit framework and always includes 'junit'
+//            // JARs from the Gradle distribution (no ways to override this behavior). It causes JAR hell on test
+//            // classpath, example of the report:
+//            //
+//            //  jar1: /home/ubuntu/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12/junit-4.13.2.jar
+//            //  jar2: /home/ubuntu/.gradle/wrapper/dists/gradle-8.0-rc-1-all/2p8rgxxewg8l61n1p3vrzr9s8/gradle-8.0-rc-1/lib/junit-4.13.2.jar
+//            //
+//            task.getTestFrameworkProperty().convention(getProviderFactory().provider(() -> new JUnitTestFramework(task, task.getFilter(), false)));
+//        }
+//    }
 
 
-    plugins.withId('java') {
+        plugins.withId('java') {
         sourceCompatibility = targetCompatibility = JavaVersion.VERSION_11
     }
 }
@@ -214,6 +214,9 @@ def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absolu
 opensearch_tmp_dir.mkdirs()
 boolean isCiServer = System.getenv().containsKey("CI")
 test {
+    useJUnitPlatform()
+    options {
+    }
     retry {
         if (isCiServer) {
             failOnPassedAfterRetry = false
@@ -834,9 +837,8 @@ check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
 
 dependencies {
-    implementation "org.opensearch:opensearch:${opensearch_version}"
+    compileOnly "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
-//  Removed Job Scheduler dependency from AD
     implementation "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
 //  Removed Common Utils dependency from AD
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
