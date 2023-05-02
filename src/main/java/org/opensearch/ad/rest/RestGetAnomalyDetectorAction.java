@@ -12,6 +12,7 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
 
 import java.io.IOException;
@@ -108,13 +109,6 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         return getAnomalyDetectorResponse(request, response);
     }
 
-    @Override
-    public List<ReplacedRouteHandler> replacedRouteHandlers() {
-        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
-        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID);
-        return ImmutableList.of(new ReplacedRouteHandler(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path, handleRequest));
-    }
-
     private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
@@ -124,54 +118,58 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         }
     };
 
-    /*@Override
-    public List<Route> routes() {
-        return ImmutableList
-                .of(
-                        // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
-                        new Route(
-                                RestRequest.Method.POST,
-                                String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
-                        ),
-                        new Route(
-                                RestRequest.Method.POST,
-                                String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
-                        )
-                );
-    }*/
-
-    /* @Override
-    public List<ReplacedRoute> replacedRoutes() {
-        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
-        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+    @Override
+    public List<RouteHandler> routeHandlers() {
         return ImmutableList
             .of(
-                new ReplacedRoute(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path),
-                new ReplacedRoute(RestRequest.Method.HEAD, newPath, RestRequest.Method.HEAD, path),
-                new ReplacedRoute(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE)
+                // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
+                new RouteHandler(
+                    RestRequest.Method.POST,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
+                    handleRequest
                 ),
-                // types is a profile names. See a complete list of supported profiles names in
-                // org.opensearch.ad.model.ProfileName.
-                new ReplacedRoute(
+                new RouteHandler(
+                    RestRequest.Method.POST,
+                    String
+                        .format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
+                    handleRequest
+                )
+            );
+    }
+
+    @Override
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
+        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
+        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        return ImmutableList
+            .of(
+                new ReplacedRouteHandler(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path, handleRequest),
+                new ReplacedRouteHandler(RestRequest.Method.HEAD, newPath, RestRequest.Method.HEAD, path, handleRequest),
+                new ReplacedRouteHandler(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
+                    RestRequest.Method.GET,
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE),
+                    handleRequest
+                ),
+                new ReplacedRouteHandler(
+                    RestRequest.Method.GET,
+                    String
+                        .format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
                     RestRequest.Method.GET,
                     String
                         .format(
                             Locale.ROOT,
                             "%s/{%s}/%s/{%s}",
-                            AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
+                            AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI,
                             DETECTOR_ID,
                             PROFILE,
                             TYPE
-                        )
+                        ),
+                    handleRequest
                 )
             );
-    }*/
+    }
 
     private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
         if (Strings.isEmpty(detectorId)) {

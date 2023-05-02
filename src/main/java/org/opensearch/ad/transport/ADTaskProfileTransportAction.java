@@ -12,75 +12,83 @@
 package org.opensearch.ad.transport;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.opensearch.Version;
+import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.nodes.TransportNodesAction;
-import org.opensearch.ad.cluster.HashRing;
+import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.tasks.Task;
+import org.opensearch.tasks.TaskManager;
 
-public class ADTaskProfileTransportAction extends
-    TransportNodesAction<ADTaskProfileRequest, ADTaskProfileResponse, ADTaskProfileNodeRequest, ADTaskProfileNodeResponse> {
+import com.google.inject.Inject;
+
+// TODO: https://github.com/opensearch-project/opensearch-sdk-java/issues/683 (multi node support needed for extensions.
+//  Previously, the class used to extend TransportNodesAction by which request is sent to multiple nodes.
+//  For extensions as of now we only have one node support. In order to test multinode feature we need to add multinode support equivalent for SDK )
+public class ADTaskProfileTransportAction extends TransportAction<ADTaskProfileRequest, ADTaskProfileResponse> {
+    // TransportNodesAction<ADTaskProfileRequest, ADTaskProfileResponse, ADTaskProfileNodeRequest, ADTaskProfileNodeResponse> {
 
     private ADTaskManager adTaskManager;
-    private HashRing hashRing;
+
+    /* MultiNode support https://github.com/opensearch-project/opensearch-sdk-java/issues/200 */
+    // private HashRing hashRing;
+
+    private final SDKClusterService sdkClusterService;
 
     @Inject
     public ADTaskProfileTransportAction(
-        ThreadPool threadPool,
-        ClusterService clusterService,
-        TransportService transportService,
+        SDKClusterService sdkClusterService,
         ActionFilters actionFilters,
         ADTaskManager adTaskManager,
-        HashRing hashRing
+        /* MultiNode support https://github.com/opensearch-project/opensearch-sdk-java/issues/200 */
+        // HashRing hashRing,
+        TaskManager taskManager
     ) {
-        super(
-            ADTaskProfileAction.NAME,
-            threadPool,
-            clusterService,
-            transportService,
-            actionFilters,
-            ADTaskProfileRequest::new,
-            ADTaskProfileNodeRequest::new,
-            ThreadPool.Names.MANAGEMENT,
-            ADTaskProfileNodeResponse.class
-        );
+        super(ADTaskProfileAction.NAME, actionFilters, taskManager);
         this.adTaskManager = adTaskManager;
-        this.hashRing = hashRing;
+        /* MultiNode support https://github.com/opensearch-project/opensearch-sdk-java/issues/200 */
+        // this.hashRing = hashRing;
+        this.sdkClusterService = sdkClusterService;
     }
 
-    @Override
     protected ADTaskProfileResponse newResponse(
         ADTaskProfileRequest request,
         List<ADTaskProfileNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADTaskProfileResponse(clusterService.getClusterName(), responses, failures);
+        return new ADTaskProfileResponse(sdkClusterService.state().getClusterName(), responses, failures);
     }
 
-    @Override
     protected ADTaskProfileNodeRequest newNodeRequest(ADTaskProfileRequest request) {
         return new ADTaskProfileNodeRequest(request);
     }
 
-    @Override
     protected ADTaskProfileNodeResponse newNodeResponse(StreamInput in) throws IOException {
         return new ADTaskProfileNodeResponse(in);
     }
 
     @Override
-    protected ADTaskProfileNodeResponse nodeOperation(ADTaskProfileNodeRequest request) {
+    protected void doExecute(Task task, ADTaskProfileRequest request, ActionListener<ADTaskProfileResponse> actionListener) {
+        /* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200
         String remoteNodeId = request.getParentTask().getNodeId();
         Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
+         */
+        Version remoteAdVersion = Version.CURRENT;
         ADTaskProfile adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getDetectorId());
-        return new ADTaskProfileNodeResponse(clusterService.localNode(), adTaskProfile, remoteAdVersion);
+        actionListener
+            .onResponse(
+                newResponse(
+                    request,
+                    new ArrayList<>(List.of(new ADTaskProfileNodeResponse(sdkClusterService.localNode(), adTaskProfile, remoteAdVersion))),
+                    new ArrayList<>()
+                )
+            );
     }
 }

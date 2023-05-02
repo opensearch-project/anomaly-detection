@@ -92,6 +92,8 @@ import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkTransportAction;
 import org.opensearch.ad.transport.ADStatsNodesAction;
 import org.opensearch.ad.transport.ADStatsNodesTransportAction;
+import org.opensearch.ad.transport.ADTaskProfileAction;
+import org.opensearch.ad.transport.ADTaskProfileTransportAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
 import org.opensearch.ad.transport.AnomalyResultAction;
@@ -112,6 +114,8 @@ import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileTransportAction;
+import org.opensearch.ad.transport.RCFPollingAction;
+import org.opensearch.ad.transport.RCFPollingTransportAction;
 import org.opensearch.ad.transport.RCFResultAction;
 import org.opensearch.ad.transport.RCFResultTransportAction;
 import org.opensearch.ad.transport.SearchADTasksAction;
@@ -578,7 +582,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             xContentRegistry,
             anomalyDetectionIndices,
             nodeFilter,
-            null, // hashRing
+            // null, //hashring MultiNode support https://github.com/opensearch-project/opensearch-sdk-java/issues/200
             adTaskCacheManager,
             threadPool
         );
@@ -801,7 +805,9 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(ForwardADTaskAction.INSTANCE, ForwardADTaskTransportAction.class),
                 new ActionHandler<>(ADBatchAnomalyResultAction.INSTANCE, ADBatchAnomalyResultTransportAction.class),
-                new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class)
+                new ActionHandler<>(ADCancelTaskAction.INSTANCE, ADCancelTaskTransportAction.class),
+                new ActionHandler<>(RCFPollingAction.INSTANCE, RCFPollingTransportAction.class),
+                new ActionHandler<>(ADTaskProfileAction.INSTANCE, ADTaskProfileTransportAction.class)
             );
     }
 

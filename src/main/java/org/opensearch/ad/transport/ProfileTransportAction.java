@@ -45,29 +45,25 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
     private ModelManager modelManager;
     private FeatureManager featureManager;
     private CacheProvider cacheProvider;
-    private SDKClusterService clusterService;
+    private SDKClusterService sdkClusterService;
     // the number of models to return. Defaults to 10.
     private volatile int numModelsToReturn;
 
     /**
      * Constructor
      *
-     * @param threadPool ThreadPool to use
-     * @param clusterService ClusterService
-     * @param transportService TransportService
      * @param actionFilters Action Filters
      * @param modelManager model manager object
      * @param featureManager feature manager object
      * @param cacheProvider cache provider
-     * @param settings Node settings accessor
      */
     @Inject
     public ProfileTransportAction(
         ExtensionsRunner extensionsRunner,
         ActionFilters actionFilters,
         TaskManager taskManager,
-        SDKClusterService clusterService,
         ModelManager modelManager,
+        SDKClusterService sdkClusterService,
         FeatureManager featureManager,
         CacheProvider cacheProvider
     ) {
@@ -75,14 +71,14 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
-        this.clusterService = clusterService;
+        this.sdkClusterService = sdkClusterService;
         Settings settings = extensionsRunner.getEnvironmentSettings();
         this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
+        this.sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
     }
 
     private ProfileResponse newResponse(ProfileRequest request, List<ProfileNodeResponse> responses, List<FailedNodeException> failures) {
-        return new ProfileResponse(clusterService.state().getClusterName(), responses, failures);
+        return new ProfileResponse(sdkClusterService.state().getClusterName(), responses, failures);
     }
 
     @Override
@@ -133,7 +129,7 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
                         List
                             .of(
                                 new ProfileNodeResponse(
-                                    clusterService.localNode(),
+                                    sdkClusterService.localNode(),
                                     modelSize,
                                     shingleSize,
                                     activeEntity,
