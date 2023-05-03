@@ -12,7 +12,6 @@
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
-import org.gradle.api.internal.tasks.testing.junit.JUnitTestFramework
 
 buildscript {
     ext {
