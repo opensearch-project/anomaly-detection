@@ -114,21 +114,7 @@ allprojects {
 
     version = "${opensearch_build}"
 
-//    afterEvaluate {
-//        project.tasks.withType(Test) { task ->
-//            // This is so hacky: now, by default, test tasks uses JUnit framework and always includes 'junit'
-//            // JARs from the Gradle distribution (no ways to override this behavior). It causes JAR hell on test
-//            // classpath, example of the report:
-//            //
-//            //  jar1: /home/ubuntu/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2/8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12/junit-4.13.2.jar
-//            //  jar2: /home/ubuntu/.gradle/wrapper/dists/gradle-8.0-rc-1-all/2p8rgxxewg8l61n1p3vrzr9s8/gradle-8.0-rc-1/lib/junit-4.13.2.jar
-//            //
-//            task.getTestFrameworkProperty().convention(getProviderFactory().provider(() -> new JUnitTestFramework(task, task.getFilter(), false)));
-//        }
-//    }
-
-
-        plugins.withId('java') {
+    plugins.withId('java') {
         sourceCompatibility = targetCompatibility = JavaVersion.VERSION_11
     }
 }
@@ -214,7 +200,7 @@ def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absolu
 opensearch_tmp_dir.mkdirs()
 boolean isCiServer = System.getenv().containsKey("CI")
 test {
-    useJUnitPlatform()
+    useJUnit()
     options {
     }
     retry {
@@ -893,18 +879,10 @@ dependencies {
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.7.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
-    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
     testCompileOnly 'junit:junit:4.13.2'
 }
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
-
-test {
-    useJUnitPlatform()
-}
 
 apply plugin: 'com.netflix.nebula.ospackage'
 
