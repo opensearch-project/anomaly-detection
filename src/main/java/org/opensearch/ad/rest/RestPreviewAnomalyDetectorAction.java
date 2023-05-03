@@ -56,11 +56,11 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
     private static final Logger logger = LogManager.getLogger(RestPreviewAnomalyDetectorAction.class);
 
     private Settings environmentSettings;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
 
     public RestPreviewAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
-        this.client = sdkRestClient;
+        this.sdkRestClient = sdkRestClient;
     }
 
     public String getName() {
@@ -95,7 +95,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
             input.getPeriodEnd()
         );
         CompletableFuture<PreviewAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
-        client
+        sdkRestClient
             .execute(
                 PreviewAnomalyDetectorAction.INSTANCE,
                 previewRequest,

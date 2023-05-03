@@ -123,12 +123,12 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
     private final FeatureManager featureManager;
     private final ModelManager modelManager;
     private final TransportRequestOptions option;
-    private final SDKClusterService clusterService;
+    private final SDKClusterService sdkClusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
     private final ADStats adStats;
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ThreadPool threadPool;
-    private final SDKRestClient client;
+    private final SDKRestClient sdkRestClient;
     private final ADTaskManager adTaskManager;
 
     // Cache HC detector id. This is used to count HC failure stats. We can tell a detector
@@ -150,11 +150,11 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
         ExtensionsRunner extensionsRunner,
         ActionFilters actionFilters,
         TaskManager taskManager,
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         NodeStateManager manager,
         FeatureManager featureManager,
         ModelManager modelManager,
-        SDKClusterService clusterService,
+        SDKClusterService sdkClusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
         ADCircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
@@ -166,7 +166,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
         this.extensionsRunner = extensionsRunner;
         this.transportService = extensionsRunner.getExtensionTransportService();
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.stateManager = manager;
         this.featureManager = featureManager;
         this.modelManager = modelManager;
@@ -175,7 +175,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
             .withType(TransportRequestOptions.Type.REG)
             .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings))
             .build();
-        this.clusterService = clusterService;
+        this.sdkClusterService = sdkClusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.adStats = adStats;
@@ -185,10 +185,10 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
         this.intervalRatioForRequest = AnomalyDetectorSettings.INTERVAL_RATIO_FOR_REQUESTS;
 
         this.maxEntitiesPerInterval = MAX_ENTITIES_PER_QUERY.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_PER_QUERY, it -> maxEntitiesPerInterval = it);
+        sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_PER_QUERY, it -> maxEntitiesPerInterval = it);
 
         this.pageSize = PAGE_SIZE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> pageSize = it);
+        sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> pageSize = it);
         this.adTaskManager = adTaskManager;
     }
 
@@ -379,7 +379,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
                                 this,
                                 responseCount
                             );
-                            client
+                            sdkRestClient
                                 .execute(
                                     EntityResultAction.INSTANCE,
                                     new EntityResultRequest(detectorId, nodeEntity.getValue(), dataStartTime, dataEndTime),
@@ -494,13 +494,13 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
                 dataEndTime,
                 anomalyDetector,
                 xContentRegistry,
-                client,
+                sdkRestClient,
                 nextDetectionStartTime,
                 settings,
                 maxEntitiesPerInterval,
                 pageSize,
                 indexNameExpressionResolver,
-                clusterService
+                sdkClusterService
             );
 
             PageIterator pageIterator = null;
@@ -633,7 +633,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
 
             try {
                 CompletableFuture<RCFResultResponse> rcfResultFuture = new CompletableFuture<>();
-                client
+                sdkRestClient
                     .execute(
                         RCFResultAction.INSTANCE,
                         new RCFResultRequest(adID, rcfModelId, featureOptional.getProcessedFeatures().get()),
@@ -946,7 +946,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
     }
 
     private void handleConnectionException(String node, String detectorId) {
-        final DiscoveryNodes nodes = clusterService.state().nodes();
+        final DiscoveryNodes nodes = sdkClusterService.state().nodes();
         if (!nodes.nodeExists(node)) {
             /* @anomaly.detection Commented until we have extension support for hashring : https://github.com/opensearch-project/opensearch-sdk-java/issues/200
             hashRing.buildCirclesForRealtimeAD();
@@ -1002,7 +1002,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
         String rcfNodeId,
         String rcfModelID
     ) {
-        ClusterState state = clusterService.state();
+        ClusterState state = sdkClusterService.state();
         if (checkGlobalBlock(state)) {
             listener.onFailure(new InternalFailure(adID, READ_WRITE_BLOCKED));
             return false;

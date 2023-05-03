@@ -75,19 +75,19 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
     public static final String AD_JOB_ACTION = "anomaly_detector_job_action";
 
     private ExtensionsRunner extensionsRunner;
-    private SDKRestClient client;
-    private SDKClusterService clusterService;
+    private SDKRestClient sdkRestClient;
+    private SDKClusterService sdkClusterService;
     private Settings settings;
     private volatile TimeValue requestTimeout;
     private boolean registeredJobDetails;
 
-    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestAnomalyDetectorJobAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.extensionsRunner = extensionsRunner;
-        this.client = client;
-        this.clusterService = extensionsRunner.getSdkClusterService();
+        this.sdkRestClient = sdkRestClient;
+        this.sdkClusterService = extensionsRunner.getSdkClusterService();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
         this.registeredJobDetails = false;
     }
 
@@ -120,7 +120,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
 
         // Execute anomaly detector job transport action
         CompletableFuture<AnomalyDetectorJobResponse> adJobFutureResponse = new CompletableFuture<>();
-        client
+        sdkRestClient
             .execute(
                 AnomalyDetectorJobAction.INSTANCE,
                 anomalyDetectorJobRequest,
@@ -201,7 +201,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             registerJobDetailsRequest.setJsonEntity(Strings.toString(requestBody));
 
             CompletableFuture<Response> registerJobDetailsResponse = new CompletableFuture<>();
-            client.performRequestAsync(registerJobDetailsRequest, new ResponseListener() {
+            sdkRestClient.performRequestAsync(registerJobDetailsRequest, new ResponseListener() {
 
                 @Override
                 public void onSuccess(Response response) {

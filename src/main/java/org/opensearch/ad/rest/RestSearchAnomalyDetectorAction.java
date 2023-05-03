@@ -31,14 +31,14 @@ public class RestSearchAnomalyDetectorAction extends AbstractSearchAction<Anomal
     private static final String URL_PATH = AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/_search";
     private final String SEARCH_ANOMALY_DETECTOR_ACTION = "search_anomaly_detector";
 
-    public RestSearchAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestSearchAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         super(
             ImmutableList.of(),
             ImmutableList.of(Pair.of(URL_PATH, LEGACY_URL_PATH)),
             ANOMALY_DETECTORS_INDEX,
             AnomalyDetector.class,
             SearchAnomalyDetectorAction.INSTANCE,
-            client,
+            sdkRestClient,
             extensionsRunner
         );
     }

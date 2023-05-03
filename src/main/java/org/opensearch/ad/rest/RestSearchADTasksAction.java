@@ -30,14 +30,14 @@ public class RestSearchADTasksAction extends AbstractSearchAction<ADTask> {
     private static final String URL_PATH = AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/tasks/_search";
     private final String SEARCH_ANOMALY_DETECTION_TASKS = "search_anomaly_detection_tasks";
 
-    public RestSearchADTasksAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestSearchADTasksAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         super(
             ImmutableList.of(),
             ImmutableList.of(Pair.of(URL_PATH, LEGACY_URL_PATH)),
             CommonName.DETECTION_STATE_INDEX,
             ADTask.class,
             SearchADTasksAction.INSTANCE,
-            client,
+            sdkRestClient,
             extensionsRunner
         );
     }

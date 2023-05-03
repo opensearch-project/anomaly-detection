@@ -55,13 +55,13 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
     private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
 
     private Settings settings;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private ExtensionsRunner extensionsRunner;
 
-    public RestDeleteAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestDeleteAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.extensionsRunner = extensionsRunner;
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
     }
 
     public String getName() {
@@ -77,7 +77,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseExtensionRestHandler {
         DeleteAnomalyDetectorRequest deleteAnomalyDetectorRequest = new DeleteAnomalyDetectorRequest(detectorId);
         CompletableFuture<DeleteResponse> futureResponse = new CompletableFuture<>();
 
-        client
+        sdkRestClient
             .execute(
                 DeleteAnomalyDetectorAction.INSTANCE,
                 deleteAnomalyDetectorRequest,

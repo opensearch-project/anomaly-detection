@@ -58,11 +58,11 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
     private static final String GET_ANOMALY_DETECTOR_ACTION = "get_anomaly_detector";
     private static final Logger logger = LogManager.getLogger(RestGetAnomalyDetectorAction.class);
     private Settings settings;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
 
-    public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestGetAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
     }
 
     // @Override
@@ -94,7 +94,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
 
         CompletableFuture<GetAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
 
-        client
+        sdkRestClient
             .execute(
                 GetAnomalyDetectorAction.INSTANCE,
                 getAnomalyDetectorRequest,
