@@ -43,10 +43,10 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class ProfileTests extends OpenSearchTestCase {
     String node1, nodeName1, clusterName;

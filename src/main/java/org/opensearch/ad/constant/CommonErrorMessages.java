@@ -116,7 +116,8 @@ public class CommonErrorMessages {
     public static String RAW_DATA_TOO_SPARSE =
         "Source index data is potentially too sparse for model training. Consider changing interval length or ingesting more data";
     public static String MODEL_VALIDATION_FAILED_UNEXPECTEDLY = "Model validation experienced issues completing.";
-    public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied. Consider changing the data filter";
+    public static String FILTER_QUERY_TOO_SPARSE = ""
+        + "Data is too sparse after data filter is applied. Consider changing the data filter";
     public static String CATEGORY_FIELD_TOO_SPARSE =
         "Data is most likely too sparse with the given category fields. Consider revising category field/s or ingesting more data ";
     public static String CATEGORY_FIELD_NO_DATA =

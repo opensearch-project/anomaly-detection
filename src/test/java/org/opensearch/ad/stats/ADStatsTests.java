@@ -46,10 +46,10 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.test.OpenSearchTestCase;
 
+import com.amazon.randomcutforest.RandomCutForest;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.amazon.randomcutforest.RandomCutForest;
 
 public class ADStatsTests extends OpenSearchTestCase {
 

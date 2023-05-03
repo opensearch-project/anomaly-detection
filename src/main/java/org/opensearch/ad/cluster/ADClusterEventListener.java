@@ -72,19 +72,9 @@ public class ADClusterEventListener implements ClusterStateListener {
             if (delta.removed() || delta.added()) {
                 LOG.info(NODE_CHANGED_MSG + ", node removed: {}, node added: {}", delta.removed(), delta.added());
                 hashRing.addNodeChangeEvent();
-                hashRing
-                    .buildCircles(
-                        delta,
-                        ActionListener
-                            .runAfter(
-                                ActionListener
-                                    .wrap(
-                                        hasRingBuildDone -> { LOG.info("Hash ring build result: {}", hasRingBuildDone); },
-                                        e -> { LOG.error("Failed updating AD version hash ring", e); }
-                                    ),
-                                () -> inProgress.release()
-                            )
-                    );
+                hashRing.buildCircles(delta, ActionListener.runAfter(ActionListener.wrap(hasRingBuildDone -> {
+                    LOG.info("Hash ring build result: {}", hasRingBuildDone);
+                }, e -> { LOG.error("Failed updating AD version hash ring", e); }), () -> inProgress.release()));
             } else {
                 inProgress.release();
             }

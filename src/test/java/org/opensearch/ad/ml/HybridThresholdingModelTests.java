@@ -17,12 +17,12 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 @RunWith(JUnitParamsRunner.class)
 public class HybridThresholdingModelTests {

@@ -318,8 +318,9 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         when(emptyComposite.getName()).thenReturn(SearchFeatureDao.AGG_NAME_TOP);
         when(emptyComposite.afterKey()).thenReturn(null);
         // empty bucket
-        when(emptyComposite.getBuckets())
-            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return new ArrayList<CompositeAggregation.Bucket>(); });
+        when(emptyComposite.getBuckets()).thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> {
+            return new ArrayList<CompositeAggregation.Bucket>();
+        });
         Aggregations emptyAggs = new Aggregations(Collections.singletonList(emptyComposite));
         SearchResponseSections emptySections = new SearchResponseSections(SearchHits.empty(), emptyAggs, null, false, null, null, 1);
         SearchResponse emptyResponse = new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);

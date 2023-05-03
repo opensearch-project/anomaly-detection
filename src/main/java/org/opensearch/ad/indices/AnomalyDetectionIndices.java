@@ -212,9 +212,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 historyRolloverPeriod = it;
                 rescheduleRollover();
             });
-            this.clusterService
-                .getClusterSettings()
-                .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
+            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> {
+                historyRetentionPeriod = it;
+            });
             this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
         }
 
