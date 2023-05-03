@@ -11,29 +11,31 @@
 
 package org.opensearch.ad.rest;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import org.opensearch.action.ActionListener;
-import org.opensearch.ad.AnomalyDetectorExtension;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import org.opensearch.ad.transport.AnomalyResultResponse;
 import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.RUN;
-import org.opensearch.common.settings.Settings;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
+import org.opensearch.ad.transport.AnomalyResultResponse;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
@@ -41,11 +43,12 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import com.google.common.collect.ImmutableList;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.rest.BaseExtensionRestHandler;
 import org.opensearch.sdk.rest.ReplacedRouteHandler;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to handle request to detect data.
@@ -61,9 +64,9 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     public RestExecuteAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.requestTimeout = REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings());
-        this.sdkRestClient=sdkRestClient;
+        this.sdkRestClient = sdkRestClient;
         extensionsRunner.getSdkClusterService().getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-        this.settings=extensionsRunner.getEnvironmentSettings();
+        this.settings = extensionsRunner.getEnvironmentSettings();
     }
 
     public String getName() {
@@ -80,27 +83,29 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
         String error = validateAdExecutionInput(input);
 
         if (StringUtils.isNotBlank(error)) {
-            return getExecuteDetectorResponse(RestStatus.BAD_REQUEST,request,null,error);
+            return getExecuteDetectorResponse(RestStatus.BAD_REQUEST, request, null, error);
         }
 
         CompletableFuture<AnomalyResultResponse> futureResponse = new CompletableFuture<>();
 
         AnomalyResultRequest anomalyResultRequest = new AnomalyResultRequest(
-                input.getDetectorId(),
-                input.getPeriodStart().toEpochMilli(),
-                input.getPeriodEnd().toEpochMilli()
+            input.getDetectorId(),
+            input.getPeriodStart().toEpochMilli(),
+            input.getPeriodEnd().toEpochMilli()
         );
 
-        sdkRestClient.execute(AnomalyResultAction.INSTANCE, anomalyResultRequest, ActionListener.wrap(
-                r-> futureResponse.complete(r),
-                e-> futureResponse.completeExceptionally(e)
-        ));
+        sdkRestClient
+            .execute(
+                AnomalyResultAction.INSTANCE,
+                anomalyResultRequest,
+                ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
+            );
 
         AnomalyResultResponse anomalyResultResponse = futureResponse
-                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
-                .join();
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
 
-        return getExecuteDetectorResponse(RestStatus.OK,request,anomalyResultResponse,"");
+        return getExecuteDetectorResponse(RestStatus.OK, request, anomalyResultResponse, "");
     }
 
     private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
@@ -140,7 +145,6 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
         return null;
     }
 
-
     @Override
     public List<ReplacedRouteHandler> replacedRouteHandlers() {
         return ImmutableList
@@ -151,25 +155,26 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
                     String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN),
                     RestRequest.Method.POST,
                     String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, RUN),
-                        handleRequest
+                    handleRequest
                 )
             );
     }
 
-    private ExtensionRestResponse getExecuteDetectorResponse(RestStatus restStatus,RestRequest request, AnomalyResultResponse response, String content) throws IOException {
+    private ExtensionRestResponse getExecuteDetectorResponse(
+        RestStatus restStatus,
+        RestRequest request,
+        AnomalyResultResponse response,
+        String content
+    ) throws IOException {
         ExtensionRestResponse extensionRestResponse;
-        if(content.isEmpty()) {
-            extensionRestResponse= new ExtensionRestResponse(
-                    request,
-                    restStatus,
-                    response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        if (content.isEmpty()) {
+            extensionRestResponse = new ExtensionRestResponse(
+                request,
+                restStatus,
+                response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
             );
-        }else {
-            extensionRestResponse= new ExtensionRestResponse(
-                    request,
-                    restStatus,
-                    content
-            );
+        } else {
+            extensionRestResponse = new ExtensionRestResponse(request, restStatus, content);
         }
         return extensionRestResponse;
     }

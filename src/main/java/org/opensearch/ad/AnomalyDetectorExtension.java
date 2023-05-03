@@ -55,7 +55,20 @@ import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.EntityColdStartWorker;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
-import org.opensearch.ad.rest.*;
+import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
+import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestPreviewAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchADTasksAction;
+import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestSearchAnomalyDetectorInfoAction;
+import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
+import org.opensearch.ad.rest.RestSearchTopAnomalyResultAction;
+import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStat;
@@ -215,7 +228,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestSearchADTasksAction(extensionsRunner(), restClient()),
                 new RestSearchAnomalyDetectorInfoAction(extensionsRunner(), restClient()),
                 new RestSearchTopAnomalyResultAction(extensionsRunner(), restClient()),
-                    new RestExecuteAnomalyDetectorAction(extensionsRunner(),restClient())
+                new RestExecuteAnomalyDetectorAction(extensionsRunner(), restClient())
             );
     }
 
