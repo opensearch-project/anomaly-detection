@@ -733,8 +733,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.CronResponse',
         'org.opensearch.ad.transport.AnomalyResultResponse',
         'org.opensearch.ad.MemoryTracker',
-        'org.opensearch.ad.caching.PriorityCache',
-        'org.opensearch.ad.caching.PriorityCache.*',
         'org.opensearch.ad.common.exception.EndRunException',
         'org.opensearch.ad.common.exception.LimitExceededException',
         'org.opensearch.ad.common.exception.ClientException',

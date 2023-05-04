@@ -52,7 +52,6 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.ByteSizeValue;
@@ -73,7 +72,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
     CheckpointDao checkpoint;
     ModelManager modelManager;
 
-    SDKClusterService clusterService;
+    SDKClusterService sdkClusterService;
     Settings settings;
     String detectorId2;
     AnomalyDetector detector2;
@@ -89,7 +88,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
 
         modelManager = mock(ModelManager.class);
 
-        clusterService = mock(SDKClusterService.class);
+        sdkClusterService = mock(SDKClusterService.class);
 
         List<Setting<?>> settingsList = List
             .of(
@@ -104,7 +103,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         when(mockExtension.getSettings()).thenReturn(settingsList);
         SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
 
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(sdkClusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         dedicatedCacheSize = 1;
 
@@ -119,7 +118,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
             memoryTracker,
             AnomalyDetectorSettings.NUM_TREES,
             clock,
-            clusterService,
+            sdkClusterService,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             threadPool,
             checkpointWriteQueue,
@@ -160,7 +159,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         // );
         // when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        memoryTracker = spy(new MemoryTracker(jvmService, modelMaxPercen, 0.002, clusterService, mock(ADCircuitBreakerService.class)));
+        memoryTracker = spy(new MemoryTracker(jvmService, modelMaxPercen, 0.002, sdkClusterService, mock(ADCircuitBreakerService.class)));
 
         EntityCache cache = new PriorityCache(
             checkpoint,
@@ -170,7 +169,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
             memoryTracker,
             AnomalyDetectorSettings.NUM_TREES,
             clock,
-            clusterService,
+            sdkClusterService,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             threadPool,
             checkpointWriteQueue,
@@ -640,26 +639,21 @@ public class PriorityCacheTests extends AbstractCacheTest {
     // test that detector interval is more than 1 hour that maintenance is called before
     // the next get method
     public void testLongDetectorInterval() {
-        try {
-            EnabledSetting.getInstance().setSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, true);
-            when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
-            when(detector.getDetectionIntervalDuration()).thenReturn(Duration.ofHours(12));
-            String modelId = entity1.getModelId(detectorId).get();
-            // record last access time 1000
-            assertTrue(null == entityCache.get(modelId, detector));
-            assertEquals(-1, entityCache.getLastActiveMs(detectorId, modelId));
-            // 2 hour = 7200 seconds have passed
-            long currentTimeEpoch = 8200;
-            when(clock.instant()).thenReturn(Instant.ofEpochSecond(currentTimeEpoch));
-            // door keeper should not be expired since we reclaim space every 60 intervals
-            entityCache.maintenance();
-            // door keeper still has the record and won't blocks entity state being created
-            entityCache.get(modelId, detector);
-            // * 1000 to convert to milliseconds
-            assertEquals(currentTimeEpoch * 1000, entityCache.getLastActiveMs(detectorId, modelId));
-        } finally {
-            EnabledSetting.getInstance().setSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, false);
-        }
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
+        when(detector.getDetectionIntervalDuration()).thenReturn(Duration.ofHours(12));
+        String modelId = entity1.getModelId(detectorId).get();
+        // record last access time 1000
+        assertTrue(null == entityCache.get(modelId, detector));
+        assertEquals(-1, entityCache.getLastActiveMs(detectorId, modelId));
+        // 2 hour = 7200 seconds have passed
+        long currentTimeEpoch = 8200;
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(currentTimeEpoch));
+        // door keeper should not be expired since we reclaim space every 60 intervals
+        entityCache.maintenance();
+        // door keeper still has the record and won't blocks entity state being created
+        entityCache.get(modelId, detector);
+        // * 1000 to convert to milliseconds
+        assertEquals(currentTimeEpoch * 1000, entityCache.getLastActiveMs(detectorId, modelId));
     }
 
     public void testGetNoPriorityUpdate() {

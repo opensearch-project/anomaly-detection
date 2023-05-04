@@ -41,8 +41,6 @@ public class EnabledSetting extends AbstractSetting {
 
     public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED = "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";
 
-    public static final String DOOR_KEEPER_IN_CACHE_ENABLED = "plugins.anomaly_detection.door_keeper_in_cache.enabled";;
-
     public static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
             Setting LegacyADPluginEnabledSetting = Setting
