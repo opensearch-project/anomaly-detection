@@ -46,9 +46,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -122,6 +119,9 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
 import com.google.gson.Gson;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 @PowerMockIgnore("javax.management.*")
 @RunWith(PowerMockRunner.class)

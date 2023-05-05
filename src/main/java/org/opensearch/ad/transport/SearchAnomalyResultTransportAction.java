@@ -181,20 +181,12 @@ public class SearchAnomalyResultTransportAction extends TransportAction<SearchRe
 
         // Send multiple search to check which index a user has permission to read. If search all indices directly,
         // search request will throw exception if user has no permission to search any index.
-        client
-            .multiSearch(
-                multiSearchRequest,
-                ActionListener
-                    .wrap(
-                        multiSearchResponse -> {
-                            processMultiSearchResponse(multiSearchResponse, targetIndices, readableIndices, request, listener);
-                        },
-                        multiSearchException -> {
-                            logger.error("Failed to search custom AD result indices", multiSearchException);
-                            listener.onFailure(multiSearchException);
-                        }
-                    )
-            );
+        client.multiSearch(multiSearchRequest, ActionListener.wrap(multiSearchResponse -> {
+            processMultiSearchResponse(multiSearchResponse, targetIndices, readableIndices, request, listener);
+        }, multiSearchException -> {
+            logger.error("Failed to search custom AD result indices", multiSearchException);
+            listener.onFailure(multiSearchException);
+        }));
     }
 
     @VisibleForTesting

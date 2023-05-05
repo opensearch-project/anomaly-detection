@@ -99,10 +99,6 @@ import org.opensearch.index.shard.ShardId;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.test.OpenSearchTestCase;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.RandomModelStateConfig;
-
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
@@ -117,6 +113,9 @@ import com.google.gson.GsonBuilder;
 import io.protostuff.LinkedBuffer;
 import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
+import test.org.opensearch.ad.util.JsonDeserializer;
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class CheckpointDaoTests extends OpenSearchTestCase {
     private static final Logger logger = LogManager.getLogger(CheckpointDaoTests.class);

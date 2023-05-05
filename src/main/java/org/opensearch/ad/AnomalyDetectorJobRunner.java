@@ -262,16 +262,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 detectionStartTime.toEpochMilli(),
                 executionStartTime.toEpochMilli()
             );
-            client
-                .execute(
-                    AnomalyResultAction.INSTANCE,
-                    request,
-                    ActionListener
-                        .wrap(
-                            response -> { indexAnomalyResult(jobParameter, lock, detectionStartTime, executionStartTime, response); },
-                            exception -> { handleAdException(jobParameter, lock, detectionStartTime, executionStartTime, exception); }
-                        )
-                );
+            client.execute(AnomalyResultAction.INSTANCE, request, ActionListener.wrap(response -> {
+                indexAnomalyResult(jobParameter, lock, detectionStartTime, executionStartTime, response);
+            }, exception -> { handleAdException(jobParameter, lock, detectionStartTime, executionStartTime, exception); }));
         } catch (Exception e) {
             indexAnomalyResultException(jobParameter, lock, detectionStartTime, executionStartTime, e, true);
             log.error("Failed to execute AD job " + detectorId, e);

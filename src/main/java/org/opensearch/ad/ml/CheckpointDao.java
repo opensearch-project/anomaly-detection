@@ -625,14 +625,9 @@ public class CheckpointDao {
                     }
                     String thresholdingModelId = SingleStreamModelIdMapper.getThresholdModelIdFromRCFModelId(rcfModelId);
                     // query for threshold model and combinne rcf and threshold model into a ThresholdedRandomCutForest
-                    getThresholdModel(
-                        thresholdingModelId,
-                        ActionListener
-                            .wrap(
-                                thresholdingModel -> { listener.onResponse(convertToTRCF(forest, thresholdingModel)); },
-                                listener::onFailure
-                            )
-                    );
+                    getThresholdModel(thresholdingModelId, ActionListener.wrap(thresholdingModel -> {
+                        listener.onResponse(convertToTRCF(forest, thresholdingModel));
+                    }, listener::onFailure));
                 }
             } catch (Exception e) {
                 logger.error(new ParameterizedMessage("Unexpected error when deserializing [{}]", rcfModelId), e);
@@ -649,12 +644,9 @@ public class CheckpointDao {
      * @param listener Listener to return a pair of entity model and its last checkpoint time
      */
     public void deserializeModelCheckpoint(String modelId, ActionListener<Optional<Entry<EntityModel, Instant>>> listener) {
-        clientUtil
-            .<GetRequest, GetResponse>asyncRequest(
-                new GetRequest(indexName, modelId),
-                client::get,
-                ActionListener.wrap(response -> { listener.onResponse(processGetResponse(response, modelId)); }, listener::onFailure)
-            );
+        clientUtil.<GetRequest, GetResponse>asyncRequest(new GetRequest(indexName, modelId), client::get, ActionListener.wrap(response -> {
+            listener.onResponse(processGetResponse(response, modelId));
+        }, listener::onFailure));
     }
 
     /**
@@ -683,18 +675,14 @@ public class CheckpointDao {
             .<GetRequest, GetResponse>asyncRequest(
                 new GetRequest(indexName, modelId),
                 client::get,
-                ActionListener
-                    .wrap(
-                        response -> deserializeTRCFModel(response, modelId, listener),
-                        exception -> {
-                            // expected exception, don't print stack trace
-                            if (exception.getMessage().contains("index_not_found_exception")) {
-                                listener.onResponse(Optional.empty());
-                            } else {
-                                listener.onFailure(exception);
-                            }
-                        }
-                    )
+                ActionListener.wrap(response -> deserializeTRCFModel(response, modelId, listener), exception -> {
+                    // expected exception, don't print stack trace
+                    if (exception.getMessage().contains("index_not_found_exception")) {
+                        listener.onResponse(Optional.empty());
+                    } else {
+                        listener.onFailure(exception);
+                    }
+                })
             );
     }
 
@@ -719,16 +707,14 @@ public class CheckpointDao {
                         )
                 );
             listener.onResponse(model);
-        },
-            exception -> {
-                // expected exception, don't print stack trace
-                if (exception instanceof IndexNotFoundException) {
-                    listener.onResponse(Optional.empty());
-                } else {
-                    listener.onFailure(exception);
-                }
+        }, exception -> {
+            // expected exception, don't print stack trace
+            if (exception instanceof IndexNotFoundException) {
+                listener.onResponse(Optional.empty());
+            } else {
+                listener.onFailure(exception);
             }
-        ));
+        }));
     }
 
     private Optional<Object> processThresholdModelCheckpoint(GetResponse response) {

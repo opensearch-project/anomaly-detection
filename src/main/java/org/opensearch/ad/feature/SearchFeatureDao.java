@@ -562,15 +562,9 @@ public class SearchFeatureDao extends AbstractRetriever {
         logger.debug("Batch query for detector {}: {} ", detector.getDetectorId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
-            .search(
-                searchRequest,
-                ActionListener
-                    .wrap(
-                        response -> { listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds())); },
-                        listener::onFailure
-                    )
-            );
+        client.search(searchRequest, ActionListener.wrap(response -> {
+            listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds()));
+        }, listener::onFailure));
     }
 
     private Map<Long, Optional<double[]>> parseBucketAggregationResponse(SearchResponse response, List<String> featureIds) {
