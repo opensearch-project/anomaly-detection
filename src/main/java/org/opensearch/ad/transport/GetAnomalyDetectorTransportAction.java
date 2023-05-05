@@ -80,7 +80,7 @@ public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomal
     private static final Logger LOG = LogManager.getLogger(GetAnomalyDetectorTransportAction.class);
 
     private final SDKClusterService clusterService;
-    private final SDKRestClient client;
+    private final SDKRestClient sdkRestClient;
 
     private final Set<String> allProfileTypeStrs;
     private final Set<DetectorProfileName> allProfileTypes;
@@ -102,13 +102,13 @@ public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomal
         DiscoveryNodeFilterer nodeFilter,
         ActionFilters actionFilters,
         SDKClusterService clusterService,
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         SDKNamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager
     ) {
         super(GetAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.clusterService = clusterService;
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.settings = extensionsRunner.getEnvironmentSettings();
 
         List<DetectorProfileName> allProfiles = Arrays.asList(DetectorProfileName.values());
@@ -144,7 +144,7 @@ public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomal
                 filterByEnabled,
                 listener,
                 (anomalyDetector) -> getExecute(request, listener),
-                client,
+                sdkRestClient,
                 clusterService,
                 xContentRegistry.getRegistry()
             );
@@ -170,7 +170,7 @@ public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomal
                 if (entity != null) {
                     Set<EntityProfileName> entityProfilesToCollect = getEntityProfilesToCollect(typesStr, all);
                     EntityProfileRunner profileRunner = new EntityProfileRunner(
-                        client,
+                        sdkRestClient,
                         xContentRegistry,
                         AnomalyDetectorSettings.NUM_MIN_SAMPLES
                     );
@@ -198,7 +198,7 @@ public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomal
                 } else {
                     Set<DetectorProfileName> profilesToCollect = getProfilesToCollect(typesStr, all);
                     AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(
-                        client,
+                        sdkRestClient,
                         xContentRegistry,
                         nodeFilter,
                         AnomalyDetectorSettings.NUM_MIN_SAMPLES,
@@ -273,7 +273,8 @@ public class GetAnomalyDetectorTransportAction extends TransportAction<GetAnomal
             MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID);
             multiGetRequest.add(adJobItem);
         }
-        client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, returnTask, realtimeAdTask, historicalAdTask, detectorID));
+        sdkRestClient
+            .multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, returnTask, realtimeAdTask, historicalAdTask, detectorID));
     }
 
     private ActionListener<MultiGetResponse> onMultiGetResponse(

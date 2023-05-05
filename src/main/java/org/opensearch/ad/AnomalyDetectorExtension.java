@@ -742,8 +742,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     @Deprecated
     private SDKRestClient createRestClient(ExtensionsRunner runner) {
         @SuppressWarnings("resource")
-        SDKRestClient client = runner.getSdkClient().initializeRestClient();
-        return client;
+        SDKRestClient sdkRestClient = runner.getSdkClient().initializeRestClient();
+        return sdkRestClient;
     }
 
     @Deprecated

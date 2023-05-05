@@ -51,7 +51,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     static final String CANNOT_SAVE_ERR_MSG = "Cannot save %s due to write block.";
     static final String RETRY_SAVING_ERR_MSG = "Retry in saving %s: ";
 
-    protected final SDKRestClient client;
+    protected final SDKRestClient sdkRestClient;
 
     protected final ThreadPool threadPool;
     protected final BackoffPolicy savingBackoffPolicy;
@@ -61,31 +61,31 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     protected boolean fixedDoc;
     protected final ClientUtil clientUtil;
     protected final IndexUtils indexUtils;
-    protected final SDKClusterService clusterService;
+    protected final SDKClusterService sdkClusterService;
 
     /**
      * Abstract class for index operation.
      *
-     * @param client client to OpenSearch query
+     * @param sdkRestClient client to OpenSearch query
      * @param settings accessor for node settings.
      * @param threadPool used to invoke specific threadpool to execute
      * @param indexName name of index to save to
      * @param anomalyDetectionIndices anomaly detection indices
      * @param clientUtil client wrapper
      * @param indexUtils Index util classes
-     * @param clusterService accessor to ES cluster service
+     * @param sdkClusterService accessor to ES cluster service
      */
     public AnomalyIndexHandler(
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         Settings settings,
         ThreadPool threadPool,
         String indexName,
         AnomalyDetectionIndices anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
-        SDKClusterService clusterService
+        SDKClusterService sdkClusterService
     ) {
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.threadPool = threadPool;
         this.savingBackoffPolicy = BackoffPolicy
             .exponentialBackoff(
@@ -97,7 +97,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         this.fixedDoc = false;
         this.clientUtil = clientUtil;
         this.indexUtils = indexUtils;
-        this.clusterService = clusterService;
+        this.sdkClusterService = sdkClusterService;
     }
 
     /**
@@ -112,7 +112,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
 
     // TODO: check if user has permission to index.
     public void index(T toSave, String detectorId, String customIndexName) {
-        if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
+        if (indexUtils.checkIndicesBlocked(sdkClusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
             LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
             return;
         }
@@ -193,34 +193,35 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     }
 
     void saveIteration(IndexRequest indexRequest, String detectorId, Iterator<TimeValue> backoff) {
-        clientUtil.<IndexRequest, IndexResponse>asyncRequest(indexRequest, client::index, ActionListener.<IndexResponse>wrap(response -> {
-            LOG.debug(String.format(Locale.ROOT, SUCCESS_SAVING_MSG, detectorId));
-        }, exception -> {
-            // OpenSearch has a thread pool and a queue for write per node. A thread
-            // pool will have N number of workers ready to handle the requests. When a
-            // request comes and if a worker is free , this is handled by the worker. Now by
-            // default the number of workers is equal to the number of cores on that CPU.
-            // When the workers are full and there are more write requests, the request
-            // will go to queue. The size of queue is also limited. If by default size is,
-            // say, 200 and if there happens more parallel requests than this, then those
-            // requests would be rejected as you can see OpenSearchRejectedExecutionException.
-            // So OpenSearchRejectedExecutionException is the way that OpenSearch tells us that
-            // it cannot keep up with the current indexing rate.
-            // When it happens, we should pause indexing a bit before trying again, ideally
-            // with randomized exponential backoff.
-            Throwable cause = ExceptionsHelper.unwrapCause(exception);
-            if (!(cause instanceof OpenSearchRejectedExecutionException) || !backoff.hasNext()) {
-                LOG.error(String.format(Locale.ROOT, FAIL_TO_SAVE_ERR_MSG, detectorId), cause);
-            } else {
-                TimeValue nextDelay = backoff.next();
-                LOG.warn(String.format(Locale.ROOT, RETRY_SAVING_ERR_MSG, detectorId), cause);
-                threadPool
-                    .schedule(
-                        () -> saveIteration(BulkUtil.cloneIndexRequest(indexRequest), detectorId, backoff),
-                        nextDelay,
-                        ThreadPool.Names.SAME
-                    );
-            }
-        }));
+        clientUtil
+            .<IndexRequest, IndexResponse>asyncRequest(indexRequest, sdkRestClient::index, ActionListener.<IndexResponse>wrap(response -> {
+                LOG.debug(String.format(Locale.ROOT, SUCCESS_SAVING_MSG, detectorId));
+            }, exception -> {
+                // OpenSearch has a thread pool and a queue for write per node. A thread
+                // pool will have N number of workers ready to handle the requests. When a
+                // request comes and if a worker is free , this is handled by the worker. Now by
+                // default the number of workers is equal to the number of cores on that CPU.
+                // When the workers are full and there are more write requests, the request
+                // will go to queue. The size of queue is also limited. If by default size is,
+                // say, 200 and if there happens more parallel requests than this, then those
+                // requests would be rejected as you can see OpenSearchRejectedExecutionException.
+                // So OpenSearchRejectedExecutionException is the way that OpenSearch tells us that
+                // it cannot keep up with the current indexing rate.
+                // When it happens, we should pause indexing a bit before trying again, ideally
+                // with randomized exponential backoff.
+                Throwable cause = ExceptionsHelper.unwrapCause(exception);
+                if (!(cause instanceof OpenSearchRejectedExecutionException) || !backoff.hasNext()) {
+                    LOG.error(String.format(Locale.ROOT, FAIL_TO_SAVE_ERR_MSG, detectorId), cause);
+                } else {
+                    TimeValue nextDelay = backoff.next();
+                    LOG.warn(String.format(Locale.ROOT, RETRY_SAVING_ERR_MSG, detectorId), cause);
+                    threadPool
+                        .schedule(
+                            () -> saveIteration(BulkUtil.cloneIndexRequest(indexRequest), detectorId, backoff),
+                            nextDelay,
+                            ThreadPool.Names.SAME
+                        );
+                }
+            }));
     }
 }

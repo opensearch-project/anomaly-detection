@@ -84,7 +84,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
     // Dependencies
-    private final SDKRestClient client;
+    private final SDKRestClient sdkRestClient;
     private final SDKNamedXContentRegistry xContent;
     private final Interpolator interpolator;
     private final ClientUtil clientUtil;
@@ -96,19 +96,19 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     // used for testing as we can mock clock
     public SearchFeatureDao(
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         SDKNamedXContentRegistry xContent,
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
-        SDKClusterService clusterService,
+        SDKClusterService sdkClusterService,
         int minimumDocCount,
         Clock clock,
         int maxEntitiesForPreview,
         int pageSize,
         long previewTimeoutInMilliseconds
     ) {
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.xContent = xContent;
         this.interpolator = interpolator;
         this.clientUtil = clientUtil;
@@ -116,9 +116,11 @@ public class SearchFeatureDao extends AbstractRetriever {
 
         this.pageSize = pageSize;
 
-        if (clusterService != null) {
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
+        if (sdkClusterService != null) {
+            sdkClusterService
+                .getClusterSettings()
+                .addSettingsUpdateConsumer(MAX_ENTITIES_FOR_PREVIEW, it -> this.maxEntitiesForPreview = it);
+            sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> this.pageSize = it);
         }
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
@@ -133,7 +135,7 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param interpolator interpolator for missing values
      * @param clientUtil utility for ES client
      * @param settings ES settings
-     * @param clusterService ES ClusterService
+     * @param sdkClusterService ES ClusterService
      * @param minimumDocCount minimum doc count required for an entity; used to
      *   make sure an entity has enough samples for preview
      */
@@ -143,7 +145,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         Interpolator interpolator,
         ClientUtil clientUtil,
         Settings settings,
-        SDKClusterService clusterService,
+        SDKClusterService sdkClusterService,
         int minimumDocCount
     ) {
         this(
@@ -152,7 +154,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             interpolator,
             clientUtil,
             settings,
-            clusterService,
+            sdkClusterService,
             minimumDocCount,
             Clock.systemUTC(),
             MAX_ENTITIES_FOR_PREVIEW.get(settings),
@@ -176,7 +178,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         return clientUtil
-            .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, client::search)
+            .<SearchRequest, SearchResponse>timedRequest(searchRequest, logger, sdkRestClient::search)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
             .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME))
@@ -194,7 +196,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
+        sdkRestClient
             .search(
                 searchRequest,
                 ActionListener.wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure)
@@ -359,7 +361,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
+        sdkRestClient
             .search(
                 searchRequest,
                 new TopEntitiesListener(
@@ -454,7 +456,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                         }
                     } else {
                         updateSourceAfterKey(afterKey, searchSourceBuilder);
-                        client
+                        sdkRestClient
                             .search(
                                 new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder),
                                 this
@@ -492,7 +494,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client
+        sdkRestClient
             .search(
                 searchRequest,
                 ActionListener.wrap(response -> { listener.onResponse(parseMinDataTime(response)); }, listener::onFailure)
@@ -529,7 +531,7 @@ public class SearchFeatureDao extends AbstractRetriever {
 
         // send throttled request: this request will clear the negative cache if the request finished within timeout
         return clientUtil
-            .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, client::search, detector)
+            .<SearchRequest, SearchResponse>throttledTimedRequest(searchRequest, logger, sdkRestClient::search, detector)
             .flatMap(resp -> parseResponse(resp, detector.getEnabledFeatureIds()));
     }
 
@@ -543,7 +545,7 @@ public class SearchFeatureDao extends AbstractRetriever {
      */
     public void getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime, ActionListener<Optional<double[]>> listener) {
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
-        client
+        sdkRestClient
             .search(
                 searchRequest,
                 ActionListener
@@ -562,7 +564,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         logger.debug("Batch query for detector {}: {} ", detector.getDetectorId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        client.search(searchRequest, ActionListener.wrap(response -> {
+        sdkRestClient.search(searchRequest, ActionListener.wrap(response -> {
             listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds()));
         }, listener::onFailure));
     }
@@ -602,7 +604,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) throws IOException {
         SearchRequest request = createPreviewSearchRequest(detector, ranges);
 
-        client.search(request, ActionListener.wrap(response -> {
+        sdkRestClient.search(request, ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 listener.onResponse(Collections.emptyList());
@@ -963,7 +965,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) throws IOException {
         SearchRequest request = createColdStartFeatureSearchRequest(detector, ranges, entity);
 
-        client.search(request, ActionListener.wrap(response -> {
+        sdkRestClient.search(request, ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 listener.onResponse(Collections.emptyList());

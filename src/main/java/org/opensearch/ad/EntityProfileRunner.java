@@ -63,12 +63,12 @@ public class EntityProfileRunner extends AbstractProfileRunner {
     static final String NOT_HC_DETECTOR_ERR_MSG = "This is not a high cardinality detector";
     static final String EMPTY_ENTITY_ATTRIBUTES = "Empty entity attributes";
     static final String NO_ENTITY = "Cannot find entity";
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private SDKNamedXContentRegistry xContentRegistry;
 
-    public EntityProfileRunner(SDKRestClient client, SDKNamedXContentRegistry xContentRegistry, long requiredSamples) {
+    public EntityProfileRunner(SDKRestClient sdkRestClient, SDKNamedXContentRegistry xContentRegistry, long requiredSamples) {
         super(requiredSamples);
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.xContentRegistry = xContentRegistry;
     }
 
@@ -92,7 +92,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         }
         GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
 
-        client.get(getDetectorRequest, ActionListener.wrap(getResponse -> {
+        sdkRestClient.get(getDetectorRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
                 try (
                     XContentParser parser = XContentType.JSON
@@ -166,7 +166,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder)
             .preference(Preference.LOCAL.toString());
 
-        client.search(searchRequest, ActionListener.wrap(searchResponse -> {
+        sdkRestClient.search(searchRequest, ActionListener.wrap(searchResponse -> {
             try {
                 if (searchResponse.getHits().getHits().length == 0) {
                     listener.onFailure(new IllegalArgumentException(NO_ENTITY));
@@ -208,7 +208,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         ActionListener<EntityProfile> listener
     ) {
         GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
-        client.get(getRequest, ActionListener.wrap(getResponse -> {
+        sdkRestClient.get(getRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
                 try (
                     XContentParser parser = XContentType.JSON
@@ -276,7 +276,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         }
                         builder.lastActiveTimestampMs(entityProfileResponse.getLastActiveMs());
 
-                        client.search(lastSampleTimeRequest, ActionListener.wrap(searchResponse -> {
+                        sdkRestClient.search(lastSampleTimeRequest, ActionListener.wrap(searchResponse -> {
                             Optional<Long> latestSampleTimeMs = ParseUtils.getLatestDataTime(searchResponse);
 
                             if (latestSampleTimeMs.isPresent()) {

@@ -37,19 +37,19 @@ import com.google.inject.Inject;
 public class SearchAnomalyDetectorInfoTransportAction extends
     TransportAction<SearchAnomalyDetectorInfoRequest, SearchAnomalyDetectorInfoResponse> {
     private static final Logger LOG = LogManager.getLogger(SearchAnomalyDetectorInfoTransportAction.class);
-    private final SDKRestClient client;
-    private final SDKClusterService clusterService;
+    private final SDKRestClient sdkRestClient;
+    private final SDKClusterService sdkClusterService;
 
     @Inject
     public SearchAnomalyDetectorInfoTransportAction(
         TaskManager taskManager,
         ActionFilters actionFilters,
-        SDKRestClient client,
-        SDKClusterService clusterService
+        SDKRestClient sdkRestClient,
+        SDKClusterService sdkClusterService
     ) {
         super(SearchAnomalyDetectorInfoAction.NAME, actionFilters, taskManager);
-        this.client = client;
-        this.clusterService = clusterService;
+        this.sdkRestClient = sdkRestClient;
+        this.sdkClusterService = sdkClusterService;
     }
 
     @Override
@@ -67,7 +67,7 @@ public class SearchAnomalyDetectorInfoTransportAction extends
                 // Count detectors
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
                 searchRequest.source(searchSourceBuilder);
-                client.search(searchRequest, new ActionListener<SearchResponse>() {
+                sdkRestClient.search(searchRequest, new ActionListener<SearchResponse>() {
 
                     @Override
                     public void onResponse(SearchResponse searchResponse) {
@@ -95,7 +95,7 @@ public class SearchAnomalyDetectorInfoTransportAction extends
                 TermsQueryBuilder query = QueryBuilders.termsQuery("name.keyword", name);
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query);
                 searchRequest.source(searchSourceBuilder);
-                client.search(searchRequest, new ActionListener<SearchResponse>() {
+                sdkRestClient.search(searchRequest, new ActionListener<SearchResponse>() {
 
                     @Override
                     public void onResponse(SearchResponse searchResponse) {

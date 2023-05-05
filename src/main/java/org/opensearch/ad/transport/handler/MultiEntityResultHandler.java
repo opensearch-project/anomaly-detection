@@ -73,7 +73,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
      * @param listener callback after flushing
      */
     public void flush(ADResultBulkRequest currentBulkRequest, ActionListener<ADResultBulkResponse> listener) {
-        if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
+        if (indexUtils.checkIndicesBlocked(sdkClusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
             listener.onFailure(new AnomalyDetectionException(CANNOT_SAVE_RESULT_ERR_MSG));
             return;
         }
@@ -110,7 +110,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
             listener.onFailure(new AnomalyDetectionException("no result to save"));
             return;
         }
-        client.execute(ADResultBulkAction.INSTANCE, currentBulkRequest, ActionListener.<ADResultBulkResponse>wrap(response -> {
+        sdkRestClient.execute(ADResultBulkAction.INSTANCE, currentBulkRequest, ActionListener.<ADResultBulkResponse>wrap(response -> {
             LOG.debug(SUCCESS_SAVING_RESULT_MSG);
             listener.onResponse(response);
         }, exception -> {

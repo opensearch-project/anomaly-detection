@@ -61,7 +61,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected String detectorId = "123";
 
     @Mock
-    protected SDKRestClient client;
+    protected SDKRestClient sdkRestClient;
 
     @Mock
     protected AnomalyDetectionIndices anomalyDetectionIndices;
@@ -70,7 +70,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
     protected Throttler throttler;
 
     @Mock
-    protected SDKClusterService clusterService;
+    protected SDKClusterService sdkClusterService;
 
     @Mock
     protected IndexNameExpressionResolver indexNameResolver;
@@ -100,8 +100,8 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
         MockitoAnnotations.initMocks(this);
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
-        clientUtil = new ClientUtil(settings, client, throttler);
-        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver, sdkJavaAsyncClient);
+        clientUtil = new ClientUtil(settings, sdkRestClient, throttler);
+        indexUtil = new IndexUtils(sdkRestClient, clientUtil, sdkClusterService, indexNameResolver, sdkJavaAsyncClient);
     }
 
     protected void setWriteBlockAdResultIndex(boolean blocked) {
@@ -110,7 +110,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
             ? Settings.builder().put(IndexMetadata.INDEX_BLOCKS_WRITE_SETTING.getKey(), true).build()
             : Settings.EMPTY;
         ClusterState blockedClusterState = createIndexBlockedState(indexName, settings, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        when(clusterService.state()).thenReturn(blockedClusterState);
+        when(sdkClusterService.state()).thenReturn(blockedClusterState);
         when(indexNameResolver.concreteIndexNames(any(), any(), any(String.class))).thenReturn(new String[] { indexName });
     }
 

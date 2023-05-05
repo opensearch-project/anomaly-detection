@@ -116,8 +116,8 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     static final String META = "_meta";
     private static final String SCHEMA_VERSION = "schema_version";
 
-    private SDKClusterService clusterService;
-    private final SDKRestClient client;
+    private SDKClusterService sdkClusterService;
+    private final SDKRestClient sdkRestClient;
     private final SDKRestClient adminClient;
     private final OpenSearchAsyncClient sdkJavaAsyncClient;
     private final ThreadPool threadPool;
@@ -166,7 +166,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     /**
      * Constructor function
      *
-     * @param client         ES client supports administrative actions
+     * @param sdkRestClient         ES client supports administrative actions
      * @param sdkJavaAsyncClient Java client
      * @param sdkClusterService ES cluster service
      * @param threadPool     ES thread pool
@@ -175,7 +175,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
      */
     public AnomalyDetectionIndices(
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         OpenSearchAsyncClient sdkJavaAsyncClient,
         SDKClusterService sdkClusterService,
         ThreadPool threadPool,
@@ -183,10 +183,10 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         DiscoveryNodeFilterer nodeFilter,
         int maxUpdateRunningTimes
     ) {
-        this.client = client;
-        this.adminClient = client.admin();
+        this.sdkRestClient = sdkRestClient;
+        this.adminClient = sdkRestClient.admin();
         this.sdkJavaAsyncClient = sdkJavaAsyncClient;
-        this.clusterService = sdkClusterService;
+        this.sdkClusterService = sdkClusterService;
         this.threadPool = threadPool;
         // FIXME Implement this
         // https://github.com/opensearch-project/opensearch-sdk-java/issues/423
@@ -204,18 +204,18 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.allSettingUpdated = false;
         this.updateRunning = new AtomicBoolean(false);
 
-        if (clusterService != null) {
-            this.clusterService
+        if (sdkClusterService != null) {
+            this.sdkClusterService
                 .getClusterSettings()
                 .addSettingsUpdateConsumer(AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD, it -> historyMaxDocs = it);
-            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
+            this.sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_ROLLOVER_PERIOD, it -> {
                 historyRolloverPeriod = it;
                 rescheduleRollover();
             });
-            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> {
+            this.sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> {
                 historyRetentionPeriod = it;
             });
-            this.clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
+            this.sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
         }
 
         this.settings = Settings.builder().put("index.hidden", true).build();
@@ -307,7 +307,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyDetectorIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        return sdkClusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
     }
 
     /**
@@ -316,7 +316,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly detector job index exists
      */
     public boolean doesAnomalyDetectorJobIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+        return sdkClusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
     }
 
     /**
@@ -325,11 +325,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly result index exists
      */
     public boolean doesDefaultAnomalyResultIndexExist() {
-        return clusterService.state().metadata().hasAlias(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        return sdkClusterService.state().metadata().hasAlias(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
     }
 
     public boolean doesIndexExist(String indexName) {
-        return clusterService.state().metadata().hasIndex(indexName);
+        return sdkClusterService.state().metadata().hasIndex(indexName);
     }
 
     public <T> void initCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
@@ -376,9 +376,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 .source(dummyResult.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), ToXContent.EMPTY_PARAMS));
             // User may have no write permission on custom result index. Talked with security plugin team, seems no easy way to verify
             // if user has write permission. So just tried to write and delete a dummy anomaly result to verify.
-            client.index(indexRequest, ActionListener.wrap(response -> {
+            sdkRestClient.index(indexRequest, ActionListener.wrap(response -> {
                 logger.debug("Successfully wrote dummy AD result to result index {}", resultIndex);
-                client.delete(new DeleteRequest(resultIndex).id(DUMMY_AD_RESULT_ID), ActionListener.wrap(deleteResponse -> {
+                sdkRestClient.delete(new DeleteRequest(resultIndex).id(DUMMY_AD_RESULT_ID), ActionListener.wrap(deleteResponse -> {
                     logger.debug("Successfully deleted dummy AD result from result index {}", resultIndex);
                     function.execute();
                 }, ex -> {
@@ -432,7 +432,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 // failed to populate the field
                 return false;
             }
-            IndexMetadata indexMetadata = clusterService.state().metadata().index(resultIndex);
+            IndexMetadata indexMetadata = sdkClusterService.state().metadata().index(resultIndex);
             Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
             String propertyName = CommonName.PROPERTIES;
             if (!indexMapping.containsKey(propertyName) || !(indexMapping.get(propertyName) instanceof LinkedHashMap)) {
@@ -468,7 +468,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly state index exists
      */
     public boolean doesDetectorStateIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(CommonName.DETECTION_STATE_INDEX);
+        return sdkClusterService.state().getRoutingTable().hasIndex(CommonName.DETECTION_STATE_INDEX);
     }
 
     /**
@@ -477,27 +477,27 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if checkpoint index exists
      */
     public boolean doesCheckpointIndexExist() {
-        return clusterService.state().getRoutingTable().hasIndex(CommonName.CHECKPOINT_INDEX_NAME);
+        return sdkClusterService.state().getRoutingTable().hasIndex(CommonName.CHECKPOINT_INDEX_NAME);
     }
 
     /**
      * Index exists or not
-     * @param clusterService Cluster service
+     * @param sdkClusterService Cluster service
      * @param name Index name
      * @return true if the index exists
      */
-    public static boolean doesIndexExists(SDKClusterService clusterService, String name) {
-        return clusterService.state().getRoutingTable().hasIndex(name);
+    public static boolean doesIndexExists(SDKClusterService sdkClusterService, String name) {
+        return sdkClusterService.state().getRoutingTable().hasIndex(name);
     }
 
     /**
      * Alias exists or not
-     * @param clusterService Cluster service
+     * @param sdkClusterService Cluster service
      * @param alias Alias name
      * @return true if the alias exists
      */
-    public static boolean doesAliasExists(SDKClusterService clusterService, String alias) {
-        return clusterService.state().metadata().hasAlias(alias);
+    public static boolean doesAliasExists(SDKClusterService sdkClusterService, String alias) {
+        return sdkClusterService.state().metadata().hasAlias(alias);
     }
 
     private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
@@ -703,7 +703,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     private void rescheduleRollover() {
-        if (clusterService.state().getNodes().isLocalNodeElectedMaster()) {
+        if (sdkClusterService.state().getNodes().isLocalNodeElectedMaster()) {
             if (scheduledRollover != null) {
                 scheduledRollover.cancel();
             }
@@ -976,9 +976,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private void shouldUpdateIndex(ADIndex index, ActionListener<Boolean> thenDo) {
         boolean exists = false;
         if (index.isAlias()) {
-            exists = AnomalyDetectionIndices.doesAliasExists(clusterService, index.getIndexName());
+            exists = AnomalyDetectionIndices.doesAliasExists(sdkClusterService, index.getIndexName());
         } else {
-            exists = AnomalyDetectionIndices.doesIndexExists(clusterService, index.getIndexName());
+            exists = AnomalyDetectionIndices.doesIndexExists(sdkClusterService, index.getIndexName());
         }
         if (false == exists) {
             thenDo.onResponse(Boolean.FALSE);
@@ -1012,7 +1012,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     @SuppressWarnings("unchecked")
     private void shouldUpdateConcreteIndex(String concreteIndex, Integer newVersion, ActionListener<Boolean> thenDo) {
-        IndexMetadata indexMeataData = clusterService.state().getMetadata().indices().get(concreteIndex);
+        IndexMetadata indexMeataData = sdkClusterService.state().getMetadata().indices().get(concreteIndex);
         if (indexMeataData == null) {
             thenDo.onResponse(Boolean.FALSE);
             return;
