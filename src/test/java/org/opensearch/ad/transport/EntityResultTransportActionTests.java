@@ -11,12 +11,84 @@
  */
 
 package org.opensearch.ad.transport;
-/*
+
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+
+import java.io.IOException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.support.ActionFilters;
+import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.ad.AbstractADTest;
+import org.opensearch.ad.NodeStateManager;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.caching.CacheProvider;
+import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.common.exception.EndRunException;
+import org.opensearch.ad.common.exception.JsonPathNotFoundException;
+import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.ml.CheckpointDao;
+import org.opensearch.ad.ml.EntityColdStarter;
+import org.opensearch.ad.ml.EntityModel;
+import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.ratelimit.CheckpointReadWorker;
+import org.opensearch.ad.ratelimit.ColdEntityWorker;
+import org.opensearch.ad.ratelimit.ResultWriteWorker;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.Strings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.tasks.TaskManager;
+import org.opensearch.transport.TransportService;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class EntityResultTransportActionTests extends AbstractADTest {
     EntityResultTransportAction entityResult;
     ActionFilters actionFilters;
     TransportService transportService;
+    TaskManager taskManager;
     ModelManager manager;
     ADCircuitBreakerService adCircuitBreakerService;
     CheckpointDao checkpointDao;
@@ -47,15 +119,16 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     EntityColdStarter coldStarter;
     ColdEntityWorker coldEntityQueue;
 
-    @BeforeClass
+    // Commented as Extension doesn't require threadpool support
+    /*@BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyDetectorJobRunnerTests.class.getSimpleName());
     }
-
+    
     @AfterClass
     public static void tearDownAfterClass() {
         tearDownThreadPool();
-    }
+    }*/
 
     @SuppressWarnings("unchecked")
     @Override
@@ -64,6 +137,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         super.setUp();
         actionFilters = mock(ActionFilters.class);
         transportService = mock(TransportService.class);
+        taskManager = mock(TaskManager.class);
 
         adCircuitBreakerService = mock(ADCircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
@@ -138,7 +212,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
 
         entityResult = new EntityResultTransportAction(
             actionFilters,
-            transportService,
+            taskManager,
             manager,
             adCircuitBreakerService,
             provider,
@@ -154,6 +228,7 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         timeoutMs = 60000L;
     }
 
+    @Ignore("Ignored since extension doesn't have threadpool support")
     public void testCircuitBreakerOpen() {
         when(adCircuitBreakerService.isOpen()).thenReturn(true);
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
@@ -257,4 +332,3 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         }
     }
 }
-*/
