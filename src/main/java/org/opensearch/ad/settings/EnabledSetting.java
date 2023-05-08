@@ -39,8 +39,7 @@ public class EnabledSetting extends AbstractSetting {
 
     public static final String LEGACY_OPENDISTRO_AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
 
-    public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED =
-        "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";;
+    public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED = "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";
 
     public static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
