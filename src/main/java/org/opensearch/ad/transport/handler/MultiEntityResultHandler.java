@@ -53,7 +53,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         AnomalyDetectionIndices anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
-        SDKClusterService clusterService
+        SDKClusterService sdkClusterService
     ) {
         super(
             client,
@@ -63,7 +63,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
             anomalyDetectionIndices,
             clientUtil,
             indexUtils,
-            clusterService
+            sdkClusterService
         );
     }
 
