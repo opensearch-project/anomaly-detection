@@ -82,16 +82,16 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             assertTrue(request != null && listener != null);
             listener.onResponse(mock(IndexResponse.class));
             return null;
-        }).when(client).index(any(IndexRequest.class), ArgumentMatchers.<ActionListener<IndexResponse>>any());
+        }).when(sdkRestClient).index(any(IndexRequest.class), ArgumentMatchers.<ActionListener<IndexResponse>>any());
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
-            client,
+            sdkRestClient,
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            sdkClusterService
         );
         // FIXME part of detector results implementation
         // https://github.com/opensearch-project/opensearch-sdk-java/issues/377
@@ -123,14 +123,14 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     public void testIndexWriteBlock() {
         setWriteBlockAdResultIndex(true);
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
-            client,
+            sdkRestClient,
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            sdkClusterService
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
 
@@ -141,17 +141,17 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     public void testAdResultIndexExist() throws IOException {
         setUpSavingAnomalyResultIndex(false, IndexCreation.RESOURCE_EXISTS_EXCEPTION);
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
-            client,
+            sdkRestClient,
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            sdkClusterService
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
-        verify(client, times(1)).index(any(), any());
+        verify(sdkRestClient, times(1)).index(any(), any());
     }
 
     @Test
@@ -161,17 +161,17 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
 
         setUpSavingAnomalyResultIndex(false, IndexCreation.RUNTIME_EXCEPTION);
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
-            client,
+            sdkRestClient,
             settings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            sdkClusterService
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
-        verify(client, never()).index(any(), any());
+        verify(sdkRestClient, never()).index(any(), any());
     }
 
     /**
@@ -210,7 +210,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
 
             backoffLatch.countDown();
             return null;
-        }).when(client).index(any(IndexRequest.class), ArgumentMatchers.<ActionListener<IndexResponse>>any());
+        }).when(sdkRestClient).index(any(IndexRequest.class), ArgumentMatchers.<ActionListener<IndexResponse>>any());
 
         Settings backoffSettings = Settings
             .builder()
@@ -219,14 +219,14 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             .build();
 
         AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
-            client,
+            sdkRestClient,
             backoffSettings,
             threadPool,
             CommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            sdkClusterService
         );
 
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
