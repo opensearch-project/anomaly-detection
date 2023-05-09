@@ -62,10 +62,10 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
     private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
 
     public RestExecuteAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(extensionsRunner.getEnvironmentSettings());
+        this.settings = extensionsRunner.getEnvironmentSettings();
+        this.requestTimeout = REQUEST_TIMEOUT.get(this.settings);
         this.sdkRestClient = sdkRestClient;
         extensionsRunner.getSdkClusterService().getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
-        this.settings = extensionsRunner.getEnvironmentSettings();
     }
 
     public String getName() {
@@ -165,16 +165,13 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
         AnomalyResultResponse response,
         String error
     ) throws IOException {
-        ExtensionRestResponse extensionRestResponse;
         if (restStatus == RestStatus.OK) {
-            extensionRestResponse = new ExtensionRestResponse(
+            return new ExtensionRestResponse(
                 request,
                 restStatus,
                 response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
             );
-        } else {
-            extensionRestResponse = new ExtensionRestResponse(request, restStatus, error);
         }
-        return extensionRestResponse;
+        return new ExtensionRestResponse(request, restStatus, error);
     }
 }
