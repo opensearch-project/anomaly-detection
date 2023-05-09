@@ -80,7 +80,6 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
 
         String rawPath = request.rawPath();
         String error = validateAdExecutionInput(input);
-
         if (StringUtils.isNotBlank(error)) {
             return getExecuteDetectorResponse(RestStatus.BAD_REQUEST, request, null, error);
         }
