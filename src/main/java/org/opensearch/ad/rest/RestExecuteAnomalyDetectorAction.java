@@ -30,7 +30,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
@@ -102,10 +101,10 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
             );
 
         AnomalyResultResponse anomalyResultResponse = futureResponse
-            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .orTimeout(this.requestTimeout.getMillis(), TimeUnit.MILLISECONDS)
             .join();
 
-        return getExecuteDetectorResponse(RestStatus.OK, request, anomalyResultResponse, "");
+        return getExecuteDetectorResponse(RestStatus.OK, request, anomalyResultResponse, anomalyResultResponse.toString());
     }
 
     private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
@@ -164,17 +163,17 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
         RestStatus restStatus,
         RestRequest request,
         AnomalyResultResponse response,
-        String content
+        String error
     ) throws IOException {
         ExtensionRestResponse extensionRestResponse;
-        if (content.isEmpty()) {
+        if (restStatus == RestStatus.OK) {
             extensionRestResponse = new ExtensionRestResponse(
                 request,
                 restStatus,
                 response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
             );
         } else {
-            extensionRestResponse = new ExtensionRestResponse(request, restStatus, content);
+            extensionRestResponse = new ExtensionRestResponse(request, restStatus, error);
         }
         return extensionRestResponse;
     }
