@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.BeforeClass;
 import org.mockito.ArgumentCaptor;
@@ -52,7 +53,6 @@ import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.routing.RoutingTable;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
@@ -109,8 +109,8 @@ public class UpdateMappingTests extends AbstractADTest {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.state()).thenReturn(clusterState);
 
-        ImmutableOpenMap.Builder<String, IndexMetadata> openMapBuilder = ImmutableOpenMap.builder();
-        Metadata metadata = Metadata.builder().indices(openMapBuilder.build()).build();
+        Map<String, IndexMetadata> openMap = new HashMap<>();
+        Metadata metadata = Metadata.builder().indices(openMap).build();
         when(clusterState.getMetadata()).thenReturn(metadata);
         when(clusterState.metadata()).thenReturn(metadata);
 
@@ -148,12 +148,12 @@ public class UpdateMappingTests extends AbstractADTest {
         doAnswer(invocation -> {
             ActionListener<GetAliasesResponse> listener = (ActionListener<GetAliasesResponse>) invocation.getArgument(1);
 
-            ImmutableOpenMap.Builder<String, List<AliasMetadata>> builder = ImmutableOpenMap.builder();
+            Map<String, List<AliasMetadata>> builder = new HashMap<>();
             List<AliasMetadata> aliasMetadata = new ArrayList<>();
             aliasMetadata.add(AliasMetadata.builder(ADIndex.RESULT.name()).build());
             builder.put(resultIndexName, aliasMetadata);
 
-            listener.onResponse(new GetAliasesResponse(builder.build()));
+            listener.onResponse(new GetAliasesResponse(builder));
             return null;
         }).when(indicesAdminClient).getAliases(any(GetAliasesRequest.class), any());
 
@@ -174,9 +174,9 @@ public class UpdateMappingTests extends AbstractADTest {
                 }
             }))
             .build();
-        ImmutableOpenMap.Builder<String, IndexMetadata> openMapBuilder = ImmutableOpenMap.builder();
+        Map<String, IndexMetadata> openMapBuilder = new HashMap<>();
         openMapBuilder.put(resultIndexName, indexMetadata);
-        Metadata metadata = Metadata.builder().indices(openMapBuilder.build()).build();
+        Metadata metadata = Metadata.builder().indices(openMapBuilder).build();
         when(clusterState.getMetadata()).thenReturn(metadata);
         when(clusterState.metadata()).thenReturn(metadata);
         adIndices.update();
@@ -186,7 +186,7 @@ public class UpdateMappingTests extends AbstractADTest {
     // since SETTING_AUTO_EXPAND_REPLICAS is set, we won't update
     @SuppressWarnings("unchecked")
     public void testJobSettingNoUpdate() {
-        ImmutableOpenMap.Builder<String, Settings> indexToSettings = ImmutableOpenMap.builder();
+        Map<String, Settings> indexToSettings = new HashMap<>();
         Settings jobSettings = Settings
             .builder()
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
@@ -194,7 +194,7 @@ public class UpdateMappingTests extends AbstractADTest {
             .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, "1-all")
             .build();
         indexToSettings.put(ADIndex.JOB.getIndexName(), jobSettings);
-        GetSettingsResponse getSettingsResponse = new GetSettingsResponse(indexToSettings.build(), ImmutableOpenMap.of());
+        GetSettingsResponse getSettingsResponse = new GetSettingsResponse(indexToSettings, new HashMap<>());
         doAnswer(invocation -> {
             ActionListener<GetSettingsResponse> listener = (ActionListener<GetSettingsResponse>) invocation.getArgument(2);
 
@@ -207,7 +207,7 @@ public class UpdateMappingTests extends AbstractADTest {
 
     @SuppressWarnings("unchecked")
     private void setUpSuccessfulGetJobSetting() {
-        ImmutableOpenMap.Builder<String, Settings> indexToSettings = ImmutableOpenMap.builder();
+        Map<String, Settings> indexToSettings = new HashMap<>();
         Settings jobSettings = Settings
             .builder()
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
@@ -215,7 +215,7 @@ public class UpdateMappingTests extends AbstractADTest {
             .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 0)
             .build();
         indexToSettings.put(ADIndex.JOB.getIndexName(), jobSettings);
-        GetSettingsResponse getSettingsResponse = new GetSettingsResponse(indexToSettings.build(), ImmutableOpenMap.of());
+        GetSettingsResponse getSettingsResponse = new GetSettingsResponse(indexToSettings, new HashMap<>());
         doAnswer(invocation -> {
             ActionListener<GetSettingsResponse> listener = (ActionListener<GetSettingsResponse>) invocation.getArgument(2);
 
@@ -249,10 +249,10 @@ public class UpdateMappingTests extends AbstractADTest {
     // since SETTING_NUMBER_OF_SHARDS is not there, we skip updating
     @SuppressWarnings("unchecked")
     public void testMissingPrimaryJobShards() {
-        ImmutableOpenMap.Builder<String, Settings> indexToSettings = ImmutableOpenMap.builder();
+        Map<String, Settings> indexToSettings = new HashMap<>();
         Settings jobSettings = Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT).build();
         indexToSettings.put(ADIndex.JOB.getIndexName(), jobSettings);
-        GetSettingsResponse getSettingsResponse = new GetSettingsResponse(indexToSettings.build(), ImmutableOpenMap.of());
+        GetSettingsResponse getSettingsResponse = new GetSettingsResponse(indexToSettings, new HashMap<>());
         doAnswer(invocation -> {
             ActionListener<GetSettingsResponse> listener = (ActionListener<GetSettingsResponse>) invocation.getArgument(2);
 

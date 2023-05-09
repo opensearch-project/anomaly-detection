@@ -21,7 +21,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -53,7 +52,6 @@ import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -66,7 +64,6 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.test.transport.MockTransportService;
 import org.opensearch.timeseries.constant.CommonName;
 
-import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.google.common.collect.ImmutableMap;
 
 public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
@@ -253,7 +250,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         return clusterAdmin().updateSettings(updateSettingsRequest).actionGet(timeout);
     }
 
-    public ImmutableOpenMap<String, DiscoveryNode> getDataNodes() {
+    public Map<String, DiscoveryNode> getDataNodes() {
         DiscoveryNodes nodes = clusterService().state().getNodes();
         return nodes.getDataNodes();
     }
@@ -269,10 +266,10 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public DiscoveryNode[] getDataNodesArray() {
         DiscoveryNodes nodes = clusterService().state().getNodes();
-        Iterator<ObjectObjectCursor<String, DiscoveryNode>> iterator = nodes.getDataNodes().iterator();
+        Collection<DiscoveryNode> nodeCollection = nodes.getDataNodes().values();
         List<DiscoveryNode> dataNodes = new ArrayList<>();
-        while (iterator.hasNext()) {
-            dataNodes.add(iterator.next().value);
+        for (DiscoveryNode node : nodeCollection) {
+            dataNodes.add(node);
         }
         return dataNodes.toArray(new DiscoveryNode[0]);
     }

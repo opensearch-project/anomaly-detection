@@ -19,7 +19,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -49,7 +51,6 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
@@ -196,10 +197,10 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
     }
 
     private ClusterState createClusterState() {
-        ImmutableOpenMap<String, IndexMetadata> immutableOpenMap = ImmutableOpenMap
-            .<String, IndexMetadata>builder()
-            .fPut(
-                CommonName.JOB_INDEX,
+        Map<String, IndexMetadata> immutableOpenMap = new HashMap<>();
+        immutableOpenMap
+            .put(
+                    CommonName.JOB_INDEX,
                 IndexMetadata
                     .builder("test")
                     .settings(
@@ -210,10 +211,20 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
                             .put("index.version.created", Version.CURRENT.id)
                     )
                     .build()
-            )
-            .build();
+            );
         Metadata metaData = Metadata.builder().indices(immutableOpenMap).build();
-        ClusterState clusterState = new ClusterState(new ClusterName("test_name"), 1l, "uuid", metaData, null, null, null, null, 1, true);
+        ClusterState clusterState = new ClusterState(
+            new ClusterName("test_name"),
+            1l,
+            "uuid",
+            metaData,
+            null,
+            null,
+            null,
+            new HashMap<>(),
+            1,
+            true
+        );
         return clusterState;
     }
 
