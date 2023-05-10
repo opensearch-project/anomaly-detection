@@ -6,7 +6,6 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 
 | Maintainer              | GitHub ID                                               | Affiliation |
 | ----------------------- | ------------------------------------------------------- | ----------- |
-| Hanguang Zhang          | [zhanghg08](https://github.com/zhanghg08)               | Amazon      |
 | Jack Mazanec            | [jmazanec15](https://github.com/jmazanec15)             | Amazon      |
 | Jing Zhang              | [jngz-es](https://github.com/jngz-es)                   | Amazon      |
 | Kaituo Li               | [kaituo](https://github.com/kaituo)                     | Amazon      |
@@ -16,4 +15,10 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                   | Amazon      |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)                 | Amazon      |
 | Yaliang Wu              | [ylwu-amzn](https://github.com/ylwu-amzn)               | Amazon      |
-| Yizhe Liu               | [yizheliu-amazon](https://github.com/yizheliu-amazon)   | Amazon      |
+
+## Emeritus
+
+| Maintainer     | GitHub ID                                             | Affiliation |
+| -------------- | ----------------------------------------------------- | ----------- |
+| Hanguang Zhang | [zhanghg08](https://github.com/zhanghg08)             | Amazon      |
+| Yizhe Liu      | [yizheliu-amazon](https://github.com/yizheliu-amazon) | Amazon      |
