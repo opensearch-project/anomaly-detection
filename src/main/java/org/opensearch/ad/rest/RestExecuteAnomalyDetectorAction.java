@@ -81,7 +81,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
         String rawPath = request.rawPath();
         String error = validateAdExecutionInput(input);
         if (StringUtils.isNotBlank(error)) {
-            return getExecuteDetectorResponse(RestStatus.BAD_REQUEST, request, null, error);
+            return new ExtensionRestResponse(request, RestStatus.BAD_REQUEST, error);
         }
 
         CompletableFuture<AnomalyResultResponse> futureResponse = new CompletableFuture<>();
@@ -103,7 +103,11 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
             .orTimeout(this.requestTimeout.getMillis(), TimeUnit.MILLISECONDS)
             .join();
 
-        return getExecuteDetectorResponse(RestStatus.OK, request, anomalyResultResponse, anomalyResultResponse.toString());
+        return new ExtensionRestResponse(
+            request,
+            RestStatus.OK,
+            anomalyResultResponse.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        );
     }
 
     private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
@@ -156,21 +160,5 @@ public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
                     handleRequest
                 )
             );
-    }
-
-    private ExtensionRestResponse getExecuteDetectorResponse(
-        RestStatus restStatus,
-        RestRequest request,
-        AnomalyResultResponse response,
-        String error
-    ) throws IOException {
-        if (restStatus == RestStatus.OK) {
-            return new ExtensionRestResponse(
-                request,
-                restStatus,
-                response.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
-            );
-        }
-        return new ExtensionRestResponse(request, restStatus, error);
     }
 }
