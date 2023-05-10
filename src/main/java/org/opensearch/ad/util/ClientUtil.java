@@ -51,13 +51,13 @@ import org.opensearch.tasks.TaskInfo;
 
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private final Throttler throttler;
 
     @Inject
-    public ClientUtil(Settings setting, SDKRestClient client, Throttler throttler) {
+    public ClientUtil(Settings setting, SDKRestClient sdkRestClient, Throttler throttler) {
         this.requestTimeout = REQUEST_TIMEOUT.get(setting);
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.throttler = throttler;
     }
 
@@ -133,7 +133,7 @@ public class ClientUtil {
         Request request,
         ActionListener<Response> listener
     ) {
-        client.execute(action, request, ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> {
+        sdkRestClient.execute(action, request, ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> {
             listener.onFailure(exception);
         }));
     }
@@ -185,7 +185,7 @@ public class ClientUtil {
             String detectorId = detector.getDetectorId();
             if (!throttler.insertFilteredQuery(detectorId, request)) {
                 LOG.info("There is one query running for detectorId: {}. Trying to cancel the long running query", detectorId);
-                cancelRunningQuery(client, detectorId, LOG);
+                cancelRunningQuery(sdkRestClient, detectorId, LOG);
                 throw new InternalFailure(detector.getDetectorId(), "There is already a query running on AnomalyDetector");
             }
             AtomicReference<Response> respReference = new AtomicReference<>();
@@ -283,7 +283,7 @@ public class ClientUtil {
             LOG.info("Start to cancel task for taskId: {}", matchedSingleTaskId.toString());
         }
 
-        client.execute(CancelTasksAction.INSTANCE, cancelTaskRequest, ActionListener.wrap(response -> {
+        sdkRestClient.execute(CancelTasksAction.INSTANCE, cancelTaskRequest, ActionListener.wrap(response -> {
             onCancelTaskResponse(response, detectorId, LOG);
         }, exception -> {
             LOG.error("Failed to cancel task for detectorId: " + detectorId, exception);

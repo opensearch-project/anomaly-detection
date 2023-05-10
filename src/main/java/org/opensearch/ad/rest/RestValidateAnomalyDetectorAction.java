@@ -58,7 +58,7 @@ import com.google.common.collect.ImmutableList;
 public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAction {
     private static final String VALIDATE_ANOMALY_DETECTOR_ACTION = "validate_anomaly_detector_action";
     private Settings settings;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
 
     public static final Set<String> ALL_VALIDATION_ASPECTS_STRS = Arrays
         .asList(ValidationAspect.values())
@@ -66,10 +66,10 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         .map(aspect -> aspect.getName())
         .collect(Collectors.toSet());
 
-    public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestValidateAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         super(extensionsRunner);
         this.settings = extensionsRunner.getEnvironmentSettings();
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
     }
 
     // @Override
@@ -158,7 +158,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         );
 
         CompletableFuture<ValidateAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
-        client
+        sdkRestClient
             .execute(
                 ValidateAnomalyDetectorAction.INSTANCE,
                 validateAnomalyDetectorRequest,

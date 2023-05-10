@@ -41,7 +41,7 @@ public class AnomalyDetectorActionHandler {
      * Get detector job for update/delete AD job.
      * If AD job exist, will return error message; otherwise, execute function.
      *
-     * @param clusterService SDK cluster service
+     * @param sdkClusterService SDK cluster service
      * @param client SDK Rest client
      * @param detectorId detector identifier
      * @param listener Listener to send response
@@ -50,14 +50,14 @@ public class AnomalyDetectorActionHandler {
      */
 
     public void getDetectorJob(
-        SDKClusterService clusterService,
+        SDKClusterService sdkClusterService,
         SDKRestClient client,
         String detectorId,
         ActionListener listener,
         AnomalyDetectorFunction function,
         NamedXContentRegistry xContentRegistry
     ) {
-        if (clusterService.state().metadata().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
+        if (sdkClusterService.state().metadata().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
             GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
             client
                 .get(

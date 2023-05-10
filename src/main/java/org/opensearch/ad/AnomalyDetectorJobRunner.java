@@ -97,7 +97,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private static AnomalyDetectorJobRunner INSTANCE;
     private Settings settings;
     private int maxRetryForEndRunException;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private ThreadPool threadPool;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
@@ -123,8 +123,8 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.detectorEndRunExceptionCount = new ConcurrentHashMap<>();
     }
 
-    public void setClient(SDKRestClient client) {
-        this.client = client;
+    public void setClient(SDKRestClient sdkRestClient) {
+        this.sdkRestClient = sdkRestClient;
     }
 
     public void setThreadPool(ThreadPool threadPool) {
@@ -262,7 +262,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 detectionStartTime.toEpochMilli(),
                 executionStartTime.toEpochMilli()
             );
-            client.execute(AnomalyResultAction.INSTANCE, request, ActionListener.wrap(response -> {
+            sdkRestClient.execute(AnomalyResultAction.INSTANCE, request, ActionListener.wrap(response -> {
                 indexAnomalyResult(jobParameter, lock, detectionStartTime, executionStartTime, response);
             }, exception -> { handleAdException(jobParameter, lock, detectionStartTime, executionStartTime, exception); }));
         } catch (Exception e) {
@@ -411,7 +411,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                             .source(newJob.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), XCONTENT_WITH_TYPE))
                             .id(detectorId);
 
-                        client.index(indexRequest, ActionListener.wrap(indexResponse -> {
+                        sdkRestClient.index(indexRequest, ActionListener.wrap(indexResponse -> {
                             if (indexResponse != null && (indexResponse.getResult() == CREATED || indexResponse.getResult() == UPDATED)) {
                                 log.info("AD Job was disabled by JobRunner for " + detectorId);
                                 // function.execute();
@@ -432,7 +432,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             }
         }, exception -> log.error("JobRunner failed to get detector job " + detectorId, exception));
 
-        client.get(getRequest, ActionListener.runAfter(listener, () -> function.execute()));
+        sdkRestClient.get(getRequest, ActionListener.runAfter(listener, () -> function.execute()));
     }
 
     private void indexAnomalyResult(
@@ -495,7 +495,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             Set<DetectorProfileName> profiles = new HashSet<>();
             profiles.add(DetectorProfileName.INIT_PROGRESS);
             ProfileRequest profileRequest = new ProfileRequest(detectorId, profiles, true, dataNodes);
-            client.execute(ProfileAction.INSTANCE, profileRequest, ActionListener.wrap(r -> {
+            sdkRestClient.execute(ProfileAction.INSTANCE, profileRequest, ActionListener.wrap(r -> {
                 log.debug("Update latest realtime task for HC detector {}, total updates: {}", detectorId, r.getTotalUpdates());
                 updateLatestRealtimeTask(
                     detectorId,
@@ -639,7 +639,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             .setJsonEntity(Strings.toString(acquireLockRequestBody.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)));
 
         CompletableFuture<Response> acquireLockResponse = new CompletableFuture<>();
-        client.performRequestAsync(acquireLockRequest, new ResponseListener() {
+        sdkRestClient.performRequestAsync(acquireLockRequest, new ResponseListener() {
 
             @Override
             public void onSuccess(Response response) {
@@ -672,7 +672,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
         try {
             CompletableFuture<Response> releaseLockResponse = new CompletableFuture<>();
-            client.performRequestAsync(releaseLockRequest, new ResponseListener() {
+            sdkRestClient.performRequestAsync(releaseLockRequest, new ResponseListener() {
 
                 @Override
                 public void onSuccess(Response response) {

@@ -46,20 +46,20 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
     private static final String LEGACY_URL_PATH = AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI + "/results/_search";
     private static final String URL_PATH = AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/results/_search";
     public static final String SEARCH_ANOMALY_RESULT_ACTION = "search_anomaly_result";
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private ExtensionsRunner extensionsRunner;
 
-    public RestSearchAnomalyResultAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestSearchAnomalyResultAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         super(
             ImmutableList.of(String.format(Locale.ROOT, "%s/{%s}", URL_PATH, RESULT_INDEX)),
             ImmutableList.of(Pair.of(URL_PATH, LEGACY_URL_PATH)),
             ALL_AD_RESULTS_INDEX_PATTERN,
             AnomalyResult.class,
             SearchAnomalyResultAction.INSTANCE,
-            client,
+            sdkRestClient,
             extensionsRunner
         );
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.extensionsRunner = extensionsRunner;
     }
 
@@ -94,7 +94,7 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
             }
         }
         CompletableFuture<SearchResponse> futureResponse = new CompletableFuture<>();
-        client
+        sdkRestClient
             .execute(
                 actionType,
                 searchRequest,

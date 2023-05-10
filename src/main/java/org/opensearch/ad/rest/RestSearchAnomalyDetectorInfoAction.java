@@ -49,12 +49,12 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseExtensionRestHandle
     public static final String SEARCH_ANOMALY_DETECTOR_INFO_ACTION = "search_anomaly_detector_info";
 
     private static final Logger logger = LogManager.getLogger(RestSearchAnomalyDetectorInfoAction.class);
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private ExtensionsRunner extensionsRunner;
 
-    public RestSearchAnomalyDetectorInfoAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestSearchAnomalyDetectorInfoAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         this.extensionsRunner = extensionsRunner;
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
     }
 
     public String getName() {
@@ -79,7 +79,7 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseExtensionRestHandle
 
         SearchAnomalyDetectorInfoRequest searchAnomalyDetectorInfoRequest = new SearchAnomalyDetectorInfoRequest(detectorName, rawPath);
         CompletableFuture<SearchAnomalyDetectorInfoResponse> futureResponse = new CompletableFuture<>();
-        client
+        sdkRestClient
             .execute(
                 SearchAnomalyDetectorInfoAction.INSTANCE,
                 searchAnomalyDetectorInfoRequest,

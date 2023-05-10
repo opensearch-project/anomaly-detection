@@ -42,15 +42,24 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
     private AnomalyDetectionIndices anomalyDetectionIndices;
 
     public AnomalyResultBulkIndexHandler(
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         Settings settings,
         ThreadPool threadPool,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
-        SDKClusterService clusterService,
+        SDKClusterService sdkClusterService,
         AnomalyDetectionIndices anomalyDetectionIndices
     ) {
-        super(client, settings, threadPool, ANOMALY_RESULT_INDEX_ALIAS, anomalyDetectionIndices, clientUtil, indexUtils, clusterService);
+        super(
+            sdkRestClient,
+            settings,
+            threadPool,
+            ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtils,
+            sdkClusterService
+        );
         this.anomalyDetectionIndices = anomalyDetectionIndices;
     }
 
@@ -127,7 +136,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
                 throw new AnomalyDetectionException(error);
             }
         });
-        client.bulk(bulkRequest, ActionListener.wrap(r -> {
+        sdkRestClient.bulk(bulkRequest, ActionListener.wrap(r -> {
             if (r.hasFailures()) {
                 String failureMessage = r.buildFailureMessage();
                 LOG.warn("Failed to bulk index AD result " + failureMessage);

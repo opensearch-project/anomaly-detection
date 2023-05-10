@@ -47,7 +47,7 @@ public class IndexUtils {
 
     private static final Logger logger = LogManager.getLogger(IndexUtils.class);
 
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private ClientUtil clientUtil;
     private SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
@@ -57,20 +57,20 @@ public class IndexUtils {
     /**
      * Inject annotation required by Guice to instantiate EntityResultTransportAction (transitive dependency)
      *
-     * @param client Client to make calls to ElasticSearch
+     * @param sdkRestClient SdkRestClient to make calls to ElasticSearch
      * @param clientUtil AD Client utility
      * @param clusterService ES ClusterService
      * @param indexNameExpressionResolver index name resolver
      */
     @Inject
     public IndexUtils(
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         ClientUtil clientUtil,
         SDKClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
         OpenSearchAsyncClient javaAsyncClient
     ) {
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.clientUtil = clientUtil;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;

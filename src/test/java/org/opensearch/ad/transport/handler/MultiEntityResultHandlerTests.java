@@ -44,13 +44,13 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
         super.setUp();
 
         handler = new MultiEntityResultHandler(
-            client,
+            sdkRestClient,
             settings,
             threadPool,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            sdkClusterService
         );
 
         request = new ADResultBulkRequest();
@@ -71,7 +71,9 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             ActionListener<ADResultBulkResponse> listener = invocation.getArgument(2);
             listener.onResponse(response);
             return null;
-        }).when(client).execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ADResultBulkResponse>>any());
+        })
+            .when(sdkRestClient)
+            .execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ADResultBulkResponse>>any());
     }
 
     @Override
@@ -123,7 +125,9 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             ActionListener<ADResultBulkResponse> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(client).execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ADResultBulkResponse>>any());
+        })
+            .when(sdkRestClient)
+            .execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ADResultBulkResponse>>any());
 
         CountDownLatch verified = new CountDownLatch(1);
         handler.flush(request, ActionListener.wrap(response -> {

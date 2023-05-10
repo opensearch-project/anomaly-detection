@@ -54,7 +54,7 @@ import org.opensearch.search.internal.InternalSearchResponse;
 public class EntityProfileRunnerTests extends AbstractADTest {
     private AnomalyDetector detector;
     private int detectorIntervalMin;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private EntityProfileRunner runner;
     private Set<EntityProfileName> state;
     private Set<EntityProfileName> initNInfo;
@@ -100,11 +100,11 @@ public class EntityProfileRunnerTests extends AbstractADTest {
         entityValue = "app-0";
 
         requiredSamples = 128;
-        client = mock(SDKRestClient.class);
+        sdkRestClient = mock(SDKRestClient.class);
 
         SDKNamedXContentRegistry mockSdkXContentRegistry = mock(SDKNamedXContentRegistry.class);
         when(mockSdkXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
-        runner = new EntityProfileRunner(client, mockSdkXContentRegistry, requiredSamples);
+        runner = new EntityProfileRunner(sdkRestClient, mockSdkXContentRegistry, requiredSamples);
 
         categoryField = "a";
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(categoryField));
@@ -123,7 +123,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             }
 
             return null;
-        }).when(client).get(any(), any());
+        }).when(sdkRestClient).get(any(), any());
 
         entity = Entity.createSingleAttributeEntity(categoryField, entityValue);
     }
@@ -157,7 +157,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
                 listener.onResponse(searchResponse);
             }
             return null;
-        }).when(client).search(any(), any());
+        }).when(sdkRestClient).search(any(), any());
     }
 
     @SuppressWarnings("unchecked")
@@ -237,7 +237,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
 
             return null;
 
-        }).when(client).search(any(), any());
+        }).when(sdkRestClient).search(any(), any());
     }
 
     public void stateTestTemplate(InittedEverResultStatus returnedState, EntityState expectedState) throws InterruptedException {

@@ -65,41 +65,41 @@ public class CompositeRetriever extends AbstractRetriever {
     private final long dataEndEpoch;
     private final AnomalyDetector anomalyDetector;
     private final SDKNamedXContentRegistry xContent;
-    private final SDKRestClient client;
+    private final SDKRestClient sdkRestClient;
     private int totalResults;
     private int maxEntities;
     private final int pageSize;
     private long expirationEpochMs;
     private Clock clock;
     private IndexNameExpressionResolver indexNameExpressionResolver;
-    private SDKClusterService clusterService;
+    private SDKClusterService sdkClusterService;
 
     public CompositeRetriever(
         long dataStartEpoch,
         long dataEndEpoch,
         AnomalyDetector anomalyDetector,
         SDKNamedXContentRegistry xContent,
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         long expirationEpochMs,
         Clock clock,
         Settings settings,
         int maxEntitiesPerInterval,
         int pageSize,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        SDKClusterService clusterService
+        SDKClusterService sdkClusterService
     ) {
         this.dataStartEpoch = dataStartEpoch;
         this.dataEndEpoch = dataEndEpoch;
         this.anomalyDetector = anomalyDetector;
         this.xContent = xContent;
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.totalResults = 0;
         this.maxEntities = maxEntitiesPerInterval;
         this.pageSize = pageSize;
         this.expirationEpochMs = expirationEpochMs;
         this.clock = clock;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
-        this.clusterService = clusterService;
+        this.sdkClusterService = sdkClusterService;
     }
 
     // a constructor that provide default value of clock
@@ -188,10 +188,10 @@ public class CompositeRetriever extends AbstractRetriever {
         public void next(ActionListener<Page> listener) {
             iterations++;
             SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0]), source);
-            client.search(searchRequest, new ActionListener<SearchResponse>() {
+            sdkRestClient.search(searchRequest, new ActionListener<SearchResponse>() {
                 @Override
                 public void onResponse(SearchResponse response) {
-                    processResponse(response, () -> client.search(searchRequest, this), listener);
+                    processResponse(response, () -> sdkRestClient.search(searchRequest, this), listener);
                 }
 
                 @Override
@@ -315,7 +315,11 @@ public class CompositeRetriever extends AbstractRetriever {
             if (response == null || response.getAggregations() == null) {
                 List<String> sourceIndices = anomalyDetector.getIndices();
                 String[] concreteIndices = indexNameExpressionResolver
-                    .concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpandOpen(), sourceIndices.toArray(new String[0]));
+                    .concreteIndexNames(
+                        sdkClusterService.state(),
+                        IndicesOptions.lenientExpandOpen(),
+                        sourceIndices.toArray(new String[0])
+                    );
                 if (concreteIndices.length == 0) {
                     throw new IndexNotFoundException(String.join(",", sourceIndices));
                 } else {

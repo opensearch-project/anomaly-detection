@@ -58,7 +58,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     private static final Logger LOG = LogManager.getLogger(NodeStateManager.class);
     public static final String NO_ERROR = "no_error";
     private ConcurrentHashMap<String, NodeState> states;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
     private SDKNamedXContentRegistry xContentRegistry;
     private ClientUtil clientUtil;
     // map from detector id to the map of ES node id to the node's backpressureMuter
@@ -71,32 +71,32 @@ public class NodeStateManager implements MaintenanceState, CleanState {
     /**
      * Constructor
      *
-     * @param client Client to make calls to ElasticSearch
+     * @param sdkRestClient SdkRestClient to make calls to ElasticSearch
      * @param xContentRegistry ES named content registry
      * @param settings ES settings
      * @param clientUtil AD Client utility
      * @param clock A UTC clock
      * @param stateTtl Max time to keep state in memory
-     * @param clusterService Cluster service accessor
+     * @param sdkClusterService Cluster service accessor
      */
     public NodeStateManager(
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         SDKNamedXContentRegistry xContentRegistry,
         Settings settings,
         ClientUtil clientUtil,
         Clock clock,
         Duration stateTtl,
-        SDKClusterService clusterService
+        SDKClusterService sdkClusterService
     ) {
         this.states = new ConcurrentHashMap<>();
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.xContentRegistry = xContentRegistry;
         this.clientUtil = clientUtil;
         this.backpressureMuter = new ConcurrentHashMap<>();
         this.clock = clock;
         this.stateTtl = stateTtl;
         this.maxRetryForUnresponsiveNode = MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RETRY_FOR_UNRESPONSIVE_NODE, it -> {
+        sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_RETRY_FOR_UNRESPONSIVE_NODE, it -> {
             this.maxRetryForUnresponsiveNode = it;
             Iterator<Map<String, BackPressureRouting>> iter = backpressureMuter.values().iterator();
             while (iter.hasNext()) {
@@ -105,7 +105,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             }
         });
         this.mutePeriod = BACKOFF_MINUTES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(BACKOFF_MINUTES, it -> {
+        sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(BACKOFF_MINUTES, it -> {
             this.mutePeriod = it;
             Iterator<Map<String, BackPressureRouting>> iter = backpressureMuter.values().iterator();
             while (iter.hasNext()) {
@@ -131,7 +131,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             listener.onResponse(Optional.of(state.getDetectorDef()));
         } else {
             GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, adID);
-            clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorResponse(adID, listener));
+            clientUtil.<GetRequest, GetResponse>asyncRequest(request, sdkRestClient::get, onGetDetectorResponse(adID, listener));
         }
     }
 
@@ -186,7 +186,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
 
         GetRequest request = new GetRequest(CommonName.CHECKPOINT_INDEX_NAME, SingleStreamModelIdMapper.getRcfModelId(adID, 0));
 
-        clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetCheckpointResponse(adID, listener));
+        clientUtil.<GetRequest, GetResponse>asyncRequest(request, sdkRestClient::get, onGetCheckpointResponse(adID, listener));
     }
 
     private ActionListener<GetResponse> onGetCheckpointResponse(String adID, ActionListener<Boolean> listener) {
@@ -378,7 +378,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
             listener.onResponse(Optional.of(state.getDetectorJob()));
         } else {
             GetRequest request = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, adID);
-            clientUtil.<GetRequest, GetResponse>asyncRequest(request, client::get, onGetDetectorJobResponse(adID, listener));
+            clientUtil.<GetRequest, GetResponse>asyncRequest(request, sdkRestClient::get, onGetDetectorJobResponse(adID, listener));
         }
     }
 

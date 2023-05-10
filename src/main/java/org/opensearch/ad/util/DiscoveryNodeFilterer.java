@@ -28,11 +28,11 @@ import org.opensearch.sdk.SDKClusterService;
  */
 public class DiscoveryNodeFilterer {
     private static final Logger LOG = LogManager.getLogger(DiscoveryNodeFilterer.class);
-    private final SDKClusterService clusterService;
+    private final SDKClusterService sdkClusterService;
     private final HotDataNodePredicate eligibleNodeFilter;
 
-    public DiscoveryNodeFilterer(SDKClusterService clusterService) {
-        this.clusterService = clusterService;
+    public DiscoveryNodeFilterer(SDKClusterService sdkClusterService) {
+        this.sdkClusterService = sdkClusterService;
         eligibleNodeFilter = new HotDataNodePredicate();
     }
 
@@ -46,7 +46,7 @@ public class DiscoveryNodeFilterer {
      * @return an array of eligible data nodes
      */
     public DiscoveryNode[] getEligibleDataNodes() {
-        ClusterState state = this.clusterService.state();
+        ClusterState state = this.sdkClusterService.state();
         final List<DiscoveryNode> eligibleNodes = new ArrayList<>();
         for (DiscoveryNode node : state.nodes()) {
             if (eligibleNodeFilter.test(node)) {
@@ -57,7 +57,7 @@ public class DiscoveryNodeFilterer {
     }
 
     public DiscoveryNode[] getAllNodes() {
-        ClusterState state = this.clusterService.state();
+        ClusterState state = this.sdkClusterService.state();
         final List<DiscoveryNode> nodes = new ArrayList<>();
         for (DiscoveryNode node : state.nodes()) {
             nodes.add(node);

@@ -19,72 +19,105 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.action.ActionListener;
+import org.opensearch.ad.AnomalyDetectorExtension;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
-import org.opensearch.client.node.NodeClient;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.rest.BaseRestHandler;
-import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.rest.BaseExtensionRestHandler;
+import org.opensearch.sdk.rest.ReplacedRouteHandler;
 
 import com.google.common.collect.ImmutableList;
 
 /**
  * This class consists of the REST handler to handle request to detect data.
  */
-public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
+public class RestExecuteAnomalyDetectorAction extends BaseExtensionRestHandler {
 
     public static final String DETECT_DATA_ACTION = "execute_anomaly_detector";
     // TODO: apply timeout config
     private volatile TimeValue requestTimeout;
-
+    private SDKRestClient sdkRestClient;
+    private Settings settings;
     private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
 
-    public RestExecuteAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+    public RestExecuteAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
+        this.settings = extensionsRunner.getEnvironmentSettings();
+        this.requestTimeout = REQUEST_TIMEOUT.get(this.settings);
+        this.sdkRestClient = sdkRestClient;
+        extensionsRunner.getSdkClusterService().getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
     }
 
-    @Override
     public String getName() {
         return DETECT_DATA_ACTION;
     }
 
-    @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+    protected ExtensionRestResponse prepareRequest(RestRequest request) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
             throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
         }
         AnomalyDetectorExecutionInput input = getAnomalyDetectorExecutionInput(request);
-        return channel -> {
-            String rawPath = request.rawPath();
-            String error = validateAdExecutionInput(input);
-            if (StringUtils.isNotBlank(error)) {
-                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
-                return;
-            }
 
-            AnomalyResultRequest getRequest = new AnomalyResultRequest(
-                input.getDetectorId(),
-                input.getPeriodStart().toEpochMilli(),
-                input.getPeriodEnd().toEpochMilli()
+        String rawPath = request.rawPath();
+        String error = validateAdExecutionInput(input);
+        if (StringUtils.isNotBlank(error)) {
+            return new ExtensionRestResponse(request, RestStatus.BAD_REQUEST, error);
+        }
+
+        CompletableFuture<AnomalyResultResponse> futureResponse = new CompletableFuture<>();
+
+        AnomalyResultRequest anomalyResultRequest = new AnomalyResultRequest(
+            input.getDetectorId(),
+            input.getPeriodStart().toEpochMilli(),
+            input.getPeriodEnd().toEpochMilli()
+        );
+
+        sdkRestClient
+            .execute(
+                AnomalyResultAction.INSTANCE,
+                anomalyResultRequest,
+                ActionListener.wrap(r -> futureResponse.complete(r), e -> futureResponse.completeExceptionally(e))
             );
-            client.execute(AnomalyResultAction.INSTANCE, getRequest, new RestToXContentListener<>(channel));
-        };
+
+        AnomalyResultResponse anomalyResultResponse = futureResponse
+            .orTimeout(this.requestTimeout.getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return new ExtensionRestResponse(
+            request,
+            RestStatus.OK,
+            anomalyResultResponse.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
+        );
     }
+
+    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+        try {
+            return prepareRequest(request);
+        } catch (Exception e) {
+            // TODO: handle the AD-specific exceptions separately
+            return exceptionalRequest(request, e);
+        }
+    };
 
     private AnomalyDetectorExecutionInput getAnomalyDetectorExecutionInput(RestRequest request) throws IOException {
         String detectorId = null;
@@ -115,20 +148,16 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     }
 
     @Override
-    public List<Route> routes() {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public List<ReplacedRoute> replacedRoutes() {
+    public List<ReplacedRouteHandler> replacedRouteHandlers() {
         return ImmutableList
             .of(
                 // get AD result, for regular run
-                new ReplacedRoute(
+                new ReplacedRouteHandler(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, RUN),
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, RUN)
+                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, RUN),
+                    handleRequest
                 )
             );
     }

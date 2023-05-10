@@ -62,14 +62,14 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
     private SDKNamedXContentRegistry namedXContentRegistry;
     private Settings environmentSettings;
     private TransportService transportService;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
 
-    public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient client) {
+    public RestIndexAnomalyDetectorAction(ExtensionsRunner extensionsRunner, SDKRestClient sdkRestClient) {
         super(extensionsRunner);
         this.namedXContentRegistry = extensionsRunner.getNamedXContentRegistry();
         this.environmentSettings = extensionsRunner.getEnvironmentSettings();
         this.transportService = extensionsRunner.getExtensionTransportService();
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
     }
 
     // @Override
@@ -117,7 +117,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
 
         CompletableFuture<IndexAnomalyDetectorResponse> futureResponse = new CompletableFuture<>();
 
-        client
+        sdkRestClient
             .execute(
                 IndexAnomalyDetectorAction.INSTANCE,
                 indexAnomalyDetectorRequest,

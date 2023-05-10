@@ -66,7 +66,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     protected final List<Pair<String, String>> deprecatedPaths;
     protected final ActionType<SearchResponse> actionType;
     private ExtensionsRunner extensionsRunner;
-    private SDKRestClient client;
+    private SDKRestClient sdkRestClient;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
 
@@ -76,7 +76,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         String index,
         Class<T> clazz,
         ActionType<SearchResponse> actionType,
-        SDKRestClient client,
+        SDKRestClient sdkRestClient,
         ExtensionsRunner extensionsRunner
     ) {
         this.index = index;
@@ -84,7 +84,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         this.urlPaths = urlPaths;
         this.deprecatedPaths = deprecatedPaths;
         this.actionType = actionType;
-        this.client = client;
+        this.sdkRestClient = sdkRestClient;
         this.extensionsRunner = extensionsRunner;
     }
 
@@ -107,7 +107,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         searchSourceBuilder.seqNoAndPrimaryTerm(true).version(true);
         SearchRequest searchRequest = new SearchRequest().source(searchSourceBuilder).indices(this.index);
         CompletableFuture<SearchResponse> futureResponse = new CompletableFuture<>();
-        client
+        sdkRestClient
             .execute(
                 actionType,
                 searchRequest,

@@ -58,6 +58,7 @@ import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
+import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestPreviewAnomalyDetectorAction;
@@ -226,7 +227,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
                 new RestSearchAnomalyResultAction(extensionsRunner(), restClient()),
                 new RestSearchADTasksAction(extensionsRunner(), restClient()),
                 new RestSearchAnomalyDetectorInfoAction(extensionsRunner(), restClient()),
-                new RestSearchTopAnomalyResultAction(extensionsRunner(), restClient())
+                new RestSearchTopAnomalyResultAction(extensionsRunner(), restClient()),
+                new RestExecuteAnomalyDetectorAction(extensionsRunner(), restClient())
             );
     }
 
@@ -740,8 +742,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
     @Deprecated
     private SDKRestClient createRestClient(ExtensionsRunner runner) {
         @SuppressWarnings("resource")
-        SDKRestClient client = runner.getSdkClient().initializeRestClient();
-        return client;
+        SDKRestClient sdkRestClient = runner.getSdkClient().initializeRestClient();
+        return sdkRestClient;
     }
 
     @Deprecated
