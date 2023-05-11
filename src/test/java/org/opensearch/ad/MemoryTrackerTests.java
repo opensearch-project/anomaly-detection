@@ -8,9 +8,32 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/* @anomaly-detection.create-components. https://github.com/opensearch-project/opensearch-sdk-java/issues/503. Commented until we have support for SDKClusterSettings for extensions
+//@anomaly-detection.create-components. https://github.com/opensearch-project/opensearch-sdk-java/issues/503. Commented until we have support for SDKClusterSettings for extensions
 package org.opensearch.ad;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.Collections;
+import java.util.List;
+
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.monitor.jvm.JvmInfo;
+import org.opensearch.monitor.jvm.JvmInfo.Mem;
+import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.test.OpenSearchTestCase;
+
+import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class MemoryTrackerTests extends OpenSearchTestCase {
 
@@ -29,7 +52,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     Mem mem;
     ThresholdedRandomCutForest trcf;
     float modelMaxPercen;
-    ClusterService clusterService;
+    SDKClusterService clusterService;
     double modelMaxSizePercentage;
     double modelDesiredSizePercentage;
     JvmService jvmService;
@@ -60,13 +83,18 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         modelMaxSizePercentage = 0.1;
         modelDesiredSizePercentage = 0.0002;
 
-        clusterService = mock(ClusterService.class);
+        clusterService = mock(SDKClusterService.class);
         modelMaxPercen = 0.1f;
         Settings settings = Settings.builder().put(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.getKey(), modelMaxPercen).build();
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE)))
-        );
+
+        List<Setting<?>> settingsList = List.of(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE);
+
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterService.SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         expectedRCFModelSize = 382784;
@@ -303,4 +331,3 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         assertTrue(!tracker.syncMemoryState(MemoryTracker.Origin.HC_DETECTOR, 2 * bytesToUse, bytesToUse));
     }
 }
-*/
