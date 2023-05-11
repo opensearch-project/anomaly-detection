@@ -34,7 +34,9 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Random;
@@ -73,7 +75,6 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -287,12 +288,12 @@ public class ModelManagerTests {
         SingleStreamModelIdMapper.getDetectorIdForModelId(modelId);
     }
 
-    private ImmutableOpenMap<String, DiscoveryNode> createDataNodes(int numDataNodes) {
-        ImmutableOpenMap.Builder<String, DiscoveryNode> dataNodes = ImmutableOpenMap.builder();
+    private Map<String, DiscoveryNode> createDataNodes(int numDataNodes) {
+        Map<String, DiscoveryNode> dataNodes = new HashMap<>();
         for (int i = 0; i < numDataNodes; i++) {
             dataNodes.put("foo" + i, mock(DiscoveryNode.class));
         }
-        return dataNodes.build();
+        return dataNodes;
     }
 
     private Object[] getPartitionedForestSizesData() {
