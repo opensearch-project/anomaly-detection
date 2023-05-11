@@ -34,7 +34,6 @@ import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.EntityModel;
@@ -57,6 +56,7 @@ import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportService;
 
@@ -128,8 +128,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
             threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
-            listener
-                .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+            listener.onFailure(new LimitExceededException(request.getDetectorId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
             return;
         }
 

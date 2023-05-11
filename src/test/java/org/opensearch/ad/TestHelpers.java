@@ -57,8 +57,8 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -1504,7 +1504,7 @@ public class TestHelpers {
         DetectorValidationIssue issue = new DetectorValidationIssue(
             ValidationAspect.MODEL,
             DetectorValidationIssueType.DETECTION_INTERVAL,
-            CommonErrorMessages.DETECTOR_INTERVAL_REC + intervalRec,
+            ADCommonMessages.DETECTOR_INTERVAL_REC + intervalRec,
             null,
             new IntervalTimeConfiguration(intervalRec, ChronoUnit.MINUTES)
         );

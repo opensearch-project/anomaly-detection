@@ -18,10 +18,11 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.opensearch.ad.annotation.Generated;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonMessages;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
@@ -42,11 +43,11 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
     public IntervalTimeConfiguration(long interval, ChronoUnit unit) {
         if (interval < 0) {
             throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Interval %s %s", interval, CommonErrorMessages.NEGATIVE_TIME_CONFIGURATION)
+                String.format(Locale.ROOT, "Interval %s %s", interval, CommonMessages.NEGATIVE_TIME_CONFIGURATION)
             );
         }
         if (!SUPPORTED_UNITS.contains(unit)) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, unit));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, ADCommonMessages.INVALID_TIME_CONFIGURATION_UNITS, unit));
         }
         this.interval = interval;
         this.unit = unit;

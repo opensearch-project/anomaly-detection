@@ -36,7 +36,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssueType;
@@ -76,6 +76,7 @@ import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
+import org.opensearch.timeseries.constant.CommonMessages;
 
 /**
  * <p>This class executes all validation checks that are not blocking on the 'model' level.
@@ -275,7 +276,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA,
+                        ADCommonMessages.TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA,
                         DetectorValidationIssueType.TIMEFIELD_FIELD,
                         ValidationAspect.MODEL
                     )
@@ -286,7 +287,7 @@ public class ModelValidationActionHandler {
         try {
             getBucketAggregates(timeRangeEnd, listener, topEntity);
         } catch (IOException e) {
-            listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+            listener.onFailure(new EndRunException(detector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
         }
     }
 
@@ -305,7 +306,7 @@ public class ModelValidationActionHandler {
                 listener
                     .onFailure(
                         new ADValidationException(
-                            CommonErrorMessages.CATEGORY_FIELD_TOO_SPARSE,
+                            ADCommonMessages.CATEGORY_FIELD_TOO_SPARSE,
                             DetectorValidationIssueType.CATEGORY,
                             ValidationAspect.MODEL
                         )
@@ -421,12 +422,12 @@ public class ModelValidationActionHandler {
                     listener
                         .onFailure(
                             new ADValidationException(
-                                CommonErrorMessages.TIMEOUT_ON_INTERVAL_REC,
+                                ADCommonMessages.TIMEOUT_ON_INTERVAL_REC,
                                 DetectorValidationIssueType.TIMEOUT,
                                 ValidationAspect.MODEL
                             )
                         );
-                    logger.info(CommonErrorMessages.TIMEOUT_ON_INTERVAL_REC);
+                    logger.info(ADCommonMessages.TIMEOUT_ON_INTERVAL_REC);
                     // keep trying higher intervals as new interval is below max, and we aren't decreasing yet
                 } else if (newIntervalMinute < MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
                     searchWithDifferentInterval(newIntervalMinute);
@@ -507,7 +508,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
+                        ADCommonMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
                         DetectorValidationIssueType.AGGREGATION,
                         ValidationAspect.MODEL
                     )
@@ -537,7 +538,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.DETECTOR_INTERVAL_REC + interval.getInterval(),
+                        ADCommonMessages.DETECTOR_INTERVAL_REC + interval.getInterval(),
                         DetectorValidationIssueType.DETECTION_INTERVAL,
                         ValidationAspect.MODEL,
                         interval
@@ -590,7 +591,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
+                        ADCommonMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
                         DetectorValidationIssueType.AGGREGATION,
                         ValidationAspect.MODEL
                     )
@@ -615,7 +616,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.RAW_DATA_TOO_SPARSE,
+                        ADCommonMessages.RAW_DATA_TOO_SPARSE,
                         DetectorValidationIssueType.INDICES,
                         ValidationAspect.MODEL
                     )
@@ -657,7 +658,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.FILTER_QUERY_TOO_SPARSE,
+                        ADCommonMessages.FILTER_QUERY_TOO_SPARSE,
                         DetectorValidationIssueType.FILTER_QUERY,
                         ValidationAspect.MODEL
                     )
@@ -722,7 +723,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.CATEGORY_FIELD_TOO_SPARSE,
+                        ADCommonMessages.CATEGORY_FIELD_TOO_SPARSE,
                         DetectorValidationIssueType.CATEGORY,
                         ValidationAspect.MODEL
                     )
@@ -753,7 +754,7 @@ public class ModelValidationActionHandler {
             new MultiResponsesDelegateActionListener<>(
                 validateFeatureQueriesListener,
                 anomalyDetector.getFeatureAttributes().size(),
-                CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE,
+                ADCommonMessages.FEATURE_QUERY_TOO_SPARSE,
                 false
             );
 
@@ -780,7 +781,7 @@ public class ModelValidationActionHandler {
                     multiFeatureQueriesResponseListener
                         .onFailure(
                             new ADValidationException(
-                                CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE,
+                                ADCommonMessages.FEATURE_QUERY_TOO_SPARSE,
                                 DetectorValidationIssueType.FEATURE_ATTRIBUTES,
                                 ValidationAspect.MODEL
                             )
@@ -792,7 +793,7 @@ public class ModelValidationActionHandler {
             }, e -> {
                 logger.error(e);
                 multiFeatureQueriesResponseListener
-                    .onFailure(new OpenSearchStatusException(CommonErrorMessages.FEATURE_QUERY_TOO_SPARSE, RestStatus.BAD_REQUEST, e));
+                    .onFailure(new OpenSearchStatusException(ADCommonMessages.FEATURE_QUERY_TOO_SPARSE, RestStatus.BAD_REQUEST, e));
             });
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
             // checkpoint
@@ -812,7 +813,7 @@ public class ModelValidationActionHandler {
         listener
             .onFailure(
                 new ADValidationException(
-                    String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, minutesSinceLastStamp, minutesSinceLastStamp),
+                    String.format(Locale.ROOT, ADCommonMessages.WINDOW_DELAY_REC, minutesSinceLastStamp, minutesSinceLastStamp),
                     DetectorValidationIssueType.WINDOW_DELAY,
                     ValidationAspect.MODEL,
                     new IntervalTimeConfiguration(minutesSinceLastStamp, ChronoUnit.MINUTES)
@@ -836,17 +837,13 @@ public class ModelValidationActionHandler {
         // we have no more insight regarding the root cause of the lower density.
         listener
             .onFailure(
-                new ADValidationException(
-                    CommonErrorMessages.RAW_DATA_TOO_SPARSE,
-                    DetectorValidationIssueType.INDICES,
-                    ValidationAspect.MODEL
-                )
+                new ADValidationException(ADCommonMessages.RAW_DATA_TOO_SPARSE, DetectorValidationIssueType.INDICES, ValidationAspect.MODEL)
             );
     }
 
     private LongBounds getTimeRangeBounds(long endMillis, IntervalTimeConfiguration detectorIntervalInMinutes) {
         Long detectorInterval = timeConfigToMilliSec(detectorIntervalInMinutes);
-        Long startMillis = endMillis - ((long) getNumberOfSamples() * detectorInterval);
+        Long startMillis = endMillis - (getNumberOfSamples() * detectorInterval);
         return new LongBounds(startMillis, endMillis);
     }
 

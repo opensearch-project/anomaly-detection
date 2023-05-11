@@ -18,7 +18,7 @@ import java.util.Map;
 import org.junit.Test;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
@@ -84,7 +84,7 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
         String validationResponse = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder()));
         assertEquals(
             "{\"model\":{\"detection_interval\":{\"message\":\""
-                + CommonErrorMessages.DETECTOR_INTERVAL_REC
+                + ADCommonMessages.DETECTOR_INTERVAL_REC
                 + intervalRec
                 + "\",\"suggested_value\":{\"period\":{\"interval\":5,\"unit\":\"Minutes\"}}}}}",
             validationResponse

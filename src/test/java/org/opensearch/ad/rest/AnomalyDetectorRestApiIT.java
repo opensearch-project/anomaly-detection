@@ -12,9 +12,9 @@
 package org.opensearch.ad.rest;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.DUPLICATE_DETECTOR_MSG;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -34,8 +34,8 @@ import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -53,6 +53,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
@@ -178,7 +179,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response response = TestHelpers
@@ -229,7 +230,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD));
+        assertThat(ex.getMessage(), containsString(CommonMessages.CAN_NOT_CHANGE_CATEGORY_FIELD));
     }
 
     public void testGetAnomalyDetector() throws Exception {
@@ -238,7 +239,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
         Exception ex = expectThrows(ResponseException.class, () -> getAnomalyDetector(detector.getDetectorId(), client()));
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -288,7 +289,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -454,7 +455,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -476,7 +477,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             ResponseException.class,
             () -> TestHelpers.makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null)
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -509,7 +510,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -646,7 +647,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -691,7 +692,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response response = TestHelpers
@@ -859,7 +860,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response startAdJobResponse = TestHelpers
@@ -909,7 +910,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                FAIL_TO_FIND_DETECTOR_MSG,
+                FAIL_TO_FIND_CONFIG_MSG,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -950,7 +951,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     null
                 )
         );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -1011,7 +1012,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                FAIL_TO_FIND_DETECTOR_MSG,
+                FAIL_TO_FIND_CONFIG_MSG,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1109,7 +1110,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
 
         Exception ex = expectThrows(ResponseException.class, () -> getDetectorProfile(detector.getDetectorId()));
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
@@ -1291,7 +1292,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
         assertEquals("Validation response returned", RestStatus.OK, TestHelpers.restStatus(resp));
-        assertEquals("time field missing", CommonErrorMessages.NULL_TIME_FIELD, messageMap.get("time_field").get("message"));
+        assertEquals("time field missing", CommonMessages.NULL_TIME_FIELD, messageMap.get("time_field").get("message"));
     }
 
     public void testValidateAnomalyDetectorWithIncorrectShingleSize() throws Exception {
@@ -1350,7 +1351,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonErrorMessages.NOT_EXISTENT_VALIDATION_TYPE,
+                ADCommonMessages.NOT_EXISTENT_VALIDATION_TYPE,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1420,7 +1421,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         @SuppressWarnings("unchecked")
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
-        assertEquals("invalid detector Name", CommonErrorMessages.INVALID_DETECTOR_NAME, messageMap.get("name").get("message"));
+        assertEquals("invalid detector Name", CommonMessages.INVALID_NAME, messageMap.get("name").get("message"));
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryReturningNoData() throws Exception {
@@ -1441,7 +1442,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .extractValue("detector", responseMap);
         assertEquals(
             "empty data",
-            CommonErrorMessages.FEATURE_WITH_EMPTY_DATA_MSG + "f-empty",
+            CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG + "f-empty",
             messageMap.get("feature_attributes").get("message")
         );
     }
@@ -1464,7 +1465,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .extractValue("detector", responseMap);
         assertEquals(
             "runtime exception",
-            CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG + "non-numeric-feature",
+            CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG + "non-numeric-feature",
             messageMap.get("feature_attributes").get("message")
         );
     }
@@ -1550,7 +1551,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 searchTopAnomalyResults(detector.getDetectorId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
             }
         );
-        assertTrue(invalidDetectorIdException.getMessage().contains("Can't find detector with id"));
+        assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
 
         // Invalid order field
         Exception invalidOrderException = expectThrows(IOException.class, () -> {

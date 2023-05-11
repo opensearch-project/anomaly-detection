@@ -22,7 +22,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
@@ -55,7 +55,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, org.opensearch.client.node.NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         AnomalyDetectorExecutionInput input = getAnomalyDetectorExecutionInput(request);

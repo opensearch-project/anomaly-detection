@@ -32,7 +32,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -48,6 +47,7 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 
 /**
@@ -153,10 +153,7 @@ public class NodeStateManager implements MaintenanceState, CleanState {
                 AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId());
                 // end execution if all features are disabled
                 if (detector.getEnabledFeatureIds().isEmpty()) {
-                    listener
-                        .onFailure(
-                            new EndRunException(adID, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG, true).countedInStats(false)
-                        );
+                    listener.onFailure(new EndRunException(adID, CommonMessages.ALL_FEATURES_DISABLED_ERR_MSG, true).countedInStats(false));
                     return;
                 }
                 NodeState state = states.computeIfAbsent(adID, id -> new NodeState(id, clock));

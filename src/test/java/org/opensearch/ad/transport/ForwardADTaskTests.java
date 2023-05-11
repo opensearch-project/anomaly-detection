@@ -20,7 +20,7 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
@@ -86,7 +86,7 @@ public class ForwardADTaskTests extends OpenSearchSingleNodeTestCase {
         );
 
         ActionRequestValidationException exception = request.validate();
-        assertTrue(exception.getMessage().contains(CommonErrorMessages.DETECTOR_MISSING));
+        assertTrue(exception.getMessage().contains(ADCommonMessages.DETECTOR_MISSING));
     }
 
     private void testForwardADTaskRequest(ForwardADTaskRequest request) throws IOException {

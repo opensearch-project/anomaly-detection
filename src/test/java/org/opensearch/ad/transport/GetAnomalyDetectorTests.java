@@ -42,7 +42,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.Entity;
@@ -57,6 +57,7 @@ import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.get.GetResult;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
@@ -147,7 +148,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
-        assertException(future, OpenSearchStatusException.class, CommonErrorMessages.EMPTY_PROFILES_COLLECT);
+        assertException(future, OpenSearchStatusException.class, ADCommonMessages.EMPTY_PROFILES_COLLECT);
     }
 
     @SuppressWarnings("unchecked")
@@ -172,7 +173,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
-        assertException(future, OpenSearchStatusException.class, CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG);
+        assertException(future, OpenSearchStatusException.class, CommonMessages.FAIL_TO_FIND_CONFIG_MSG);
     }
 
     public void testGetTransportActionWithReturnTask() {

@@ -22,7 +22,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
@@ -58,7 +58,7 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         // resultIndex could be concrete index or index pattern

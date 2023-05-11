@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.SearchTopAnomalyResultAction;
 import org.opensearch.ad.transport.SearchTopAnomalyResultRequest;
@@ -59,7 +59,7 @@ public class RestSearchTopAnomalyResultAction extends BaseRestHandler {
 
         // Throw error if disabled
         if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         // Get the typed request
@@ -75,7 +75,7 @@ public class RestSearchTopAnomalyResultAction extends BaseRestHandler {
         if (request.hasParam(RestHandlerUtils.DETECTOR_ID)) {
             detectorId = request.param(RestHandlerUtils.DETECTOR_ID);
         } else {
-            throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
+            throw new IllegalStateException(ADCommonMessages.AD_ID_MISSING_MSG);
         }
         boolean historical = request.paramAsBoolean("historical", false);
         XContentParser parser = request.contentParser();

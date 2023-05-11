@@ -11,11 +11,11 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_PARSE_DETECTOR_MSG;
+import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_PARSE_DETECTOR_MSG;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 
 import java.util.List;
 import java.util.Map;
@@ -33,8 +33,8 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -109,7 +109,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profilesToCollect) {
         if (profilesToCollect.isEmpty()) {
-            listener.onFailure(new IllegalArgumentException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
+            listener.onFailure(new IllegalArgumentException(ADCommonMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
         calculateTotalResponsesToWait(detectorId, profilesToCollect, listener);
@@ -136,11 +136,11 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     listener.onFailure(new OpenSearchStatusException(FAIL_TO_PARSE_DETECTOR_MSG + detectorId, BAD_REQUEST));
                 }
             } else {
-                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, BAD_REQUEST));
+                listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_CONFIG_MSG + detectorId, BAD_REQUEST));
             }
         }, exception -> {
-            logger.error(FAIL_TO_FIND_DETECTOR_MSG + detectorId, exception);
-            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, INTERNAL_SERVER_ERROR));
+            logger.error(FAIL_TO_FIND_CONFIG_MSG + detectorId, exception);
+            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_CONFIG_MSG + detectorId, INTERNAL_SERVER_ERROR));
         }));
     }
 
@@ -207,7 +207,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         new MultiResponsesDelegateActionListener<DetectorProfile>(
                             listener,
                             totalResponsesToWait,
-                            CommonErrorMessages.FAIL_FETCH_ERR_MSG + detectorId,
+                            ADCommonMessages.FAIL_FETCH_ERR_MSG + detectorId,
                             false
                         );
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
@@ -266,7 +266,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     }
 
                 } catch (Exception e) {
-                    logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                    logger.error(ADCommonMessages.FAIL_TO_GET_PROFILE_MSG, e);
                     listener.onFailure(e);
                 }
             } else {
@@ -277,7 +277,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 logger.info(exception.getMessage());
                 onGetDetectorForPrepare(detectorId, listener, profilesToCollect);
             } else {
-                logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG + detectorId);
+                logger.error(ADCommonMessages.FAIL_TO_GET_PROFILE_MSG + detectorId);
                 listener.onFailure(exception);
             }
         }));
@@ -304,7 +304,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     DetectorProfile profile = profileBuilder.totalEntities(value).build();
                     listener.onResponse(profile);
                 }, searchException -> {
-                    logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
+                    logger.warn(ADCommonMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
                     listener.onFailure(searchException);
                 });
                 // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -353,7 +353,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     DetectorProfile profile = profileBuilder.totalEntities(Long.valueOf(compositeAgg.getBuckets().size())).build();
                     listener.onResponse(profile);
                 }, searchException -> {
-                    logger.warn(CommonErrorMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
+                    logger.warn(ADCommonMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
                     listener.onFailure(searchException);
                 });
                 // using the original context in listener as user roles have no permissions for internal operations like fetching a

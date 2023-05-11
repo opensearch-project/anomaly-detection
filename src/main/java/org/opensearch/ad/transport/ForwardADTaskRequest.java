@@ -21,7 +21,7 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.common.exception.ADVersionException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -154,15 +154,15 @@ public class ForwardADTaskRequest extends ActionRequest {
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
         if (detector == null) {
-            validationException = addValidationError(CommonErrorMessages.DETECTOR_MISSING, validationException);
+            validationException = addValidationError(ADCommonMessages.DETECTOR_MISSING, validationException);
         } else if (detector.getDetectorId() == null) {
-            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         if (adTaskAction == null) {
-            validationException = addValidationError(CommonErrorMessages.AD_TASK_ACTION_MISSING, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_TASK_ACTION_MISSING, validationException);
         }
         if (adTaskAction == ADTaskAction.CLEAN_STALE_RUNNING_ENTITIES && (staleRunningEntities == null || staleRunningEntities.isEmpty())) {
-            validationException = addValidationError(CommonErrorMessages.EMPTY_STALE_RUNNING_ENTITIES, validationException);
+            validationException = addValidationError(ADCommonMessages.EMPTY_STALE_RUNNING_ENTITIES, validationException);
         }
         return validationException;
     }

@@ -15,8 +15,8 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.opensearch.ad.Name;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 
 public enum EntityProfileName implements Name {
     INIT_PROGRESS(ADCommonName.INIT_PROGRESS),
@@ -51,7 +51,7 @@ public enum EntityProfileName implements Name {
             case ADCommonName.MODELS:
                 return MODELS;
             default:
-                throw new IllegalArgumentException(CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
+                throw new IllegalArgumentException(ADCommonMessages.UNSUPPORTED_PROFILE_TYPE);
         }
     }
 

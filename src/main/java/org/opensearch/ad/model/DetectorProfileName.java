@@ -15,8 +15,8 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.opensearch.ad.Name;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 
 public enum DetectorProfileName implements Name {
     STATE(ADCommonName.STATE),
@@ -69,7 +69,7 @@ public enum DetectorProfileName implements Name {
             case ADCommonName.AD_TASK:
                 return AD_TASK;
             default:
-                throw new IllegalArgumentException(CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
+                throw new IllegalArgumentException(ADCommonMessages.UNSUPPORTED_PROFILE_TYPE);
         }
     }
 
