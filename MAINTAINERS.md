@@ -4,20 +4,23 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 
 ## Current Maintainers
 
-| Maintainer              | GitHub ID                                                | Affiliation |
-| ----------------------- | ---------------------------------------------------------| ----------- |
-| Jack Mazanec            | [jmazanec15](https://github.com/jmazanec15)              | Amazon      |
-| Jing Zhang              | [jngz-es](https://github.com/jngz-es)                    | Amazon      |
-| Kaituo Li               | [kaituo](https://github.com/kaituo)                      | Amazon      |
-| Sarat Vemulapalli       | [saratvemulapalli](https://github.com/saratvemulapalli)  | Amazon      |
-| Tyler Ohlsen            | [ohltyler](https://github.com/ohltyler)                  | Amazon      |
-| Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                    | Amazon      |
-| Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)                  | Amazon      |
-| Yaliang Wu              | [ylwu-amzn](https://github.com/ylwu-amzn)                | Amazon      |
-| Amit Galitzky           | [amitgalitz](https://github.com/amitgalitz)              | Amazon      |
-| Sudipto Guha            | [sudiptoguha](https://github.com/sudiptoguha)            | Amazon      |
-| Jackie Han              | [jackiehanyang](https://github.com/jackiehanyang)        | Amazon      |
-| Sean Zheng              | [sean-zheng-amazon](https://github.com/sean-zheng-amazon)| Amazon      |
+| Maintainer              | GitHub ID                                                 | Affiliation |
+|-------------------------|-----------------------------------------------------------| ----------- |
+| Jack Mazanec            | [jmazanec15](https://github.com/jmazanec15)               | Amazon      |
+| Jing Zhang              | [jngz-es](https://github.com/jngz-es)                     | Amazon      |
+| Kaituo Li               | [kaituo](https://github.com/kaituo)                       | Amazon      |
+| Sarat Vemulapalli       | [saratvemulapalli](https://github.com/saratvemulapalli)   | Amazon      |
+| Tyler Ohlsen            | [ohltyler](https://github.com/ohltyler)                   | Amazon      |
+| Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                     | Amazon      |
+| Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)                   | Amazon      |
+| Yaliang Wu              | [ylwu-amzn](https://github.com/ylwu-amzn)                 | Amazon      |
+| Amit Galitzky           | [amitgalitz](https://github.com/amitgalitz)               | Amazon      |
+| Sudipto Guha            | [sudiptoguha](https://github.com/sudiptoguha)             | Amazon      |
+| Jackie Han              | [jackiehanyang](https://github.com/jackiehanyang)         | Amazon      |
+| Sean Zheng              | [sean-zheng-amazon](https://github.com/sean-zheng-amazon) | Amazon      |
+| Dan Widdis              | [dbwiddis](https://github.com/dbwiddis)                   | Amazon      |
+| Owais Kazi              | [owaiskazi19](https://github.com/owaiskazi19)             | Amazon      |
+| Josh Palis              | [joshpalis](https://github.com/joshpalis)                 | Amazon      |
 
 ## Emeritus
 
