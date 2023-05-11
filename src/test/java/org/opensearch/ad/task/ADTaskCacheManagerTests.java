@@ -8,14 +8,50 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/* @anomaly-detection.create-components. https://github.com/opensearch-project/opensearch-sdk-java/issues/503. Commented until we have support for SDKClusterSettings for extensions
 package org.opensearch.ad.task;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.opensearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
+import static org.opensearch.ad.constant.CommonErrorMessages.DETECTOR_IS_RUNNING;
+import static org.opensearch.ad.task.ADTaskCacheManager.TASK_RETRY_LIMIT;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+import org.junit.After;
+import org.junit.Before;
+import org.opensearch.ad.MemoryTracker;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.common.exception.DuplicateTaskException;
+import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.ADTaskState;
+import org.opensearch.ad.model.ADTaskType;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
+import org.opensearch.test.OpenSearchTestCase;
+
+import com.google.common.collect.ImmutableList;
 
 public class ADTaskCacheManagerTests extends OpenSearchTestCase {
     private MemoryTracker memoryTracker;
     private ADTaskCacheManager adTaskCacheManager;
-    private ClusterService clusterService;
+    private SDKClusterService clusterService;
     private Settings settings;
 
     @Override
@@ -29,16 +65,17 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
             .put(AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS.getKey(), 100)
             .build();
 
-        clusterService = mock(ClusterService.class);
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays.asList(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE, AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS)
-                    )
-                )
-        );
+        clusterService = mock(SDKClusterService.class);
+        List<Setting<?>> settingsList = List
+            .of(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE, AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS);
+
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
+
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         memoryTracker = mock(MemoryTracker.class);
         adTaskCacheManager = new ADTaskCacheManager(settings, clusterService, memoryTracker);
@@ -663,4 +700,3 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         expectThrows(IllegalArgumentException.class, () -> adTaskCacheManager.removeHistoricalTaskCacheIfNoRunningEntity(detectorId));
     }
 }
-*/
