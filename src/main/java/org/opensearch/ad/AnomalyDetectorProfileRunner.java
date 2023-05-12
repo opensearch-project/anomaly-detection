@@ -13,8 +13,6 @@ package org.opensearch.ad;
 
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_PARSE_DETECTOR_MSG;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
@@ -35,8 +33,8 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -74,6 +72,7 @@ import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuil
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
@@ -121,7 +120,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         Set<DetectorProfileName> profilesToCollect,
         ActionListener<DetectorProfile> listener
     ) {
-        GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
+        GetRequest getDetectorRequest = new GetRequest(CommonName.CONFIG_INDEX, detectorId);
         client.get(getDetectorRequest, ActionListener.wrap(getDetectorResponse -> {
             if (getDetectorResponse != null && getDetectorResponse.isExists()) {
                 try (
@@ -151,7 +150,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         Set<DetectorProfileName> profilesToCollect
     ) {
         String detectorId = detector.getDetectorId();
-        GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+        GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
                 try (
@@ -292,14 +291,14 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
             if (categoryField.size() == 1) {
                 // Run a cardinality aggregation to count the cardinality of single category fields
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-                CardinalityAggregationBuilder aggBuilder = new CardinalityAggregationBuilder(CommonName.TOTAL_ENTITIES);
+                CardinalityAggregationBuilder aggBuilder = new CardinalityAggregationBuilder(ADCommonName.TOTAL_ENTITIES);
                 aggBuilder.field(categoryField.get(0));
                 searchSourceBuilder.aggregation(aggBuilder);
 
                 SearchRequest request = new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
                 final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(searchResponse -> {
                     Map<String, Aggregation> aggMap = searchResponse.getAggregations().asMap();
-                    InternalCardinality totalEntities = (InternalCardinality) aggMap.get(CommonName.TOTAL_ENTITIES);
+                    InternalCardinality totalEntities = (InternalCardinality) aggMap.get(ADCommonName.TOTAL_ENTITIES);
                     long value = totalEntities.getValue();
                     DetectorProfile.Builder profileBuilder = new DetectorProfile.Builder();
                     DetectorProfile profile = profileBuilder.totalEntities(value).build();
@@ -322,7 +321,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 // Run a composite query and count the number of buckets to decide cardinality of multiple category fields
                 AggregationBuilder bucketAggs = AggregationBuilders
                     .composite(
-                        CommonName.TOTAL_ENTITIES,
+                        ADCommonName.TOTAL_ENTITIES,
                         detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
                     )
                     .size(maxTotalEntitiesToTrack);
@@ -344,7 +343,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         return;
                     }
 
-                    Aggregation aggrResult = aggs.get(CommonName.TOTAL_ENTITIES);
+                    Aggregation aggrResult = aggs.get(ADCommonName.TOTAL_ENTITIES);
                     if (aggrResult == null) {
                         listener.onFailure(new IllegalArgumentException("Fail to find valid aggregation result"));
                         return;
@@ -558,7 +557,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     NotSerializedADExceptionName.RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE.getName()
                 )
                 || (ExceptionUtil.isIndexNotAvailable(causeException)
-                    && causeException.getMessage().contains(CommonName.CHECKPOINT_INDEX_NAME))) {
+                    && causeException.getMessage().contains(ADCommonName.CHECKPOINT_INDEX_NAME))) {
                 // cannot find checkpoint
                 // We don't want to show the estimated time remaining to initialize
                 // a detector before cold start finishes, where the actual

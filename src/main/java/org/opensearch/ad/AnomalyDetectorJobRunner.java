@@ -62,6 +62,7 @@ import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.base.Throwables;
 
@@ -514,7 +515,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     }
 
     private void stopAdJob(String detectorId, AnomalyDetectorFunction function) {
-        GetRequest getRequest = new GetRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
         ActionListener<GetResponse> listener = ActionListener.wrap(response -> {
             if (response.isExists()) {
                 try (
@@ -537,7 +538,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                             job.getUser(),
                             job.getResultIndex()
                         );
-                        IndexRequest indexRequest = new IndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
+                        IndexRequest indexRequest = new IndexRequest(CommonName.JOB_INDEX)
                             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
                             .source(newJob.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), XCONTENT_WITH_TYPE))
                             .id(detectorId);

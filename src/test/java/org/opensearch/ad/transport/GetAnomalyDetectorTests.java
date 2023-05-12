@@ -20,8 +20,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -59,6 +57,7 @@ import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.get.GetResult;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
@@ -159,7 +158,7 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
+            if (indexName.equals(CommonName.CONFIG_INDEX)) {
                 listener.onResponse(null);
             }
             return null;
@@ -219,13 +218,13 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
         ByteBuffer[] buffers = new ByteBuffer[0];
         items[0] = new MultiGetItemResponse(
             new GetResponse(
-                new GetResult(ANOMALY_DETECTOR_JOB_INDEX, "test_1", 1, 1, 0, true, BytesReference.fromByteBuffers(buffers), null, null)
+                new GetResult(CommonName.JOB_INDEX, "test_1", 1, 1, 0, true, BytesReference.fromByteBuffers(buffers), null, null)
             ),
             null
         );
         items[1] = new MultiGetItemResponse(
             new GetResponse(
-                new GetResult(ANOMALY_DETECTOR_JOB_INDEX, "test_2", 1, 1, 0, true, BytesReference.fromByteBuffers(buffers), null, null)
+                new GetResult(CommonName.JOB_INDEX, "test_2", 1, 1, 0, true, BytesReference.fromByteBuffers(buffers), null, null)
             ),
             null
         );

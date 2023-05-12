@@ -19,8 +19,8 @@ import java.util.Set;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.common.Strings;
@@ -100,7 +100,7 @@ public class EntityProfileRequest extends ActionRequest implements ToXContentObj
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(CommonName.ID_JSON_KEY, adID);
+        builder.field(ADCommonName.ID_JSON_KEY, adID);
         builder.field(ENTITY, entityValue);
         builder.field(PROFILES, profilesToCollect);
         builder.endObject();

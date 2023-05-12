@@ -14,8 +14,6 @@ package org.opensearch.ad.transport;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.ALL_DETECTOR_TASK_TYPES;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
 import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
@@ -71,6 +69,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -275,10 +274,10 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
         Optional<ADTask> historicalAdTask,
         ActionListener<GetAnomalyDetectorResponse> listener
     ) {
-        MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID);
+        MultiGetRequest.Item adItem = new MultiGetRequest.Item(CommonName.CONFIG_INDEX, detectorID);
         MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
         if (returnJob) {
-            MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID);
+            MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(CommonName.JOB_INDEX, detectorID);
             multiGetRequest.add(adJobItem);
         }
         client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, returnTask, realtimeAdTask, historicalAdTask, detectorID));
@@ -304,7 +303,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                 long primaryTerm = 0;
 
                 for (MultiGetItemResponse response : responses) {
-                    if (ANOMALY_DETECTORS_INDEX.equals(response.getIndex())) {
+                    if (CommonName.CONFIG_INDEX.equals(response.getIndex())) {
                         if (response.getResponse() == null || !response.getResponse().isExists()) {
                             listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
                             return;
@@ -328,7 +327,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         }
                     }
 
-                    if (ANOMALY_DETECTOR_JOB_INDEX.equals(response.getIndex())) {
+                    if (CommonName.JOB_INDEX.equals(response.getIndex())) {
                         if (response.getResponse() != null
                             && response.getResponse().isExists()
                             && !response.getResponse().isSourceEmpty()) {

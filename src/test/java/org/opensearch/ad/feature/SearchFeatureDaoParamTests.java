@@ -54,7 +54,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
 import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
@@ -196,7 +196,7 @@ public class SearchFeatureDaoParamTests {
             .fromXContent(XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, "{}"));
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
 
-        when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX_TIME);
+        when(max.getName()).thenReturn(ADCommonName.AGG_NAME_MAX_TIME);
         List<Aggregation> list = new ArrayList<>();
         list.add(max);
         Aggregations aggregations = new Aggregations(list);

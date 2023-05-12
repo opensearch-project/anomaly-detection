@@ -23,7 +23,6 @@ import java.util.Map;
 
 import org.opensearch.Version;
 import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -36,6 +35,7 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class CustomIndexTests extends AbstractADTest {
     AnomalyDetectionIndices adIndices;
@@ -109,27 +109,27 @@ public class CustomIndexTests extends AbstractADTest {
 
         Map<String, Object> confidence_mapping = new HashMap<>();
         confidence_mapping.put("type", "double");
-        mappings.put(AnomalyResult.CONFIDENCE_FIELD, confidence_mapping);
+        mappings.put(CommonName.CONFIDENCE_FIELD, confidence_mapping);
 
         Map<String, Object> data_end_time = new HashMap<>();
         data_end_time.put("type", "date");
         data_end_time.put("format", "strict_date_time||epoch_millis");
-        mappings.put(AnomalyResult.DATA_END_TIME_FIELD, data_end_time);
+        mappings.put(CommonName.DATA_END_TIME_FIELD, data_end_time);
 
         Map<String, Object> data_start_time = new HashMap<>();
         data_start_time.put("type", "date");
         data_start_time.put("format", "strict_date_time||epoch_millis");
-        mappings.put(AnomalyResult.DATA_START_TIME_FIELD, data_start_time);
+        mappings.put(CommonName.DATA_START_TIME_FIELD, data_start_time);
 
         Map<String, Object> exec_start_mapping = new HashMap<>();
         exec_start_mapping.put("type", "date");
         exec_start_mapping.put("format", "strict_date_time||epoch_millis");
-        mappings.put(AnomalyResult.EXECUTION_START_TIME_FIELD, exec_start_mapping);
+        mappings.put(CommonName.EXECUTION_START_TIME_FIELD, exec_start_mapping);
 
         Map<String, Object> exec_end_mapping = new HashMap<>();
         exec_end_mapping.put("type", "date");
         exec_end_mapping.put("format", "strict_date_time||epoch_millis");
-        mappings.put(AnomalyResult.EXECUTION_END_TIME_FIELD, exec_end_mapping);
+        mappings.put(CommonName.EXECUTION_END_TIME_FIELD, exec_end_mapping);
 
         Map<String, Object> detector_id_mapping = new HashMap<>();
         detector_id_mapping.put("type", "keyword");
@@ -141,11 +141,11 @@ public class CustomIndexTests extends AbstractADTest {
         entity_nested_mapping.put("name", Collections.singletonMap("type", "keyword"));
         entity_nested_mapping.put("value", Collections.singletonMap("type", "keyword"));
         entity_mapping.put(CommonName.PROPERTIES, entity_nested_mapping);
-        mappings.put(AnomalyResult.ENTITY_FIELD, entity_mapping);
+        mappings.put(CommonName.ENTITY_FIELD, entity_mapping);
 
         Map<String, Object> error_mapping = new HashMap<>();
         error_mapping.put("type", "text");
-        mappings.put(AnomalyResult.ERROR_FIELD, error_mapping);
+        mappings.put(CommonName.ERROR_FIELD, error_mapping);
 
         Map<String, Object> expected_mapping = new HashMap<>();
         expected_mapping.put("type", "nested");
@@ -167,9 +167,9 @@ public class CustomIndexTests extends AbstractADTest {
         feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
-        mappings.put(AnomalyResult.FEATURE_DATA_FIELD, feature_mapping);
+        mappings.put(CommonName.FEATURE_DATA_FIELD, feature_mapping);
         mappings.put(AnomalyResult.IS_ANOMALY_FIELD, Collections.singletonMap("type", "boolean"));
-        mappings.put(AnomalyResult.MODEL_ID_FIELD, Collections.singletonMap("type", "keyword"));
+        mappings.put(CommonName.MODEL_ID_FIELD, Collections.singletonMap("type", "keyword"));
 
         Map<String, Object> past_mapping = new HashMap<>();
         past_mapping.put("type", "nested");
@@ -216,7 +216,7 @@ public class CustomIndexTests extends AbstractADTest {
         roles_mapping.put("type", "text");
         roles_mapping.put("fields", Collections.singletonMap("keyword", Collections.singletonMap("type", "keyword")));
         user_nested_mapping.put("roles", roles_mapping);
-        mappings.put(AnomalyResult.USER_FIELD, user_mapping);
+        mappings.put(CommonName.USER_FIELD, user_mapping);
         return mappings;
     }
 
@@ -254,7 +254,7 @@ public class CustomIndexTests extends AbstractADTest {
         // feature_id comes before data compared with what createMapping returned
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
-        mappings.put(AnomalyResult.FEATURE_DATA_FIELD, feature_mapping);
+        mappings.put(CommonName.FEATURE_DATA_FIELD, feature_mapping);
 
         IndexMetadata indexMetadata1 = new IndexMetadata.Builder(customIndexName)
             .settings(

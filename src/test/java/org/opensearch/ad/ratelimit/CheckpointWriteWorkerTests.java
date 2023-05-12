@@ -48,7 +48,7 @@ import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
@@ -63,6 +63,7 @@ import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -98,7 +99,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
 
         checkpoint = mock(CheckpointDao.class);
         Map<String, Object> checkpointMap = new HashMap<>();
-        checkpointMap.put(CheckpointDao.FIELD_MODEL, "a");
+        checkpointMap.put(CommonName.FIELD_MODEL, "a");
         when(checkpoint.toIndexSource(any())).thenReturn(checkpointMap);
         when(checkpoint.shouldSave(any(), anyBoolean(), any(), any())).thenReturn(true);
 
@@ -119,7 +120,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             checkpoint,
-            CommonName.CHECKPOINT_INDEX_NAME,
+            ADCommonName.CHECKPOINT_INDEX_NAME,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             nodeStateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE
@@ -223,7 +224,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
             AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
             AnomalyDetectorSettings.QUEUE_MAINTENANCE,
             checkpoint,
-            CommonName.CHECKPOINT_INDEX_NAME,
+            ADCommonName.CHECKPOINT_INDEX_NAME,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             nodeStateManager,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE

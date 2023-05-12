@@ -12,7 +12,7 @@
 package org.opensearch.ad.feature;
 
 import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
-import static org.opensearch.ad.constant.CommonName.DATE_HISTOGRAM;
+import static org.opensearch.ad.constant.ADCommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PREVIEW_TIMEOUT_IN_MILLIS;
@@ -41,7 +41,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
@@ -169,7 +169,7 @@ public class SearchFeatureDao extends AbstractRetriever {
      */
     public void getLatestDataTime(AnomalyDetector detector, ActionListener<Optional<Long>> listener) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(ADCommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener

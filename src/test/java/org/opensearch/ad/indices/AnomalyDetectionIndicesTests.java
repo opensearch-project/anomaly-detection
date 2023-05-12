@@ -20,7 +20,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -32,6 +32,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
 
@@ -78,7 +79,7 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
             boolean acknowledged = response.isAcknowledged();
             assertTrue(acknowledged);
         }, failure -> { throw new RuntimeException("should not recreate index"); }));
-        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.CONFIG_INDEX);
     }
 
     public void testAnomalyDetectorIndexExistsAndNotRecreate() throws IOException {
@@ -90,18 +91,14 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
                         failure -> { throw new RuntimeException("should not recreate index"); }
                     )
             );
-        TestHelpers.waitForIndexCreationToComplete(client(), AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-        if (client().admin().indices().prepareExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX).get().isExists()) {
+        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.CONFIG_INDEX);
+        if (client().admin().indices().prepareExists(CommonName.CONFIG_INDEX).get().isExists()) {
             indices
                 .initAnomalyDetectorIndexIfAbsent(
                     TestHelpers
                         .createActionListener(
-                            response -> {
-                                throw new RuntimeException("should not recreate index " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-                            },
-                            failure -> {
-                                throw new RuntimeException("should not recreate index " + AnomalyDetector.ANOMALY_DETECTORS_INDEX);
-                            }
+                            response -> { throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX); },
+                            failure -> { throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX); }
                         )
                 );
         }
@@ -117,7 +114,7 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
             boolean acknowledged = response.isAcknowledged();
             assertTrue(acknowledged);
         }, failure -> { throw new RuntimeException("should not recreate index"); }));
-        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
     }
 
     public void testAnomalyResultIndexExistsAndNotRecreate() throws IOException {
@@ -129,17 +126,17 @@ public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {
                         failure -> { throw new RuntimeException("should not recreate index"); }
                     )
             );
-        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        if (client().admin().indices().prepareExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS).get().isExists()) {
+        TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        if (client().admin().indices().prepareExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS).get().isExists()) {
             indices
                 .initDefaultAnomalyResultIndexIfAbsent(
                     TestHelpers
                         .createActionListener(
                             response -> {
-                                throw new RuntimeException("should not recreate index " + CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+                                throw new RuntimeException("should not recreate index " + ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
                             },
                             failure -> {
-                                throw new RuntimeException("should not recreate index " + CommonName.ANOMALY_RESULT_INDEX_ALIAS, failure);
+                                throw new RuntimeException("should not recreate index " + ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, failure);
                             }
                         )
                 );

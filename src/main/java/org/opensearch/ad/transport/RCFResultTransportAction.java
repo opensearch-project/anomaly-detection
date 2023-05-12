@@ -27,10 +27,10 @@ import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportService;
 
 public class RCFResultTransportAction extends HandledTransportAction<RCFResultRequest, RCFResultResponse> {

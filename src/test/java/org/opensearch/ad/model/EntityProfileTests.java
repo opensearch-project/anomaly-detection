@@ -17,7 +17,7 @@ import java.io.IOException;
 
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -40,7 +40,7 @@ public class EntityProfileTests extends AbstractADTest {
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
         String json = Strings.toString(builder);
 
-        assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
+        assertEquals("INIT", JsonDeserializer.getTextValue(json, ADCommonName.STATE));
 
         EntityProfile profile2 = new EntityProfile(null, -1, -1, null, null, EntityState.UNKNOWN);
 
@@ -48,7 +48,7 @@ public class EntityProfileTests extends AbstractADTest {
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
         json = Strings.toString(builder);
 
-        assertTrue(false == JsonDeserializer.hasChildNode(json, CommonName.STATE));
+        assertTrue(false == JsonDeserializer.hasChildNode(json, ADCommonName.STATE));
     }
 
     public void testToXContentTimeStampAboveZero() throws IOException, JsonPathNotFoundException {
@@ -58,7 +58,7 @@ public class EntityProfileTests extends AbstractADTest {
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
         String json = Strings.toString(builder);
 
-        assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
+        assertEquals("INIT", JsonDeserializer.getTextValue(json, ADCommonName.STATE));
 
         EntityProfile profile2 = new EntityProfile(null, 1, 1, null, null, EntityState.UNKNOWN);
 
@@ -66,6 +66,6 @@ public class EntityProfileTests extends AbstractADTest {
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
         json = Strings.toString(builder);
 
-        assertTrue(false == JsonDeserializer.hasChildNode(json, CommonName.STATE));
+        assertTrue(false == JsonDeserializer.hasChildNode(json, ADCommonName.STATE));
     }
 }

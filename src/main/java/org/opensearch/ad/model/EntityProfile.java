@@ -17,7 +17,7 @@ import java.util.Optional;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -168,13 +168,13 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
             builder.field(LAST_SAMPLE_TIMESTAMP, lastSampleTimestampMs);
         }
         if (initProgress != null) {
-            builder.field(CommonName.INIT_PROGRESS, initProgress);
+            builder.field(ADCommonName.INIT_PROGRESS, initProgress);
         }
         if (modelProfile != null) {
-            builder.field(CommonName.MODEL, modelProfile);
+            builder.field(ADCommonName.MODEL, modelProfile);
         }
         if (state != null && state != EntityState.UNKNOWN) {
-            builder.field(CommonName.STATE, state);
+            builder.field(ADCommonName.STATE, state);
         }
         builder.endObject();
         return builder;
@@ -213,13 +213,13 @@ public class EntityProfile implements Writeable, ToXContent, Mergeable {
             builder.append(LAST_SAMPLE_TIMESTAMP, lastSampleTimestampMs);
         }
         if (initProgress != null) {
-            builder.append(CommonName.INIT_PROGRESS, initProgress);
+            builder.append(ADCommonName.INIT_PROGRESS, initProgress);
         }
         if (modelProfile != null) {
-            builder.append(CommonName.MODELS, modelProfile);
+            builder.append(ADCommonName.MODELS, modelProfile);
         }
         if (state != null && state != EntityState.UNKNOWN) {
-            builder.append(CommonName.STATE, state);
+            builder.append(ADCommonName.STATE, state);
         }
         return builder.toString();
     }

@@ -26,7 +26,6 @@ import java.util.TreeMap;
 
 import org.apache.lucene.util.SetOnce;
 import org.opensearch.ad.annotation.Generated;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.Numbers;
 import org.opensearch.common.bytes.BytesReference;
@@ -42,6 +41,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.XContentParser.Token;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;

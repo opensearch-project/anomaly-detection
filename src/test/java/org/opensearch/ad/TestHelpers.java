@@ -12,7 +12,6 @@
 package org.opensearch.ad;
 
 import static org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
@@ -58,8 +57,8 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -140,6 +139,7 @@ import org.opensearch.search.suggest.Suggest;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1106,8 +1106,12 @@ public class TestHelpers {
     }
 
     public static void createEmptyAnomalyResultIndex(RestClient client) throws IOException {
-        createEmptyIndex(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        createIndexMapping(client, CommonName.ANOMALY_RESULT_INDEX_ALIAS, toHttpEntity(AnomalyDetectionIndices.getAnomalyResultMappings()));
+        createEmptyIndex(client, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        createIndexMapping(
+            client,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            toHttpEntity(AnomalyDetectionIndices.getAnomalyResultMappings())
+        );
     }
 
     public static void createEmptyIndex(RestClient client, String indexName) throws IOException {
@@ -1512,7 +1516,7 @@ public class TestHelpers {
 
         mappings
             .put(
-                ANOMALY_DETECTOR_JOB_INDEX,
+                CommonName.JOB_INDEX,
                 IndexMetadata
                     .builder("test")
                     .settings(

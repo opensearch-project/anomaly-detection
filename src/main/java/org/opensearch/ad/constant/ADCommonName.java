@@ -11,9 +11,9 @@
 
 package org.opensearch.ad.constant;
 
-import org.opensearch.ad.stats.StatNames;
+import org.opensearch.timeseries.stats.StatNames;
 
-public class CommonName {
+public class ADCommonName {
     // ======================================
     // Index name
     // ======================================
@@ -21,7 +21,6 @@ public class CommonName {
     public static final String CHECKPOINT_INDEX_NAME = ".opendistro-anomaly-checkpoints";
     // index name for anomaly detection state. Will store AD task in this index as well.
     public static final String DETECTION_STATE_INDEX = ".opendistro-anomaly-detection-state";
-    // TODO: move other index name here
 
     // The alias of the index in which to write AD result history
     public static final String ANOMALY_RESULT_INDEX_ALIAS = ".opendistro-anomaly-results";
@@ -63,9 +62,7 @@ public class CommonName {
     public static final String MODELS = "models";
     public static final String MODEL = "model";
     public static final String INIT_PROGRESS = "init_progress";
-    public static final String MODEL_SIZE_IN_BYTES = "model_size_in_bytes";
     public static final String CATEGORICAL_FIELD = "category_field";
-
     public static final String TOTAL_ENTITIES = "total_entities";
     public static final String ACTIVE_ENTITIES = "active_entities";
     public static final String ENTITY_INFO = "entity_info";
@@ -80,21 +77,6 @@ public class CommonName {
     public static final String CANCEL_TASK = "cancel_task";
 
     // ======================================
-    // Index mapping
-    // ======================================
-    // Elastic mapping type
-    public static final String MAPPING_TYPE = "_doc";
-
-    // Used to fetch mapping
-    public static final String TYPE = "type";
-    public static final String KEYWORD_TYPE = "keyword";
-    public static final String IP_TYPE = "ip";
-    public static final String DATE_TYPE = "date";
-
-    // used for updating mapping
-    public static final String SCHEMA_VERSION_FIELD = "schema_version";
-
-    // ======================================
     // Query
     // ======================================
     // Used in finding the max timestamp
@@ -107,11 +89,9 @@ public class CommonName {
     public static final String FEATURE_AGGS = "feature_aggs";
 
     // ======================================
-    // Used in almost all components
+    // Used in stats API
     // ======================================
-    public static final String MODEL_ID_KEY = "model_id";
     public static final String DETECTOR_ID_KEY = "detector_id";
-    public static final String ENTITY_KEY = "entity";
 
     // ======================================
     // Used in toXContent
@@ -122,11 +102,6 @@ public class CommonName {
     public static final String CONFIDENCE_JSON_KEY = "confidence";
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
     public static final String QUEUE_JSON_KEY = "queue";
-    public static final String START_JSON_KEY = "start";
-    public static final String END_JSON_KEY = "end";
-    public static final String VALUE_JSON_KEY = "value";
-    public static final String ENTITIES_JSON_KEY = "entities";
-
     // ======================================
     // Used for backward-compatibility in messaging
     // ======================================
@@ -136,13 +111,10 @@ public class CommonName {
     // ======================================
     // detector validation aspect
     public static final String DETECTOR_ASPECT = "detector";
-    public static final String MODEL_ASPECT = "model";
-
     // ======================================
     // Used for custom AD result index
     // ======================================
     public static final String DUMMY_AD_RESULT_ID = "dummy_ad_result_id";
     public static final String DUMMY_DETECTOR_ID = "dummy_detector_id";
     public static final String CUSTOM_RESULT_INDEX_PREFIX = "opensearch-ad-plugin-result-";
-    public static final String PROPERTIES = "properties";
 }

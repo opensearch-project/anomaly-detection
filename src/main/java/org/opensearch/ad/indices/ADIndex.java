@@ -13,10 +13,9 @@ package org.opensearch.ad.indices;
 
 import java.util.function.Supplier;
 
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.util.ThrowingSupplierWrapper;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Represent an AD index
@@ -26,27 +25,27 @@ public enum ADIndex {
 
     // throw RuntimeException since we don't know how to handle the case when the mapping reading throws IOException
     RESULT(
-        CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+        ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
         true,
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getAnomalyResultMappings)
     ),
     CONFIG(
-        AnomalyDetector.ANOMALY_DETECTORS_INDEX,
+        CommonName.CONFIG_INDEX,
         false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getAnomalyDetectorMappings)
     ),
     JOB(
-        AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+        CommonName.JOB_INDEX,
         false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getAnomalyDetectorJobMappings)
     ),
     CHECKPOINT(
-        CommonName.CHECKPOINT_INDEX_NAME,
+        ADCommonName.CHECKPOINT_INDEX_NAME,
         false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getCheckpointMappings)
     ),
     STATE(
-        CommonName.DETECTION_STATE_INDEX,
+        ADCommonName.DETECTION_STATE_INDEX,
         false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(AnomalyDetectionIndices::getDetectionStateMappings)
     );

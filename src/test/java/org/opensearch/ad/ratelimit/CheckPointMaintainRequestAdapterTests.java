@@ -29,7 +29,7 @@ import java.util.Optional;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
@@ -58,7 +58,7 @@ public class CheckPointMaintainRequestAdapterTests extends AbstractRateLimitingT
         super.setUp();
         cache = mock(CacheProvider.class);
         checkpointDao = mock(CheckpointDao.class);
-        indexName = CommonName.CHECKPOINT_INDEX_NAME;
+        indexName = ADCommonName.CHECKPOINT_INDEX_NAME;
         checkpointInterval = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
         EntityCache entityCache = mock(EntityCache.class);
         when(cache.get()).thenReturn(entityCache);

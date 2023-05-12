@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.rest.handler;
 
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -29,6 +28,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Common handler to process AD request.
@@ -56,8 +56,8 @@ public class AnomalyDetectorActionHandler {
         AnomalyDetectorFunction function,
         NamedXContentRegistry xContentRegistry
     ) {
-        if (clusterService.state().metadata().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
-            GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        if (clusterService.state().metadata().indices().containsKey(CommonName.JOB_INDEX)) {
+            GetRequest request = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
             client
                 .get(
                     request,

@@ -16,9 +16,9 @@ import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
-import static org.opensearch.ad.stats.StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT;
-import static org.opensearch.ad.stats.StatNames.MULTI_ENTITY_DETECTOR_COUNT;
-import static org.opensearch.ad.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
+import static org.opensearch.timeseries.stats.StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT;
+import static org.opensearch.timeseries.stats.StatNames.MULTI_ENTITY_DETECTOR_COUNT;
+import static org.opensearch.timeseries.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
 
 import java.io.IOException;
 import java.util.List;
@@ -32,7 +32,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisRestTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
@@ -67,7 +67,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     }
 
     public void testHistoricalAnalysisForSingleEntityDetectorWithCustomResultIndex() throws Exception {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
         List<String> startHistoricalAnalysisResult = startHistoricalAnalysis(0, resultIndex);
         String detectorId = startHistoricalAnalysisResult.get(0);
         String taskId = startHistoricalAnalysisResult.get(1);

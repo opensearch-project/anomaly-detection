@@ -34,7 +34,7 @@ import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
@@ -55,6 +55,7 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.test.transport.MockTransportService;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 
@@ -191,7 +192,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(query).sort(EXECUTION_START_TIME_FIELD, SortOrder.DESC).trackTotalHits(true).size(size);
-        searchRequest.source(sourceBuilder).indices(CommonName.DETECTION_STATE_INDEX);
+        searchRequest.source(sourceBuilder).indices(ADCommonName.DETECTION_STATE_INDEX);
         SearchResponse searchResponse = client().search(searchRequest).actionGet();
         Iterator<SearchHit> iterator = searchResponse.getHits().iterator();
 
@@ -205,13 +206,13 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public ADTask getADTask(String taskId) throws IOException {
-        ADTask adTask = toADTask(getDoc(CommonName.DETECTION_STATE_INDEX, taskId));
+        ADTask adTask = toADTask(getDoc(ADCommonName.DETECTION_STATE_INDEX, taskId));
         adTask.setTaskId(taskId);
         return adTask;
     }
 
     public AnomalyDetectorJob getADJob(String detectorId) throws IOException {
-        return toADJob(getDoc(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, detectorId));
+        return toADJob(getDoc(CommonName.JOB_INDEX, detectorId));
     }
 
     public ADTask toADTask(GetResponse doc) throws IOException {

@@ -21,14 +21,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class EntityResultRequest extends ActionRequest implements ToXContentObject {
     private static final Logger LOG = LogManager.getLogger(EntityResultRequest.class);
@@ -104,7 +105,7 @@ public class EntityResultRequest extends ActionRequest implements ToXContentObje
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field(CommonName.ID_JSON_KEY, detectorId);
+        builder.field(ADCommonName.ID_JSON_KEY, detectorId);
         builder.field(CommonName.START_JSON_KEY, start);
         builder.field(CommonName.END_JSON_KEY, end);
         builder.startArray(CommonName.ENTITIES_JSON_KEY);

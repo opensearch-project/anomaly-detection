@@ -15,20 +15,20 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.opensearch.ad.Name;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
 
 public enum DetectorProfileName implements Name {
-    STATE(CommonName.STATE),
-    ERROR(CommonName.ERROR),
-    COORDINATING_NODE(CommonName.COORDINATING_NODE),
-    SHINGLE_SIZE(CommonName.SHINGLE_SIZE),
-    TOTAL_SIZE_IN_BYTES(CommonName.TOTAL_SIZE_IN_BYTES),
-    MODELS(CommonName.MODELS),
-    INIT_PROGRESS(CommonName.INIT_PROGRESS),
-    TOTAL_ENTITIES(CommonName.TOTAL_ENTITIES),
-    ACTIVE_ENTITIES(CommonName.ACTIVE_ENTITIES),
-    AD_TASK(CommonName.AD_TASK);
+    STATE(ADCommonName.STATE),
+    ERROR(ADCommonName.ERROR),
+    COORDINATING_NODE(ADCommonName.COORDINATING_NODE),
+    SHINGLE_SIZE(ADCommonName.SHINGLE_SIZE),
+    TOTAL_SIZE_IN_BYTES(ADCommonName.TOTAL_SIZE_IN_BYTES),
+    MODELS(ADCommonName.MODELS),
+    INIT_PROGRESS(ADCommonName.INIT_PROGRESS),
+    TOTAL_ENTITIES(ADCommonName.TOTAL_ENTITIES),
+    ACTIVE_ENTITIES(ADCommonName.ACTIVE_ENTITIES),
+    AD_TASK(ADCommonName.AD_TASK);
 
     private String name;
 
@@ -48,25 +48,25 @@ public enum DetectorProfileName implements Name {
 
     public static DetectorProfileName getName(String name) {
         switch (name) {
-            case CommonName.STATE:
+            case ADCommonName.STATE:
                 return STATE;
-            case CommonName.ERROR:
+            case ADCommonName.ERROR:
                 return ERROR;
-            case CommonName.COORDINATING_NODE:
+            case ADCommonName.COORDINATING_NODE:
                 return COORDINATING_NODE;
-            case CommonName.SHINGLE_SIZE:
+            case ADCommonName.SHINGLE_SIZE:
                 return SHINGLE_SIZE;
-            case CommonName.TOTAL_SIZE_IN_BYTES:
+            case ADCommonName.TOTAL_SIZE_IN_BYTES:
                 return TOTAL_SIZE_IN_BYTES;
-            case CommonName.MODELS:
+            case ADCommonName.MODELS:
                 return MODELS;
-            case CommonName.INIT_PROGRESS:
+            case ADCommonName.INIT_PROGRESS:
                 return INIT_PROGRESS;
-            case CommonName.TOTAL_ENTITIES:
+            case ADCommonName.TOTAL_ENTITIES:
                 return TOTAL_ENTITIES;
-            case CommonName.ACTIVE_ENTITIES:
+            case ADCommonName.ACTIVE_ENTITIES:
                 return ACTIVE_ENTITIES;
-            case CommonName.AD_TASK:
+            case ADCommonName.AD_TASK:
                 return AD_TASK;
             default:
                 throw new IllegalArgumentException(CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);

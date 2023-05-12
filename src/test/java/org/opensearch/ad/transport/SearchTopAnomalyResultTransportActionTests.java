@@ -29,7 +29,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.client.Client;
@@ -93,7 +93,7 @@ public class SearchTopAnomalyResultTransportActionTests extends ADIntegTestCase 
     }
 
     public void testSearchOnNonExistingResultIndex() throws IOException {
-        deleteIndexIfExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         String testIndexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         ImmutableList<String> categoryFields = ImmutableList.of("test-field-1", "test-field-2");
         String detectorId = createDetector(
