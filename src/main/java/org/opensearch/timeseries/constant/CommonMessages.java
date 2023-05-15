@@ -59,7 +59,8 @@ public class CommonMessages {
     // ======================================
     // Resource constraints
     // ======================================
-    public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG = "AD memory circuit is open due to excessive memory consumption.";
+    public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG =
+        "The total OpenSearch memory usage exceeds our threshold, opening the AD memory circuit.";
 
     // ======================================
     // Transport
