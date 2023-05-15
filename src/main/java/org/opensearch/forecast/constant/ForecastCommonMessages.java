@@ -30,9 +30,9 @@ public class ForecastCommonMessages {
     // ======================================
     // RESTful API
     // ======================================
-    public static String FAIL_TO_CREATE_FORECASTER = "Fail to create forecaster";
-    public static String FAIL_TO_UPDATE_FORECASTER = "Fail to update forecaster";
-    public static String FAIL_TO_FIND_FORECASTER_MSG = "Can't find forecaster with id: ";
+    public static String FAIL_TO_CREATE_FORECASTER = "Failed to create forecaster";
+    public static String FAIL_TO_UPDATE_FORECASTER = "Failed to update forecaster";
+    public static String FAIL_TO_FIND_FORECASTER_MSG = "Can not find forecaster with id: ";
     public static final String FORECASTER_ID_MISSING_MSG = "Forecaster ID is missing";
     public static final String INVALID_TIMESTAMP_ERR_MSG = "timestamp is invalid";
 

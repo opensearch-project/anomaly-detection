@@ -27,11 +27,13 @@ public class CommonMessages {
         return String.format(Locale.ROOT, CommonMessages.TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT, limit);
     }
 
-    public static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT = "We can have only %d categorical field/s.";
+    public static final String TOO_MANY_CATEGORICAL_FIELD_ERR_MSG_FORMAT =
+        "Currently we only support up to %d categorical field/s in order to bound system resource consumption.";
+
     public static String CAN_NOT_FIND_RESULT_INDEX = "Can't find result index ";
     public static String INVALID_CHAR_IN_RESULT_INDEX_NAME =
         "Result index name has invalid character. Valid characters are a-z, 0-9, -(hyphen) and _(underscore)";
-    public static String FAIL_TO_VALIDATE = "fail to validate";
+    public static String FAIL_TO_VALIDATE = "failed to validate";
     public static String INVALID_TIMESTAMP = "Timestamp field: (%s) must be of type date";
     public static String NON_EXISTENT_TIMESTAMP = "Timestamp field: (%s) is not found in index mapping";
     public static String INVALID_NAME = "Valid characters for name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
@@ -50,14 +52,14 @@ public class CommonMessages {
     // ======================================
     // Index message
     // ======================================
-    public static final String CREATE_INDEX_NOT_ACKNOWLEDGED = "Create index %S not acknowledged";
+    public static final String CREATE_INDEX_NOT_ACKNOWLEDGED = "Create index %S not acknowledged by OpenSearch core";
     public static final String SUCCESS_SAVING_RESULT_MSG = "Result saved successfully.";
     public static final String CANNOT_SAVE_RESULT_ERR_MSG = "Cannot save results due to write block.";
 
     // ======================================
     // Resource constraints
     // ======================================
-    public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG = "AD memory circuit is broken.";
+    public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG = "AD memory circuit is open due to excessive memory consumption.";
 
     // ======================================
     // Transport
