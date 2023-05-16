@@ -28,7 +28,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -244,7 +244,7 @@ public class ValidateAnomalyDetectorTransportAction extends
                 // the user as a response indicating index doesn't exist
                 DetectorValidationIssue issue = parseADValidationException(
                     new ADValidationException(
-                        CommonErrorMessages.INDEX_NOT_FOUND,
+                        ADCommonMessages.INDEX_NOT_FOUND,
                         DetectorValidationIssueType.INDICES,
                         ValidationAspect.DETECTOR
                     )

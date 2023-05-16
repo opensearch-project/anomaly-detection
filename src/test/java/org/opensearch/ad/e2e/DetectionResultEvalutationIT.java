@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
@@ -118,7 +118,7 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("model", responseMap);
         assertEquals(
-            CommonErrorMessages.DETECTOR_INTERVAL_REC + recDetectorIntervalMinutes,
+            ADCommonMessages.DETECTOR_INTERVAL_REC + recDetectorIntervalMinutes,
             messageMap.get("detection_interval").get("message")
         );
     }
@@ -158,7 +158,7 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("model", responseMap);
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, expectedWindowDelayMinutes, expectedWindowDelayMinutes),
+            String.format(Locale.ROOT, ADCommonMessages.WINDOW_DELAY_REC, expectedWindowDelayMinutes, expectedWindowDelayMinutes),
             messageMap.get("window_delay").get("message")
         );
     }

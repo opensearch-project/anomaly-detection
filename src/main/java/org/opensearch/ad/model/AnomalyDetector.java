@@ -11,15 +11,14 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.constant.ADCommonMessages.INVALID_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_NAME_SIZE;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetectorType.MULTI_ENTITY;
 import static org.opensearch.ad.model.AnomalyDetectorType.SINGLE_ENTITY;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
+import static org.opensearch.timeseries.constant.CommonMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -33,7 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
@@ -53,6 +52,7 @@ import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.base.Objects;
@@ -125,6 +125,10 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     // OS doesn’t allow uppercase: https://tinyurl.com/yse2xdbx
     public static final String RESULT_INDEX_NAME_PATTERN = "[a-z0-9_-]+";
 
+    public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
+        + MAX_RESULT_INDEX_NAME_SIZE
+        + " characters";
+
     /**
      * Constructor function.
      *
@@ -166,29 +170,21 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         String resultIndex
     ) {
         if (Strings.isBlank(name)) {
-            throw new ADValidationException(
-                CommonErrorMessages.EMPTY_DETECTOR_NAME,
-                DetectorValidationIssueType.NAME,
-                ValidationAspect.DETECTOR
-            );
+            throw new ADValidationException(CommonMessages.EMPTY_NAME, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
         }
         if (Strings.isBlank(timeField)) {
             throw new ADValidationException(
-                CommonErrorMessages.NULL_TIME_FIELD,
+                CommonMessages.NULL_TIME_FIELD,
                 DetectorValidationIssueType.TIMEFIELD_FIELD,
                 ValidationAspect.DETECTOR
             );
         }
         if (indices == null || indices.isEmpty()) {
-            throw new ADValidationException(
-                CommonErrorMessages.EMPTY_INDICES,
-                DetectorValidationIssueType.INDICES,
-                ValidationAspect.DETECTOR
-            );
+            throw new ADValidationException(CommonMessages.EMPTY_INDICES, DetectorValidationIssueType.INDICES, ValidationAspect.DETECTOR);
         }
         if (detectionInterval == null) {
             throw new ADValidationException(
-                CommonErrorMessages.NULL_DETECTION_INTERVAL,
+                ADCommonMessages.NULL_DETECTION_INTERVAL,
                 DetectorValidationIssueType.DETECTION_INTERVAL,
                 ValidationAspect.DETECTOR
             );
@@ -206,14 +202,14 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         int maxCategoryFields = NumericSetting.maxCategoricalFields();
         if (categoryFields != null && categoryFields.size() > maxCategoryFields) {
             throw new ADValidationException(
-                CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
+                CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
                 DetectorValidationIssueType.CATEGORY,
                 ValidationAspect.DETECTOR
             );
         }
         if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
             throw new ADValidationException(
-                CommonErrorMessages.INVALID_DETECTION_INTERVAL,
+                ADCommonMessages.INVALID_DETECTION_INTERVAL,
                 DetectorValidationIssueType.DETECTION_INTERVAL,
                 ValidationAspect.DETECTOR
             );
@@ -488,8 +484,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     try {
                         detectionInterval = TimeConfiguration.parse(parser);
                     } catch (Exception e) {
-                        if (e instanceof IllegalArgumentException
-                            && e.getMessage().contains(CommonErrorMessages.NEGATIVE_TIME_CONFIGURATION)) {
+                        if (e instanceof IllegalArgumentException && e.getMessage().contains(CommonMessages.NEGATIVE_TIME_CONFIGURATION)) {
                             throw new ADValidationException(
                                 "Detection interval must be a positive integer",
                                 DetectorValidationIssueType.DETECTION_INTERVAL,
@@ -520,8 +515,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                     try {
                         windowDelay = TimeConfiguration.parse(parser);
                     } catch (Exception e) {
-                        if (e instanceof IllegalArgumentException
-                            && e.getMessage().contains(CommonErrorMessages.NEGATIVE_TIME_CONFIGURATION)) {
+                        if (e instanceof IllegalArgumentException && e.getMessage().contains(CommonMessages.NEGATIVE_TIME_CONFIGURATION)) {
                             throw new ADValidationException(
                                 "Window delay interval must be a positive integer",
                                 DetectorValidationIssueType.WINDOW_DELAY,

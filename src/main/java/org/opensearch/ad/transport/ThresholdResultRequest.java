@@ -17,8 +17,8 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -73,10 +73,10 @@ public class ThresholdResultRequest extends ActionRequest implements ToXContentO
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
         if (Strings.isEmpty(adID)) {
-            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         if (Strings.isEmpty(modelID)) {
-            validationException = addValidationError(CommonErrorMessages.MODEL_ID_MISSING_MSG, validationException);
+            validationException = addValidationError(ADCommonMessages.MODEL_ID_MISSING_MSG, validationException);
         }
 
         return validationException;

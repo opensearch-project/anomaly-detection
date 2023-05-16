@@ -11,18 +11,18 @@
 
 package org.opensearch.ad.util;
 
+import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_USER_INFO;
+import static org.opensearch.ad.constant.ADCommonMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
 import static org.opensearch.ad.constant.ADCommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.constant.ADCommonName.EPOCH_MILLIS_FORMAT;
 import static org.opensearch.ad.constant.ADCommonName.FEATURE_AGGS;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_USER_INFO;
-import static org.opensearch.ad.constant.CommonErrorMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PIECE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -570,7 +570,7 @@ public final class ParseUtils {
                 listener.onFailure(new AnomalyDetectionException(FAIL_TO_GET_USER_INFO + detectorId));
             }
         } else {
-            listener.onFailure(new ResourceNotFoundException(detectorId, FAIL_TO_FIND_DETECTOR_MSG + detectorId));
+            listener.onFailure(new ResourceNotFoundException(detectorId, FAIL_TO_FIND_CONFIG_MSG + detectorId));
         }
     }
 

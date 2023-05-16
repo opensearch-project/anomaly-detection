@@ -28,8 +28,8 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.common.Strings;
@@ -124,12 +124,12 @@ public class ThresholdResultTests extends OpenSearchTestCase {
 
     public void testEmptyDetectorID() {
         ActionRequestValidationException e = new ThresholdResultRequest(null, "123-threshold", 2).validate();
-        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), Matchers.hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testEmptyModelID() {
         ActionRequestValidationException e = new ThresholdResultRequest("123", "", 2).validate();
-        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.MODEL_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), Matchers.hasItem(ADCommonMessages.MODEL_ID_MISSING_MSG));
     }
 
     public void testSerialzationRequest() throws IOException {

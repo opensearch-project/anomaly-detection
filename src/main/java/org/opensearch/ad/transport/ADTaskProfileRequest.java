@@ -17,7 +17,7 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.nodes.BaseNodesRequest;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
@@ -41,7 +41,7 @@ public class ADTaskProfileRequest extends BaseNodesRequest<ADTaskProfileRequest>
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
         if (Strings.isEmpty(detectorId)) {
-            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         return validationException;
     }

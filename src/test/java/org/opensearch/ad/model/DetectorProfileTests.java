@@ -15,8 +15,8 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.xcontent.XContentParser;
@@ -99,7 +99,7 @@ public class DetectorProfileTests extends OpenSearchTestCase {
         assertEquals("total_entities", DetectorProfileName.getName(ADCommonName.TOTAL_ENTITIES).getName());
         assertEquals("active_entities", DetectorProfileName.getName(ADCommonName.ACTIVE_ENTITIES).getName());
         IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> DetectorProfileName.getName("abc"));
-        assertEquals(exception.getMessage(), CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
+        assertEquals(exception.getMessage(), ADCommonMessages.UNSUPPORTED_PROFILE_TYPE);
     }
 
     public void testDetectorProfileSet() throws IllegalArgumentException {

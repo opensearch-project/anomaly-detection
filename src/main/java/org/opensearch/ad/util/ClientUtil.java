@@ -39,7 +39,6 @@ import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
@@ -50,6 +49,7 @@ import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskId;
 import org.opensearch.tasks.TaskInfo;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 
 public class ClientUtil {
     private volatile TimeValue requestTimeout;
@@ -104,7 +104,7 @@ public class ClientUtil {
             }
             return Optional.ofNullable(respReference.get());
         } catch (InterruptedException e1) {
-            LOG.error(CommonErrorMessages.WAIT_ERR_MSG);
+            LOG.error(CommonMessages.WAIT_ERR_MSG);
             throw new IllegalStateException(e1);
         }
     }
@@ -226,7 +226,7 @@ public class ClientUtil {
             }
             return Optional.ofNullable(respReference.get());
         } catch (InterruptedException e1) {
-            LOG.error(CommonErrorMessages.WAIT_ERR_MSG);
+            LOG.error(CommonMessages.WAIT_ERR_MSG);
             throw new IllegalStateException(e1);
         }
     }

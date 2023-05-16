@@ -11,7 +11,7 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_LATEST_TASK;
+import static org.opensearch.ad.constant.ADCommonMessages.CAN_NOT_FIND_LATEST_TASK;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,7 +26,7 @@ import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -307,7 +307,7 @@ public class ExecuteADResultResponseRecorder {
                 anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             }
 
-            if (errorMessage.contains(CommonErrorMessages.NO_MODEL_ERR_MSG) && !detector.isMultiCategoryDetector()) {
+            if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !detector.isMultiCategoryDetector()) {
                 // single stream detector raises ResourceNotFoundException containing CommonErrorMessages.NO_CHECKPOINT_ERR_MSG
                 // when there is no checkpoint.
                 // Delay real time cache update by one minute so we will have trained models by then and update the state

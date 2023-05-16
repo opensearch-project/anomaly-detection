@@ -18,7 +18,7 @@ import java.util.List;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.task.ADTaskCancellationState;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -48,7 +48,7 @@ public class ADCancelTaskTests extends ADUnitTestCase {
     public void testInvalidADCancelTaskRequest() {
         ADCancelTaskRequest request = new ADCancelTaskRequest(null, null, null, randomDiscoveryNode());
         ActionRequestValidationException validationException = request.validate();
-        assertTrue(validationException.getMessage().contains(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertTrue(validationException.getMessage().contains(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testSerializeResponse() throws IOException {

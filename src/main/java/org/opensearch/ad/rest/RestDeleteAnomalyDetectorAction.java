@@ -20,7 +20,7 @@ import java.util.Locale;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.rest.handler.AnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
@@ -52,7 +52,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         String detectorId = request.param(DETECTOR_ID);

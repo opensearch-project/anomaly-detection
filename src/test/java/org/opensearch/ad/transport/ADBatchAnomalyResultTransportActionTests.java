@@ -143,7 +143,7 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
                 ImmutableList.of(NotSerializableExceptionWrapper.class, EndRunException.class),
                 () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(10000)
             );
-            assertTrue(exception.getMessage(), exception.getMessage().contains("AD plugin is disabled"));
+            assertTrue(exception.getMessage(), exception.getMessage().contains("AD functionality is disabled"));
             updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, false));
         } finally {
             // guarantee reset back to default

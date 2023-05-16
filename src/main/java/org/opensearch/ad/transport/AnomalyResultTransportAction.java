@@ -11,9 +11,9 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_SEARCH_QUERY_MSG;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
+import static org.opensearch.timeseries.constant.CommonMessages.INVALID_SEARCH_QUERY_MSG;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -54,8 +54,8 @@ import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.CompositeRetriever.PageIterator;
 import org.opensearch.ad.feature.FeatureManager;
@@ -92,6 +92,7 @@ import org.opensearch.node.NodeClosedException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.ActionNotFoundTransportException;
 import org.opensearch.transport.ConnectTransportException;
@@ -264,13 +265,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             });
 
             if (!EnabledSetting.isADPluginEnabled()) {
-                throw new EndRunException(adID, CommonErrorMessages.DISABLED_ERR_MSG, true).countedInStats(false);
+                throw new EndRunException(adID, ADCommonMessages.DISABLED_ERR_MSG, true).countedInStats(false);
             }
 
             adStats.getStat(StatNames.AD_EXECUTE_REQUEST_COUNT.getName()).increment();
 
             if (adCircuitBreakerService.isOpen()) {
-                listener.onFailure(new LimitExceededException(adID, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+                listener.onFailure(new LimitExceededException(adID, CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
                 return;
             }
             try {
@@ -482,10 +483,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             try {
                 pageIterator = compositeRetriever.iterator();
             } catch (Exception e) {
-                listener
-                    .onFailure(
-                        new EndRunException(anomalyDetector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, false)
-                    );
+                listener.onFailure(new EndRunException(anomalyDetector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, false));
                 return;
             }
 
@@ -697,7 +695,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
         LOG.info("Trigger cold start for {}", detector.getDetectorId());
         coldStart(detector);
-        return previousException.orElse(new InternalFailure(adID, CommonErrorMessages.NO_MODEL_ERR_MSG));
+        return previousException.orElse(new InternalFailure(adID, ADCommonMessages.NO_MODEL_ERR_MSG));
     }
 
     private void findException(Throwable cause, String adID, AtomicReference<Exception> failure, String nodeId) {
@@ -731,7 +729,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 }
             } else {
                 // some unexpected bugs occur while predicting anomaly
-                failure.set(new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, causeException, false));
+                failure.set(new EndRunException(adID, CommonMessages.BUG_RESPONSE, causeException, false));
             }
         } else if (causeException instanceof IndexNotFoundException
             && causeException.getMessage().contains(ADCommonName.CHECKPOINT_INDEX_NAME)) {
@@ -748,7 +746,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         } else {
             // some unexpected bug occurred or cluster is unstable (e.g., ClusterBlockException) or index is red (e.g.
             // NoShardAvailableActionException) while predicting anomaly
-            failure.set(new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, causeException, false));
+            failure.set(new EndRunException(adID, CommonMessages.BUG_RESPONSE, causeException, false));
         }
     }
 
@@ -828,7 +826,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         );
                 } else {
                     LOG.warn(NULL_RESPONSE + " {} for {}", modelID, rcfNodeID);
-                    listener.onFailure(new InternalFailure(adID, CommonErrorMessages.NO_MODEL_ERR_MSG));
+                    listener.onFailure(new InternalFailure(adID, ADCommonMessages.NO_MODEL_ERR_MSG));
                 }
             } catch (Exception ex) {
                 LOG.error(new ParameterizedMessage("Unexpected exception for [{}]", adID), ex);

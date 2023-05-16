@@ -76,8 +76,8 @@ import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
@@ -114,6 +114,7 @@ import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.NodeNotConnectedException;
@@ -522,7 +523,7 @@ public class AnomalyResultTests extends AbstractADTest {
             .getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         when(stateManager.fetchExceptionAndClear(any(String.class)))
-            .thenReturn(Optional.of(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
+            .thenReturn(Optional.of(new LimitExceededException(adID, CommonMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(
@@ -565,7 +566,7 @@ public class AnomalyResultTests extends AbstractADTest {
     public void testInsufficientCapacityExceptionDuringRestoringModel() {
 
         ModelManager rcfManager = mock(ModelManager.class);
-        doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
+        doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
             .when(rcfManager)
             .getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
@@ -1073,22 +1074,22 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testEmptyID() {
         ActionRequestValidationException e = new AnomalyResultRequest("", 100, 200).validate();
-        assertThat(e.validationErrors(), hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testZeroStartTime() {
         ActionRequestValidationException e = new AnomalyResultRequest(adID, 0, 200).validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     public void testNegativeEndTime() {
         ActionRequestValidationException e = new AnomalyResultRequest(adID, 0, -200).validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     public void testNegativeTime() {
         ActionRequestValidationException e = new AnomalyResultRequest(adID, 10, -200).validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     // no exception should be thrown
@@ -1600,7 +1601,7 @@ public class AnomalyResultTests extends AbstractADTest {
     public void testAllFeaturesDisabled() throws IOException {
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
-            listener.onFailure(new EndRunException(adID, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
+            listener.onFailure(new EndRunException(adID, CommonMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
             return null;
         }).when(stateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
 
@@ -1627,7 +1628,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        assertException(listener, EndRunException.class, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG);
+        assertException(listener, EndRunException.class, CommonMessages.ALL_FEATURES_DISABLED_ERR_MSG);
     }
 
     @SuppressWarnings("unchecked")
@@ -1713,7 +1714,7 @@ public class AnomalyResultTests extends AbstractADTest {
                     .of(
                         new EndRunException(
                             adID,
-                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            CommonMessages.INVALID_SEARCH_QUERY_MSG,
                             new NoSuchElementException("No value present"),
                             false
                         )
@@ -1742,7 +1743,7 @@ public class AnomalyResultTests extends AbstractADTest {
         );
 
         action.doExecute(null, request, listener);
-        assertException(listener, EndRunException.class, CommonErrorMessages.INVALID_SEARCH_QUERY_MSG);
+        assertException(listener, EndRunException.class, CommonMessages.INVALID_SEARCH_QUERY_MSG);
         verify(featureQuery, times(1)).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
     }
 
@@ -1757,7 +1758,7 @@ public class AnomalyResultTests extends AbstractADTest {
                     .of(
                         new EndRunException(
                             adID,
-                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            CommonMessages.INVALID_SEARCH_QUERY_MSG,
                             new NoSuchElementException("No value present"),
                             true
                         )
@@ -1786,7 +1787,7 @@ public class AnomalyResultTests extends AbstractADTest {
         );
 
         action.doExecute(null, request, listener);
-        assertException(listener, EndRunException.class, CommonErrorMessages.INVALID_SEARCH_QUERY_MSG);
+        assertException(listener, EndRunException.class, CommonMessages.INVALID_SEARCH_QUERY_MSG);
         verify(featureQuery, never()).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
     }
 

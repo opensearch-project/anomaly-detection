@@ -11,11 +11,10 @@
 
 package org.opensearch.ad.model;
 
+import static org.opensearch.ad.constant.ADCommonMessages.INVALID_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_NAME_SIZE;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
+import static org.opensearch.timeseries.constant.CommonMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -26,8 +25,8 @@ import java.util.concurrent.TimeUnit;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
@@ -261,7 +260,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
         );
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
+            String.format(Locale.ROOT, ADCommonMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
             exception.getMessage()
         );
     }
@@ -280,7 +279,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
         );
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
+            String.format(Locale.ROOT, ADCommonMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
             exception.getMessage()
         );
     }
@@ -631,7 +630,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
         resultIndexNameBuilder.append("a");
 
         errorMessage = AnomalyDetector.validateResultIndex(resultIndexNameBuilder.toString());
-        assertEquals(INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
+        assertEquals(AnomalyDetector.INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
 
         errorMessage = AnomalyDetector.validateResultIndex(CUSTOM_RESULT_INDEX_PREFIX + "abc#");
         assertEquals(INVALID_CHAR_IN_RESULT_INDEX_NAME, errorMessage);

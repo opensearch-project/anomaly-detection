@@ -11,8 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_DETECTOR;
+import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.ALL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;
@@ -20,6 +19,7 @@ import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -305,7 +305,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                 for (MultiGetItemResponse response : responses) {
                     if (CommonName.CONFIG_INDEX.equals(response.getIndex())) {
                         if (response.getResponse() == null || !response.getResponse().isExists()) {
-                            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
+                            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_CONFIG_MSG + detectorId, RestStatus.NOT_FOUND));
                             return;
                         }
                         id = response.getId();

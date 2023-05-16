@@ -42,11 +42,11 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.CleanState;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 
 /**
  * A facade managing feature data operations and buffers.
@@ -165,7 +165,7 @@ public class FeatureManager implements CleanState {
                     updateUnprocessedFeatures(detector, shingle, featuresMap, endTime, listener);
                 }, listener::onFailure));
             } catch (IOException e) {
-                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
             listener.onResponse(getProcessedFeatures(shingle, detector, endTime));
@@ -309,7 +309,7 @@ public class FeatureManager implements CleanState {
                         new ThreadedActionListener<>(logger, threadPool, adThreadPoolName, getFeaturesListener, false)
                     );
             } catch (IOException e) {
-                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
             listener.onResponse(Optional.empty());

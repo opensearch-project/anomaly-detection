@@ -23,8 +23,8 @@ import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
@@ -57,7 +57,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         String detectorId = request.param(DETECTOR_ID);
         String typesStr = request.param(TYPE);
@@ -132,7 +132,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
 
     private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
         if (Strings.isEmpty(detectorId)) {
-            throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
+            throw new IllegalStateException(ADCommonMessages.AD_ID_MISSING_MSG);
         }
 
         String entityName = request.param(ADCommonName.CATEGORICAL_FIELD);

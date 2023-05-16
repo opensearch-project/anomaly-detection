@@ -59,8 +59,8 @@ import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -85,6 +85,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportService;
@@ -335,19 +336,19 @@ public class EntityResultTransportActionTests extends AbstractADTest {
     public void testEmptyId() {
         request = new EntityResultRequest("", entities, start, end);
         ActionRequestValidationException e = request.validate();
-        assertThat(e.validationErrors(), hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testReverseTime() {
         request = new EntityResultRequest(detectorId, entities, end, start);
         ActionRequestValidationException e = request.validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     public void testNegativeTime() {
         request = new EntityResultRequest(detectorId, entities, start, -end);
         ActionRequestValidationException e = request.validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     public void testJsonResponse() throws IOException, JsonPathNotFoundException {

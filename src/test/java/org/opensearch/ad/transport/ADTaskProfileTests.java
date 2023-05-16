@@ -23,7 +23,7 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -63,7 +63,7 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
         DiscoveryNode node = new DiscoveryNode(UUIDs.randomBase64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
         ADTaskProfileRequest request = new ADTaskProfileRequest(null, node);
         ActionRequestValidationException validationException = request.validate();
-        assertTrue(validationException.getMessage().contains(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertTrue(validationException.getMessage().contains(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testADTaskProfileNodeResponse() throws IOException {

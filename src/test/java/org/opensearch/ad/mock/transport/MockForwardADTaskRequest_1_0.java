@@ -17,7 +17,7 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -60,12 +60,12 @@ public class MockForwardADTaskRequest_1_0 extends ActionRequest {
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
         if (detector == null) {
-            validationException = addValidationError(CommonErrorMessages.DETECTOR_MISSING, validationException);
+            validationException = addValidationError(ADCommonMessages.DETECTOR_MISSING, validationException);
         } else if (detector.getDetectorId() == null) {
-            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         if (adTaskAction == null) {
-            validationException = addValidationError(CommonErrorMessages.AD_TASK_ACTION_MISSING, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_TASK_ACTION_MISSING, validationException);
         }
         return validationException;
     }

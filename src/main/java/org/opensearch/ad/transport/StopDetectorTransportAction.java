@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_STOP_DETECTOR;
+import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_STOP_DETECTOR;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

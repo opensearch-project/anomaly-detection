@@ -12,7 +12,6 @@
 package org.opensearch.ad.indices;
 
 import static org.opensearch.ad.constant.ADCommonName.DUMMY_AD_RESULT_ID;
-import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD;
@@ -22,6 +21,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTO
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_PRIMARY_SHARDS;
+import static org.opensearch.timeseries.constant.CommonMessages.CAN_NOT_FIND_RESULT_INDEX;
 
 import java.io.IOException;
 import java.net.URL;
@@ -60,7 +60,6 @@ import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
@@ -87,6 +86,7 @@ import org.opensearch.core.xcontent.XContentParser.Token;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.base.Charsets;
@@ -355,7 +355,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         try {
             if (!isValidResultIndexMapping(resultIndex)) {
                 logger.warn("Can't create detector with custom result index {} as its mapping is invalid", resultIndex);
-                listener.onFailure(new IllegalArgumentException(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex));
+                listener.onFailure(new IllegalArgumentException(CommonMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex));
                 return;
             }
 
@@ -760,7 +760,6 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
             String latestToDelete = null;
             long latest = Long.MIN_VALUE;
             for (IndexMetadata indexMetaData : clusterStateResponse.getState().metadata().indices().values()) {
-                // IndexMetadata indexMetaData = cursor.value;
                 long creationTime = indexMetaData.getCreationDate();
 
                 if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis()) {

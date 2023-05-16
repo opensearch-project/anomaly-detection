@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_STATS;
+import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_STATS;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.HashMap;

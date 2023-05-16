@@ -79,7 +79,6 @@ import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -122,6 +121,7 @@ import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.Transport;
@@ -334,7 +334,7 @@ public class MultiEntityResultTests extends AbstractADTest {
                     .of(
                         new EndRunException(
                             detectorId,
-                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            CommonMessages.INVALID_SEARCH_QUERY_MSG,
                             new NoSuchElementException("No value present"),
                             false
                         )
@@ -342,7 +342,7 @@ public class MultiEntityResultTests extends AbstractADTest {
             );
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
-        assertException(listener, EndRunException.class, CommonErrorMessages.INVALID_SEARCH_QUERY_MSG);
+        assertException(listener, EndRunException.class, CommonMessages.INVALID_SEARCH_QUERY_MSG);
     }
 
     // a handler that forwards response or exception received from network
@@ -507,7 +507,7 @@ public class MultiEntityResultTests extends AbstractADTest {
         action.doExecute(null, request, listener2);
         Exception e = expectThrows(EndRunException.class, () -> listener2.actionGet(10000L));
         // wrapped INVALID_SEARCH_QUERY_MSG around SearchPhaseExecutionException by convertedQueryFailureException
-        assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(CommonErrorMessages.INVALID_SEARCH_QUERY_MSG));
+        assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(CommonMessages.INVALID_SEARCH_QUERY_MSG));
         assertThat("actual message: " + e.getMessage(), e.getMessage(), containsString(allShardsFailedMsg));
         // not end now
         assertTrue(!((EndRunException) e).isEndNow());
@@ -805,7 +805,7 @@ public class MultiEntityResultTests extends AbstractADTest {
 
         listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
-        assertException(listener, LimitExceededException.class, CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG);
+        assertException(listener, LimitExceededException.class, CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG);
     }
 
     public void testNotAck() throws InterruptedException, IOException {
@@ -1226,7 +1226,7 @@ public class MultiEntityResultTests extends AbstractADTest {
                 .of(
                     new EndRunException(
                         detectorId,
-                        CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                        CommonMessages.INVALID_SEARCH_QUERY_MSG,
                         new NoSuchElementException("No value present"),
                         true
                     )
@@ -1239,7 +1239,7 @@ public class MultiEntityResultTests extends AbstractADTest {
                     .of(
                         new EndRunException(
                             detectorId,
-                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            CommonMessages.INVALID_SEARCH_QUERY_MSG,
                             new NoSuchElementException("No value present"),
                             true
                         )
@@ -1270,7 +1270,7 @@ public class MultiEntityResultTests extends AbstractADTest {
                     .of(
                         new EndRunException(
                             detectorId,
-                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            CommonMessages.INVALID_SEARCH_QUERY_MSG,
                             new NoSuchElementException("No value present"),
                             false
                         )

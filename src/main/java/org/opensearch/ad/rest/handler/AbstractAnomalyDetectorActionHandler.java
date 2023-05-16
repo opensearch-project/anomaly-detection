@@ -11,13 +11,13 @@
 
 package org.opensearch.ad.rest.handler;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.util.ParseUtils.listEqualsWithoutConsideringOrder;
 import static org.opensearch.ad.util.ParseUtils.parseAggregators;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -53,7 +53,6 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -85,6 +84,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
@@ -127,6 +127,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
     public static final Integer MAX_DETECTOR_NAME_SIZE = 64;
     private static final Set<ValidationAspect> DEFAULT_VALIDATION_ASPECTS = Sets.newHashSet(ValidationAspect.DETECTOR);
+
+    public static String INVALID_NAME_SIZE = "Name should be shortened. The maximum limit is " + MAX_DETECTOR_NAME_SIZE + " characters.";
 
     protected final AnomalyDetectionIndices anomalyDetectionIndices;
     protected final String detectorId;
@@ -311,24 +313,13 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         if (!anomalyDetector.getName().matches(NAME_REGEX)) {
             listener
                 .onFailure(
-                    new ADValidationException(
-                        CommonErrorMessages.INVALID_DETECTOR_NAME,
-                        DetectorValidationIssueType.NAME,
-                        ValidationAspect.DETECTOR
-                    )
+                    new ADValidationException(CommonMessages.INVALID_NAME, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR)
                 );
             return;
 
         }
         if (anomalyDetector.getName().length() > MAX_DETECTOR_NAME_SIZE) {
-            listener
-                .onFailure(
-                    new ADValidationException(
-                        CommonErrorMessages.INVALID_DETECTOR_NAME_SIZE,
-                        DetectorValidationIssueType.NAME,
-                        ValidationAspect.DETECTOR
-                    )
-                );
+            listener.onFailure(new ADValidationException(INVALID_NAME_SIZE, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR));
             return;
         }
         validateTimeField(indexingDryRun);
@@ -363,7 +354,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                                         listener
                                             .onFailure(
                                                 new ADValidationException(
-                                                    String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIMESTAMP, givenTimeField),
+                                                    String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, givenTimeField),
                                                     DetectorValidationIssueType.TIMEFIELD_FIELD,
                                                     ValidationAspect.DETECTOR
                                                 )
@@ -380,7 +371,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 listener
                     .onFailure(
                         new ADValidationException(
-                            String.format(Locale.ROOT, CommonErrorMessages.NON_EXISTENT_TIMESTAMP, givenTimeField),
+                            String.format(Locale.ROOT, CommonMessages.NON_EXISTENT_TIMESTAMP, givenTimeField),
                             DetectorValidationIssueType.TIMEFIELD_FIELD,
                             ValidationAspect.DETECTOR
                         )
@@ -431,7 +422,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     private void onGetAnomalyDetectorResponse(GetResponse response, boolean indexingDryRun, String detectorId) {
         if (!response.isExists()) {
-            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
+            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_CONFIG_MSG + detectorId, RestStatus.NOT_FOUND));
             return;
         }
         try (XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
@@ -444,12 +435,12 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             // in top N entities list. That's confusing.
             // So we decide to block updating detector category field.
             if (!listEqualsWithoutConsideringOrder(existingDetector.getCategoryField(), anomalyDetector.getCategoryField())) {
-                listener
-                    .onFailure(new OpenSearchStatusException(CommonErrorMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
+                listener.onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
                 return;
             }
             if (!Objects.equals(existingDetector.getResultIndex(), anomalyDetector.getResultIndex())) {
-                listener.onFailure(new OpenSearchStatusException(CommonErrorMessages.CAN_NOT_CHANGE_RESULT_INDEX, RestStatus.BAD_REQUEST));
+                listener
+                    .onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_CUSTOM_RESULT_INDEX, RestStatus.BAD_REQUEST));
                 return;
             }
 
@@ -590,7 +581,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             listener
                 .onFailure(
                     new ADValidationException(
-                        CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
+                        CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
                         DetectorValidationIssueType.CATEGORY,
                         ValidationAspect.DETECTOR
                     )
@@ -925,7 +916,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
                 validateFeatureQueriesListener,
                 anomalyDetector.getFeatureAttributes().size(),
-                String.format(Locale.ROOT, CommonErrorMessages.VALIDATION_FEATURE_FAILURE, anomalyDetector.getName()),
+                String.format(Locale.ROOT, "Validation failed for feature(s) of detector %s", anomalyDetector.getName()),
                 false
             );
 
@@ -946,16 +937,16 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                             new MergeableList<Optional<double[]>>(new ArrayList<Optional<double[]>>(Arrays.asList(aggFeatureResult)))
                         );
                 } else {
-                    String errorMessage = CommonErrorMessages.FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
+                    String errorMessage = CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG + feature.getName();
                     logger.error(errorMessage);
                     multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
                 }
             }, e -> {
                 String errorMessage;
                 if (isExceptionCausedByInvalidQuery(e)) {
-                    errorMessage = CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
+                    errorMessage = CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
                 } else {
-                    errorMessage = CommonErrorMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
+                    errorMessage = CommonMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
                 }
                 logger.error(errorMessage, e);
                 multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));

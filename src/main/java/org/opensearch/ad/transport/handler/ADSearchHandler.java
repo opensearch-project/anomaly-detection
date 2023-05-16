@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport.handler;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_SEARCH;
+import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_SEARCH;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.ad.util.ParseUtils.getUserContext;

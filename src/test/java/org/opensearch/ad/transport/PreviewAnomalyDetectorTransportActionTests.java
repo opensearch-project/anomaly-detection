@@ -49,7 +49,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -75,6 +74,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
@@ -424,7 +424,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             @Override
             public void onFailure(Exception e) {
                 Assert.assertTrue("actual class: " + e.getClass(), e instanceof OpenSearchStatusException);
-                Assert.assertTrue(e.getMessage().contains(CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
+                Assert.assertTrue(e.getMessage().contains(CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
                 inProgressLatch.countDown();
             }
         };

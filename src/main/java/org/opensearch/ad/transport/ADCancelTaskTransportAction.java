@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.HISTORICAL_ANALYSIS_CANCELLED;
+import static org.opensearch.ad.constant.ADCommonMessages.HISTORICAL_ANALYSIS_CANCELLED;
 
 import java.io.IOException;
 import java.util.List;

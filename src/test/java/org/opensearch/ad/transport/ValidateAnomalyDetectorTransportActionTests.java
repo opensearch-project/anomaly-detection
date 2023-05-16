@@ -20,8 +20,8 @@ import java.util.Locale;
 import org.junit.Test;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssueType;
@@ -30,6 +30,7 @@ import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.timeseries.constant.CommonMessages;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
@@ -70,7 +71,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNotNull(response.getIssue());
         assertEquals(DetectorValidationIssueType.INDICES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(CommonErrorMessages.INDEX_NOT_FOUND));
+        assertTrue(response.getIssue().getMessage().contains(ADCommonMessages.INDEX_NOT_FOUND));
     }
 
     @Test
@@ -110,9 +111,9 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNotNull(response.getIssue());
         assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(CommonErrorMessages.FEATURE_WITH_EMPTY_DATA_MSG));
+        assertTrue(response.getIssue().getMessage().contains(CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(maxFeature.getName()));
-        assertTrue(CommonErrorMessages.FEATURE_WITH_EMPTY_DATA_MSG.contains(response.getIssue().getSubIssues().get(maxFeature.getName())));
+        assertTrue(CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG.contains(response.getIssue().getSubIssues().get(maxFeature.getName())));
     }
 
     @Test
@@ -199,11 +200,9 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNotNull(response.getIssue());
         assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG));
+        assertTrue(response.getIssue().getMessage().contains(CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(maxFeature.getName()));
-        assertTrue(
-            CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG.contains(response.getIssue().getSubIssues().get(maxFeature.getName()))
-        );
+        assertTrue(CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG.contains(response.getIssue().getSubIssues().get(maxFeature.getName())));
     }
 
     @Test
@@ -228,7 +227,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNotNull(response.getIssue());
         assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(CommonErrorMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG));
+        assertTrue(response.getIssue().getMessage().contains(CommonMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(nameField));
     }
 
@@ -252,11 +251,9 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertEquals(response.getIssue().getSubIssues().keySet().size(), 2);
         assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG));
+        assertTrue(response.getIssue().getMessage().contains(CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(maxFeature.getName()));
-        assertTrue(
-            CommonErrorMessages.FEATURE_WITH_INVALID_QUERY_MSG.contains(response.getIssue().getSubIssues().get(maxFeature.getName()))
-        );
+        assertTrue(CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG.contains(response.getIssue().getSubIssues().get(maxFeature.getName())));
     }
 
     @Test
@@ -322,7 +319,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(DetectorValidationIssueType.RESULT_INDEX, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(CommonErrorMessages.INVALID_RESULT_INDEX_MAPPING));
+        assertTrue(response.getIssue().getMessage().contains(CommonMessages.INVALID_RESULT_INDEX_MAPPING));
     }
 
     private void testValidateAnomalyDetectorWithCustomResultIndex(boolean resultIndexCreated) throws IOException {
@@ -385,7 +382,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(DetectorValidationIssueType.NAME, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertEquals(CommonErrorMessages.INVALID_DETECTOR_NAME, response.getIssue().getMessage());
+        assertEquals(CommonMessages.INVALID_NAME, response.getIssue().getMessage());
     }
 
     @Test
@@ -440,7 +437,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertEquals(DetectorValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.NON_EXISTENT_TIMESTAMP, anomalyDetector.getTimeField()),
+            String.format(Locale.ROOT, CommonMessages.NON_EXISTENT_TIMESTAMP, anomalyDetector.getTimeField()),
             response.getIssue().getMessage()
         );
     }
@@ -461,7 +458,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertEquals(DetectorValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIMESTAMP, anomalyDetector.getTimeField()),
+            String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, anomalyDetector.getTimeField()),
             response.getIssue().getMessage()
         );
     }
