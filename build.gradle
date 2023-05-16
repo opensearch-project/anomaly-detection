@@ -11,6 +11,7 @@
 
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
+import org.opensearch.gradle.testclusters.ExtensionsProperties
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 
 buildscript {
@@ -34,6 +35,8 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
+        job_scheduler_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
+                '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         bwcVersionShort = "2.6.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
@@ -92,16 +95,14 @@ repositories {
 }
 
 apply plugin: 'java'
-apply plugin: 'application'
 apply plugin: 'idea'
+apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.testclusters'
 apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
 //apply plugin: 'opensearch.pluginzip'
 apply plugin: 'maven-publish'
-
-mainClassName = 'org.opensearch.ad.AnomalyDetectorExtension'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -116,6 +117,13 @@ allprojects {
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+opensearchplugin {
+    name 'opensearch-anomaly-detection'
+    description 'OpenSearch anomaly detector plugin'
+    classname 'org.opensearch.ad.AnomalyDetectorExtension'
+    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler']
 }
 
 ext {
@@ -139,6 +147,23 @@ configurations.all {
         force "net.bytebuddy:byte-buddy-agent:1.9.15"
         force "com.google.code.gson:gson:2.8.9"
         force "junit:junit:4.13.2"
+
+        force "jakarta.json:jakarta.json-api:2.1.1"
+        force "com.google.guava:guava:31.1-jre"
+        force "org.apache.logging.log4j:log4j-api:2.20.0"
+        force "org.apache.logging.log4j:log4j-core:2.20.0"
+        force "org.apache.logging.log4j:log4j-jul:2.20.0"
+        force "com.fasterxml.jackson.core:jackson-databind:2.15.0"
+        force "com.fasterxml.jackson.core:jackson-core:2.15.0"
+        force "io.netty:netty-buffer:4.1.92.Final"
+        force "io.netty:netty-codec:4.1.92.Final"
+        force "io.netty:netty-codec-http:4.1.92.Final"
+        force "io.netty:netty-codec-http2:4.1.92.Final"
+        force "io.netty:netty-common:4.1.92.Final"
+        force "io.netty:netty-handler:4.1.92.Final"
+        force "io.netty:netty-transport-native-unix-common:4.1.92.Final"
+        force "io.netty:netty-resolver:4.1.92.Final"
+        force "io.netty:netty-transport:4.1.92.Final" 
     }
 }
 
@@ -222,6 +247,11 @@ task integTest(type: RestIntegTestTask) {
 // Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
 /*
 tasks.named("check").configure { dependsOn(integTest) }
+*/
+
+task startTestExtension(type: Exec) {
+    commandLine 'bash', '-c', "./gradlew run &"
+}
 
 integTest {
     retry {
@@ -231,7 +261,7 @@ integTest {
             maxFailures = 10
         }
     }
-//    dependsOn "bundlePlugin"
+    dependsOn "startTestExtension"
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
 
@@ -286,9 +316,16 @@ integTest {
         }
     }
 }
-*/
 
-/*testClusters.integTest {
+task closeTestExtension (type: Exec) {
+    commandLine 'bash', '-c', "kill \$(lsof -i:4531)"
+}
+
+tasks.named("integTest").configure { finalizedBy(closeTestExtension) }
+
+
+testClusters.integTest {
+    extension(new ExtensionsProperties("ad-extension", "ad-extension", "127.0.0.1", "4531", "1.0", "3.0.0", "3.0.0"))
     testDistribution = "ARCHIVE"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
@@ -302,53 +339,26 @@ integTest {
             debugPort += 1
         }
     }
-    plugin(project.tasks.bundlePlugin.archiveFile)*/
 
-
-//    Commented this code until we have support of Job Scheduler for extensibility
-//    plugin(provider(new Callable<RegularFile>(){
-//        @Override
-//        RegularFile call() throws Exception {
-//            return new RegularFile() {
-//                @Override
-//                File getAsFile() {
-//                    if (new File("$project.rootDir/$js_resource_folder").exists()) {
-//                        project.delete(files("$project.rootDir/$js_resource_folder"))
-//                    }
-//                    project.mkdir js_resource_folder
-//                    ant.get(src: job_scheduler_build_download,
-//                            dest: js_resource_folder,
-//                            httpusecaches: false)
-//                    return fileTree(js_resource_folder).getSingleFile()
-//                }
-//            }
-//        }
-//    }))
-//
-//    // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
-//    // the opensearch-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
-//    //
-//    // Exception in thread "main" java.lang.IllegalArgumentException: Missing plugin [opensearch-job-scheduler], dependency of [opendistro-anomaly-detection]
-//    //       at org.opensearch.plugins.PluginsService.addSortedBundle(PluginsService.java:452)
-//    //
-//    // One explanation is that ES build script sort plugins according to the natural ordering of their names.
-//    // opendistro-anomaly-detection comes before opensearch-job-scheduler.
-//    //
-//    // The following is a comparison of different plugin installation order:
-//    // Before 7.7:
-//    // ./bin/elasticsearch-plugin install --batch file:opendistro-anomaly-detection.zip file:opensearch-job-scheduler.zip
-//    //
-//    // After 7.7:
-//    // ./bin/elasticsearch-plugin install --batch file:opensearch-job-scheduler.zip file:opendistro-anomaly-detection.zip
-//    //
-//    // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
-/*    nodes.each { node ->
-        def plugins = node.plugins
-        def firstPlugin = plugins.get(0)
-        plugins.remove(0)
-        plugins.add(firstPlugin)
-    }
-}*/
+    plugin(provider(new Callable<RegularFile>(){
+        @Override
+        RegularFile call() throws Exception {
+            return new RegularFile() {
+                @Override
+                File getAsFile() {
+                    if (new File("$project.rootDir/$js_resource_folder").exists()) {
+                        project.delete(files("$project.rootDir/$js_resource_folder"))
+                    }
+                    project.mkdir js_resource_folder
+                    ant.get(src: job_scheduler_build_download,
+                            dest: js_resource_folder,
+                            httpusecaches: false)
+                    return fileTree(js_resource_folder).getSingleFile()
+                }
+            }
+        }
+    }))
+}
 
 task integTestRemote(type: RestIntegTestTask) {
     testClassesDirs = sourceSets.test.output.classesDirs
@@ -811,11 +821,11 @@ dependencies {
 //    implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch:opensearch-job-scheduler:${job_scheduler_version}"
     implementation "org.opensearch.sdk:opensearch-sdk-java:2.0.0-SNAPSHOT"
-    implementation "com.google.inject:guice:5.1.0"
+    implementation "com.google.inject:guice:7.0.0"
     implementation "org.opensearch.client:opensearch-java:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:${opensearch_version}"
-    implementation group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
+    implementation group: 'com.google.guava', name: 'guava', version:'31.1-jre'
     implementation group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
