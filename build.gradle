@@ -24,7 +24,7 @@ buildscript {
             plugin_version = opensearch_version
         }
         // 1.2.0 -> 1.2.0.0, and 1.2.0-SNAPSHOT -> 1.2.0.0-SNAPSHOT
-        opensearch_build = opensearch_version.replaceAll(/(\.\d)([^\d]*)$/, '$1.0$2')
+        opensearch_build = opensearch_version.replaceAll(/(\.\d+)([^\d]*)$/, '$1.0$2')
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version_snapshot = System.getProperty("job_scheduler.version", opensearch_build)
         js_resource_folder = "src/test/resources/job-scheduler"
