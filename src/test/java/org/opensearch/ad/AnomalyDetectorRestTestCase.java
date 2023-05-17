@@ -26,6 +26,7 @@ import org.apache.hc.core5.http.message.BasicHeader;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
+import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Request;
@@ -253,8 +254,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         String id = null;
         Long version = null;
         AnomalyDetector detector = null;
-        // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-        // AnomalyDetectorJob detectorJob = null;
+        AnomalyDetectorJob detectorJob = null;
         ADTask realtimeAdTask = null;
         ADTask historicalAdTask = null;
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -270,10 +270,9 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 case "anomaly_detector":
                     detector = AnomalyDetector.parse(parser);
                     break;
-                // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-                /*case "anomaly_detector_job":
+                case "anomaly_detector_job":
                     detectorJob = AnomalyDetectorJob.parse(parser);
-                    break;*/
+                    break;
                 case "realtime_detection_task":
                     if (parser.currentToken() != XContentParser.Token.VALUE_NULL) {
                         realtimeAdTask = ADTask.parse(parser);
@@ -310,8 +309,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getUser(),
                 detector.getResultIndex()
             ),
-            // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-            // detectorJob,
+            detectorJob,
             historicalAdTask,
             realtimeAdTask };
     }
