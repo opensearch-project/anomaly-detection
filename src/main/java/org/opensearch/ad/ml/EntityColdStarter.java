@@ -44,7 +44,6 @@ import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.DoorKeeper;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -57,6 +56,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.dataprocessor.Imputer;
 
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -77,7 +77,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     private final double thresholdMinPvalue;
     private final int defaulStrideLength;
     private final int defaultNumberOfSamples;
-    private final Interpolator interpolator;
+    private final Imputer imputer;
     private final SearchFeatureDao searchFeatureDao;
     private Instant lastThrottledColdStartTime;
     private final FeatureManager featureManager;
@@ -108,7 +108,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      *  results are returned.
      * @param defaultSampleStride default sample distances measured in detector intervals.
      * @param defaultTrainSamples Default train samples to collect.
-     * @param interpolator Used to generate data points between samples.
+     * @param imputer Used to generate data points between samples.
      * @param searchFeatureDao Used to issue ES queries.
      * @param thresholdMinPvalue min P-value for thresholding
      * @param featureManager Used to create features for models.
@@ -130,7 +130,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         int numMinSamples,
         int defaultSampleStride,
         int defaultTrainSamples,
-        Interpolator interpolator,
+        Imputer imputer,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
         FeatureManager featureManager,
@@ -150,7 +150,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         this.numMinSamples = numMinSamples;
         this.defaulStrideLength = defaultSampleStride;
         this.defaultNumberOfSamples = defaultTrainSamples;
-        this.interpolator = interpolator;
+        this.imputer = imputer;
         this.searchFeatureDao = searchFeatureDao;
         this.thresholdMinPvalue = thresholdMinPvalue;
         this.featureManager = featureManager;
@@ -173,7 +173,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         int numMinSamples,
         int maxSampleStride,
         int maxTrainSamples,
-        Interpolator interpolator,
+        Imputer imputer,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
         FeatureManager featureManager,
@@ -192,7 +192,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             numMinSamples,
             maxSampleStride,
             maxTrainSamples,
-            interpolator,
+            imputer,
             searchFeatureDao,
             thresholdMinPvalue,
             featureManager,
@@ -501,8 +501,8 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                         int numInterpolants = (i - lastSample.getLeft()) * stride + 1;
                         double[][] points = featureManager
                             .transpose(
-                                interpolator
-                                    .interpolate(
+                                imputer
+                                    .impute(
                                         featureManager.transpose(new double[][] { lastSample.getRight(), featuresOptional.get() }),
                                         numInterpolants
                                     )

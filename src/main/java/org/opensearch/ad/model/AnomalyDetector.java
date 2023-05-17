@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.util.Strings;
-import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.CommonValue;
@@ -52,6 +51,7 @@ import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 

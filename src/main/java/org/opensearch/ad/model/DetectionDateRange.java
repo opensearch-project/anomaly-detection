@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.time.Instant;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -25,6 +24,7 @@ import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.annotation.Generated;
 
 import com.google.common.base.Objects;
 

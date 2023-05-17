@@ -42,11 +42,11 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.CleanState;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.dataprocessor.Imputer;
 
 /**
  * A facade managing feature data operations and buffers.
@@ -59,7 +59,7 @@ public class FeatureManager implements CleanState {
     private final Map<String, ArrayDeque<Entry<Long, Optional<double[]>>>> detectorIdsToTimeShingles;
 
     private final SearchFeatureDao searchFeatureDao;
-    private final Interpolator interpolator;
+    private final Imputer imputer;
     private final Clock clock;
 
     private final int maxTrainSamples;
@@ -78,7 +78,7 @@ public class FeatureManager implements CleanState {
      * Constructor with dependencies and configuration.
      *
      * @param searchFeatureDao DAO of features from search
-     * @param interpolator interpolator of samples
+     * @param imputer imputer of samples
      * @param clock clock for system time
      * @param maxTrainSamples max number of samples from search
      * @param maxSampleStride max stride between uninterpolated train samples
@@ -94,7 +94,7 @@ public class FeatureManager implements CleanState {
      */
     public FeatureManager(
         SearchFeatureDao searchFeatureDao,
-        Interpolator interpolator,
+        Imputer imputer,
         Clock clock,
         int maxTrainSamples,
         int maxSampleStride,
@@ -109,7 +109,7 @@ public class FeatureManager implements CleanState {
         String adThreadPoolName
     ) {
         this.searchFeatureDao = searchFeatureDao;
-        this.interpolator = interpolator;
+        this.imputer = imputer;
         this.clock = clock;
         this.maxTrainSamples = maxTrainSamples;
         this.maxSampleStride = maxSampleStride;
@@ -592,8 +592,8 @@ public class FeatureManager implements CleanState {
     private List<Entry<Long, Long>> getPreviewRanges(List<Entry<Long, Long>> ranges, int stride, int shingleSize) {
         double[] rangeStarts = ranges.stream().mapToDouble(Entry::getKey).toArray();
         double[] rangeEnds = ranges.stream().mapToDouble(Entry::getValue).toArray();
-        double[] previewRangeStarts = interpolator.interpolate(new double[][] { rangeStarts }, stride * (ranges.size() - 1) + 1)[0];
-        double[] previewRangeEnds = interpolator.interpolate(new double[][] { rangeEnds }, stride * (ranges.size() - 1) + 1)[0];
+        double[] previewRangeStarts = imputer.impute(new double[][] { rangeStarts }, stride * (ranges.size() - 1) + 1)[0];
+        double[] previewRangeEnds = imputer.impute(new double[][] { rangeEnds }, stride * (ranges.size() - 1) + 1)[0];
         List<Entry<Long, Long>> previewRanges = IntStream
             .range(shingleSize - 1, previewRangeStarts.length)
             .mapToObj(i -> new SimpleImmutableEntry<>((long) previewRangeStarts[i], (long) previewRangeEnds[i]))
@@ -614,7 +614,7 @@ public class FeatureManager implements CleanState {
         Entry<double[][], double[][]> unprocessedAndProcessed = Optional
             .of(samples)
             .map(m -> transpose(m))
-            .map(m -> interpolator.interpolate(m, stride * (samples.length - 1) + 1))
+            .map(m -> imputer.impute(m, stride * (samples.length - 1) + 1))
             .map(m -> transpose(m))
             .map(m -> new SimpleImmutableEntry<>(copyOfRange(m, shingleSize - 1, m.length), batchShingle(m, shingleSize)))
             .get();

@@ -58,8 +58,6 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
@@ -100,6 +98,8 @@ import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 
 import com.carrotsearch.hppc.BitMixer;
 import com.google.common.collect.ImmutableList;
@@ -115,7 +115,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
     private AnomalyDetector detector;
     private Client client;
     private SearchFeatureDao searchFeatureDao;
-    private LinearUniformInterpolator interpolator;
+    private Imputer imputer;
     private SecurityClientUtil clientUtil;
     private Settings settings;
     private ClusterService clusterService;
@@ -154,7 +154,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         client = mock(Client.class);
         when(client.threadPool()).thenReturn(threadPool);
 
-        interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
+        imputer = new LinearUniformImputer(false);
 
         settings = Settings.EMPTY;
         ClusterSettings clusterSettings = new ClusterSettings(
@@ -178,7 +178,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
-            interpolator,
+            imputer,
             clientUtil,
             settings,
             clusterService,
@@ -365,7 +365,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry(),
-            interpolator,
+            imputer,
             clientUtil,
             settings,
             clusterService,
@@ -411,7 +411,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry(),
-            interpolator,
+            imputer,
             clientUtil,
             settings,
             clusterService,

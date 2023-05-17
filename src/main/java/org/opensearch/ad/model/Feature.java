@@ -16,7 +16,6 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 
 import org.apache.logging.log4j.util.Strings;
-import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.io.stream.StreamInput;
@@ -26,6 +25,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.timeseries.annotation.Generated;
 
 import com.google.common.base.Objects;
 

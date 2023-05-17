@@ -24,7 +24,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.util.ParseUtils;
@@ -37,6 +36,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.base.Objects;

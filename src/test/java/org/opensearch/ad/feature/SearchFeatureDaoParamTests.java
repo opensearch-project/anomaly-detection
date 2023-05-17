@@ -55,9 +55,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -82,6 +79,8 @@ import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -150,7 +149,7 @@ public class SearchFeatureDaoParamTests {
     private MultiSearchRequest multiSearchRequest;
     private IntervalTimeConfiguration detectionInterval;
     private String detectorId;
-    private Interpolator interpolator;
+    private Imputer imputer;
     private Settings settings;
 
     @Before
@@ -158,7 +157,7 @@ public class SearchFeatureDaoParamTests {
         MockitoAnnotations.initMocks(this);
         PowerMockito.mockStatic(ParseUtils.class);
 
-        interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
+        imputer = new LinearUniformImputer(false);
 
         ExecutorService executorService = mock(ExecutorService.class);
         when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
@@ -179,7 +178,7 @@ public class SearchFeatureDaoParamTests {
         }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
         searchFeatureDao = spy(
-            new SearchFeatureDao(client, xContent, interpolator, clientUtil, settings, null, AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
+            new SearchFeatureDao(client, xContent, imputer, clientUtil, settings, null, AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
         );
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
