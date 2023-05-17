@@ -238,6 +238,13 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
+task anomalyDetection(type: JavaExec) {
+    group = 'Execution'
+    description = 'Run AnomalyDetection Extension.'
+    mainClass = 'org.opensearch.ad.AnomalyDetectorExtension'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
 task integTest(type: RestIntegTestTask) {
     description = "Run tests against a cluster"
     testClassesDirs = sourceSets.test.output.classesDirs
@@ -250,7 +257,7 @@ tasks.named("check").configure { dependsOn(integTest) }
 */
 
 task startTestExtension(type: Exec) {
-    commandLine 'bash', '-c', "./gradlew run &"
+    commandLine 'bash', '-c', "./gradlew anomalyDetection &"
 }
 
 integTest {
@@ -317,15 +324,16 @@ integTest {
     }
 }
 
+def integADExtensionYml = new org.yaml.snakeyaml.Yaml().load(new File("src/test/resources/org/opensearch/ad/integ/anomaly-detection-extension.yml").newInputStream())
+
 task closeTestExtension (type: Exec) {
-    commandLine 'bash', '-c', "kill \$(lsof -i:4531)"
+    commandLine 'bash', '-c', "kill \$(lsof -i:${integADExtensionYml.port})"
 }
 
 tasks.named("integTest").configure { finalizedBy(closeTestExtension) }
 
-
 testClusters.integTest {
-    extension(new ExtensionsProperties("ad-extension", "ad-extension", "127.0.0.1", "4531", "1.0", "3.0.0", "3.0.0"))
+    extension(new ExtensionsProperties("${integADExtensionYml.name}", "${integADExtensionYml.uniqueId}", "${integADExtensionYml.hostAddress}", "${integADExtensionYml.port}", "${integADExtensionYml.version}", "${integADExtensionYml.opensearchVersion}", "${integADExtensionYml.minimumCompatibleVersion}"))
     testDistribution = "ARCHIVE"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
