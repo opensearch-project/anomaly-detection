@@ -34,7 +34,7 @@ import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorRequest;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorResponse;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.common.Strings;
+import org.opensearch.core.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;

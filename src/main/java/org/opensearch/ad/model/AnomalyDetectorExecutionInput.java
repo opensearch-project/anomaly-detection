@@ -18,7 +18,7 @@ import java.time.Instant;
 
 import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.common.Strings;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;

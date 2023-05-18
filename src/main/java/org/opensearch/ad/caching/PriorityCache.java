@@ -53,7 +53,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.common.Strings;
+import org.opensearch.core.common.Strings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.threadpool.ThreadPool;
