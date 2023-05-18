@@ -11,6 +11,9 @@
 
 package org.opensearch.ad;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 
 import java.io.IOException;
@@ -26,6 +29,8 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTaskProfile;
@@ -33,16 +38,18 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.search.aggregations.AggregationBuilder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRestTestCase {
+
+    private static final Logger logger = LogManager.getLogger(HistoricalAnalysisRestTestCase.class);
 
     public static final int MAX_RETRY_TIMES = 200;
     protected String historicalAnalysisTestIndex = "test_historical_analysis_data";
@@ -58,7 +65,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         ingestTestDataForHistoricalAnalysis(historicalAnalysisTestIndex, detectionIntervalInMinutes);
     }
 
-    public ToXContentObject[] getHistoricalAnomalyDetector(String detectorId, boolean returnTask, RestClient client) throws IOException {
+    public ToXContentObject[] getHistoricalAnomalyDetector(String detectorId, boolean returnTask, SDKRestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
         return getAnomalyDetector(detectorId, header, false, returnTask, client);
     }
@@ -66,7 +73,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
     public ADTaskProfile getADTaskProfile(String detectorId) throws IOException, ParseException {
         Response profileResponse = TestHelpers
             .makeRequest(
-                client(),
+                sdkClient(),
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_profile/ad_task",
                 ImmutableMap.of(),
@@ -79,7 +86,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
     public Response searchTaskResult(String resultIndex, String taskId) throws IOException {
         Response response = TestHelpers
             .makeRequest(
-                client(),
+                sdkClient(),
                 "GET",
                 TestHelpers.AD_BASE_RESULT_URI + "/_search/" + resultIndex,
                 ImmutableMap.of(),
@@ -104,7 +111,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         ParseException {
         TestHelpers
             .makeRequest(
-                client(),
+                sdkClient(),
                 "PUT",
                 indexName,
                 null,
@@ -112,7 +119,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
 
-        Response statsResponse = TestHelpers.makeRequest(client(), "GET", indexName, ImmutableMap.of(), "", null);
+        Response statsResponse = TestHelpers.makeRequest(sdkClient(), "GET", indexName, ImmutableMap.of(), "", null);
         assertEquals(RestStatus.OK, TestHelpers.restStatus(statsResponse));
         String result = EntityUtils.toString(statsResponse.getEntity());
         assertTrue(result.contains(indexName));
@@ -142,7 +149,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         }
         Response bulkResponse = TestHelpers
             .makeRequest(
-                client(),
+                sdkClient(),
                 "POST",
                 "_bulk?refresh=true",
                 null,
@@ -213,14 +220,14 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
                 categoryField,
                 resultIndex
             );
-        return createAnomalyDetector(detector, true, client());
+        return createAnomalyDetector(detector, true, sdkClient());
     }
 
     protected String startHistoricalAnalysis(String detectorId) throws IOException {
         Instant endTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         Instant startTime = endTime.minus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
-        Response startDetectorResponse = startAnomalyDetector(detectorId, dateRange, client());
+        Response startDetectorResponse = startAnomalyDetector(detectorId, dateRange, sdkClient());
         Map<String, Object> startDetectorResponseMap = responseAsMap(startDetectorResponse);
         String taskId = (String) startDetectorResponseMap.get("_id");
         assertNotNull(taskId);
