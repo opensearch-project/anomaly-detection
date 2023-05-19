@@ -51,6 +51,7 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.common.Strings;
@@ -490,9 +491,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         settingCommand.endObject();
         Request request = new Request("PUT", "/_cluster/settings");
 
-        // Commenting below piece of code as Strings.java is not able to call toString() Method
-        // because of error "Non-static method 'toString()' cannot be referenced from a static context"
-        // request.setJsonEntity(Strings.toString(settingCommand));
+        request.setJsonEntity(BytesReference.bytes(settingCommand).utf8ToString());
 
         adminClient().performRequest(request);
     }
