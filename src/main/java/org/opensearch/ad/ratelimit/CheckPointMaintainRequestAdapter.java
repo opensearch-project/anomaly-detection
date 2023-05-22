@@ -27,10 +27,10 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.Strings;
 
 public class CheckPointMaintainRequestAdapter {
     private static final Logger LOG = LogManager.getLogger(CheckPointMaintainRequestAdapter.class);
