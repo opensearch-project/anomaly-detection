@@ -73,7 +73,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
     public ADTaskProfile getADTaskProfile(String detectorId) throws IOException, ParseException {
         Response profileResponse = TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_profile/ad_task",
                 ImmutableMap.of(),
@@ -86,7 +86,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
     public Response searchTaskResult(String resultIndex, String taskId) throws IOException {
         Response response = TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "GET",
                 TestHelpers.AD_BASE_RESULT_URI + "/_search/" + resultIndex,
                 ImmutableMap.of(),
@@ -111,7 +111,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         ParseException {
         TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "PUT",
                 indexName,
                 null,
@@ -119,7 +119,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
 
-        Response statsResponse = TestHelpers.makeRequest(sdkClient(), "GET", indexName, ImmutableMap.of(), "", null);
+        Response statsResponse = TestHelpers.makeRequest(sdkRestClient(), "GET", indexName, ImmutableMap.of(), "", null);
         assertEquals(RestStatus.OK, TestHelpers.restStatus(statsResponse));
         String result = EntityUtils.toString(statsResponse.getEntity());
         assertTrue(result.contains(indexName));
@@ -149,7 +149,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         }
         Response bulkResponse = TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "POST",
                 "_bulk?refresh=true",
                 null,
@@ -220,14 +220,14 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
                 categoryField,
                 resultIndex
             );
-        return createAnomalyDetector(detector, true, sdkClient());
+        return createAnomalyDetector(detector, true, sdkRestClient());
     }
 
     protected String startHistoricalAnalysis(String detectorId) throws IOException {
         Instant endTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         Instant startTime = endTime.minus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
         DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
-        Response startDetectorResponse = startAnomalyDetector(detectorId, dateRange, sdkClient());
+        Response startDetectorResponse = startAnomalyDetector(detectorId, dateRange, sdkRestClient());
         Map<String, Object> startDetectorResponseMap = responseAsMap(startDetectorResponse);
         String taskId = (String) startDetectorResponseMap.get("_id");
         assertNotNull(taskId);

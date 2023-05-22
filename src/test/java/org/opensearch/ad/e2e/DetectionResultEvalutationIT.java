@@ -86,7 +86,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
         double minRecall,
         double maxError
     ) throws Exception {
-        SDKRestClient client = sdkClient();
+        SDKRestClient client = sdkRestClient();
 
         String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
         String labelFileName = String.format(Locale.ROOT, "data/%s.label", datasetName);
@@ -507,7 +507,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     public void testValidationIntervalRecommendation() throws Exception {
-        SDKRestClient client = sdkClient();
+        SDKRestClient client = sdkRestClient();
         long recDetectorIntervalMillis = 180000;
         long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
         List<JsonObject> data = createData(2000, recDetectorIntervalMillis);
@@ -526,7 +526,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             );
         Response resp = TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "POST",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
                 ImmutableMap.of(),
@@ -544,7 +544,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     public void testValidationWindowDelayRecommendation() throws Exception {
-        SDKRestClient client = sdkClient();
+        SDKRestClient client = sdkRestClient();
         long recDetectorIntervalMillis = 180000;
         // this would be equivalent to the window delay in this data test
         long recDetectorIntervalMinutes = recDetectorIntervalMillis / 60000;
@@ -564,7 +564,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
             );
         Response resp = TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "POST",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/model",
                 ImmutableMap.of(),
@@ -633,7 +633,7 @@ public class DetectionResultEvalutationIT extends ODFERestTestCase {
     }
 
     private void verifyRestart(String datasetName, int intervalMinutes, int shingleSize) throws Exception {
-        SDKRestClient client = sdkClient();
+        SDKRestClient client = sdkRestClient();
 
         String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
 

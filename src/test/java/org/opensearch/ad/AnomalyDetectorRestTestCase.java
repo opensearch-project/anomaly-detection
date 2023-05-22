@@ -327,7 +327,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             .endObject();
         Request request = new Request("PUT", "_cluster/settings");
         request.setJsonEntity(Strings.toString(builder));
-        Response response = sdkClient().performRequest(request);
+        Response response = sdkRestClient().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         Thread.sleep(2000); // sleep some time to resolve flaky test
     }
@@ -345,17 +345,17 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     }
 
     public Response getDetectorProfile(String detectorId) throws IOException {
-        return getDetectorProfile(detectorId, false, "", sdkClient());
+        return getDetectorProfile(detectorId, false, "", sdkRestClient());
     }
 
     public Response getDetectorProfile(String detectorId, boolean all) throws IOException {
-        return getDetectorProfile(detectorId, all, "", sdkClient());
+        return getDetectorProfile(detectorId, all, "", sdkRestClient());
     }
 
     public Response getSearchDetectorCount() throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.COUNT,
                 null,
@@ -367,7 +367,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response getSearchDetectorMatch(String name) throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "GET",
                 TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.MATCH,
                 ImmutableMap.of("name", name),
@@ -402,7 +402,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         }
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/internalusers/" + name,
                 null,
@@ -429,7 +429,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         }
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/rolesmapping/" + role,
                 null,
@@ -444,7 +444,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response createIndexRole(String role, String index) throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/roles/" + role,
                 null,
@@ -479,7 +479,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response createSearchRole(String role, String index) throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "PUT",
                 "/_opendistro/_security/api/roles/" + role,
                 null,
@@ -513,7 +513,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response deleteUser(String user) throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "DELETE",
                 "/_opendistro/_security/api/internalusers/" + user,
                 null,
@@ -525,7 +525,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response deleteRoleMapping(String user) throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "DELETE",
                 "/_opendistro/_security/api/rolesmapping/" + user,
                 null,
@@ -537,7 +537,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response enableFilterBy() throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "PUT",
                 "_cluster/settings",
                 null,
@@ -556,7 +556,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response disableFilterBy() throws IOException {
         return TestHelpers
             .makeRequest(
-                sdkClient(),
+                sdkRestClient(),
                 "PUT",
                 "_cluster/settings",
                 null,

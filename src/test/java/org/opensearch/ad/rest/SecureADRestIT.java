@@ -209,7 +209,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
         // Fish should be able to update detectors created by Alice. But the detector's backend role should
         // not be replaced as Fish's backend roles.
-        TestHelpers.createIndexWithTimeField(sdkClient(), newDetector.getIndices().get(0), newDetector.getTimeField());
+        TestHelpers.createIndexWithTimeField(sdkRestClient(), newDetector.getIndices().get(0), newDetector.getTimeField());
         Response response = updateAnomalyDetector(aliceDetector.getDetectorId(), newDetector, fishClient);
         Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
         AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
@@ -300,7 +300,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
         // User cat has permission to create index
         resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
-        TestHelpers.createIndexWithTimeField(sdkClient(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
+        TestHelpers.createIndexWithTimeField(sdkRestClient(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
         AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(anomalyDetector, resultIndex), true, catClient);
         assertEquals(resultIndex, detectorOfCat.getResultIndex());
     }
