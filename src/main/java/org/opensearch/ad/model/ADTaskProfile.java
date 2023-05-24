@@ -19,13 +19,13 @@ import java.util.List;
 import java.util.Objects;
 
 import org.opensearch.Version;
-import org.opensearch.ad.annotation.Generated;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.annotation.Generated;
 
 /**
  * One anomaly detection task means one detector starts to run until stopped.

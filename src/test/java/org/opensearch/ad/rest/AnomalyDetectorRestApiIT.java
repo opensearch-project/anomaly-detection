@@ -1673,7 +1673,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         // Delete any existing result index
         if (indexExistsWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
-            deleteIndexWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
+            deleteIndexWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS + "*");
         }
         Response response = searchTopAnomalyResults(
             detector.getDetectorId(),
@@ -1710,12 +1710,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             client()
         );
 
-        // Clear any existing result index, create an empty one
-        // Use the DELETE API to delete the index or indices associated with the alias first
-        // then Use the DELETE API to remove the alias.
         if (indexExistsWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
             deleteIndexWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS + "*");
-            deleteIndexWithAdminClient(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         }
         TestHelpers.createEmptyAnomalyResultIndex(adminClient());
         Response response = searchTopAnomalyResults(

@@ -35,8 +35,8 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
-import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 
 import com.google.common.collect.ImmutableList;
@@ -66,7 +66,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         settingCommand.endObject();
         settingCommand.endObject();
         Request request = new Request("PUT", "/_cluster/settings");
-        request.setJsonEntity(Strings.toString(settingCommand));
+        request.setJsonEntity(org.opensearch.common.Strings.toString(settingCommand));
 
         adminClient().performRequest(request);
     }
@@ -192,6 +192,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         return detectorId;
     }
 
+    @Override
     protected void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
         int maxWaitCycles = 3;
         do {

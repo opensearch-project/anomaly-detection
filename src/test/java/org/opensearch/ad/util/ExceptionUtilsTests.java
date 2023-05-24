@@ -56,7 +56,7 @@ public class ExceptionUtilsTests extends OpenSearchTestCase {
     public void testGetErrorMessage() {
         assertEquals("test", ExceptionUtil.getErrorMessage(new AnomalyDetectionException("test")));
         assertEquals("test", ExceptionUtil.getErrorMessage(new IllegalArgumentException("test")));
-        assertEquals("org.opensearch.OpenSearchException: test", ExceptionUtil.getErrorMessage(new OpenSearchException("test")));
+        assertEquals("OpenSearchException[test]", ExceptionUtil.getErrorMessage(new OpenSearchException("test")));
         assertTrue(
             ExceptionUtil
                 .getErrorMessage(new RuntimeException("test"))

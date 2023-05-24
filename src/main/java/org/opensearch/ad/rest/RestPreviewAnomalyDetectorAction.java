@@ -28,7 +28,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorRequest;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.common.Strings;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;

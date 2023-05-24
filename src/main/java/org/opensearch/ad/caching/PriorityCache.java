@@ -57,10 +57,10 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonMessages;
 

@@ -58,14 +58,13 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ArrayEqMatcher;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 
 @RunWith(JUnitParamsRunner.class)
 @SuppressWarnings("unchecked")
@@ -91,7 +90,7 @@ public class FeatureManagerTests {
     private SearchFeatureDao searchFeatureDao;
 
     @Mock
-    private Interpolator interpolator;
+    private Imputer imputer;
 
     @Mock
     private Clock clock;
@@ -125,7 +124,7 @@ public class FeatureManagerTests {
         intervalInMilliseconds = detectorIntervalTimeConfig.toDuration().toMillis();
         when(detector.getDetectorIntervalInMilliseconds()).thenReturn(intervalInMilliseconds);
 
-        Interpolator interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
+        Imputer imputer = new LinearUniformImputer(false);
 
         ExecutorService executorService = mock(ExecutorService.class);
 
@@ -139,7 +138,7 @@ public class FeatureManagerTests {
         this.featureManager = spy(
             new FeatureManager(
                 searchFeatureDao,
-                interpolator,
+                imputer,
                 clock,
                 maxTrainSamples,
                 maxSampleStride,
@@ -215,7 +214,7 @@ public class FeatureManagerTests {
         featureManager = spy(
             new FeatureManager(
                 searchFeatureDao,
-                interpolator,
+                imputer,
                 clock,
                 maxTrainSamples,
                 maxSampleStride,
@@ -449,11 +448,10 @@ public class FeatureManagerTests {
             return null;
         }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), any());
 
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 1, 3 } })), eq(3)))
-            .thenReturn(new double[][] { { 1, 2, 3 } });
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 0, 120000 } })), eq(3)))
+        when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 1, 3 } })), eq(3))).thenReturn(new double[][] { { 1, 2, 3 } });
+        when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 0, 120000 } })), eq(3)))
             .thenReturn(new double[][] { { 0, 60000, 120000 } });
-        when(interpolator.interpolate(argThat(new ArrayEqMatcher<>(new double[][] { { 60000, 180000 } })), eq(3)))
+        when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 60000, 180000 } })), eq(3)))
             .thenReturn(new double[][] { { 60000, 120000, 180000 } });
 
         ActionListener<Features> listener = mock(ActionListener.class);

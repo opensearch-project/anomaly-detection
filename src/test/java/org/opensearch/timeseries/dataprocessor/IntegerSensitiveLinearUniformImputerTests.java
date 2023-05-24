@@ -1,15 +1,9 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
-package org.opensearch.ad.dataprocessor;
+package org.opensearch.timeseries.dataprocessor;
 
 import static org.junit.Assert.assertArrayEquals;
 
@@ -22,34 +16,39 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+/**
+ * Compared to MultiFeatureLinearUniformImputerTests, outputs are different and
+ * integerSensitive is enabled
+ *
+ */
 @RunWith(Parameterized.class)
-public class LinearUniformInterpolatorTests {
+public class IntegerSensitiveLinearUniformImputerTests {
 
     @Parameters
     public static Collection<Object[]> data() {
         double[][] singleComponent = { { -1.0, 2.0 }, { 1.0, 1.0 } };
         double[][] multiComponent = { { 0.0, 1.0, -1.0 }, { 1.0, 1.0, 1.0 } };
-        double oneThird = 1.0 / 3.0;
 
         return Arrays
             .asList(
                 new Object[][] {
+                    // after integer sensitive rint rounding
                     { singleComponent, 2, singleComponent },
-                    { singleComponent, 3, new double[][] { { -1.0, 0.5, 2.0 }, { 1.0, 1.0, 1.0 } } },
+                    { singleComponent, 3, new double[][] { { -1.0, 0, 2.0 }, { 1.0, 1.0, 1.0 } } },
                     { singleComponent, 4, new double[][] { { -1.0, 0.0, 1.0, 2.0 }, { 1.0, 1.0, 1.0, 1.0 } } },
                     { multiComponent, 3, multiComponent },
-                    { multiComponent, 4, new double[][] { { 0.0, 2 * oneThird, oneThird, -1.0 }, { 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 5, new double[][] { { 0.0, 0.5, 1.0, 0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 6, new double[][] { { 0.0, 0.4, 0.8, 0.6, -0.2, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 } } }, }
+                    { multiComponent, 4, new double[][] { { 0.0, 1.0, 0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0 } } },
+                    { multiComponent, 5, new double[][] { { 0.0, 0.0, 1.0, 0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0 } } },
+                    { multiComponent, 6, new double[][] { { 0.0, 0.0, 1.0, 1.0, -0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 } } }, }
             );
     }
 
     private double[][] input;
     private int numInterpolants;
     private double[][] expected;
-    private LinearUniformInterpolator interpolator;
+    private Imputer imputer;
 
-    public LinearUniformInterpolatorTests(double[][] input, int numInterpolants, double[][] expected) {
+    public IntegerSensitiveLinearUniformImputerTests(double[][] input, int numInterpolants, double[][] expected) {
         this.input = input;
         this.numInterpolants = numInterpolants;
         this.expected = expected;
@@ -57,12 +56,12 @@ public class LinearUniformInterpolatorTests {
 
     @Before
     public void setUp() {
-        this.interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
+        this.imputer = new LinearUniformImputer(true);
     }
 
     @Test
-    public void testInterpolation() {
-        double[][] actual = interpolator.interpolate(input, numInterpolants);
+    public void testImputation() {
+        double[][] actual = imputer.impute(input, numInterpolants);
         double delta = 1e-8;
         int numFeatures = expected.length;
 

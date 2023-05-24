@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.annotation;
+package org.opensearch.timeseries.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

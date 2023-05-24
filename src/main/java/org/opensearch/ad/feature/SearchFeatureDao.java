@@ -42,7 +42,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
@@ -72,6 +71,7 @@ import org.opensearch.search.aggregations.metrics.Min;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
+import org.opensearch.timeseries.dataprocessor.Imputer;
 
 /**
  * DAO for features from search.
@@ -86,7 +86,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     // Dependencies
     private final Client client;
     private final NamedXContentRegistry xContent;
-    private final Interpolator interpolator;
+    private final Imputer imputer;
     private final SecurityClientUtil clientUtil;
     private volatile int maxEntitiesForPreview;
     private volatile int pageSize;
@@ -98,7 +98,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     public SearchFeatureDao(
         Client client,
         NamedXContentRegistry xContent,
-        Interpolator interpolator,
+        Imputer imputer,
         SecurityClientUtil clientUtil,
         Settings settings,
         ClusterService clusterService,
@@ -110,7 +110,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) {
         this.client = client;
         this.xContent = xContent;
-        this.interpolator = interpolator;
+        this.imputer = imputer;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview;
 
@@ -130,7 +130,7 @@ public class SearchFeatureDao extends AbstractRetriever {
      *
      * @param client ES client for queries
      * @param xContent ES XContentRegistry
-     * @param interpolator interpolator for missing values
+     * @param imputer imputer for missing values
      * @param clientUtil utility for ES client
      * @param settings ES settings
      * @param clusterService ES ClusterService
@@ -140,7 +140,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     public SearchFeatureDao(
         Client client,
         NamedXContentRegistry xContent,
-        Interpolator interpolator,
+        Imputer imputer,
         SecurityClientUtil clientUtil,
         Settings settings,
         ClusterService clusterService,
@@ -149,7 +149,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         this(
             client,
             xContent,
-            interpolator,
+            imputer,
             clientUtil,
             settings,
             clusterService,
@@ -825,7 +825,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     }
 
     private double[] getInterpolants(double[] previous, double[] next) {
-        return transpose(interpolator.interpolate(transpose(new double[][] { previous, next }), 3))[1];
+        return transpose(imputer.impute(transpose(new double[][] { previous, next }), 3))[1];
     }
 
     private double[][] transpose(double[][] matrix) {

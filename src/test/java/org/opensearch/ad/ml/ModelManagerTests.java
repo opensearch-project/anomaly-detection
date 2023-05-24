@@ -62,9 +62,6 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
@@ -80,6 +77,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
@@ -914,9 +912,7 @@ public class ModelManagerTests {
     public void getEmptyStateFullSamples() {
         SearchFeatureDao searchFeatureDao = mock(SearchFeatureDao.class);
 
-        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
-            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
-        LinearUniformInterpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+        LinearUniformImputer interpolator = new LinearUniformImputer(true);
 
         NodeStateManager stateManager = mock(NodeStateManager.class);
         featureManager = new FeatureManager(

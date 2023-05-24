@@ -38,10 +38,6 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -61,6 +57,8 @@ import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 
 import com.google.common.collect.ImmutableList;
 
@@ -75,7 +73,7 @@ public class AbstractCosineDataTest extends AbstractADTest {
     EntityColdStarter entityColdStarter;
     NodeStateManager stateManager;
     SearchFeatureDao searchFeatureDao;
-    Interpolator interpolator;
+    Imputer imputer;
     CheckpointDao checkpoint;
     FeatureManager featureManager;
     Settings settings;
@@ -152,16 +150,14 @@ public class AbstractCosineDataTest extends AbstractADTest {
             clusterService
         );
 
-        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
-            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
-        interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+        imputer = new LinearUniformImputer(true);
 
         searchFeatureDao = mock(SearchFeatureDao.class);
         checkpoint = mock(CheckpointDao.class);
 
         featureManager = new FeatureManager(
             searchFeatureDao,
-            interpolator,
+            imputer,
             clock,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
@@ -189,7 +185,7 @@ public class AbstractCosineDataTest extends AbstractADTest {
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-            interpolator,
+            imputer,
             searchFeatureDao,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             featureManager,

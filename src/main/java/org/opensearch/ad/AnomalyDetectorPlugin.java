@@ -43,10 +43,6 @@ import org.opensearch.ad.cluster.ADDataMigrator;
 import org.opensearch.ad.cluster.ClusterManagerEventListener;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -195,6 +191,8 @@ import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.watcher.ResourceWatcherService;
 
@@ -344,9 +342,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         );
         this.clusterService = clusterService;
 
-        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
-            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
-        Interpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+        Imputer imputer = new LinearUniformImputer(true);
         stateManager = new NodeStateManager(
             client,
             xContentRegistry,
@@ -360,7 +356,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry,
-            interpolator,
+            imputer,
             securityClientUtil,
             settings,
             clusterService,
@@ -388,7 +384,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         FeatureManager featureManager = new FeatureManager(
             searchFeatureDao,
-            interpolator,
+            imputer,
             getClock(),
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
@@ -534,7 +530,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.NUM_MIN_SAMPLES,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-            interpolator,
+            imputer,
             searchFeatureDao,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
@@ -779,8 +775,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 anomalyDetectionIndices,
                 anomalyDetectorRunner,
                 searchFeatureDao,
-                singleFeatureLinearUniformInterpolator,
-                interpolator,
+                imputer,
                 gson,
                 jvmService,
                 hashRing,

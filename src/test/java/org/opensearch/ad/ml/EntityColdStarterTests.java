@@ -166,9 +166,9 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         // for function interpolate:
         // 1st parameter is a matrix of size numFeatures * numSamples
         // 2nd parameter is the number of interpolants including two samples
-        double[][] interval1 = interpolator.interpolate(new double[][] { new double[] { sample1[0], sample2[0] } }, 61);
+        double[][] interval1 = imputer.impute(new double[][] { new double[] { sample1[0], sample2[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval1, 60));
-        double[][] interval2 = interpolator.interpolate(new double[][] { new double[] { sample2[0], sample3[0] } }, 61);
+        double[][] interval2 = imputer.impute(new double[][] { new double[] { sample2[0], sample3[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval2, 61));
         assertEquals(121, expectedColdStartData.size());
 
@@ -302,11 +302,11 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         // for function interpolate:
         // 1st parameter is a matrix of size numFeatures * numSamples
         // 2nd parameter is the number of interpolants including two samples
-        double[][] interval1 = interpolator.interpolate(new double[][] { new double[] { sample1[0], sample2[0] } }, 61);
+        double[][] interval1 = imputer.impute(new double[][] { new double[] { sample1[0], sample2[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval1, 60));
-        double[][] interval2 = interpolator.interpolate(new double[][] { new double[] { sample2[0], sample3[0] } }, 61);
+        double[][] interval2 = imputer.impute(new double[][] { new double[] { sample2[0], sample3[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval2, 60));
-        double[][] interval3 = interpolator.interpolate(new double[][] { new double[] { sample3[0], sample5[0] } }, 121);
+        double[][] interval3 = imputer.impute(new double[][] { new double[] { sample3[0], sample5[0] } }, 121);
         expectedColdStartData.addAll(convertToFeatures(interval3, 121));
         assertTrue("size: " + model.getSamples().size(), model.getSamples().isEmpty());
         assertEquals(241, expectedColdStartData.size());
@@ -358,13 +358,13 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         // for function interpolate:
         // 1st parameter is a matrix of size numFeatures * numSamples
         // 2nd parameter is the number of interpolants including two samples
-        double[][] interval1 = interpolator.interpolate(new double[][] { new double[] { sample1[0], sample2[0] } }, 61);
+        double[][] interval1 = imputer.impute(new double[][] { new double[] { sample1[0], sample2[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval1, 60));
-        double[][] interval2 = interpolator.interpolate(new double[][] { new double[] { sample2[0], sample3[0] } }, 61);
+        double[][] interval2 = imputer.impute(new double[][] { new double[] { sample2[0], sample3[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval2, 60));
-        double[][] interval3 = interpolator.interpolate(new double[][] { new double[] { sample3[0], sample5[0] } }, 121);
+        double[][] interval3 = imputer.impute(new double[][] { new double[] { sample3[0], sample5[0] } }, 121);
         expectedColdStartData.addAll(convertToFeatures(interval3, 120));
-        double[][] interval4 = interpolator.interpolate(new double[][] { new double[] { sample5[0], sample6[0] } }, 61);
+        double[][] interval4 = imputer.impute(new double[][] { new double[] { sample5[0], sample6[0] } }, 61);
         expectedColdStartData.addAll(convertToFeatures(interval4, 61));
         assertEquals(301, expectedColdStartData.size());
         assertTrue("size: " + model.getSamples().size(), model.getSamples().isEmpty());
@@ -701,7 +701,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-            interpolator,
+            imputer,
             searchFeatureDao,
             AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
             featureManager,

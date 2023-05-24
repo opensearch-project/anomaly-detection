@@ -17,6 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Random;
 
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpHost;
@@ -60,49 +61,74 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     private String indexAllAccessRole = "index_all_access";
     private String indexSearchAccessRole = "index_all_search";
 
+    /**
+     * Create an unguessable password. Simple password are weak due to https://tinyurl.com/383em9zk
+     * @return a random password.
+     */
+    public static String generatePassword() {
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+        Random rng = new Random();
+
+        char[] password = new char[10];
+        for (int i = 0; i < 10; i++) {
+            password[i] = characters.charAt(rng.nextInt(characters.length()));
+        }
+
+        return new String(password);
+    }
+
     @Before
     public void setupSecureTests() throws IOException {
         if (!isHttps())
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
         createIndexRole(indexAllAccessRole, "*");
         createSearchRole(indexSearchAccessRole, "*");
-        createUser(aliceUser, aliceUser, new ArrayList<>(Arrays.asList("odfe")));
-        aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, aliceUser)
+        String alicePassword = generatePassword();
+        createUser(aliceUser, alicePassword, new ArrayList<>(Arrays.asList("odfe")));
+        aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, alicePassword)
             .setSocketTimeout(60000)
             .build();
 
-        createUser(bobUser, bobUser, new ArrayList<>(Arrays.asList("odfe")));
-        bobClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), bobUser, bobUser)
+        String bobPassword = generatePassword();
+        createUser(bobUser, bobPassword, new ArrayList<>(Arrays.asList("odfe")));
+        bobClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), bobUser, bobPassword)
             .setSocketTimeout(60000)
             .build();
 
-        createUser(catUser, catUser, new ArrayList<>(Arrays.asList("aes")));
-        catClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), catUser, catUser)
+        String catPassword = generatePassword();
+        createUser(catUser, catPassword, new ArrayList<>(Arrays.asList("aes")));
+        catClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), catUser, catPassword)
             .setSocketTimeout(60000)
             .build();
 
-        createUser(dogUser, dogUser, new ArrayList<>(Arrays.asList()));
-        dogClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), dogUser, dogUser)
+        String dogPassword = generatePassword();
+        createUser(dogUser, dogPassword, new ArrayList<>(Arrays.asList()));
+        dogClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), dogUser, dogPassword)
             .setSocketTimeout(60000)
             .build();
 
-        createUser(elkUser, elkUser, new ArrayList<>(Arrays.asList("odfe")));
-        elkClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), elkUser, elkUser)
+        String elkPassword = generatePassword();
+        createUser(elkUser, elkPassword, new ArrayList<>(Arrays.asList("odfe")));
+        elkClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), elkUser, elkPassword)
             .setSocketTimeout(60000)
             .build();
 
-        createUser(fishUser, fishUser, new ArrayList<>(Arrays.asList("odfe", "aes")));
-        fishClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), fishUser, fishUser)
+        String fishPassword = generatePassword();
+        createUser(fishUser, fishPassword, new ArrayList<>(Arrays.asList("odfe", "aes")));
+        fishClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), fishUser, fishPassword)
             .setSocketTimeout(60000)
             .build();
 
-        createUser(goatUser, goatUser, new ArrayList<>(Arrays.asList("opensearch")));
-        goatClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), goatUser, goatUser)
+        String goatPassword = generatePassword();
+        createUser(goatUser, goatPassword, new ArrayList<>(Arrays.asList("opensearch")));
+        goatClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), goatUser, goatPassword)
             .setSocketTimeout(60000)
             .build();
 
-        createUser(lionUser, lionUser, new ArrayList<>(Arrays.asList("opensearch")));
-        lionClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), lionUser, lionUser)
+        String lionPassword = generatePassword();
+        createUser(lionUser, lionPassword, new ArrayList<>(Arrays.asList("opensearch")));
+        lionClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), lionUser, lionPassword)
             .setSocketTimeout(60000)
             .build();
 

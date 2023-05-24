@@ -113,7 +113,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
 
             featureManager = new FeatureManager(
                 searchFeatureDao,
-                interpolator,
+                imputer,
                 clock,
                 AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
                 AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
@@ -138,7 +138,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 numMinSamples,
                 AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
                 AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-                interpolator,
+                imputer,
                 searchFeatureDao,
                 AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
                 featureManager,
