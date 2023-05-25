@@ -32,13 +32,13 @@ import org.opensearch.ad.mock.transport.MockADTaskAction_1_0;
 import org.opensearch.ad.mock.transport.MockForwardADTaskRequest_1_0;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 
@@ -71,7 +71,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
-            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
+            randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
             randomInt(),
             Instant.now(),

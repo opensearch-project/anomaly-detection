@@ -43,7 +43,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -55,6 +54,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -138,7 +138,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
-            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
+            randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             TestHelpers.randomUiMetadata(),
             randomInt(),
             null,
@@ -1326,7 +1326,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
         String errorMessage = "Shingle size must be a positive integer no larger than "
-            + AnomalyDetectorSettings.MAX_SHINGLE_SIZE
+            + TimeSeriesSettings.MAX_SHINGLE_SIZE
             + ". Got 2000";
         assertEquals("shingle size error message", errorMessage, messageMap.get("shingle_size").get("message"));
     }

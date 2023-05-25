@@ -15,10 +15,10 @@ import static org.opensearch.ad.constant.ADCommonMessages.INVALID_RESULT_INDEX_P
 import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetectorType.MULTI_ENTITY;
 import static org.opensearch.ad.model.AnomalyDetectorType.SINGLE_ENTITY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.timeseries.constant.CommonMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.DEFAULT_SHINGLE_SIZE;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -33,7 +33,6 @@ import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.CommonValue;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParsingException;
@@ -54,6 +53,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -191,10 +191,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         }
         if (invalidShingleSizeRange(shingleSize)) {
             throw new ADValidationException(
-                "Shingle size must be a positive integer no larger than "
-                    + AnomalyDetectorSettings.MAX_SHINGLE_SIZE
-                    + ". Got "
-                    + shingleSize,
+                "Shingle size must be a positive integer no larger than " + TimeSeriesSettings.MAX_SHINGLE_SIZE + ". Got " + shingleSize,
                 DetectorValidationIssueType.SHINGLE_SIZE_FIELD,
                 ValidationAspect.DETECTOR
             );
@@ -756,6 +753,6 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
-        return shingleSizeToTest != null && (shingleSizeToTest < 1 || shingleSizeToTest > AnomalyDetectorSettings.MAX_SHINGLE_SIZE);
+        return shingleSizeToTest != null && (shingleSizeToTest < 1 || shingleSizeToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE);
     }
 }

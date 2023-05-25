@@ -68,11 +68,11 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
         Settings settings = Settings
             .builder()
             .put(IndexingPressure.MAX_INDEXING_BYTES.getKey(), "1KB")
-            .put(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.getKey(), 0.8)
+            .put(AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT.getKey(), 0.8)
             .build();
 
         // without register these settings, the constructor of ADResultBulkTransportAction cannot invoke update consumer
-        setupTestNodes(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT, AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT);
+        setupTestNodes(AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT, AnomalyDetectorSettings.AD_INDEX_PRESSURE_HARD_LIMIT);
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
 

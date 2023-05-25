@@ -70,8 +70,8 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
                         Arrays
                             .asList(
                                 AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY,
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE
+                                AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_CONCURRENCY,
+                                AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_BATCH_SIZE
                             )
                     )
                 )

@@ -27,10 +27,10 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.ValidationAspect;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
@@ -296,7 +296,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     @Test
     public void testValidateAnomalyDetectorWithCustomResultIndexWithInvalidMapping() throws IOException {
         String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
-        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource("mappings/checkpoint.json");
+        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource("mappings/anomaly-checkpoint.json");
         createIndex(resultIndex, Resources.toString(url, Charsets.UTF_8));
         AnomalyDetector anomalyDetector = TestHelpers
             .randomDetector(
@@ -362,7 +362,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
-            AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+            TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
             null,
             1,
             Instant.now(),
@@ -398,7 +398,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
-            AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+            TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
             null,
             1,
             Instant.now(),

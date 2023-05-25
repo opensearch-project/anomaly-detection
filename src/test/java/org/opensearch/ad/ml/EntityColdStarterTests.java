@@ -58,6 +58,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
 import test.org.opensearch.ad.util.MLUtil;
@@ -211,7 +212,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .randomSeed(rcfSeed)
             .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
             .shingleSize(detector.getShingleSize())
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
             .outputAfter(numMinSamples)
             .initialAcceptFraction(0.125d)
@@ -506,7 +507,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .randomSeed(rcfSeed)
             .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
             .shingleSize(detector.getShingleSize())
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
             .outputAfter(numMinSamples)
             .initialAcceptFraction(0.125d)
@@ -560,7 +561,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
                 .newInstance()
                 .setDetectionInterval(new IntervalTimeConfiguration(interval, ChronoUnit.MINUTES))
                 .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
-                .setShingleSize(AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE)
+                .setShingleSize(TimeSeriesSettings.DEFAULT_SHINGLE_SIZE)
                 .build();
 
             long seed = new Random().nextLong();
@@ -780,7 +781,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
 
         // make sure when the next maintenance coming, current door keeper gets reset
         // note our detector interval is 1 minute and the door keeper will expire in 60 intervals, which are 60 minutes
-        when(clock.instant()).thenReturn(Instant.now().plus(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ + 1, ChronoUnit.MINUTES));
+        when(clock.instant()).thenReturn(Instant.now().plus(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ + 1, ChronoUnit.MINUTES));
         entityColdStarter.maintenance();
 
         modelState = createStateForCacheRelease();

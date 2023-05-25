@@ -47,6 +47,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
 import test.org.opensearch.ad.util.MultiDimDataWithTime;
@@ -93,7 +94,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
             .newInstance()
             .setDetectionInterval(new IntervalTimeConfiguration(interval, ChronoUnit.MINUTES))
             .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
-            .setShingleSize(AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE)
+            .setShingleSize(TimeSeriesSettings.DEFAULT_SHINGLE_SIZE)
             .build();
 
         doAnswer(invocation -> {

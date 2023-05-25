@@ -45,7 +45,7 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(ClusterService.class);
-        Settings settings = Settings.builder().put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), 1).build();
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), 1).build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
             Collections
@@ -55,7 +55,7 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
                             .asList(
                                 AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
                                 AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
+                                AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE
                             )
                     )
                 )
@@ -145,7 +145,7 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
                             .asList(
                                 AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
                                 AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
+                                AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE
                             )
                     )
                 )

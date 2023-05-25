@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -76,15 +76,15 @@ public class CheckpointMaintainWorker extends ScheduledWorker<CheckpointMaintain
             nodeStateManager
         );
 
-        this.batchSize = CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(CHECKPOINT_WRITE_QUEUE_BATCH_SIZE, it -> this.batchSize = it);
+        this.batchSize = AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE, it -> this.batchSize = it);
 
-        this.expectedExecutionTimeInMilliSecsPerRequest = AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
+        this.expectedExecutionTimeInMilliSecsPerRequest = AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
             .get(settings);
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(
-                EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
+                AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
                 it -> this.expectedExecutionTimeInMilliSecsPerRequest = it
             );
         this.adapter = adapter;

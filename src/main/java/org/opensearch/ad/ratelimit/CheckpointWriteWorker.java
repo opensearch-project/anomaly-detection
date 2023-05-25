@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -88,9 +88,9 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
+            AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
             executionTtl,
-            CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+            AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
             stateTtl,
             stateManager
         );

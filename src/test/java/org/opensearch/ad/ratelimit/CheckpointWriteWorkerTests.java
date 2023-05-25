@@ -21,7 +21,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -89,8 +89,8 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
                         Arrays
                             .asList(
                                 AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE
+                                AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE
                             )
                     )
                 )
@@ -235,7 +235,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         // first 2 batch account for one checkpoint.batchWrite; the remaining one
         // calls checkpoint.batchWrite
         // CHECKPOINT_WRITE_QUEUE_BATCH_SIZE is the largest batch size
-        int numberOfRequests = 2 * CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.getDefault(Settings.EMPTY) + 1;
+        int numberOfRequests = 2 * AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.getDefault(Settings.EMPTY) + 1;
         for (int i = 0; i < numberOfRequests; i++) {
             ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().build());
             worker.write(state, true, RequestPriority.MEDIUM);

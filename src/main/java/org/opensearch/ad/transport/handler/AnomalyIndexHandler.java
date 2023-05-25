@@ -89,8 +89,8 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         this.threadPool = threadPool;
         this.savingBackoffPolicy = BackoffPolicy
             .exponentialBackoff(
-                AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY.get(settings),
-                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings)
+                AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY.get(settings),
+                AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF.get(settings)
             );
         this.indexName = indexName;
         this.anomalyDetectionIndices = anomalyDetectionIndices;

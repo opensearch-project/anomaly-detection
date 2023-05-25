@@ -30,6 +30,7 @@ import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmInfo.Mem;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -105,7 +106,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
             .internalShinglingEnabled(true)
             .build();
@@ -147,7 +148,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(shingleSize)
@@ -183,7 +184,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(1)
@@ -200,7 +201,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(2)
@@ -217,7 +218,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(4)
@@ -234,7 +235,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(16)
@@ -251,7 +252,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(32)
@@ -268,7 +269,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(64)
@@ -285,7 +286,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(65)

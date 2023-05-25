@@ -113,8 +113,8 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
                         Arrays
                             .asList(
                                 AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_CONCURRENCY,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
+                                AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_CONCURRENCY,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE
                             )
                     )
                 )
@@ -673,7 +673,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         assertTrue(!worker.isQueueEmpty());
 
         // one request per batch
-        Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), "1").build();
+        Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE.getKey(), "1").build();
         Settings.Builder target = Settings.builder();
         clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
         clusterSettings.applySettings(target.build());
