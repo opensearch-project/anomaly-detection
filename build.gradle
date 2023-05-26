@@ -221,6 +221,7 @@ validatePluginZipPom.enabled = false
 validateNebulaPom.enabled = false
 forbiddenApisMain.enabled = false
 forbiddenApisTest.enabled = false
+generatePomFileForPluginZipPublication.enabled = false
 
 // See package README.md for details on using these tasks.
 def _numNodes = findProperty('numNodes') as Integer ?: 1
