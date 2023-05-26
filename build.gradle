@@ -197,12 +197,12 @@ publishing {
         }
     }
 }
-
-tasks.named('forbiddenApisMain').configure {
+// Commented this code until https://github.com/opensearch-project/opensearch-sdk-java/issues/144
+/*tasks.named('forbiddenApisMain').configure {
     // Only enable limited check because AD code has too many violations.
     replaceSignatureFiles 'jdk-signatures'
     signaturesFiles += files('src/forbidden/ad-signatures.txt')
-}
+}*/
 
 //Adds custom file that only has some of the checks for testApis checks since too many violations
 //For example, we have to allow @Test to be used in test classes not inherited from LuceneTestCase.
