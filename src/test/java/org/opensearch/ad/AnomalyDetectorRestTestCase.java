@@ -36,6 +36,7 @@ import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.Strings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParserUtils;
@@ -58,6 +59,16 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     private static final Logger logger = LogManager.getLogger(AnomalyDetectorRestTestCase.class);
 
     public static final int MAX_RETRY_TIMES = 10;
+
+    @Override
+    protected NamedXContentRegistry xContentRegistry() {
+        return new NamedXContentRegistry(ImmutableList.of(AnomalyDetector.XCONTENT_REGISTRY));
+    }
+
+    @Override
+    protected Settings restClientSettings() {
+        return super.restClientSettings();
+    }
 
     protected AnomalyDetector createRandomAnomalyDetector(Boolean refresh, Boolean withMetadata, String indexName, SDKRestClient client)
         throws IOException {
