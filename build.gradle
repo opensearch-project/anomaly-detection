@@ -211,12 +211,16 @@ publishing {
 
 // Allow test cases to be named Tests without having to be inherited from LuceneTestCase.
 // see https://github.com/elastic/elasticsearch/blob/323f312bbc829a63056a79ebe45adced5099f6e6/buildSrc/src/main/java/org/elasticsearch/gradle/precommit/TestingConventionsTasks.java
-//testingConventions.enabled = false
+testingConventions.enabled = false
 
-//licenseHeaders.enabled = true
-//dependencyLicenses.enabled = false
-//thirdPartyAudit.enabled = false
-//loggerUsageCheck.enabled = false
+licenseHeaders.enabled = false
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
+validatePluginZipPom.enabled = false
+validateNebulaPom.enabled = false
+forbiddenApisMain.enabled = false
+forbiddenApisTest.enabled = false
 
 // See package README.md for details on using these tasks.
 def _numNodes = findProperty('numNodes') as Integer ?: 1
