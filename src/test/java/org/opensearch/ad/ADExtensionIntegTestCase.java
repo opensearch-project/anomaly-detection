@@ -11,7 +11,8 @@
 
 package org.opensearch.ad;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.net.ssl.SSLEngine;
 
@@ -24,10 +25,11 @@ import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.junit.After;
+import org.junit.Before;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
 import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.sdk.Extension;
 import org.opensearch.sdk.ExtensionSettings;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient;
@@ -40,27 +42,92 @@ public abstract class ADExtensionIntegTestCase extends OpenSearchRestTestCase {
 
     private static final String EXTENSION_SETTINGS_PATH = "/ad-extension.yml";
 
-    private static AnomalyDetectorExtension extension = new AnomalyDetectorExtension();
+    private static ExtensionSettings extensionSettings;
+    private static String openSearchIntegTestClusterHost;
+    private static int openSearchIntegTestClusterPort;
     private static SDKClient sdkClient = null;
     private static SDKRestClient sdkRestClient = null;
-    private static SDKClusterService sdkClusterService = null;
+
+    // TODO : Remove ExtensionsRunner
     private static ExtensionsRunner extensionsRunner = null;
-    private static ExtensionSettings extensionSettings = null;
+    // TODO : Create new SDKClusterService
+    private static SDKClusterService sdkClusterService = null;
 
     @Override
+    @Before
     public void setUp() throws Exception {
+
         super.setUp();
-        extensionsRunner = new ExtensionsRunnerForTests(extension);
+
+        // Retrieve AD Extension Settings
         extensionSettings = ExtensionSettings.readSettingsFromYaml(EXTENSION_SETTINGS_PATH);
 
+        // Determine opensearch integration test cluster host and port
+        String cluster = getTestRestCluster();
+        String[] stringUrls = cluster.split(",");
+        List<HttpHost> hosts = new ArrayList<>(stringUrls.length);
+        for (String stringUrl : stringUrls) {
+            int portSeparator = stringUrl.lastIndexOf(':');
+            if (portSeparator < 0) {
+                throw new IllegalArgumentException("Illegal cluster url [" + stringUrl + "]");
+            }
+            String host = stringUrl.substring(0, portSeparator);
+            int port = Integer.valueOf(stringUrl.substring(portSeparator + 1));
+            hosts.add(buildHttpHost(host, port));
+        }
+
+        openSearchIntegTestClusterHost = hosts.get(1).getHostName();
+        openSearchIntegTestClusterPort = hosts.get(1).getPort();
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         super.tearDown();
         if (sdkRestClient != null) {
             sdkRestClient.close();
         }
+    }
+
+    private static SDKClient sdkClient() {
+
+        if (sdkClient == null) {
+            // Set OpenSearch Address/Port to test cluster host/port
+            ExtensionSettings integTestClusterExtensionSettings = new ExtensionSettings(
+                extensionSettings.getExtensionName(),
+                extensionSettings.getHostAddress(),
+                extensionSettings.getHostPort(),
+                openSearchIntegTestClusterHost,
+                String.valueOf(openSearchIntegTestClusterPort)
+            );
+            sdkClient = new SDKClient(integTestClusterExtensionSettings);
+        }
+        return sdkClient;
+    }
+
+    public static SDKRestClient sdkRestClient() {
+        if (sdkRestClient == null) {
+            sdkRestClient = new SDKRestClient(
+                sdkClient(),
+                new RestHighLevelClient(builder(openSearchIntegTestClusterHost, openSearchIntegTestClusterPort))
+            );
+        }
+        return sdkRestClient;
+    }
+
+    public static SDKRestClient sdkAdminClient() {
+        return sdkRestClient().admin();
+    }
+
+    public static SDKClusterAdminClient sdkClusterAdmin() {
+        return sdkRestClient().cluster();
+    }
+
+    public static SDKClusterService sdkClusterService() {
+        if (sdkClusterService == null) {
+            sdkClusterService = extensionsRunner.getSdkClusterService();
+        }
+        return sdkClusterService;
     }
 
     /**
@@ -102,55 +169,4 @@ public abstract class ADExtensionIntegTestCase extends OpenSearchRestTestCase {
         return builder;
     }
 
-    @SuppressWarnings("rawtypes")
-    private static SDKClient createSDKClient() {
-        SDKClient sdkClient = new SDKClient(extensionSettings);
-        // TODO : initilize sdkClient with actions
-
-        return sdkClient;
-    }
-
-    private static SDKClient sdkClient() {
-        if (sdkClient == null) {
-            sdkClient = createSDKClient();
-        }
-        return sdkClient;
-    }
-
-    private static SDKRestClient createSDKRestClient() {
-        RestHighLevelClient restHighLevelClient = new RestHighLevelClient(
-            builder(extensionSettings.getOpensearchAddress(), Integer.parseInt(extensionSettings.getOpensearchPort()))
-        );
-        return new SDKRestClient(sdkClient(), restHighLevelClient);
-    }
-
-    public static synchronized SDKRestClient sdkRestClient() {
-        if (sdkRestClient == null) {
-            sdkRestClient = createSDKRestClient();
-        }
-        return sdkRestClient;
-    }
-
-    public static SDKRestClient sdkAdminClient() {
-        return sdkRestClient().admin();
-    }
-
-    public static SDKClusterAdminClient sdkClusterAdmin() {
-        return sdkRestClient().cluster();
-    }
-
-    public static synchronized SDKClusterService sdkClusterService() {
-        if (sdkClusterService == null) {
-            sdkClusterService = extensionsRunner.getSdkClusterService();
-        }
-        return sdkClusterService;
-    }
-
-    private static class ExtensionsRunnerForTests extends ExtensionsRunner {
-
-        protected ExtensionsRunnerForTests(Extension extension) throws IOException {
-            super(extension);
-        }
-
-    }
 }

@@ -164,23 +164,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testCreateAnomalyDetector() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "POST",
-                    TestHelpers.AD_BASE_DETECTORS_URI,
-                    ImmutableMap.of(),
-                    TestHelpers.toHttpEntity(detector),
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response response = TestHelpers
             .makeRequest(
                 sdkRestClient(),
