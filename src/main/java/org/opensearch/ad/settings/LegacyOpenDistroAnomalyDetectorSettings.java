@@ -54,6 +54,7 @@ public class LegacyOpenDistroAnomalyDetectorSettings {
             Setting.Property.Deprecated
         );
 
+    // TODO : Revert setting value back to 10 seconds once there is support for more targeted cluster state requests
     public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
             "opendistro.anomaly_detection.request_timeout",
