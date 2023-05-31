@@ -33,7 +33,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.CommonValue;
-import org.opensearch.ad.settings.NumericSetting;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.ParsingException;
 import org.opensearch.common.io.stream.StreamInput;
@@ -196,7 +196,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 ValidationAspect.DETECTOR
             );
         }
-        int maxCategoryFields = NumericSetting.maxCategoricalFields();
+        int maxCategoryFields = ADNumericSetting.maxCategoricalFields();
         if (categoryFields != null && categoryFields.size() > maxCategoryFields) {
             throw new ADValidationException(
                 CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields),

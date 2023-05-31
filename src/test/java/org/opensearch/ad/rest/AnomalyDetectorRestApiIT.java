@@ -43,7 +43,7 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.UUIDs;
@@ -165,7 +165,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testCreateAnomalyDetector() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -181,7 +181,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
         Response response = TestHelpers
             .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
@@ -236,12 +236,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testGetAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(ResponseException.class, () -> getAnomalyDetector(detector.getDetectorId(), client()));
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         AnomalyDetector createdDetector = getAnomalyDetector(detector.getDetectorId(), client());
         assertEquals("Incorrect Location header", detector, createdDetector);
@@ -275,7 +275,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null
         );
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -291,7 +291,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -441,7 +441,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         SearchSourceBuilder search = (new SearchSourceBuilder()).query(QueryBuilders.termQuery("_id", detector.getDetectorId()));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -457,7 +457,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response searchResponse = TestHelpers
             .makeRequest(
@@ -472,14 +472,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStatsAnomalyDetector() throws Exception {
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
         Exception ex = expectThrows(
             ResponseException.class,
             () -> TestHelpers.makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null)
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response statsResponse = TestHelpers
             .makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null);
@@ -496,7 +496,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null
         );
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -512,7 +512,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response response = TestHelpers
             .makeRequest(
@@ -633,7 +633,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         SearchSourceBuilder search = (new SearchSourceBuilder())
             .query(QueryBuilders.termQuery("detector_id", anomalyResult.getDetectorId()));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -649,7 +649,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response searchResponse = TestHelpers
             .makeRequest(
@@ -678,7 +678,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testDeleteAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -694,7 +694,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
         Response response = TestHelpers
             .makeRequest(
                 client(),
@@ -846,7 +846,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testStartAdJobWithExistingDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -862,7 +862,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -924,7 +924,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStopAdJob() throws Exception {
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, client());
         Response startAdJobResponse = TestHelpers
             .makeRequest(
@@ -937,7 +937,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(
             ResponseException.class,
@@ -953,7 +953,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response stopAdJobResponse = TestHelpers
             .makeRequest(
@@ -1107,12 +1107,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testDefaultProfileAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(ResponseException.class, () -> getDetectorProfile(detector.getDetectorId()));
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response profileResponse = getDetectorProfile(detector.getDetectorId());
         assertEquals("Incorrect profile status", RestStatus.OK, TestHelpers.restStatus(profileResponse));

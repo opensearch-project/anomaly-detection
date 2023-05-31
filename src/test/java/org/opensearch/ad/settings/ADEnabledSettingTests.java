@@ -26,6 +26,7 @@ public class ADEnabledSettingTests extends OpenSearchTestCase {
         assertTrue(ADEnabledSetting.isADEnabled());
         ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.AD_ENABLED, false);
         assertTrue(!ADEnabledSetting.isADEnabled());
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.AD_ENABLED, true);
     }
 
     public void testIsADBreakerEnabled() {

@@ -49,8 +49,8 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.ClusterSettings;
@@ -75,28 +75,28 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
     public static void initOnce() {
         ClusterService clusterService = mock(ClusterService.class);
 
-        Set<Setting<?>> settingSet = EnabledSetting.settings.values().stream().collect(Collectors.toSet());
+        Set<Setting<?>> settingSet = ADEnabledSetting.settings.values().stream().collect(Collectors.toSet());
 
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, settingSet));
 
-        EnabledSetting.getInstance().init(clusterService);
+        ADEnabledSetting.getInstance().init(clusterService);
     }
 
     @AfterClass
     public static void clearOnce() {
         // restore to default value
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
     }
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
     }
 
     @Override
     public void tearDown() throws Exception {
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.FALSE);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.FALSE);
         super.tearDown();
     }
 
@@ -690,7 +690,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
     }
 
     public void testAccuracyOneMinuteIntervalNoInterpolation() throws Exception {
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
         // for one minute interval, we need to disable interpolation to achieve good results
         entityColdStarter = new EntityColdStarter(
             clock,

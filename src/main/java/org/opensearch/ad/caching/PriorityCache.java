@@ -53,7 +53,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -162,7 +162,7 @@ public class PriorityCache implements EntityCache {
 
         // during maintenance period, stop putting new entries
         if (!maintenanceLock.isLocked() && modelState == null) {
-            if (EnabledSetting.isDoorKeeperInCacheEnabled()) {
+            if (ADEnabledSetting.isDoorKeeperInCacheEnabled()) {
                 DoorKeeper doorKeeper = doorKeepers
                     .computeIfAbsent(
                         detectorId,
@@ -170,7 +170,7 @@ public class PriorityCache implements EntityCache {
                             // reset every 60 intervals
                             return new DoorKeeper(
                                 TimeSeriesSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
-                                TimeSeriesSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
+                                TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
                                 detector.getDetectionIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                                 clock
                             );

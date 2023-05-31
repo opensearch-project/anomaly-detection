@@ -55,8 +55,8 @@ import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -652,7 +652,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
     // the next get method
     public void testLongDetectorInterval() {
         try {
-            EnabledSetting.getInstance().setSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, true);
+            ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, true);
             when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
             when(detector.getDetectionIntervalDuration()).thenReturn(Duration.ofHours(12));
             String modelId = entity1.getModelId(detectorId).get();
@@ -669,7 +669,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
             // * 1000 to convert to milliseconds
             assertEquals(currentTimeEpoch * 1000, entityCache.getLastActiveMs(detectorId, modelId));
         } finally {
-            EnabledSetting.getInstance().setSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, false);
+            ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, false);
         }
     }
 

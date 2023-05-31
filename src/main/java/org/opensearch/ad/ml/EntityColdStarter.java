@@ -51,7 +51,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
@@ -252,7 +252,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                         // reset every 60 intervals
                         return new DoorKeeper(
                             TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
-                            TimeSeriesSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
+                            TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
                             detector.getDetectionIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                             clock
                         );
@@ -596,7 +596,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      */
     private Pair<Integer, Integer> selectRangeParam(AnomalyDetector detector) {
         int shingleSize = detector.getShingleSize();
-        if (EnabledSetting.isInterpolationInColdStartEnabled()) {
+        if (ADEnabledSetting.isInterpolationInColdStartEnabled()) {
             long delta = detector.getDetectorIntervalInMinutes();
 
             int strideLength = defaulStrideLength;

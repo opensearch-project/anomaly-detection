@@ -75,10 +75,10 @@ import org.opensearch.ad.rest.RestSearchAnomalyResultAction;
 import org.opensearch.ad.rest.RestSearchTopAnomalyResultAction;
 import org.opensearch.ad.rest.RestStatsAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
+import org.opensearch.ad.settings.ADEnabledSetting;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.settings.LegacyOpenDistroAnomalyDetectorSettings;
-import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
@@ -323,8 +323,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         IndexNameExpressionResolver indexNameExpressionResolver,
         Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
-        EnabledSetting.getInstance().init(clusterService);
-        NumericSetting.getInstance().init(clusterService);
+        ADEnabledSetting.getInstance().init(clusterService);
+        ADNumericSetting.getInstance().init(clusterService);
         this.client = client;
         this.threadPool = threadPool;
         Settings settings = environment.settings();
@@ -847,8 +847,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> enabledSetting = EnabledSetting.getInstance().getSettings();
-        List<Setting<?>> numericSetting = NumericSetting.getInstance().getSettings();
+        List<Setting<?>> enabledSetting = ADEnabledSetting.getInstance().getSettings();
+        List<Setting<?>> numericSetting = ADNumericSetting.getInstance().getSettings();
 
         List<Setting<?>> systemSetting = ImmutableList
             .of(

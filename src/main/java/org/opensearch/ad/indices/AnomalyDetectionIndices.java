@@ -20,8 +20,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_PRIMARY_SHARDS;
 import static org.opensearch.timeseries.constant.CommonMessages.CAN_NOT_FIND_RESULT_INDEX;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.ANOMALY_DETECTORS_INDEX_MAPPING_FILE;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.INDEX_MAPPING_FILE;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.JOBS_INDEX_MAPPING_FILE;
 
 import java.io.IOException;
 import java.net.URL;
@@ -238,7 +238,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @throws IOException IOException if mapping file can't be read correctly
      */
     public static String getAnomalyDetectorMappings() throws IOException {
-        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTORS_INDEX_MAPPING_FILE);
+        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
 
@@ -260,7 +260,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @throws IOException IOException if mapping file can't be read correctly
      */
     public static String getAnomalyDetectorJobMappings() throws IOException {
-        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE);
+        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource(JOBS_INDEX_MAPPING_FILE);
         return Resources.toString(url, Charsets.UTF_8);
     }
 

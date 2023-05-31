@@ -12,9 +12,9 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
+import static org.opensearch.ad.settings.ADEnabledSetting.AD_ENABLED;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-import static org.opensearch.ad.settings.EnabledSetting.AD_PLUGIN_ENABLED;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -137,17 +137,17 @@ public class ADBatchAnomalyResultTransportActionTests extends HistoricalAnalysis
 
     public void testDisableADPlugin() throws IOException {
         try {
-            updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, false));
+            updateTransientSettings(ImmutableMap.of(AD_ENABLED, false));
             ADBatchAnomalyResultRequest request = adBatchAnomalyResultRequest(new DetectionDateRange(startTime, endTime));
             RuntimeException exception = expectThrowsAnyOf(
                 ImmutableList.of(NotSerializableExceptionWrapper.class, EndRunException.class),
                 () -> client().execute(ADBatchAnomalyResultAction.INSTANCE, request).actionGet(10000)
             );
             assertTrue(exception.getMessage(), exception.getMessage().contains("AD functionality is disabled"));
-            updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, false));
+            updateTransientSettings(ImmutableMap.of(AD_ENABLED, false));
         } finally {
             // guarantee reset back to default
-            updateTransientSettings(ImmutableMap.of(AD_PLUGIN_ENABLED, true));
+            updateTransientSettings(ImmutableMap.of(AD_ENABLED, true));
         }
     }
 

@@ -19,7 +19,7 @@ import java.util.Locale;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.SearchTopAnomalyResultAction;
 import org.opensearch.ad.transport.SearchTopAnomalyResultRequest;
 import org.opensearch.ad.util.RestHandlerUtils;
@@ -58,7 +58,7 @@ public class RestSearchTopAnomalyResultAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
 
         // Throw error if disabled
-        if (!EnabledSetting.isADPluginEnabled()) {
+        if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 

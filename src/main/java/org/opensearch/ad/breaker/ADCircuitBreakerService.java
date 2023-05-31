@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.monitor.jvm.JvmService;
 
 /**
@@ -76,7 +76,7 @@ public class ADCircuitBreakerService {
     }
 
     public Boolean isOpen() {
-        if (!EnabledSetting.isADBreakerEnabled()) {
+        if (!ADEnabledSetting.isADBreakerEnabled()) {
             return false;
         }
 

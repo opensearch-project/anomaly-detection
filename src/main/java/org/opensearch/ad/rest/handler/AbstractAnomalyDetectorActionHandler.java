@@ -61,7 +61,7 @@ import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.MergeableList;
 import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
-import org.opensearch.ad.settings.NumericSetting;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
@@ -576,7 +576,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         // we only support a certain number of categorical field
         // If there is more fields than required, AnomalyDetector's constructor
         // throws ADValidationException before reaching this line
-        int maxCategoryFields = NumericSetting.maxCategoricalFields();
+        int maxCategoryFields = ADNumericSetting.maxCategoricalFields();
         if (categoryField.size() > maxCategoryFields) {
             listener
                 .onFailure(
