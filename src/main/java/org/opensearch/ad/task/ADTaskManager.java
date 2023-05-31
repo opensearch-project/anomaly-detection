@@ -2039,11 +2039,13 @@ public class ADTaskManager {
             } else {
                 listener.onFailure(new OpenSearchStatusException("Failed to delete all AD tasks", RestStatus.INTERNAL_SERVER_ERROR));
             }
-        } catch (IndexNotFoundException e) {
-            deleteADResultOfDetector(detectorId);
-            function.execute();
         } catch (Exception e) {
-            listener.onFailure(e);
+            if (e.getMessage().contains("index_not_found_exception")) {
+                deleteADResultOfDetector(detectorId);
+                function.execute();
+            } else {
+                listener.onFailure(e);
+            }
         }
     }
 

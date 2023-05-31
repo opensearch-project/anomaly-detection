@@ -19,7 +19,6 @@ import org.apache.logging.log4j.core.util.Throwables;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.NoShardAvailableActionException;
 import org.opensearch.action.UnavailableShardsException;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.replication.ReplicationResponse;
@@ -28,7 +27,6 @@ import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
-import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
 
 public class ExceptionUtil {
@@ -186,6 +184,6 @@ public class ExceptionUtil {
         if (e == null) {
             return false;
         }
-        return e instanceof IndexNotFoundException || e instanceof NoShardAvailableActionException;
+        return (e.getMessage().contains("index_not_found_exception")) || (e.getMessage().contains("no_shard_available_action_exception"));
     }
 }
