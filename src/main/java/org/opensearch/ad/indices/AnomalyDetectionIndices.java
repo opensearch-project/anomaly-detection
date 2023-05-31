@@ -63,6 +63,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
@@ -121,6 +122,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private final SDKRestClient adminClient;
     private final OpenSearchAsyncClient sdkJavaAsyncClient;
     private final ThreadPool threadPool;
+    private final Settings environmentSettings;
 
     private volatile TimeValue historyRolloverPeriod;
     private volatile Long historyMaxDocs;
@@ -188,6 +190,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
         this.sdkJavaAsyncClient = sdkJavaAsyncClient;
         this.sdkClusterService = sdkClusterService;
         this.threadPool = threadPool;
+        this.environmentSettings = settings;
         // FIXME Implement this
         // https://github.com/opensearch-project/opensearch-sdk-java/issues/423
         // this.clusterService.addLocalNodeMasterListener(this);
@@ -1098,7 +1101,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
         GetIndicesSettingsResponse settingResponse;
         try {
-            settingResponse = getIndicesSettingsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            settingResponse = getIndicesSettingsResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
             // auto expand setting is a range string like "1-all"
             org.opensearch.client.opensearch.indices.IndexState indexState = settingResponse.get(ADIndex.JOB.getIndexName());
             String autoExpandReplica = indexState.settings().autoExpandReplicas();

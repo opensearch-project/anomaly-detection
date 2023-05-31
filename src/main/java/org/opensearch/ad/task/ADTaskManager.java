@@ -121,6 +121,7 @@ import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
 import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
 import org.opensearch.ad.transport.ADCancelTaskAction;
@@ -212,6 +213,8 @@ public class ADTaskManager {
     private static int DEFAULT_MAINTAIN_INTERVAL_IN_SECONDS = 5;
     private final Semaphore checkingTaskSlot;
 
+    private final Settings settings;
+
     private volatile Integer maxAdBatchTaskPerNode;
     private volatile Integer maxRunningEntitiesPerDetector;
 
@@ -238,6 +241,7 @@ public class ADTaskManager {
         this.nodeFilter = nodeFilter;
         this.sdkClusterService = sdkClusterService;
         this.adTaskCacheManager = adTaskCacheManager;
+        this.settings = settings;
         /* MultiNode support https://github.com/opensearch-project/opensearch-sdk-java/issues/200 */
         // this.hashRing = hashRing;
 
@@ -1377,7 +1381,9 @@ public class ADTaskManager {
 
         try {
             CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest.build());
-            UpdateByQueryResponse queryResponse = updateByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            UpdateByQueryResponse queryResponse = updateByQueryResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
             List<BulkIndexByScrollFailure> bulkFailures = queryResponse.failures();
             if (isNullOrEmpty(bulkFailures)) {
                 logger.debug("Updated {} child entity tasks state for detector task {}", queryResponse.updated(), detectorTaskId);
@@ -1573,7 +1579,9 @@ public class ADTaskManager {
 
         try {
             CompletableFuture<UpdateByQueryResponse> updateByQueryResponse = sdkJavaAsyncClient.updateByQuery(updateByQueryRequest.build());
-            UpdateByQueryResponse queryResponse = updateByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            UpdateByQueryResponse queryResponse = updateByQueryResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
 
             List<BulkIndexByScrollFailure> bulkFailures = queryResponse.failures();
             if (isNullOrEmpty(bulkFailures)) {
@@ -1776,7 +1784,9 @@ public class ADTaskManager {
                 BulkRequest bulkRequest = new BulkRequest.Builder().operations(operations).build();
                 try {
                     CompletableFuture<BulkResponse> bulkResponse = sdkJavaAsyncClient.bulk(bulkRequest);
-                    BulkResponse res = bulkResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+                    BulkResponse res = bulkResponse
+                        .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                        .get();
 
                     logger.info("Old AD tasks deleted for detector {}", detectorId);
                     List<BulkResponseItem> bulkItemResponses = res.items();
@@ -1833,7 +1843,9 @@ public class ADTaskManager {
                 .build();
             try {
                 CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient.deleteByQuery(deleteADResultsRequest);
-                DeleteByQueryResponse res = deleteADResultsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+                DeleteByQueryResponse res = deleteADResultsResponse
+                    .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                    .get();
 
                 logger.debug("Successfully deleted AD results of task " + taskId);
                 DeleteByQueryRequest deleteChildTasksRequest = new DeleteByQueryRequest.Builder()
@@ -1845,7 +1857,9 @@ public class ADTaskManager {
                 try {
                     CompletableFuture<DeleteByQueryResponse> deleteChildTasksResponse = sdkJavaAsyncClient
                         .deleteByQuery(deleteChildTasksRequest);
-                    DeleteByQueryResponse deleteByQueryResponse = deleteChildTasksResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+                    DeleteByQueryResponse deleteByQueryResponse = deleteChildTasksResponse
+                        .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                        .get();
 
                     logger.debug("Successfully deleted child tasks of task " + taskId);
                     cleanChildTasksAndADResultsOfDeletedTask();
@@ -2014,7 +2028,9 @@ public class ADTaskManager {
         request.query(q -> q.bool(query.build()));
         try {
             CompletableFuture<DeleteByQueryResponse> deleteByQueryResponse = sdkJavaAsyncClient.deleteByQuery(request.build());
-            DeleteByQueryResponse response = deleteByQueryResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            DeleteByQueryResponse response = deleteByQueryResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
 
             if (response.failures() == null || response.failures().size() == 0) {
                 logger.info("AD tasks deleted for detector {}", detectorId);
@@ -2045,7 +2061,9 @@ public class ADTaskManager {
         try {
             CompletableFuture<DeleteByQueryResponse> deleteADResultsResponse = sdkJavaAsyncClient
                 .deleteByQuery(deleteADResultsRequest.build());
-            DeleteByQueryResponse deleteByQueryResponse = deleteADResultsResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            DeleteByQueryResponse deleteByQueryResponse = deleteADResultsResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
             logger.debug("Successfully deleted AD results of detector " + detectorId);
         } catch (Exception exception) {
             logger.error("Failed to delete AD results of detector " + detectorId, exception);
@@ -3037,7 +3055,9 @@ public class ADTaskManager {
 
         try {
             CompletableFuture<BulkResponse> bulkResponse = sdkJavaAsyncClient.bulk(bulkRequest);
-            BulkResponse res = bulkResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            BulkResponse res = bulkResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
 
             List<BulkResponseItem> bulkItemResponses = res.items();
             if (bulkItemResponses != null && bulkItemResponses.size() > 0) {

@@ -33,6 +33,7 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
@@ -105,6 +106,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
         checkpointDao = new CheckpointDao(
             client,
             sdkJavaAsyncClient,
+            Settings.EMPTY,
             clientUtil,
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,

@@ -56,6 +56,7 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
@@ -63,6 +64,7 @@ import org.opensearch.client.opensearch._types.Conflicts;
 import org.opensearch.client.opensearch._types.ExpandWildcard;
 import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
 import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 
@@ -114,6 +116,7 @@ public class CheckpointDao {
 
     // configuration
     private final String indexName;
+    private final Settings settings;
 
     private Gson gson;
     private RandomCutForestMapper mapper;
@@ -146,6 +149,7 @@ public class CheckpointDao {
      *
      * @param client ES search client
      * @param sdkJavaAsyncClient OpenSearch Async Client
+     * @param settings Environment Settings
      * @param clientUtil utility with ES client
      * @param indexName name of the index for model checkpoints
      * @param gson accessor to Gson functionality
@@ -163,6 +167,7 @@ public class CheckpointDao {
     public CheckpointDao(
         SDKRestClient client,
         OpenSearchAsyncClient sdkJavaAsyncClient,
+        Settings settings,
         ClientUtil clientUtil,
         String indexName,
         Gson gson,
@@ -179,6 +184,7 @@ public class CheckpointDao {
     ) {
         this.client = client;
         this.sdkJavaAsyncClient = sdkJavaAsyncClient;
+        this.settings = settings;
         this.clientUtil = clientUtil;
         this.indexName = indexName;
         this.gson = gson;
@@ -452,7 +458,9 @@ public class CheckpointDao {
         logger.info("Delete checkpoints of detector {}", detectorID);
         try {
             CompletableFuture<DeleteByQueryResponse> deleteResponse = sdkJavaAsyncClient.deleteByQuery(deleteRequest);
-            DeleteByQueryResponse response = deleteResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            DeleteByQueryResponse response = deleteResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
             if (response.timedOut() || !response.failures().isEmpty()) {
                 logFailure(response, detectorID);
             }

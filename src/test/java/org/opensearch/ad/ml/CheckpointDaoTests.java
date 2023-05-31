@@ -93,6 +93,7 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.shard.ShardId;
@@ -145,6 +146,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
 
     // configuration
     private String indexName;
+    private Settings settings;
 
     // test data
     private String modelId;
@@ -164,6 +166,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         MockitoAnnotations.initMocks(this);
 
         indexName = "testIndexName";
+        settings = Settings.EMPTY;
 
         // gson = PowerMockito.mock(Gson.class);
         gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
@@ -210,6 +213,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         checkpointDao = new CheckpointDao(
             client,
             sdkJavaAsyncClient,
+            settings,
             clientUtil,
             indexName,
             gson,
@@ -679,6 +683,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         checkpointDao = new CheckpointDao(
             client,
             sdkJavaAsyncClient,
+            settings,
             clientUtil,
             indexName,
             gson,
@@ -717,6 +722,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         checkpointDao = new CheckpointDao(
             client,
             sdkJavaAsyncClient,
+            settings,
             clientUtil,
             indexName,
             gson,
@@ -743,6 +749,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         checkpointDao = new CheckpointDao(
             client,
             sdkJavaAsyncClient,
+            settings,
             clientUtil,
             indexName,
             gson,
@@ -792,6 +799,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         checkpointDao = new CheckpointDao(
             client,
             sdkJavaAsyncClient,
+            settings,
             clientUtil,
             indexName,
             gson,
@@ -932,6 +940,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         checkpointDao = new CheckpointDao(
             client,
             sdkJavaAsyncClient,
+            settings,
             clientUtil,
             indexName,
             gson,

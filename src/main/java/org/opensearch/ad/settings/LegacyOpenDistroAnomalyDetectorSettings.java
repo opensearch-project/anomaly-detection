@@ -57,7 +57,7 @@ public class LegacyOpenDistroAnomalyDetectorSettings {
     public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
             "opendistro.anomaly_detection.request_timeout",
-            TimeValue.timeValueSeconds(10),
+            TimeValue.timeValueSeconds(20),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic,
             Setting.Property.Deprecated

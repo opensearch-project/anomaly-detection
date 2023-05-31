@@ -249,7 +249,14 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
         Throttler throttler = new Throttler(getClock());
         ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
-        IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver, javaAsyncClient());
+        IndexUtils indexUtils = new IndexUtils(
+            restClient(),
+            clientUtil,
+            sdkClusterService,
+            indexNameExpressionResolver,
+            javaAsyncClient(),
+            environmentSettings
+        );
         nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
@@ -342,6 +349,7 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
         CheckpointDao checkpoint = new CheckpointDao(
             sdkRestClient,
             sdkJavaAsyncClient,
+            environmentSettings,
             clientUtil,
             CommonName.CHECKPOINT_INDEX_NAME,
             gson,

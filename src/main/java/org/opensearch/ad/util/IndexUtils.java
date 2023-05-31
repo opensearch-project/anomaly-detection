@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.client.opensearch.indices.IndicesStatsRequest;
 import org.opensearch.client.opensearch.indices.IndicesStatsResponse;
@@ -28,6 +29,7 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 
@@ -51,7 +53,7 @@ public class IndexUtils {
     private ClientUtil clientUtil;
     private SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
-
+    private final Settings settings;
     private final OpenSearchAsyncClient javaAsyncClient;
 
     /**
@@ -61,6 +63,8 @@ public class IndexUtils {
      * @param clientUtil AD Client utility
      * @param clusterService ES ClusterService
      * @param indexNameExpressionResolver index name resolver
+     * @param javaAsyncClient OpenSearchAsyncClient
+     * @param settings Environment Settings
      */
     @Inject
     public IndexUtils(
@@ -68,13 +72,15 @@ public class IndexUtils {
         ClientUtil clientUtil,
         SDKClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        OpenSearchAsyncClient javaAsyncClient
+        OpenSearchAsyncClient javaAsyncClient,
+        Settings settings
     ) {
         this.sdkRestClient = sdkRestClient;
         this.clientUtil = clientUtil;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.javaAsyncClient = javaAsyncClient;
+        this.settings = settings;
     }
 
     /**
@@ -141,7 +147,9 @@ public class IndexUtils {
         IndicesStatsResponse indicesStatsResponse;
         Long numberOfDocumentsInIndex = -1L;
         try {
-            indicesStatsResponse = indicesStatsFutureResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            indicesStatsResponse = indicesStatsFutureResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
             numberOfDocumentsInIndex = indicesStatsResponse.indices().get(indexName).primaries().docs().count();
         } catch (Exception e) {
             logger.info("Could not fetch indicesStats count due to ", e);
