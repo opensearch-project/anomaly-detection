@@ -64,9 +64,28 @@ public class IndexUtils {
      * @param clusterService ES ClusterService
      * @param indexNameExpressionResolver index name resolver
      * @param javaAsyncClient OpenSearchAsyncClient
-     * @param settings Environment Settings
      */
     @Inject
+    public IndexUtils(
+        SDKRestClient sdkRestClient,
+        ClientUtil clientUtil,
+        SDKClusterService clusterService,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        OpenSearchAsyncClient javaAsyncClient
+    ) {
+        this(sdkRestClient, clientUtil, clusterService, indexNameExpressionResolver, javaAsyncClient, Settings.EMPTY);
+    }
+
+    /**
+     * Instantiates a new IndexUtils object
+     *
+     * @param sdkRestClient SdkRestClient to make calls to ElasticSearch
+     * @param clientUtil AD Client utility
+     * @param clusterService ES ClusterService
+     * @param indexNameExpressionResolver index name resolver
+     * @param javaAsyncClient OpenSearchAsyncClient
+     * @param settings Environment Settings
+     */
     public IndexUtils(
         SDKRestClient sdkRestClient,
         ClientUtil clientUtil,

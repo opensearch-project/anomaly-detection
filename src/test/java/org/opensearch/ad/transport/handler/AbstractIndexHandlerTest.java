@@ -101,7 +101,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractADTest {
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
         clientUtil = new ClientUtil(settings, sdkRestClient, throttler);
-        indexUtil = new IndexUtils(sdkRestClient, clientUtil, sdkClusterService, indexNameResolver, sdkJavaAsyncClient, Settings.EMPTY);
+        indexUtil = new IndexUtils(sdkRestClient, clientUtil, sdkClusterService, indexNameResolver, sdkJavaAsyncClient);
     }
 
     protected void setWriteBlockAdResultIndex(boolean blocked) {
