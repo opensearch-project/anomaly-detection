@@ -652,7 +652,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
             }
 
         });
-        Response response = acquireLockResponse.orTimeout(15L, TimeUnit.SECONDS).join();
+        Response response = acquireLockResponse
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
 
         log.info("Acquired lock for AD job {}", context.getJobId());
 
@@ -685,7 +687,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 }
 
             });
-            Response response = releaseLockResponse.orTimeout(15L, TimeUnit.SECONDS).join();
+            Response response = releaseLockResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .join();
 
             boolean lockIsReleased = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
             if (lockIsReleased) {

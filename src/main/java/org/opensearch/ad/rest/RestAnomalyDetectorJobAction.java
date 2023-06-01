@@ -215,7 +215,9 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
 
             });
 
-            Response response = registerJobDetailsResponse.orTimeout(15, TimeUnit.SECONDS).join();
+            Response response = registerJobDetailsResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .join();
             this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
             LOG.info("Job Details Registered : " + registeredJobDetails);
         }

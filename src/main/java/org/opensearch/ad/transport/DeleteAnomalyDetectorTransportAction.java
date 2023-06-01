@@ -44,7 +44,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -147,7 +146,7 @@ public class DeleteAnomalyDetectorTransportAction extends TransportAction<Delete
             }
         }, exception -> {
             LOG.error("Failed to delete AD job for " + detectorId, exception);
-            if (exception instanceof IndexNotFoundException) {
+            if (exception.getMessage().contains("index_not_found_exception")) {
                 deleteDetectorStateDoc(detectorId, listener);
             } else {
                 LOG.error("Failed to delete anomaly detector job", exception);
@@ -163,7 +162,7 @@ public class DeleteAnomalyDetectorTransportAction extends TransportAction<Delete
             // whether deleted state doc or not, continue as state doc may not exist
             deleteAnomalyDetectorDoc(detectorId, listener);
         }, exception -> {
-            if (exception instanceof IndexNotFoundException) {
+            if (exception.getMessage().contains("index_not_found_exception")) {
                 deleteAnomalyDetectorDoc(detectorId, listener);
             } else {
                 LOG.error("Failed to delete detector state", exception);
