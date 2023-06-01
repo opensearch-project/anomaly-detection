@@ -8,9 +8,76 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/* @anomaly-detector commented until we have support for sdkClusterSettings.applySettings() / updateDynamicSettings() https://github.com/opensearch-project/opensearch-sdk-java/issues/631 
+
 package org.opensearch.ad.ratelimit;
 
+import static java.util.AbstractMap.SimpleImmutableEntry;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.junit.Ignore;
+import org.mockito.Mockito;
+import org.opensearch.OpenSearchException;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.get.MultiGetItemResponse;
+import org.opensearch.action.get.MultiGetResponse;
+import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.ad.TestHelpers;
+import org.opensearch.ad.breaker.ADCircuitBreakerService;
+import org.opensearch.ad.caching.CacheProvider;
+import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.common.exception.LimitExceededException;
+import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.ml.CheckpointDao;
+import org.opensearch.ad.ml.EntityModel;
+import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.ml.ThresholdingResult;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.get.GetResult;
+import org.opensearch.index.seqno.SequenceNumbers;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
+import org.opensearch.threadpool.ThreadPoolStats;
+import org.opensearch.threadpool.ThreadPoolStats.Stats;
+
+import com.fasterxml.jackson.core.JsonParseException;
+
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     CheckpointReadWorker worker;
@@ -29,24 +96,25 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     EntityCache entityCache;
     EntityFeatureRequest request, request2, request3;
     SDKClusterSettings clusterSettings;
+    Settings settings;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(SDKClusterService.class);
-        clusterSettings = clusterService.new SDKClusterSettings(
-            Settings.EMPTY, Collections
-                .unmodifiableSet(
-                    new HashSet<>(
-                        Arrays
-                            .asList(
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_CONCURRENCY,
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
-                            )
-                    )
-                )
-        );
+        List<Setting<?>> settingsList = List
+            .of(
+                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_CONCURRENCY,
+                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE
+            );
+        settings = Settings.EMPTY;
+        ExtensionsRunner mockRunner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(mockRunner.getEnvironmentSettings()).thenReturn(settings);
+        when(mockRunner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        SDKClusterSettings clusterSettings = new SDKClusterService(mockRunner).getClusterSettings();
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
@@ -497,6 +565,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         when(threadPool.stats()).thenReturn(new ThreadPoolStats(new ArrayList<Stats>()));
     }
 
+    @Ignore
     public void testSettingUpdatable() {
         maintenanceSetup();
 
@@ -547,6 +616,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         assertTrue(worker.isQueueEmpty());
     }
 
+    @Ignore
     public void testOpenCircuitBreaker() {
         maintenanceSetup();
 
@@ -692,4 +762,3 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         verify(nodeStateManager, never()).setException(eq(detectorId), any(LimitExceededException.class));
     }
 }
-*/
