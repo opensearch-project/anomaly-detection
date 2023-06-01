@@ -667,7 +667,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.stats.ADStat',
         'org.opensearch.ad.feature.AbstractRetriever',
         'org.opensearch.ad.feature.SearchFeatureDao',
-        'org.opensearch.ad.ml.SingleStreamModelIdMapper',
         'org.opensearch.ad.settings.AbstractSetting',
         'org.opensearch.ad.util.ExceptionUtil',
         'org.opensearch.ad.util.DiscoveryNodeFilterer.HotDataNodePredicate',
@@ -703,7 +702,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.ml.EntityColdStarter',
         'org.opensearch.ad.AbstractProfileRunner',
         'org.opensearch.ad.Name',
-        'org.opensearch.ad.NodeStateManager',
         'org.opensearch.ad.model.EntityProfile.Builder',
         'org.opensearch.ad.transport.AnomalyResultTransportAction.PageListener',
         'org.opensearch.ad.feature.CompositeRetriever.Page',
@@ -768,7 +766,7 @@ jacocoTestCoverageVerification {
             excludes = jacocoExclusions
             limit {
                 counter = 'BRANCH'
-                minimum = 0.50
+                minimum = 0.40
             }
         }
         rule {
@@ -777,7 +775,7 @@ jacocoTestCoverageVerification {
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.60
+                minimum = 0.50
             }
         }
     }

@@ -9,27 +9,88 @@
  * GitHub history for details.
  */
 
-/* @anomaly-detection Commented until we have support for ClusterServiceUtils.createClusterService() https://github.com/opensearch-project/opensearch-sdk-java/issues/621
 package org.opensearch.ad;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
+import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.opensearch.Version;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.util.Throttler;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodeRole;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.sdk.Extension;
+import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
+import org.opensearch.sdk.SDKClusterService;
+import org.opensearch.sdk.SDKClusterService.SDKClusterSettings;
+import org.opensearch.sdk.SDKNamedXContentRegistry;
+import org.opensearch.search.SearchModule;
+import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.threadpool.ThreadPool;
+
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+
+@ThreadLeakScope(ThreadLeakScope.Scope.NONE)
 public class NodeStateManagerTests extends AbstractADTest {
+    private ExtensionsRunner mockRunner;
     private NodeStateManager stateManager;
-    private Client client;
+    private SDKRestClient client;
     private ClientUtil clientUtil;
     private Clock clock;
     private Duration duration;
     private Throttler throttler;
+    private ThreadPool context;
     private AnomalyDetector detectorToCheck;
     private Settings settings;
     private String adId = "123";
     private String nodeId = "123";
+    private ExtensionsRunner runner;
 
     private GetResponse checkpointResponse;
-    private ClusterService clusterService;
-    private ClusterSettings clusterSettings;
-    // @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-    // private AnomalyDetectorJob jobToCheck;
+    private SDKClusterService clusterService;
+    private SDKClusterSettings clusterSettings;
+    private SDKNamedXContentRegistry sdkNamedXContentRegistry;
+    private AnomalyDetectorJob jobToCheck;
 
     @Override
     protected NamedXContentRegistry xContentRegistry() {
@@ -37,15 +98,9 @@ public class NodeStateManagerTests extends AbstractADTest {
         return new NamedXContentRegistry(searchModule.getNamedXContents());
     }
 
-    private SDKNamedXContentRegistry sdkXContentRegistry() {
-        SDKNamedXContentRegistry sdkRegistry = SDKNamedXContentRegistry.EMPTY;
-        sdkRegistry.setRegistry(xContentRegistry());
-        return sdkRegistry;
-    }
-
     @BeforeClass
     public static void setUpBeforeClass() {
-        setUpThreadPool(AnomalyResultTests.class.getSimpleName());
+        setUpThreadPool(NodeStateManagerTests.class.getSimpleName());
     }
 
     @AfterClass
@@ -57,7 +112,7 @@ public class NodeStateManagerTests extends AbstractADTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        client = mock(Client.class);
+        client = mock(SDKRestClient.class);
         settings = Settings
             .builder()
             .put("plugins.anomaly_detection.max_retry_for_unresponsive_node", 3)
@@ -65,13 +120,28 @@ public class NodeStateManagerTests extends AbstractADTest {
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
+        context = TestHelpers.createThreadPool();
         throttler = new Throttler(clock);
+        mockRunner = new ExtensionsRunnerForTest();
+        sdkNamedXContentRegistry = new SDKNamedXContentRegistry(mockRunner);
+        clusterService = new SDKClusterService(mockRunner);
 
         clientUtil = new ClientUtil(Settings.EMPTY, client, throttler);
-        Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
-        nodestateSetting.add(BACKOFF_MINUTES);
-        clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
+        Set<Setting<?>> settingsSet = Stream
+            .concat(
+                ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(),
+                Sets.newHashSet(MAX_RETRY_FOR_UNRESPONSIVE_NODE, BACKOFF_MINUTES).stream()
+            )
+            .collect(Collectors.toSet());
+
+        List<Setting<?>> settingsList = List.copyOf(settingsSet);
+        settings = Settings.EMPTY;
+        runner = mock(ExtensionsRunner.class);
+        Extension mockExtension = mock(Extension.class);
+        when(runner.getEnvironmentSettings()).thenReturn(settings);
+        when(runner.getExtension()).thenReturn(mockExtension);
+        when(mockExtension.getSettings()).thenReturn(settingsList);
+        clusterSettings = clusterService.new SDKClusterSettings(settings, settingsSet);
 
         DiscoveryNode discoveryNode = new DiscoveryNode(
             "node1",
@@ -81,11 +151,11 @@ public class NodeStateManagerTests extends AbstractADTest {
             Version.CURRENT
         );
 
-        clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
-        stateManager = new NodeStateManager(client, sdkXContentRegistry(), settings, clientUtil, clock, duration, clusterService);
+        clusterService = new SDKClusterService(mockRunner);
+        stateManager = new NodeStateManager(client, sdkNamedXContentRegistry, settings, clientUtil, clock, duration, clusterService);
 
         checkpointResponse = mock(GetResponse.class);
-        // jobToCheck = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
+        jobToCheck = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
     }
 
     @Override
@@ -136,8 +206,8 @@ public class NodeStateManagerTests extends AbstractADTest {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(
-                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                args.length >= 2
+                    String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                    args.length >= 2
             );
 
             GetRequest request = null;
@@ -191,7 +261,7 @@ public class NodeStateManagerTests extends AbstractADTest {
     public void testHasRunningQuery() throws IOException {
         stateManager = new NodeStateManager(
             client,
-            sdkXContentRegistry(),
+            sdkNamedXContentRegistry,
             settings,
             new ClientUtil(settings, client, throttler),
             clock,
@@ -218,193 +288,190 @@ public class NodeStateManagerTests extends AbstractADTest {
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
-    */
 
-/**
- * Test that we caches anomaly detector definition after the first call
- * @throws IOException if client throws exception
- * @throws InterruptedException  if the current thread is interrupted while waiting
- */
-/*@SuppressWarnings("unchecked")
-public void testRepeatedGetAnomalyDetector() throws IOException, InterruptedException {
-    String detectorId = setupDetector();
-    final CountDownLatch inProgressLatch = new CountDownLatch(2);
+    /**
+     * Test that we caches anomaly detector definition after the first call
+     * @throws IOException if client throws exception
+     * @throws InterruptedException  if the current thread is interrupted while waiting
+     */
+    @SuppressWarnings("unchecked")
+    public void testRepeatedGetAnomalyDetector() throws IOException, InterruptedException {
+        String detectorId = setupDetector();
+        final CountDownLatch inProgressLatch = new CountDownLatch(2);
 
-    stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
-        assertEquals(detectorToCheck, asDetector.get());
-        inProgressLatch.countDown();s
-    }, exception -> {
-        assertTrue(false);
-        inProgressLatch.countDown();
-    }));
-
-    stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
-        assertEquals(detectorToCheck, asDetector.get());
-        inProgressLatch.countDown();
-    }, exception -> {
-        assertTrue(false);
-        inProgressLatch.countDown();
-    }));
-
-    assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-
-    verify(client, times(1)).get(any(), any(ActionListener.class));
-}
-
-public void getCheckpointTestTemplate(boolean exists) throws IOException {
-    setupCheckpoint(exists);
-    when(clock.instant()).thenReturn(Instant.MIN);
-    stateManager
-        .getDetectorCheckpoint(adId, ActionListener.wrap(checkpointExists -> { assertEquals(exists, checkpointExists); }, exception -> {
-            for (StackTraceElement ste : exception.getStackTrace()) {
-                logger.info(ste);
-            }
+        stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(detectorToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
             assertTrue(false);
+            inProgressLatch.countDown();
         }));
-}
 
-public void testCheckpointExists() throws IOException {
-    getCheckpointTestTemplate(true);
-}
+        stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(detectorToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(false);
+            inProgressLatch.countDown();
+        }));
 
-public void testCheckpointNotExists() throws IOException {
-    getCheckpointTestTemplate(false);
-}
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
 
-public void testMaintenanceNotRemove() throws IOException {
-    setupCheckpoint(true);
-    when(clock.instant()).thenReturn(Instant.ofEpochMilli(1));
-    stateManager
-        .getDetectorCheckpoint(
-            adId,
-            ActionListener.wrap(gotCheckpoint -> { assertTrue(gotCheckpoint); }, exception -> assertTrue(false))
-        );
-    when(clock.instant()).thenReturn(Instant.ofEpochMilli(1));
-    stateManager.maintenance();
-    stateManager
-        .getDetectorCheckpoint(adId, ActionListener.wrap(gotCheckpoint -> assertTrue(gotCheckpoint), exception -> assertTrue(false)));
-    verify(client, times(1)).get(any(), any());
-}
+        verify(client, times(1)).get(any(), any(ActionListener.class));
+    }
 
-public void testMaintenanceRemove() throws IOException {
-    setupCheckpoint(true);
-    when(clock.instant()).thenReturn(Instant.ofEpochMilli(1));
-    stateManager
-        .getDetectorCheckpoint(
-            adId,
-            ActionListener.wrap(gotCheckpoint -> { assertTrue(gotCheckpoint); }, exception -> assertTrue(false))
-        );
-    when(clock.instant()).thenReturn(Instant.ofEpochSecond(7200L));
-    stateManager.maintenance();
-    stateManager
-        .getDetectorCheckpoint(
-            adId,
-            ActionListener.wrap(gotCheckpoint -> { assertTrue(gotCheckpoint); }, exception -> assertTrue(false))
-        );
-    verify(client, times(2)).get(any(), any());
-}
+    public void getCheckpointTestTemplate(boolean exists) throws IOException {
+        setupCheckpoint(exists);
+        when(clock.instant()).thenReturn(Instant.MIN);
+        stateManager
+            .getDetectorCheckpoint(adId, ActionListener.wrap(checkpointExists -> { assertEquals(exists, checkpointExists); }, exception -> {
+                for (StackTraceElement ste : exception.getStackTrace()) {
+                    logger.info(ste);
+                }
+                assertTrue(false);
+            }));
+    }
 
-public void testColdStartRunning() {
-    assertTrue(!stateManager.isColdStartRunning(adId));
-    stateManager.markColdStartRunning(adId);
-    assertTrue(stateManager.isColdStartRunning(adId));
-}
+    public void testCheckpointExists() throws IOException {
+        getCheckpointTestTemplate(true);
+    }
 
-public void testSettingUpdateMaxRetry() {
-    when(clock.millis()).thenReturn(System.currentTimeMillis());
-    stateManager.addPressure(nodeId, adId);
-    // In setUp method, we mute after 3 tries
-    assertTrue(!stateManager.isMuted(nodeId, adId));
+    public void testCheckpointNotExists() throws IOException {
+        getCheckpointTestTemplate(false);
+    }
 
-    Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.getKey(), "1").build();
+    public void testMaintenanceNotRemove() throws IOException {
+        setupCheckpoint(true);
+        when(clock.instant()).thenReturn(Instant.ofEpochMilli(1));
+        stateManager
+            .getDetectorCheckpoint(
+                adId,
+                ActionListener.wrap(gotCheckpoint -> { assertTrue(gotCheckpoint); }, exception -> assertTrue(false))
+            );
+        when(clock.instant()).thenReturn(Instant.ofEpochMilli(1));
+        stateManager.maintenance();
+        stateManager
+            .getDetectorCheckpoint(adId, ActionListener.wrap(gotCheckpoint -> assertTrue(gotCheckpoint), exception -> assertTrue(false)));
+        verify(client, times(1)).get(any(), any());
+    }
+
+    public void testMaintenanceRemove() throws IOException {
+        setupCheckpoint(true);
+        when(clock.instant()).thenReturn(Instant.ofEpochMilli(1));
+        stateManager
+            .getDetectorCheckpoint(
+                adId,
+                ActionListener.wrap(gotCheckpoint -> { assertTrue(gotCheckpoint); }, exception -> assertTrue(false))
+            );
+        when(clock.instant()).thenReturn(Instant.ofEpochSecond(7200L));
+        stateManager.maintenance();
+        stateManager
+            .getDetectorCheckpoint(
+                adId,
+                ActionListener.wrap(gotCheckpoint -> { assertTrue(gotCheckpoint); }, exception -> assertTrue(false))
+            );
+        verify(client, times(2)).get(any(), any());
+    }
+
+    public void testColdStartRunning() {
+        assertTrue(!stateManager.isColdStartRunning(adId));
+        stateManager.markColdStartRunning(adId);
+        assertTrue(stateManager.isColdStartRunning(adId));
+    }
+
+    public void testSettingUpdateMaxRetry() {
+        when(clock.millis()).thenReturn(System.currentTimeMillis());
+        stateManager.addPressure(nodeId, adId);
+        // In setUp method, we mute after 3 tries
+        assertTrue(!stateManager.isMuted(nodeId, adId));
+
+    /*Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.getKey(), "1").build();
     Settings.Builder target = Settings.builder();
     clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
     clusterSettings.applySettings(target.build());
     stateManager.addPressure(nodeId, adId);
     // since we have one violation and the max is 1, this is flagged as muted
-    assertTrue(stateManager.isMuted(nodeId, adId));
+    assertTrue(stateManager.isMuted(nodeId, adId));*/
 }
 
-public void testSettingUpdateBackOffMin() {
-    when(clock.millis()).thenReturn(1000L);
-    // In setUp method, we mute after 3 tries
-    for (int i = 0; i < 4; i++) {
+    public void testSettingUpdateBackOffMin() {
+        when(clock.millis()).thenReturn(1000L);
+        // In setUp method, we mute after 3 tries
+        for (int i = 0; i < 4; i++) {
+            stateManager.addPressure(nodeId, adId);
+        }
+
+        assertTrue(stateManager.isMuted(nodeId, adId));
+
+        /*Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.BACKOFF_MINUTES.getKey(), "1m").build();
+        Settings.Builder target = Settings.builder();
+        clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
+        clusterSettings.applySettings(target.build());
         stateManager.addPressure(nodeId, adId);
+        // move the clobk by 1000 milliseconds
+        // when evaluating isMuted, 62000 - 1000 (last mute time) > 60000, which
+        // make isMuted true
+        when(clock.millis()).thenReturn(62000L);
+        assertTrue(!stateManager.isMuted(nodeId, adId));*/
     }
 
-    assertTrue(stateManager.isMuted(nodeId, adId));
+    @SuppressWarnings("unchecked")
+    private String setupJob() throws IOException {
+        String detectorId = jobToCheck.getName();
 
-    Settings newSettings = Settings.builder().put(AnomalyDetectorSettings.BACKOFF_MINUTES.getKey(), "1m").build();
-    Settings.Builder target = Settings.builder();
-    clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
-    clusterSettings.applySettings(target.build());
-    stateManager.addPressure(nodeId, adId);
-    // move the clobk by 1000 milliseconds
-    // when evaluating isMuted, 62000 - 1000 (last mute time) > 60000, which
-    // make isMuted true
-    when(clock.millis()).thenReturn(62000L);
-    assertTrue(!stateManager.isMuted(nodeId, adId));
+        doAnswer(invocation -> {
+            GetRequest request = invocation.getArgument(0);
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            if (request.index().equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(jobToCheck, detectorId, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX));
+            }
+            return null;
+        }).when(client).get(any(), any(ActionListener.class));
+
+        return detectorId;
+    }
+
+    public void testGetAnomalyJob() throws IOException, InterruptedException {
+        String detectorId = setupJob();
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(jobToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(false);
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Test that we caches anomaly detector job definition after the first call
+     * @throws IOException if client throws exception
+     * @throws InterruptedException  if the current thread is interrupted while waiting
+     */
+    @SuppressWarnings("unchecked")
+    public void testRepeatedGetAnomalyJob() throws IOException, InterruptedException {
+        String detectorId = setupJob();
+        final CountDownLatch inProgressLatch = new CountDownLatch(2);
+
+        stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(jobToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(false);
+            inProgressLatch.countDown();
+        }));
+
+        stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
+            assertEquals(jobToCheck, asDetector.get());
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue(false);
+            inProgressLatch.countDown();
+        }));
+
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+
+        verify(client, times(1)).get(any(), any(ActionListener.class));
+    }
 }
-*/
-// @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-// @SuppressWarnings("unchecked")
-/*private String setupJob() throws IOException {
-    String detectorId = jobToCheck.getName();
-
-    doAnswer(invocation -> {
-        GetRequest request = invocation.getArgument(0);
-        ActionListener<GetResponse> listener = invocation.getArgument(1);
-        if (request.index().equals(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)) {
-            listener.onResponse(TestHelpers.createGetResponse(jobToCheck, detectorId, AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX));
-        }
-        return null;
-    }).when(client).get(any(), any(ActionListener.class));
-
-    return detectorId;
-}*/
-
-// public void testGetAnomalyJob() throws IOException, InterruptedException {
-// String detectorId = setupJob();
-// final CountDownLatch inProgressLatch = new CountDownLatch(1);
-// stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
-// assertEquals(jobToCheck, asDetector.get());
-// inProgressLatch.countDown();
-// }, exception -> {
-// assertTrue(false);
-// inProgressLatch.countDown();
-// }));
-// assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-// }
-
-/**
- * Test that we caches anomaly detector job definition after the first call
- * @throws IOException if client throws exception
- * @throws InterruptedException  if the current thread is interrupted while waiting
- */
-// @anomaly-detection.create-detector Commented this code until we have support of Job Scheduler for extensibility
-// @SuppressWarnings("unchecked")
-// public void testRepeatedGetAnomalyJob() throws IOException, InterruptedException {
-// String detectorId = setupJob();
-// final CountDownLatch inProgressLatch = new CountDownLatch(2);
-//
-// stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
-// assertEquals(jobToCheck, asDetector.get());
-// inProgressLatch.countDown();
-// }, exception -> {
-// assertTrue(false);
-// inProgressLatch.countDown();
-// }));
-//
-// stateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(asDetector -> {
-// assertEquals(jobToCheck, asDetector.get());
-// inProgressLatch.countDown();
-// }, exception -> {
-// assertTrue(false);
-// inProgressLatch.countDown();
-// }));
-//
-// assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
-//
-// verify(client, times(1)).get(any(), any(ActionListener.class));
-// }
-// }
