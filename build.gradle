@@ -668,8 +668,9 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.constant.*',
         'org.opensearch.forecast.constant.*',
         'org.opensearch.timeseries.constant.*',
+        'org.opensearch.timeseries.settings.TimeSeriesSettings',
+        'org.opensearch.forecast.settings.ForecastSettings',
 
-        //'org.opensearch.ad.common.exception.AnomalyDetectionException',
         'org.opensearch.ad.util.ClientUtil',
 
         'org.opensearch.ad.transport.CronRequest',

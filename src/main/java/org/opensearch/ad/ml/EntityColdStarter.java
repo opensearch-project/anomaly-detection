@@ -51,12 +51,12 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -251,9 +251,9 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                     id -> {
                         // reset every 60 intervals
                         return new DoorKeeper(
-                            AnomalyDetectorSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
-                            AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
-                            detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                            TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
+                            TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
+                            detector.getDetectionIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                             clock
                         );
                     }
@@ -365,7 +365,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             // same with dimension for opportunistic memory saving
             // Usually, we use it as shingleSize(dimension). When a new point comes in, we will
             // look at the point store if there is any overlapping. Say the previously-stored
@@ -596,7 +596,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      */
     private Pair<Integer, Integer> selectRangeParam(AnomalyDetector detector) {
         int shingleSize = detector.getShingleSize();
-        if (EnabledSetting.isInterpolationInColdStartEnabled()) {
+        if (ADEnabledSetting.isInterpolationInColdStartEnabled()) {
             long delta = detector.getDetectorIntervalInMinutes();
 
             int strideLength = defaulStrideLength;

@@ -27,10 +27,10 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -196,7 +196,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
-        assertEquals((long) parsedDetector.getShingleSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertEquals((long) parsedDetector.getShingleSize(), (long) TimeSeriesSettings.DEFAULT_SHINGLE_SIZE);
     }
 
     public void testParseAnomalyDetectorWithInvalidShingleSize() throws Exception {
@@ -340,7 +340,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
@@ -366,7 +366,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
@@ -392,7 +392,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
@@ -418,7 +418,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
@@ -444,7 +444,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
@@ -470,7 +470,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     null,
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
@@ -591,7 +591,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             TestHelpers.randomUser(),
             null
         );
-        assertEquals((int) anomalyDetector.getShingleSize(), AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertEquals((int) anomalyDetector.getShingleSize(), TimeSeriesSettings.DEFAULT_SHINGLE_SIZE);
     }
 
     public void testNullFeatureAttributes() throws IOException {

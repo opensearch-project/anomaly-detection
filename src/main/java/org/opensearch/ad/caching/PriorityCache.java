@@ -53,8 +53,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -63,6 +62,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -162,16 +162,16 @@ public class PriorityCache implements EntityCache {
 
         // during maintenance period, stop putting new entries
         if (!maintenanceLock.isLocked() && modelState == null) {
-            if (EnabledSetting.isDoorKeeperInCacheEnabled()) {
+            if (ADEnabledSetting.isDoorKeeperInCacheEnabled()) {
                 DoorKeeper doorKeeper = doorKeepers
                     .computeIfAbsent(
                         detectorId,
                         id -> {
                             // reset every 60 intervals
                             return new DoorKeeper(
-                                AnomalyDetectorSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
-                                AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
-                                detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                                TimeSeriesSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
+                                TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
+                                detector.getDetectionIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                                 clock
                             );
                         }
@@ -501,7 +501,7 @@ public class PriorityCache implements EntityCache {
             .estimateTRCFModelSize(
                 dimension,
                 numberOfTrees,
-                AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO,
+                TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO,
                 detector.getShingleSize().intValue(),
                 true
             );

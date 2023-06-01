@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.RESULT_WRITE_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.RESULT_WRITE_QUEUE_CONCURRENCY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_CONCURRENCY;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -87,9 +87,9 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            RESULT_WRITE_QUEUE_CONCURRENCY,
+            AD_RESULT_WRITE_QUEUE_CONCURRENCY,
             executionTtl,
-            RESULT_WRITE_QUEUE_BATCH_SIZE,
+            AD_RESULT_WRITE_QUEUE_BATCH_SIZE,
             stateTtl,
             stateManager
         );

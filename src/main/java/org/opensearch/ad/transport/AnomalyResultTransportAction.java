@@ -66,8 +66,8 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ExceptionUtil;
@@ -264,7 +264,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 original.onFailure(e);
             });
 
-            if (!EnabledSetting.isADPluginEnabled()) {
+            if (!ADEnabledSetting.isADEnabled()) {
                 throw new EndRunException(adID, ADCommonMessages.DISABLED_ERR_MSG, true).countedInStats(false);
             }
 

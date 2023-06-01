@@ -15,6 +15,7 @@ import java.time.Duration;
 
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 /**
  * AD plugin settings.
@@ -138,7 +139,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<TimeValue> BACKOFF_INITIAL_DELAY = Setting
+    public static final Setting<TimeValue> AD_BACKOFF_INITIAL_DELAY = Setting
         .positiveTimeSetting(
             "plugins.anomaly_detection.backoff_initial_delay",
             LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
@@ -146,7 +147,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Integer> MAX_RETRY_FOR_BACKOFF = Setting
+    public static final Setting<Integer> AD_MAX_RETRY_FOR_BACKOFF = Setting
         .intSetting(
             "plugins.anomaly_detection.max_retry_for_backoff",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
@@ -172,11 +173,9 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final String ANOMALY_DETECTORS_INDEX_MAPPING_FILE = "mappings/anomaly-detectors.json";
-    public static final String ANOMALY_DETECTOR_JOBS_INDEX_MAPPING_FILE = "mappings/anomaly-detector-jobs.json";
     public static final String ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results.json";
     public static final String ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE = "mappings/anomaly-detection-state.json";
-    public static final String CHECKPOINT_INDEX_MAPPING_FILE = "mappings/checkpoint.json";
+    public static final String CHECKPOINT_INDEX_MAPPING_FILE = "mappings/anomaly-checkpoint.json";
 
     public static final Duration HOURLY_MAINTENANCE = Duration.ofHours(1);
 
@@ -242,16 +241,6 @@ public final class AnomalyDetectorSettings {
 
     // for a batch operation, we want all of the bounding box in-place for speed
     public static final double BATCH_BOUNDING_BOX_CACHE_RATIO = 1;
-
-    // for a real-time operation, we trade off speed for memory as real time opearation
-    // only has to do one update/scoring per interval
-    public static final double REAL_TIME_BOUNDING_BOX_CACHE_RATIO = 0;
-
-    public static final int DEFAULT_SHINGLE_SIZE = 8;
-
-    // max shingle size we have seen from external users
-    // the larger shingle size, the harder to fill in a complete shingle
-    public static final int MAX_SHINGLE_SIZE = 60;
 
     // Thresholding
     public static final double THRESHOLD_MIN_PVALUE = 0.995;
@@ -323,17 +312,6 @@ public final class AnomalyDetectorSettings {
     // take up 4 MB.
     public static final int MAX_INACTIVE_ENTITIES = 1_000_000;
 
-    // 1 million insertion costs roughly 1 MB.
-    public static final int DOOR_KEEPER_FOR_CACHE_MAX_INSERTION = 1_000_000;
-
-    // 100,000 insertions costs roughly 1KB.
-    public static final int DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION = 100_000;
-
-    public static final double DOOR_KEEPER_FAULSE_POSITIVE_RATE = 0.01;
-
-    // clean up door keeper every 60 intervals
-    public static final int DOOR_KEEPER_MAINTENANCE_FREQ = 60;
-
     // Increase the value will adding pressure to indexing anomaly results and our feature query
     // OpenSearch-only setting as previous the legacy default is too low (1000)
     public static final Setting<Integer> MAX_ENTITIES_PER_QUERY = Setting
@@ -351,7 +329,7 @@ public final class AnomalyDetectorSettings {
     // for INDEX_PRESSURE_HARD_LIMIT. I don't find a floatSetting that has both default
     // and fallback values. I want users to use the new default value 0.6 instead of 0.8.
     // So do not plan to use the value of legacy setting as fallback.
-    public static final Setting<Float> INDEX_PRESSURE_SOFT_LIMIT = Setting
+    public static final Setting<Float> AD_INDEX_PRESSURE_SOFT_LIMIT = Setting
         .floatSetting(
             "plugins.anomaly_detection.index_pressure_soft_limit",
             0.6f,
@@ -363,7 +341,7 @@ public final class AnomalyDetectorSettings {
     // save only error or larger-than-one anomaly grade results after indexing
     // pressure reaching the limit
     // opensearch-only setting
-    public static final Setting<Float> INDEX_PRESSURE_HARD_LIMIT = Setting
+    public static final Setting<Float> AD_INDEX_PRESSURE_HARD_LIMIT = Setting
         .floatSetting(
             "plugins.anomaly_detection.index_pressure_hard_limit",
             0.9f,
@@ -430,13 +408,12 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final int MAX_BATCH_TASK_PIECE_SIZE = 10_000;
     public static final Setting<Integer> BATCH_TASK_PIECE_SIZE = Setting
         .intSetting(
             "plugins.anomaly_detection.batch_task_piece_size",
             LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
             1,
-            MAX_BATCH_TASK_PIECE_SIZE,
+            TimeSeriesSettings.MAX_BATCH_TASK_PIECE_SIZE,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -550,7 +527,7 @@ public final class AnomalyDetectorSettings {
     // expected execution time per checkpoint maintain request. This setting controls
     // the speed of checkpoint maintenance execution. The larger, the faster, and
     // the more performance impact to customers' workload.
-    public static final Setting<Integer> EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS = Setting
+    public static final Setting<Integer> AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS = Setting
         .intSetting(
             "plugins.anomaly_detection.expected_checkpoint_maintain_time_in_millisecs",
             1000,
@@ -639,7 +616,7 @@ public final class AnomalyDetectorSettings {
     /**
      * Max concurrent checkpoint reads per node
      */
-    public static final Setting<Integer> CHECKPOINT_READ_QUEUE_CONCURRENCY = Setting
+    public static final Setting<Integer> AD_CHECKPOINT_READ_QUEUE_CONCURRENCY = Setting
         .intSetting(
             "plugins.anomaly_detection.checkpoint_read_queue_concurrency",
             1,
@@ -652,7 +629,7 @@ public final class AnomalyDetectorSettings {
     /**
      * Max concurrent checkpoint writes per node
      */
-    public static final Setting<Integer> CHECKPOINT_WRITE_QUEUE_CONCURRENCY = Setting
+    public static final Setting<Integer> AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY = Setting
         .intSetting(
             "plugins.anomaly_detection.checkpoint_write_queue_concurrency",
             2,
@@ -666,7 +643,7 @@ public final class AnomalyDetectorSettings {
      * Max concurrent result writes per node.  Since checkpoint is relatively large
      * (250KB), we have 2 concurrent threads processing the queue.
      */
-    public static final Setting<Integer> RESULT_WRITE_QUEUE_CONCURRENCY = Setting
+    public static final Setting<Integer> AD_RESULT_WRITE_QUEUE_CONCURRENCY = Setting
         .intSetting(
             "plugins.anomaly_detection.result_write_queue_concurrency",
             2,
@@ -679,7 +656,7 @@ public final class AnomalyDetectorSettings {
     /**
      * Assume each checkpoint takes roughly 200KB.  25 requests are of 5 MB.
      */
-    public static final Setting<Integer> CHECKPOINT_READ_QUEUE_BATCH_SIZE = Setting
+    public static final Setting<Integer> AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE = Setting
         .intSetting(
             "plugins.anomaly_detection.checkpoint_read_queue_batch_size",
             25,
@@ -694,7 +671,7 @@ public final class AnomalyDetectorSettings {
      * ref: https://tinyurl.com/3zdbmbwy
      * Assume each checkpoint takes roughly 200KB.  25 requests are of 5 MB.
      */
-    public static final Setting<Integer> CHECKPOINT_WRITE_QUEUE_BATCH_SIZE = Setting
+    public static final Setting<Integer> AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE = Setting
         .intSetting(
             "plugins.anomaly_detection.checkpoint_write_queue_batch_size",
             25,
@@ -709,7 +686,7 @@ public final class AnomalyDetectorSettings {
      * ref: https://tinyurl.com/3zdbmbwy
      * Assume each result takes roughly 1KB.  5000 requests are of 5 MB.
      */
-    public static final Setting<Integer> RESULT_WRITE_QUEUE_BATCH_SIZE = Setting
+    public static final Setting<Integer> AD_RESULT_WRITE_QUEUE_BATCH_SIZE = Setting
         .intSetting(
             "plugins.anomaly_detection.result_write_queue_batch_size",
             5000,

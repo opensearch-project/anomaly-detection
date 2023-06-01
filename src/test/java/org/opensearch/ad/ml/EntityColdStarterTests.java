@@ -49,8 +49,8 @@ import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.ClusterSettings;
@@ -58,6 +58,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
 import test.org.opensearch.ad.util.MLUtil;
@@ -74,28 +75,28 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
     public static void initOnce() {
         ClusterService clusterService = mock(ClusterService.class);
 
-        Set<Setting<?>> settingSet = EnabledSetting.settings.values().stream().collect(Collectors.toSet());
+        Set<Setting<?>> settingSet = ADEnabledSetting.settings.values().stream().collect(Collectors.toSet());
 
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, settingSet));
 
-        EnabledSetting.getInstance().init(clusterService);
+        ADEnabledSetting.getInstance().init(clusterService);
     }
 
     @AfterClass
     public static void clearOnce() {
         // restore to default value
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
     }
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.TRUE);
     }
 
     @Override
     public void tearDown() throws Exception {
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.FALSE);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, Boolean.FALSE);
         super.tearDown();
     }
 
@@ -211,7 +212,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .randomSeed(rcfSeed)
             .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
             .shingleSize(detector.getShingleSize())
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
             .outputAfter(numMinSamples)
             .initialAcceptFraction(0.125d)
@@ -506,7 +507,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .randomSeed(rcfSeed)
             .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
             .shingleSize(detector.getShingleSize())
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
             .outputAfter(numMinSamples)
             .initialAcceptFraction(0.125d)
@@ -560,7 +561,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
                 .newInstance()
                 .setDetectionInterval(new IntervalTimeConfiguration(interval, ChronoUnit.MINUTES))
                 .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
-                .setShingleSize(AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE)
+                .setShingleSize(TimeSeriesSettings.DEFAULT_SHINGLE_SIZE)
                 .build();
 
             long seed = new Random().nextLong();
@@ -689,7 +690,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
     }
 
     public void testAccuracyOneMinuteIntervalNoInterpolation() throws Exception {
-        EnabledSetting.getInstance().setSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
+        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED, false);
         // for one minute interval, we need to disable interpolation to achieve good results
         entityColdStarter = new EntityColdStarter(
             clock,
@@ -780,7 +781,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
 
         // make sure when the next maintenance coming, current door keeper gets reset
         // note our detector interval is 1 minute and the door keeper will expire in 60 intervals, which are 60 minutes
-        when(clock.instant()).thenReturn(Instant.now().plus(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ + 1, ChronoUnit.MINUTES));
+        when(clock.instant()).thenReturn(Instant.now().plus(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ + 1, ChronoUnit.MINUTES));
         entityColdStarter.maintenance();
 
         modelState = createStateForCacheRelease();

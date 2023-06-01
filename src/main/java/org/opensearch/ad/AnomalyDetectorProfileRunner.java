@@ -43,8 +43,8 @@ import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.NumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileRequest;
@@ -285,7 +285,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     private void profileEntityStats(MultiResponsesDelegateActionListener<DetectorProfile> listener, AnomalyDetector detector) {
         List<String> categoryField = detector.getCategoryField();
-        if (!detector.isMultientityDetector() || categoryField.size() > NumericSetting.maxCategoricalFields()) {
+        if (!detector.isMultientityDetector() || categoryField.size() > ADNumericSetting.maxCategoricalFields()) {
             listener.onResponse(new DetectorProfile.Builder().build());
         } else {
             if (categoryField.size() == 1) {

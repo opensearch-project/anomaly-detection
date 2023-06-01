@@ -25,7 +25,7 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.rest.BaseRestHandler;
@@ -66,7 +66,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
+        if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

@@ -36,7 +36,7 @@ import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.EntityState;
 import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.settings.NumericSetting;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileRequest;
 import org.opensearch.ad.transport.EntityProfileResponse;
@@ -106,7 +106,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
                     List<String> categoryFields = detector.getCategoryField();
-                    int maxCategoryFields = NumericSetting.maxCategoricalFields();
+                    int maxCategoryFields = ADNumericSetting.maxCategoricalFields();
                     if (categoryFields == null || categoryFields.size() == 0) {
                         listener.onFailure(new IllegalArgumentException(NOT_HC_DETECTOR_ERR_MSG));
                     } else if (categoryFields.size() > maxCategoryFields) {

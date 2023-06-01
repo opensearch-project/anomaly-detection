@@ -22,7 +22,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.ToXContent;
@@ -62,7 +62,7 @@ public class RestDeleteAnomalyResultsAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
+        if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

@@ -46,6 +46,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -527,7 +528,7 @@ public class ModelManager implements DetectorModelSize {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(detector.getShingleSize())
             .anomalyRate(1 - thresholdMinPvalue)
             .build();

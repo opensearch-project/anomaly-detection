@@ -62,7 +62,7 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(ClusterService.class);
-        Settings settings = Settings.builder().put(AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.getKey(), 1).build();
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.getKey(), 1).build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
             Collections
@@ -70,9 +70,9 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
+                                AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
                                 AnomalyDetectorSettings.CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
                                 AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
                             )
                     )
@@ -134,7 +134,7 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
 
             TimeValue value = invocation.getArgument(1);
             // since we have only 1 request each time
-            long expectedExecutionPerRequestMilli = AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
+            long expectedExecutionPerRequestMilli = AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
                 .getDefault(Settings.EMPTY);
             long delay = value.getMillis();
             assertTrue(delay == expectedExecutionPerRequestMilli);

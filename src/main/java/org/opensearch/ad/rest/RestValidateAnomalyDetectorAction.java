@@ -31,7 +31,7 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.ValidationAspect;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
@@ -103,7 +103,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
 
     @Override
     protected BaseRestHandler.RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
+        if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         XContentParser parser = request.contentParser();

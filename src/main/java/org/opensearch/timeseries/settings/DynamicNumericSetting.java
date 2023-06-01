@@ -1,15 +1,9 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
-package org.opensearch.ad.settings;
+package org.opensearch.timeseries.settings;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,8 +24,8 @@ import org.opensearch.common.settings.Settings;
  * as the enclosing instances are not singleton (i.e. deleted after use).
  *
  */
-public abstract class AbstractSetting {
-    private static Logger logger = LogManager.getLogger(AbstractSetting.class);
+public abstract class DynamicNumericSetting {
+    private static Logger logger = LogManager.getLogger(DynamicNumericSetting.class);
 
     private ClusterService clusterService;
     /** Latest setting value for each registered key. Thread-safe is required. */
@@ -39,7 +33,7 @@ public abstract class AbstractSetting {
 
     private final Map<String, Setting<?>> settings;
 
-    protected AbstractSetting(Map<String, Setting<?>> settings) {
+    protected DynamicNumericSetting(Map<String, Setting<?>> settings) {
         this.settings = settings;
     }
 

@@ -18,11 +18,11 @@ import static org.opensearch.ad.constant.ADCommonName.EPOCH_MILLIS_FORMAT;
 import static org.opensearch.ad.constant.ADCommonName.FEATURE_AGGS;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PIECE_SIZE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.MAX_BATCH_TASK_PIECE_SIZE;
 
 import java.io.IOException;
 import java.time.Instant;

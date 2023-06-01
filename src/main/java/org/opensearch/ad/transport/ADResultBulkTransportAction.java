@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_INDEX_PRESSURE_HARD_LIMIT;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.index.IndexingPressure.MAX_INDEXING_BYTES;
 
@@ -66,12 +66,12 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
         super(ADResultBulkAction.NAME, transportService, actionFilters, ADResultBulkRequest::new, ThreadPool.Names.SAME);
         this.indexingPressure = indexingPressure;
         this.primaryAndCoordinatingLimits = MAX_INDEXING_BYTES.get(settings).getBytes();
-        this.softLimit = INDEX_PRESSURE_SOFT_LIMIT.get(settings);
-        this.hardLimit = INDEX_PRESSURE_HARD_LIMIT.get(settings);
+        this.softLimit = AD_INDEX_PRESSURE_SOFT_LIMIT.get(settings);
+        this.hardLimit = AD_INDEX_PRESSURE_HARD_LIMIT.get(settings);
         this.indexName = ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
         this.client = client;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_SOFT_LIMIT, it -> softLimit = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_HARD_LIMIT, it -> hardLimit = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_INDEX_PRESSURE_SOFT_LIMIT, it -> softLimit = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_INDEX_PRESSURE_HARD_LIMIT, it -> hardLimit = it);
         // random seed is 42. Can be any number
         this.random = new Random(42);
     }

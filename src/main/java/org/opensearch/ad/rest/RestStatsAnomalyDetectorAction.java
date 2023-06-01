@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
@@ -64,7 +64,7 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
-        if (!EnabledSetting.isADPluginEnabled()) {
+        if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         ADStatsRequest adStatsRequest = getRequest(request);

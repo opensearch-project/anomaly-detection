@@ -24,7 +24,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.rest.RestRequest;
@@ -57,7 +57,7 @@ public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyR
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
+        if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 

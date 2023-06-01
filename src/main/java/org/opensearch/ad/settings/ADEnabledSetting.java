@@ -20,37 +20,37 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.opensearch.common.settings.Setting;
+import org.opensearch.timeseries.settings.DynamicNumericSetting;
 
-public class EnabledSetting extends AbstractSetting {
+public class ADEnabledSetting extends DynamicNumericSetting {
 
     /**
      * Singleton instance
      */
-    private static EnabledSetting INSTANCE;
+    private static ADEnabledSetting INSTANCE;
 
     /**
      * Settings name
      */
-    public static final String AD_PLUGIN_ENABLED = "plugins.anomaly_detection.enabled";
+    public static final String AD_ENABLED = "plugins.anomaly_detection.enabled";
 
     public static final String AD_BREAKER_ENABLED = "plugins.anomaly_detection.breaker.enabled";
 
-    public static final String LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED = "opendistro.anomaly_detection.enabled";
+    public static final String LEGACY_OPENDISTRO_AD_ENABLED = "opendistro.anomaly_detection.enabled";
 
     public static final String LEGACY_OPENDISTRO_AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
 
     public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED = "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";
 
-    public static final String DOOR_KEEPER_IN_CACHE_ENABLED = "plugins.anomaly_detection.door_keeper_in_cache.enabled";;
+    public static final String DOOR_KEEPER_IN_CACHE_ENABLED = "plugins.anomaly_detection.door_keeper_in_cache.enabled";
 
     public static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
-            Setting LegacyADPluginEnabledSetting = Setting
-                .boolSetting(LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED, true, NodeScope, Dynamic, Deprecated);
+            Setting LegacyADEnabledSetting = Setting.boolSetting(LEGACY_OPENDISTRO_AD_ENABLED, true, NodeScope, Dynamic, Deprecated);
             /**
-             * Legacy OpenDistro AD plugin enable/disable setting
+             * Legacy OpenDistro AD enable/disable setting
              */
-            put(LEGACY_OPENDISTRO_AD_PLUGIN_ENABLED, LegacyADPluginEnabledSetting);
+            put(LEGACY_OPENDISTRO_AD_ENABLED, LegacyADEnabledSetting);
 
             Setting LegacyADBreakerEnabledSetting = Setting
                 .boolSetting(LEGACY_OPENDISTRO_AD_BREAKER_ENABLED, true, NodeScope, Dynamic, Deprecated);
@@ -60,9 +60,9 @@ public class EnabledSetting extends AbstractSetting {
             put(LEGACY_OPENDISTRO_AD_BREAKER_ENABLED, LegacyADBreakerEnabledSetting);
 
             /**
-             * AD plugin enable/disable setting
+             * AD enable/disable setting
              */
-            put(AD_PLUGIN_ENABLED, Setting.boolSetting(AD_PLUGIN_ENABLED, LegacyADPluginEnabledSetting, NodeScope, Dynamic));
+            put(AD_ENABLED, Setting.boolSetting(AD_ENABLED, LegacyADEnabledSetting, NodeScope, Dynamic));
 
             /**
              * AD breaker enable/disable setting
@@ -86,23 +86,23 @@ public class EnabledSetting extends AbstractSetting {
         }
     });
 
-    private EnabledSetting(Map<String, Setting<?>> settings) {
+    ADEnabledSetting(Map<String, Setting<?>> settings) {
         super(settings);
     }
 
-    public static synchronized EnabledSetting getInstance() {
+    public static synchronized ADEnabledSetting getInstance() {
         if (INSTANCE == null) {
-            INSTANCE = new EnabledSetting(settings);
+            INSTANCE = new ADEnabledSetting(settings);
         }
         return INSTANCE;
     }
 
     /**
-     * Whether AD plugin is enabled.  If disabled, AD plugin rejects RESTful requests and stop all AD jobs.
-     * @return whether AD plugin is enabled.
+     * Whether AD is enabled.  If disabled, time series plugin rejects RESTful requests on AD and stop all AD jobs.
+     * @return whether AD is enabled.
      */
-    public static boolean isADPluginEnabled() {
-        return EnabledSetting.getInstance().getSettingValue(EnabledSetting.AD_PLUGIN_ENABLED);
+    public static boolean isADEnabled() {
+        return ADEnabledSetting.getInstance().getSettingValue(ADEnabledSetting.AD_ENABLED);
     }
 
     /**
@@ -110,7 +110,7 @@ public class EnabledSetting extends AbstractSetting {
      * @return whether AD circuit breaker is enabled or not.
      */
     public static boolean isADBreakerEnabled() {
-        return EnabledSetting.getInstance().getSettingValue(EnabledSetting.AD_BREAKER_ENABLED);
+        return ADEnabledSetting.getInstance().getSettingValue(ADEnabledSetting.AD_BREAKER_ENABLED);
     }
 
     /**
@@ -118,7 +118,7 @@ public class EnabledSetting extends AbstractSetting {
      * @return wWhether interpolation in HCAD cold start is enabled or not.
      */
     public static boolean isInterpolationInColdStartEnabled() {
-        return EnabledSetting.getInstance().getSettingValue(EnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED);
+        return ADEnabledSetting.getInstance().getSettingValue(ADEnabledSetting.INTERPOLATION_IN_HCAD_COLD_START_ENABLED);
     }
 
     /**
@@ -126,6 +126,6 @@ public class EnabledSetting extends AbstractSetting {
      * @return wWhether door keeper in cache is enabled or not.
      */
     public static boolean isDoorKeeperInCacheEnabled() {
-        return EnabledSetting.getInstance().getSettingValue(EnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED);
+        return ADEnabledSetting.getInstance().getSettingValue(ADEnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED);
     }
 }

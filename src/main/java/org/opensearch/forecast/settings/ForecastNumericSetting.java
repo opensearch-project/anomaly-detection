@@ -1,15 +1,9 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
-package org.opensearch.ad.settings;
+package org.opensearch.forecast.settings;
 
 import static java.util.Collections.unmodifiableMap;
 
@@ -17,26 +11,26 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.opensearch.common.settings.Setting;
+import org.opensearch.timeseries.settings.DynamicNumericSetting;
 
-public class NumericSetting extends AbstractSetting {
-
+public class ForecastNumericSetting extends DynamicNumericSetting {
     /**
      * Singleton instance
      */
-    private static NumericSetting INSTANCE;
+    private static ForecastNumericSetting INSTANCE;
 
     /**
      * Settings name
      */
-    public static final String CATEGORY_FIELD_LIMIT = "plugins.anomaly_detection.category_field_limit";
+    public static final String CATEGORY_FIELD_LIMIT = "plugins.forecast.category_field_limit";
 
     private static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
             // how many categorical fields we support
             // The number of category field won't causes correctness issues for our
             // implementation, but can cause performance issues. The more categorical
-            // fields, the larger of the anomaly results, intermediate states, and
-            // more expensive entities (e.g., to get top entities in preview API, we need
+            // fields, the larger of the forecast results, intermediate states, and
+            // more expensive queries (e.g., to get top entities in preview API, we need
             // to use scripts in terms aggregation. The more fields, the slower the query).
             put(
                 CATEGORY_FIELD_LIMIT,
@@ -45,22 +39,21 @@ public class NumericSetting extends AbstractSetting {
         }
     });
 
-    private NumericSetting(Map<String, Setting<?>> settings) {
+    ForecastNumericSetting(Map<String, Setting<?>> settings) {
         super(settings);
     }
 
-    public static synchronized NumericSetting getInstance() {
+    public static synchronized ForecastNumericSetting getInstance() {
         if (INSTANCE == null) {
-            INSTANCE = new NumericSetting(settings);
+            INSTANCE = new ForecastNumericSetting(settings);
         }
         return INSTANCE;
     }
 
     /**
-     * Whether AD plugin is enabled.  If disabled, AD plugin rejects RESTful requests and stop all AD jobs.
-     * @return whether AD plugin is enabled.
+     * @return the max number of categorical fields
      */
     public static int maxCategoricalFields() {
-        return NumericSetting.getInstance().getSettingValue(NumericSetting.CATEGORY_FIELD_LIMIT);
+        return ForecastNumericSetting.getInstance().getSettingValue(ForecastNumericSetting.CATEGORY_FIELD_LIMIT);
     }
 }
