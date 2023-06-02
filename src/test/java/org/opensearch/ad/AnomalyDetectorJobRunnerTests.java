@@ -53,15 +53,12 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
@@ -89,7 +86,10 @@ import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.google.common.collect.ImmutableList;
 
@@ -588,7 +588,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         verify(nodeStateManager, times(0)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
-        assertTrue(testAppender.containExceptionMsg(AnomalyDetectionException.class, "fail to get detector"));
+        assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get detector"));
     }
 
     @SuppressWarnings("unchecked")
@@ -617,7 +617,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         verify(nodeStateManager, times(1)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
-        assertTrue(testAppender.containExceptionMsg(AnomalyDetectionException.class, "fail to get job"));
+        assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get job"));
     }
 
     @SuppressWarnings("unchecked")
@@ -640,7 +640,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         verify(nodeStateManager, times(0)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
-        assertTrue(testAppender.containExceptionMsg(AnomalyDetectionException.class, "fail to get detector"));
+        assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get detector"));
     }
 
     @SuppressWarnings("unchecked")
@@ -669,7 +669,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         verify(nodeStateManager, times(1)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
-        assertTrue(testAppender.containExceptionMsg(AnomalyDetectionException.class, "fail to get job"));
+        assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get job"));
     }
 
     @SuppressWarnings("unchecked")

@@ -41,8 +41,6 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
@@ -56,6 +54,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.test.transport.MockTransportService;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.collect.ImmutableList;
 
@@ -128,12 +128,12 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         return TestHelpers.randomDetector(features, testIndex, detectionIntervalInMinutes, timeField);
     }
 
-    public ADTask randomCreatedADTask(String taskId, AnomalyDetector detector, DetectionDateRange detectionDateRange) {
+    public ADTask randomCreatedADTask(String taskId, AnomalyDetector detector, DateRange detectionDateRange) {
         String detectorId = detector == null ? null : detector.getDetectorId();
         return randomCreatedADTask(taskId, detector, detectorId, detectionDateRange);
     }
 
-    public ADTask randomCreatedADTask(String taskId, AnomalyDetector detector, String detectorId, DetectionDateRange detectionDateRange) {
+    public ADTask randomCreatedADTask(String taskId, AnomalyDetector detector, String detectorId, DateRange detectionDateRange) {
         return randomADTask(taskId, detector, detectorId, detectionDateRange, ADTaskState.CREATED);
     }
 
@@ -141,7 +141,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         String taskId,
         AnomalyDetector detector,
         String detectorId,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         ADTaskState state
     ) {
         ADTask.Builder builder = ADTask
@@ -224,7 +224,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public ADTask startHistoricalAnalysis(Instant startTime, Instant endTime) throws IOException {
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+        DateRange dateRange = new DateRange(startTime, endTime);
         AnomalyDetector detector = TestHelpers
             .randomDetector(ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
         String detectorId = createDetector(detector);
@@ -241,7 +241,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public ADTask startHistoricalAnalysis(String detectorId, Instant startTime, Instant endTime) throws IOException {
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+        DateRange dateRange = new DateRange(startTime, endTime);
         AnomalyDetectorJobRequest request = new AnomalyDetectorJobRequest(
             detectorId,
             dateRange,

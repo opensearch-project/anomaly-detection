@@ -23,9 +23,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
@@ -33,7 +30,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultResponse;
@@ -50,6 +46,10 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.search.SearchHits;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 public class ExecuteADResultResponseRecorder {
     private static final Logger log = LogManager.getLogger(ExecuteADResultResponseRecorder.class);
@@ -348,12 +348,12 @@ public class ExecuteADResultResponseRecorder {
     ) {
         nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {
-                listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get detector"));
+                listener.onFailure(new TimeSeriesException(detectorId, "fail to get detector"));
                 return;
             }
             nodeStateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(jobOptional -> {
                 if (!jobOptional.isPresent()) {
-                    listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get job"));
+                    listener.onFailure(new TimeSeriesException(detectorId, "fail to get job"));
                     return;
                 }
 
@@ -384,7 +384,7 @@ public class ExecuteADResultResponseRecorder {
                             }
                         })
                     );
-            }, e -> listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get job"))));
-        }, e -> listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get detector"))));
+            }, e -> listener.onFailure(new TimeSeriesException(detectorId, "fail to get job"))));
+        }, e -> listener.onFailure(new TimeSeriesException(detectorId, "fail to get detector"))));
     }
 }

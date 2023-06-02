@@ -26,11 +26,8 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesReference;
@@ -47,6 +44,9 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -216,9 +216,9 @@ public final class RestHandlerUtils {
             } else {
                 RestStatus status = isBadRequest(e) ? BAD_REQUEST : INTERNAL_SERVER_ERROR;
                 String errorMessage = generalErrorMessage;
-                if (isBadRequest(e) || e instanceof AnomalyDetectionException) {
+                if (isBadRequest(e) || e instanceof TimeSeriesException) {
                     errorMessage = e.getMessage();
-                } else if (cause != null && (isBadRequest(cause) || cause instanceof AnomalyDetectionException)) {
+                } else if (cause != null && (isBadRequest(cause) || cause instanceof TimeSeriesException)) {
                     errorMessage = cause.getMessage();
                 }
                 actionListener.onFailure(new OpenSearchStatusException(errorMessage, status));

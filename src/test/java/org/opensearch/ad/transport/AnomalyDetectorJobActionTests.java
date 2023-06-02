@@ -27,7 +27,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -42,6 +41,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
@@ -116,7 +116,7 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testAdJobRequest() throws IOException {
-        DetectionDateRange detectionDateRange = new DetectionDateRange(Instant.MIN, Instant.now());
+        DateRange detectionDateRange = new DateRange(Instant.MIN, Instant.now());
         request = new AnomalyDetectorJobRequest("1234", detectionDateRange, false, 4567, 7890, "_start");
 
         BytesStreamOutput out = new BytesStreamOutput();

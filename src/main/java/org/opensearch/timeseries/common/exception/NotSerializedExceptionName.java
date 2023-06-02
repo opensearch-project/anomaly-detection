@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
 import java.util.Optional;
 
@@ -27,23 +27,23 @@ import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
  * check its root cause message.
  *
  */
-public enum NotSerializedADExceptionName {
+public enum NotSerializedExceptionName {
 
     RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ResourceNotFoundException("", ""))),
     LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new LimitExceededException("", "", false))),
     END_RUN_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new EndRunException("", "", false))),
-    ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new AnomalyDetectionException("", ""))),
+    ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new TimeSeriesException("", ""))),
     INTERNAL_FAILURE_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new InternalFailure("", ""))),
     CLIENT_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ClientException("", ""))),
-    CANCELLATION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ADTaskCancelledException("", ""))),
+    CANCELLATION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new TaskCancelledException("", ""))),
     DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new DuplicateTaskException(""))),
-    AD_VERSION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ADVersionException(""))),
-    AD_VALIDATION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ADValidationException("", null, null)));
+    VERSION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new VersionException(""))),
+    VALIDATION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ValidationException("", null, null)));
 
-    private static final Logger LOG = LogManager.getLogger(NotSerializedADExceptionName.class);
+    private static final Logger LOG = LogManager.getLogger(NotSerializedExceptionName.class);
     private final String name;
 
-    NotSerializedADExceptionName(String name) {
+    NotSerializedExceptionName(String name) {
         this.name = name;
     }
 
@@ -59,14 +59,14 @@ public enum NotSerializedADExceptionName {
      * @param adID Detector Id.
      * @return converted AnomalyDetectionException
      */
-    public static Optional<AnomalyDetectionException> convertWrappedAnomalyDetectionException(
+    public static Optional<TimeSeriesException> convertWrappedAnomalyDetectionException(
         NotSerializableExceptionWrapper exception,
         String adID
     ) {
         String exceptionMsg = exception.getMessage().trim();
 
-        AnomalyDetectionException convertedException = null;
-        for (NotSerializedADExceptionName adException : values()) {
+        TimeSeriesException convertedException = null;
+        for (NotSerializedExceptionName adException : values()) {
             if (exceptionMsg.startsWith(adException.getName())) {
                 switch (adException) {
                     case RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE:
@@ -79,7 +79,7 @@ public enum NotSerializedADExceptionName {
                         convertedException = new EndRunException(adID, exceptionMsg, false);
                         break;
                     case ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new AnomalyDetectionException(adID, exceptionMsg);
+                        convertedException = new TimeSeriesException(adID, exceptionMsg);
                         break;
                     case INTERNAL_FAILURE_NAME_UNDERSCORE:
                         convertedException = new InternalFailure(adID, exceptionMsg);
@@ -88,16 +88,16 @@ public enum NotSerializedADExceptionName {
                         convertedException = new ClientException(adID, exceptionMsg);
                         break;
                     case CANCELLATION_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ADTaskCancelledException(exceptionMsg, "");
+                        convertedException = new TaskCancelledException(exceptionMsg, "");
                         break;
                     case DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE:
                         convertedException = new DuplicateTaskException(exceptionMsg);
                         break;
-                    case AD_VERSION_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ADVersionException(exceptionMsg);
+                    case VERSION_EXCEPTION_NAME_UNDERSCORE:
+                        convertedException = new VersionException(exceptionMsg);
                         break;
-                    case AD_VALIDATION_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ADValidationException(exceptionMsg, null, null);
+                    case VALIDATION_EXCEPTION_NAME_UNDERSCORE:
+                        convertedException = new ValidationException(exceptionMsg, null, null);
                         break;
                     default:
                         LOG.warn(new ParameterizedMessage("Unexpected AD exception {}", adException));

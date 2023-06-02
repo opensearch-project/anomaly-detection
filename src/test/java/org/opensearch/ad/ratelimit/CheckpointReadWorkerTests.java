@@ -51,7 +51,6 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -75,6 +74,7 @@ import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.stats.StatNames;
 
 import test.org.opensearch.ad.util.MLUtil;

@@ -26,11 +26,9 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
@@ -45,6 +43,8 @@ import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.model.ValidationAspect;
 
 import com.google.common.collect.ImmutableList;
 
@@ -122,8 +122,8 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             try {
                 detector = AnomalyDetector.parse(parser);
             } catch (Exception ex) {
-                if (ex instanceof ADValidationException) {
-                    ADValidationException ADException = (ADValidationException) ex;
+                if (ex instanceof ValidationException) {
+                    ValidationException ADException = (ValidationException) ex;
                     DetectorValidationIssue issue = new DetectorValidationIssue(
                         ADException.getAspect(),
                         ADException.getType(),

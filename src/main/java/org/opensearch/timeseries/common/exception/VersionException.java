@@ -9,18 +9,18 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
 /**
  * AD version incompatible exception.
  */
-public class ADVersionException extends AnomalyDetectionException {
+public class VersionException extends TimeSeriesException {
 
-    public ADVersionException(String message) {
+    public VersionException(String message) {
         super(message);
     }
 
-    public ADVersionException(String anomalyDetectorId, String message) {
+    public VersionException(String anomalyDetectorId, String message) {
         super(anomalyDetectorId, message);
     }
 }

@@ -32,12 +32,12 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.timeseries.model.DateRange;
 
 import com.google.common.collect.ImmutableList;
 
@@ -188,7 +188,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Instant now = Instant.now();
         Response response = startAnomalyDetector(
             aliceDetector.getDetectorId(),
-            new DetectionDateRange(now.minus(10, ChronoUnit.DAYS), now),
+            new DateRange(now.minus(10, ChronoUnit.DAYS), now),
             aliceClient
         );
         MatcherAssert.assertThat(response.getStatusLine().toString(), CoreMatchers.containsString("200 OK"));
@@ -343,9 +343,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Instant now = Instant.now();
         Exception exception = expectThrows(
             IOException.class,
-            () -> {
-                startAnomalyDetector(aliceDetector.getDetectorId(), new DetectionDateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
-            }
+            () -> { startAnomalyDetector(aliceDetector.getDetectorId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient); }
         );
         Assert
             .assertTrue(

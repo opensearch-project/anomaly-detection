@@ -47,13 +47,6 @@ import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.ClientException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.InternalFailure;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.NotSerializedADExceptionName;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.feature.CompositeRetriever;
@@ -65,13 +58,11 @@ import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
@@ -92,7 +83,16 @@ import org.opensearch.node.NodeClosedException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.ClientException;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.InternalFailure;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.NotSerializedExceptionName;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.ParseUtils;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.ActionNotFoundTransportException;
 import org.opensearch.transport.ConnectTransportException;
@@ -254,7 +254,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }, e -> {
                 // If exception is AnomalyDetectionException and it should not be counted in stats,
                 // we will not count it in failure stats.
-                if (!(e instanceof AnomalyDetectionException) || ((AnomalyDetectionException) e).isCountedInStats()) {
+                if (!(e instanceof TimeSeriesException) || ((TimeSeriesException) e).isCountedInStats()) {
                     adStats.getStat(StatNames.AD_EXECUTE_FAIL_COUNT.getName()).increment();
                     if (hcDetectors.contains(adID)) {
                         adStats.getStat(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName()).increment();
@@ -382,7 +382,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         private void handleException(Exception e) {
             Exception convertedException = convertedQueryFailureException(e, detectorId);
-            if (false == (convertedException instanceof AnomalyDetectionException)) {
+            if (false == (convertedException instanceof TimeSeriesException)) {
                 Throwable cause = ExceptionsHelper.unwrapCause(convertedException);
                 convertedException = new InternalFailure(detectorId, cause);
             }
@@ -711,14 +711,14 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         Exception causeException = (Exception) cause;
 
-        if (causeException instanceof AnomalyDetectionException) {
+        if (causeException instanceof TimeSeriesException) {
             failure.set(causeException);
         } else if (causeException instanceof NotSerializableExceptionWrapper) {
             // we only expect this happens on AD exceptions
-            Optional<AnomalyDetectionException> actualException = NotSerializedADExceptionName
+            Optional<TimeSeriesException> actualException = NotSerializedExceptionName
                 .convertWrappedAnomalyDetectionException((NotSerializableExceptionWrapper) causeException, adID);
             if (actualException.isPresent()) {
-                AnomalyDetectionException adException = actualException.get();
+                TimeSeriesException adException = actualException.get();
                 failure.set(adException);
                 if (adException instanceof ResourceNotFoundException) {
                     // During a rolling upgrade or blue/green deployment, ResourceNotFoundException might be caused by old node using RCF
@@ -753,8 +753,8 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     void handleExecuteException(Exception ex, ActionListener<AnomalyResultResponse> listener, String adID) {
         if (ex instanceof ClientException) {
             listener.onFailure(ex);
-        } else if (ex instanceof AnomalyDetectionException) {
-            listener.onFailure(new InternalFailure((AnomalyDetectionException) ex));
+        } else if (ex instanceof TimeSeriesException) {
+            listener.onFailure(new InternalFailure((TimeSeriesException) ex));
         } else {
             Throwable cause = ExceptionsHelper.unwrapCause(ex);
             listener.onFailure(new InternalFailure(adID, cause));
@@ -990,7 +990,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
                 ActionListener<Void> trainModelListener = ActionListener
                     .wrap(res -> { LOG.info("Succeeded in training {}", detectorId); }, exception -> {
-                        if (exception instanceof AnomalyDetectionException) {
+                        if (exception instanceof TimeSeriesException) {
                             // e.g., partitioned model exceeds memory limit
                             stateManager.setException(detectorId, exception);
                         } else if (exception instanceof IllegalArgumentException) {
@@ -1021,7 +1021,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }, exception -> {
             if (exception instanceof OpenSearchTimeoutException) {
                 stateManager.setException(detectorId, new InternalFailure(detectorId, "Time out while getting training data", exception));
-            } else if (exception instanceof AnomalyDetectionException) {
+            } else if (exception instanceof TimeSeriesException) {
                 // e.g., Invalid search query
                 stateManager.setException(detectorId, exception);
             } else {
@@ -1081,7 +1081,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } else {
                 String errorMsg = String.format(Locale.ROOT, "Fail to get checkpoint state for %s", detectorId);
                 LOG.error(errorMsg, exception);
-                stateManager.setException(detectorId, new AnomalyDetectionException(errorMsg, exception));
+                stateManager.setException(detectorId, new TimeSeriesException(errorMsg, exception));
             }
         }));
 

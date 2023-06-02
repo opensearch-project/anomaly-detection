@@ -25,12 +25,12 @@ import org.junit.Test;
 import org.mockito.ArgumentMatchers;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
     private MultiEntityResultHandler handler;
@@ -88,7 +88,7 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             assertTrue("Should not reach here ", false);
             verified.countDown();
         }, exception -> {
-            assertTrue(exception instanceof AnomalyDetectionException);
+            assertTrue(exception instanceof TimeSeriesException);
             assertTrue(
                 "actual: " + exception.getMessage(),
                 exception.getMessage().contains(MultiEntityResultHandler.CANNOT_SAVE_RESULT_ERR_MSG)
@@ -154,7 +154,7 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             assertTrue("Should not reach here ", false);
             verified.countDown();
         }, exception -> {
-            assertTrue(exception instanceof AnomalyDetectionException);
+            assertTrue(exception instanceof TimeSeriesException);
             verified.countDown();
         }));
         assertTrue(verified.await(100, TimeUnit.SECONDS));
@@ -169,7 +169,7 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             assertTrue("Should not reach here ", false);
             verified.countDown();
         }, exception -> {
-            assertTrue(exception instanceof AnomalyDetectionException);
+            assertTrue(exception instanceof TimeSeriesException);
             verified.countDown();
         }));
         assertTrue(verified.await(100, TimeUnit.SECONDS));

@@ -14,6 +14,7 @@ package org.opensearch.ad.common.exception;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
 
 public class LimitExceededExceptionTests {
 

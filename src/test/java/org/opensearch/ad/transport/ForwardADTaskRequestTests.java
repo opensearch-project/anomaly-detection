@@ -27,7 +27,6 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.ADVersionException;
 import org.opensearch.ad.mock.transport.MockADTaskAction_1_0;
 import org.opensearch.ad.mock.transport.MockForwardADTaskRequest_1_0;
 import org.opensearch.ad.model.ADTask;
@@ -38,6 +37,7 @@ import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.common.exception.VersionException;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
@@ -56,7 +56,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
 
     public void testNullVersion() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of());
-        expectThrows(ADVersionException.class, () -> new ForwardADTaskRequest(detector, null, null, null, null, null));
+        expectThrows(VersionException.class, () -> new ForwardADTaskRequest(detector, null, null, null, null, null));
     }
 
     public void testNullDetectorIdAndTaskAction() throws IOException {
@@ -114,7 +114,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
         // Parse old forward AD task request of 1.0, will reject it directly,
         // so if old node is coordinating node, it can't use new node as worker node to run task.
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        expectThrows(ADVersionException.class, () -> new ForwardADTaskRequest(input));
+        expectThrows(VersionException.class, () -> new ForwardADTaskRequest(input));
     }
 
     public void testParseRequestFromNewNodeWithOldCode_StartAction() throws IOException {

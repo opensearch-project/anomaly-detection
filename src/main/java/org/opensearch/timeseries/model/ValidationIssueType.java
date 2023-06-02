@@ -9,11 +9,12 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+package org.opensearch.timeseries.model;
 
 import org.opensearch.ad.Name;
+import org.opensearch.ad.model.AnomalyDetector;
 
-public enum DetectorValidationIssueType implements Name {
+public enum ValidationIssueType implements Name {
     NAME(AnomalyDetector.NAME_FIELD),
     TIMEFIELD_FIELD(AnomalyDetector.TIMEFIELD_FIELD),
     SHINGLE_SIZE_FIELD(AnomalyDetector.SHINGLE_SIZE_FIELD),
@@ -31,7 +32,7 @@ public enum DetectorValidationIssueType implements Name {
 
     private String name;
 
-    DetectorValidationIssueType(String name) {
+    ValidationIssueType(String name) {
         this.name = name;
     }
 

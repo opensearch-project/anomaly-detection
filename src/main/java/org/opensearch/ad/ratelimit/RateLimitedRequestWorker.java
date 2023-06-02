@@ -38,13 +38,13 @@ import org.opensearch.ad.ExpiringState;
 import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 /**
  * HCAD can bombard Opensearch with “thundering herd” traffic, in which many entities
@@ -557,8 +557,8 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                 triggerProcess();
             } catch (Exception e) {
                 LOG.error(String.format(Locale.ROOT, "Failed to process requests from %s", getWorkerName()), e);
-                if (e != null && e instanceof AnomalyDetectionException) {
-                    AnomalyDetectionException adExep = (AnomalyDetectionException) e;
+                if (e != null && e instanceof TimeSeriesException) {
+                    TimeSeriesException adExep = (TimeSeriesException) e;
                     nodeStateManager.setException(adExep.getAnomalyDetectorId(), adExep);
                 }
             }

@@ -83,7 +83,6 @@ import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.DuplicateTaskException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -93,7 +92,6 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
@@ -129,7 +127,9 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
@@ -155,7 +155,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private ThreadPool threadPool;
     private IndexAnomalyDetectorJobActionHandler indexAnomalyDetectorJobActionHandler;
 
-    private DetectionDateRange detectionDateRange;
+    private DateRange detectionDateRange;
     private ActionListener<AnomalyDetectorJobResponse> listener;
 
     private DiscoveryNode node1;
@@ -207,7 +207,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         Instant now = Instant.now();
         Instant startTime = now.minus(10, ChronoUnit.DAYS);
         Instant endTime = now.minus(1, ChronoUnit.DAYS);
-        detectionDateRange = new DetectionDateRange(startTime, endTime);
+        detectionDateRange = new DateRange(startTime, endTime);
 
         settings = Settings
             .builder()
@@ -1002,7 +1002,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     @SuppressWarnings("unchecked")
     public void testStartHistoricalAnalysisWithNoOwningNode() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of());
-        DetectionDateRange detectionDateRange = TestHelpers.randomDetectionDateRange();
+        DateRange detectionDateRange = TestHelpers.randomDetectionDateRange();
         User user = null;
         int availableTaskSlots = randomIntBetween(1, 10);
         ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
@@ -1455,7 +1455,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     @SuppressWarnings("unchecked")
     public void testStartDetectorWithException() throws IOException {
         AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
-        DetectionDateRange detectionDateRange = randomDetectionDateRange();
+        DateRange detectionDateRange = randomDetectionDateRange();
         User user = null;
         ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
         when(detectionIndices.doesDetectorStateIndexExist()).thenReturn(false);

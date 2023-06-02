@@ -9,9 +9,9 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
-public class DuplicateTaskException extends AnomalyDetectionException {
+public class DuplicateTaskException extends TimeSeriesException {
 
     public DuplicateTaskException(String msg) {
         super(msg);

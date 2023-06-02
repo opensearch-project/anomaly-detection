@@ -12,8 +12,8 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.model.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.timeseries.model.ParseUtils.getUserContext;
 
 import java.time.Clock;
 import java.util.HashMap;
@@ -27,15 +27,11 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.model.DetectorValidationIssueType;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -52,6 +48,10 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.transport.TransportService;
 
 public class ValidateAnomalyDetectorTransportAction extends
@@ -136,9 +136,9 @@ public class ValidateAnomalyDetectorTransportAction extends
             // forcing response to be empty
             listener.onResponse(new ValidateAnomalyDetectorResponse((DetectorValidationIssue) null));
         }, exception -> {
-            if (exception instanceof ADValidationException) {
+            if (exception instanceof ValidationException) {
                 // ADValidationException is converted as validation issues returned as response to user
-                DetectorValidationIssue issue = parseADValidationException((ADValidationException) exception);
+                DetectorValidationIssue issue = parseADValidationException((ValidationException) exception);
                 listener.onResponse(new ValidateAnomalyDetectorResponse(issue));
                 return;
             }
@@ -176,7 +176,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         }, listener);
     }
 
-    protected DetectorValidationIssue parseADValidationException(ADValidationException exception) {
+    protected DetectorValidationIssue parseADValidationException(ValidationException exception) {
         String originalErrorMessage = exception.getMessage();
         String errorMessage = "";
         Map<String, String> subIssues = null;
@@ -243,11 +243,7 @@ public class ValidateAnomalyDetectorTransportAction extends
                 // parsed to a DetectorValidationIssue that is returned to
                 // the user as a response indicating index doesn't exist
                 DetectorValidationIssue issue = parseADValidationException(
-                    new ADValidationException(
-                        ADCommonMessages.INDEX_NOT_FOUND,
-                        DetectorValidationIssueType.INDICES,
-                        ValidationAspect.DETECTOR
-                    )
+                    new ValidationException(ADCommonMessages.INDEX_NOT_FOUND, ValidationIssueType.INDICES, ValidationAspect.DETECTOR)
                 );
                 listener.onResponse(new ValidateAnomalyDetectorResponse(issue));
                 return;

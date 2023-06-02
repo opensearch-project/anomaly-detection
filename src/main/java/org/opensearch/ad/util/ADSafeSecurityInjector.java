@@ -17,12 +17,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.Strings;
+import org.opensearch.timeseries.common.exception.EndRunException;
 
 public class ADSafeSecurityInjector extends SafeSecurityInjector {
     private static final Logger LOG = LogManager.getLogger(ADSafeSecurityInjector.class);

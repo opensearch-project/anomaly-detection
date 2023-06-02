@@ -25,8 +25,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
@@ -37,6 +35,8 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyResult> {
     private static final Logger LOG = LogManager.getLogger(AnomalyResultBulkIndexHandler.class);
@@ -90,7 +90,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
                     } else {
                         String error = "Creating anomaly result index with mappings call not acknowledged";
                         LOG.error(error);
-                        listener.onFailure(new AnomalyDetectionException(error));
+                        listener.onFailure(new TimeSeriesException(error));
                     }
                 }, exception -> {
                     if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
@@ -103,12 +103,12 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
             } else {
                 bulkSaveDetectorResult(anomalyResults, listener);
             }
-        } catch (AnomalyDetectionException e) {
+        } catch (TimeSeriesException e) {
             listener.onFailure(e);
         } catch (Exception e) {
             String error = "Failed to bulk index anomaly result";
             LOG.error(error, e);
-            listener.onFailure(new AnomalyDetectionException(error, e));
+            listener.onFailure(new TimeSeriesException(error, e));
         }
     }
 
@@ -126,14 +126,14 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
             } catch (Exception e) {
                 String error = "Failed to prepare request to bulk index anomaly results";
                 LOG.error(error, e);
-                throw new AnomalyDetectionException(error);
+                throw new TimeSeriesException(error);
             }
         });
         client.bulk(bulkRequestBuilder.request(), ActionListener.wrap(r -> {
             if (r.hasFailures()) {
                 String failureMessage = r.buildFailureMessage();
                 LOG.warn("Failed to bulk index AD result " + failureMessage);
-                listener.onFailure(new AnomalyDetectionException(failureMessage));
+                listener.onFailure(new TimeSeriesException(failureMessage));
             } else {
                 listener.onResponse(r);
             }

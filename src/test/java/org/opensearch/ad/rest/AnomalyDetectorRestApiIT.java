@@ -40,8 +40,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.client.Response;
@@ -54,6 +52,8 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
@@ -1174,7 +1174,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Instant now = Instant.now();
         ResponseException e = expectThrows(
             ResponseException.class,
-            () -> startAnomalyDetector(detector.getDetectorId(), new DetectionDateRange(now.minus(10, ChronoUnit.DAYS), now), client())
+            () -> startAnomalyDetector(detector.getDetectorId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), client())
         );
         assertTrue(e.getMessage().contains("Can't start detector job as no enabled features configured"));
     }
@@ -1183,11 +1183,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
         Assert.assertNotNull(detector.getDetectorId());
         Instant now = Instant.now();
-        Response response = startAnomalyDetector(
-            detector.getDetectorId(),
-            new DetectionDateRange(now.minus(10, ChronoUnit.DAYS), now),
-            client()
-        );
+        Response response = startAnomalyDetector(detector.getDetectorId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), client());
         Assert.assertThat(response.getStatusLine().toString(), CoreMatchers.containsString("200 OK"));
 
         // Deleting detector should fail while its running

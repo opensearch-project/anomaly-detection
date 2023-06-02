@@ -42,8 +42,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.MemoryTracker.Origin;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
@@ -61,6 +59,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
@@ -665,7 +665,7 @@ public class PriorityCache implements EntityCache {
             });
         } catch (Exception e) {
             // will be thrown to ES's transport broadcast handler
-            throw new AnomalyDetectionException("Fail to maintain cache", e);
+            throw new TimeSeriesException("Fail to maintain cache", e);
         }
 
     }

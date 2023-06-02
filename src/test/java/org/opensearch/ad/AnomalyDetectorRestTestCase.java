@@ -27,7 +27,6 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -45,6 +44,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+import org.opensearch.timeseries.model.DateRange;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -165,7 +165,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return detectorInIndex;
     }
 
-    protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, RestClient client) throws IOException {
+    protected Response startAnomalyDetector(String detectorId, DateRange dateRange, RestClient client) throws IOException {
         return TestHelpers
             .makeRequest(
                 client,

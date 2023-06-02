@@ -35,11 +35,9 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
@@ -54,6 +52,8 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -170,7 +170,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
-        assertTrue(value instanceof ADValidationException);
+        assertTrue(value instanceof ValidationException);
         String errorMsg = String
             .format(
                 Locale.ROOT,
@@ -224,7 +224,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
         verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
         verify(channel).onFailure(response.capture());
         Exception value = response.getValue();
-        assertTrue(value instanceof ADValidationException);
+        assertTrue(value instanceof ValidationException);
         String errorMsg = String
             .format(
                 Locale.ROOT,

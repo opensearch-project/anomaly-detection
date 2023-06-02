@@ -9,12 +9,12 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
 /**
  * All exception visible to AD transport layer's client is under ClientException.
  */
-public class ClientException extends AnomalyDetectionException {
+public class ClientException extends TimeSeriesException {
 
     public ClientException(String message) {
         super(message);

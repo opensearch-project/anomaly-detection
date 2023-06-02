@@ -73,17 +73,11 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.model.DataByFeatureId;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.model.DetectorValidationIssueType;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ExpectedValueList;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.model.TimeConfiguration;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.client.AdminClient;
@@ -139,6 +133,12 @@ import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.TimeConfiguration;
+import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
@@ -359,8 +359,8 @@ public class TestHelpers {
         );
     }
 
-    public static DetectionDateRange randomDetectionDateRange() {
-        return new DetectionDateRange(
+    public static DateRange randomDetectionDateRange() {
+        return new DateRange(
             Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(10, ChronoUnit.DAYS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
@@ -1483,7 +1483,7 @@ public class TestHelpers {
     public static DetectorValidationIssue randomDetectorValidationIssue() {
         DetectorValidationIssue issue = new DetectorValidationIssue(
             ValidationAspect.DETECTOR,
-            DetectorValidationIssueType.NAME,
+            ValidationIssueType.NAME,
             randomAlphaOfLength(5)
         );
         return issue;
@@ -1492,7 +1492,7 @@ public class TestHelpers {
     public static DetectorValidationIssue randomDetectorValidationIssueWithSubIssues(Map<String, String> subIssues) {
         DetectorValidationIssue issue = new DetectorValidationIssue(
             ValidationAspect.DETECTOR,
-            DetectorValidationIssueType.NAME,
+            ValidationIssueType.NAME,
             randomAlphaOfLength(5),
             subIssues,
             null
@@ -1503,7 +1503,7 @@ public class TestHelpers {
     public static DetectorValidationIssue randomDetectorValidationIssueWithDetectorIntervalRec(long intervalRec) {
         DetectorValidationIssue issue = new DetectorValidationIssue(
             ValidationAspect.MODEL,
-            DetectorValidationIssueType.DETECTION_INTERVAL,
+            ValidationIssueType.DETECTION_INTERVAL,
             ADCommonMessages.DETECTOR_INTERVAL_REC + intervalRec,
             null,
             new IntervalTimeConfiguration(intervalRec, ChronoUnit.MINUTES)

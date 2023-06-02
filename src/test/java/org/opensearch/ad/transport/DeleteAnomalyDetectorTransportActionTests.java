@@ -20,8 +20,8 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.collect.ImmutableList;
 

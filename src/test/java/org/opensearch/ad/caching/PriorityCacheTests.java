@@ -46,8 +46,6 @@ import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
@@ -66,6 +64,8 @@ import org.opensearch.monitor.jvm.JvmInfo.Mem;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.Scheduler.ScheduledCancellable;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 public class PriorityCacheTests extends AbstractCacheTest {
     private static final Logger LOG = LogManager.getLogger(PriorityCacheTests.class);
@@ -468,7 +468,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
             new Thread(new FailedCleanRunnable(scheduledThreadCountDown)).start();
 
             entityCache.maintenance();
-        } catch (AnomalyDetectionException e) {
+        } catch (TimeSeriesException e) {
             scheduledThreadCountDown.countDown();
         }
 

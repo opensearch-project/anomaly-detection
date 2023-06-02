@@ -17,7 +17,7 @@ import static org.opensearch.ad.constant.ADCommonMessages.EXCEED_HISTORICAL_ANAL
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
-import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
+import static org.opensearch.timeseries.model.ParseUtils.isNullOrEmpty;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,8 +37,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.common.exception.DuplicateTaskException;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -47,6 +45,8 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.timeseries.common.exception.DuplicateTaskException;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;

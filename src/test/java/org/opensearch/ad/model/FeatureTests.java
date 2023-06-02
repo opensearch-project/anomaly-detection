@@ -17,6 +17,7 @@ import java.util.Locale;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.model.Feature;
 
 public class FeatureTests extends OpenSearchTestCase {
 
