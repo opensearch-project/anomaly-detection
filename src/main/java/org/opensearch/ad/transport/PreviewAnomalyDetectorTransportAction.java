@@ -15,10 +15,10 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_PREVIEW_DETECT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
-import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -36,9 +36,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.ClientException;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -55,6 +52,9 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.common.exception.ClientException;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
@@ -247,6 +247,6 @@ public class PreviewAnomalyDetectorTransportAction extends
                     listener.onFailure(e);
                 }
             }
-        }, exception -> { listener.onFailure(new AnomalyDetectionException("Could not execute get query to find detector")); });
+        }, exception -> { listener.onFailure(new TimeSeriesException("Could not execute get query to find detector")); });
     }
 }

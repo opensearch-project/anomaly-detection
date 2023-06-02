@@ -32,7 +32,6 @@ import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.ModelManager;
@@ -44,6 +43,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.transport.ConnectTransportException;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportException;
@@ -218,7 +218,7 @@ public class RCFPollingTests extends AbstractADTest {
             clusterService
         );
         action.doExecute(mock(Task.class), request, future);
-        assertException(future, AnomalyDetectionException.class, RCFPollingTransportAction.NO_NODE_FOUND_MSG);
+        assertException(future, TimeSeriesException.class, RCFPollingTransportAction.NO_NODE_FOUND_MSG);
     }
 
     /**

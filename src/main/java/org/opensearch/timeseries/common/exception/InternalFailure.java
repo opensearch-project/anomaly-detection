@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
 /**
  * Exception for root cause unknown failure. Maybe transient. Client can continue the detector running.
@@ -29,7 +29,7 @@ public class InternalFailure extends ClientException {
         super(anomalyDetectorId, cause);
     }
 
-    public InternalFailure(AnomalyDetectionException cause) {
+    public InternalFailure(TimeSeriesException cause) {
         super(cause.getAnomalyDetectorId(), cause);
     }
 }

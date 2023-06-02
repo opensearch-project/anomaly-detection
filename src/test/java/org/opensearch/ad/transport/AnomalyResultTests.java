@@ -70,12 +70,7 @@ import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.feature.FeatureManager;
@@ -114,6 +109,11 @@ import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.InternalFailure;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.stats.StatNames;
@@ -844,7 +844,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        assertException(listener, AnomalyDetectionException.class);
+        assertException(listener, TimeSeriesException.class);
 
         if (!temporary) {
             verify(hashRing, times(numberOfBuildCall)).buildCirclesForRealtimeAD();
@@ -896,7 +896,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        Throwable exception = assertException(listener, AnomalyDetectionException.class);
+        Throwable exception = assertException(listener, TimeSeriesException.class);
         assertThat(exception.getMessage(), containsString(AnomalyResultTransportAction.NODE_UNRESPONSIVE_ERR_MSG));
     }
 
@@ -1359,7 +1359,7 @@ public class AnomalyResultTests extends AbstractADTest {
                 .when(featureQuery)
                 .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
         } else if (mode == FeatureTestMode.AD_EXCEPTION) {
-            doThrow(AnomalyDetectionException.class)
+            doThrow(TimeSeriesException.class)
                 .when(featureQuery)
                 .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
         }
@@ -1476,7 +1476,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        assertException(listener, AnomalyDetectionException.class, errLogMsg);
+        assertException(listener, TimeSeriesException.class, errLogMsg);
     }
 
     private void globalBlockTemplate(BlockType type, String errLogMsg) {

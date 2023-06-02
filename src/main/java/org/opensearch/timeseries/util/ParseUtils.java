@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.util;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_USER_INFO;
 import static org.opensearch.ad.constant.ADCommonMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
@@ -45,15 +45,12 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
+import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ParsingException;
@@ -82,7 +79,11 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.carrotsearch.hppc.DoubleArrayList;
 import com.google.common.collect.ImmutableList;
@@ -452,7 +453,7 @@ public final class ParseUtils {
         } else if (query instanceof BoolQueryBuilder) {
             ((BoolQueryBuilder) query).filter(boolQueryBuilder);
         } else {
-            throw new AnomalyDetectionException("Search API does not support queries other than BoolQuery");
+            throw new TimeSeriesException("Search API does not support queries other than BoolQuery");
         }
         return searchSourceBuilder;
     }
@@ -564,10 +565,10 @@ public final class ParseUtils {
                     function.accept(detector);
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
-                    listener.onFailure(new AnomalyDetectionException(NO_PERMISSION_TO_ACCESS_DETECTOR + detectorId));
+                    listener.onFailure(new TimeSeriesException(NO_PERMISSION_TO_ACCESS_DETECTOR + detectorId));
                 }
             } catch (Exception e) {
-                listener.onFailure(new AnomalyDetectionException(FAIL_TO_GET_USER_INFO + detectorId));
+                listener.onFailure(new TimeSeriesException(FAIL_TO_GET_USER_INFO + detectorId));
             }
         } else {
             listener.onFailure(new ResourceNotFoundException(detectorId, FAIL_TO_FIND_CONFIG_MSG + detectorId));
@@ -615,7 +616,7 @@ public final class ParseUtils {
         if (requestedUser.getBackendRoles().isEmpty()) {
             listener
                 .onFailure(
-                    new AnomalyDetectionException(
+                    new TimeSeriesException(
                         "Filter by backend roles is enabled and User " + requestedUser.getName() + " does not have backend roles configured"
                     )
                 );
@@ -648,7 +649,7 @@ public final class ParseUtils {
      * @param xContentRegistry content registry
      * @return search source builder
      * @throws IOException throw IO exception if fail to parse feature aggregation
-     * @throws AnomalyDetectionException throw AD exception if no enabled feature
+     * @throws TimeSeriesException throw AD exception if no enabled feature
      */
     public static SearchSourceBuilder batchFeatureQuery(
         AnomalyDetector detector,
@@ -687,7 +688,7 @@ public final class ParseUtils {
             .size(MAX_BATCH_TASK_PIECE_SIZE);
 
         if (detector.getEnabledFeatureIds().size() == 0) {
-            throw new AnomalyDetectionException("No enabled feature configured").countedInStats(false);
+            throw new TimeSeriesException("No enabled feature configured").countedInStats(false);
         }
 
         for (Feature feature : detector.getFeatureAttributes()) {

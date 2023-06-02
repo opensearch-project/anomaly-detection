@@ -32,8 +32,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
@@ -63,6 +61,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
@@ -424,7 +424,7 @@ public class SearchTopAnomalyResultTransportAction extends
                     listener.onResponse(new SearchTopAnomalyResultResponse(getDescendingOrderListFromHeap(topResultsHeap)));
                 } else if (expirationEpochMs < clock.millis()) {
                     if (topResultsHeap.isEmpty()) {
-                        listener.onFailure(new AnomalyDetectionException("Timed out getting all top anomaly results. Please retry later."));
+                        listener.onFailure(new TimeSeriesException("Timed out getting all top anomaly results. Please retry later."));
                     } else {
                         logger.info("Timed out getting all top anomaly results. Sending back partial results.");
                         listener.onResponse(new SearchTopAnomalyResultResponse(getDescendingOrderListFromHeap(topResultsHeap)));

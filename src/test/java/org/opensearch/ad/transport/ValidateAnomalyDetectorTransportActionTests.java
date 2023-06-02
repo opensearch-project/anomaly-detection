@@ -24,12 +24,12 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorValidationIssueType;
-import org.opensearch.ad.model.Feature;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.base.Charsets;
@@ -69,7 +69,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertEquals(DetectorValidationIssueType.INDICES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.INDICES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains(ADCommonMessages.INDEX_NOT_FOUND));
     }
@@ -90,7 +90,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertEquals(DetectorValidationIssueType.NAME, response.getIssue().getType());
+        assertEquals(ValidationIssueType.NAME, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }
 
@@ -109,7 +109,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains(CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(maxFeature.getName()));
@@ -134,7 +134,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature aggregation query names:"));
-        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }
 
@@ -157,7 +157,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNotNull(response.getIssue());
         assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature aggregation query names:"));
         assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature names:"));
-        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }
 
@@ -179,7 +179,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature names:"));
-        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }
 
@@ -198,7 +198,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains(CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(maxFeature.getName()));
@@ -225,7 +225,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains(CommonMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(nameField));
@@ -249,7 +249,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertEquals(response.getIssue().getSubIssues().keySet().size(), 2);
-        assertEquals(DetectorValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains(CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(maxFeature.getName()));
@@ -317,7 +317,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             new TimeValue(5_000L)
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
-        assertEquals(DetectorValidationIssueType.RESULT_INDEX, response.getIssue().getType());
+        assertEquals(ValidationIssueType.RESULT_INDEX, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains(CommonMessages.INVALID_RESULT_INDEX_MAPPING));
     }
@@ -380,7 +380,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             new TimeValue(5_000L)
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
-        assertEquals(DetectorValidationIssueType.NAME, response.getIssue().getType());
+        assertEquals(ValidationIssueType.NAME, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(CommonMessages.INVALID_NAME, response.getIssue().getMessage());
     }
@@ -416,7 +416,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             new TimeValue(5_000L)
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
-        assertEquals(DetectorValidationIssueType.NAME, response.getIssue().getType());
+        assertEquals(ValidationIssueType.NAME, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains("Name should be shortened. The maximum limit is"));
     }
@@ -434,7 +434,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             new TimeValue(5_000L)
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
-        assertEquals(DetectorValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
+        assertEquals(ValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(
             String.format(Locale.ROOT, CommonMessages.NON_EXISTENT_TIMESTAMP, anomalyDetector.getTimeField()),
@@ -455,7 +455,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             new TimeValue(5_000L)
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
-        assertEquals(DetectorValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
+        assertEquals(ValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(
             String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, anomalyDetector.getTimeField()),

@@ -51,13 +51,13 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.stats.StatNames;
 
 import com.google.common.collect.ImmutableList;
@@ -70,7 +70,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     private Instant endTime;
     private String type = "error";
     private int maxOldAdTaskDocsPerDetector = 2;
-    private DetectionDateRange dateRange;
+    private DateRange dateRange;
 
     @Override
     @Before
@@ -78,7 +78,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         super.setUp();
         startTime = Instant.now().minus(10, ChronoUnit.DAYS);
         endTime = Instant.now();
-        dateRange = new DetectionDateRange(startTime, endTime);
+        dateRange = new DateRange(startTime, endTime);
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, 2000);
         createDetectorIndex();
     }
@@ -407,7 +407,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertEquals(error, exception.getMessage());
     }
 
-    private AnomalyDetectorJobRequest startDetectorJobRequest(String detectorId, DetectionDateRange dateRange) {
+    private AnomalyDetectorJobRequest startDetectorJobRequest(String detectorId, DateRange dateRange) {
         return new AnomalyDetectorJobRequest(detectorId, dateRange, false, UNASSIGNED_SEQ_NO, UNASSIGNED_PRIMARY_TERM, START_JOB);
     }
 

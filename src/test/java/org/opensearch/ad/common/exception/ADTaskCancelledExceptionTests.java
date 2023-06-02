@@ -12,13 +12,14 @@
 package org.opensearch.ad.common.exception;
 
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.common.exception.TaskCancelledException;
 
 public class ADTaskCancelledExceptionTests extends OpenSearchTestCase {
 
     public void testConstructor() {
         String message = randomAlphaOfLength(5);
         String user = randomAlphaOfLength(5);
-        ADTaskCancelledException exception = new ADTaskCancelledException(message, user);
+        TaskCancelledException exception = new TaskCancelledException(message, user);
         assertEquals(message, exception.getMessage());
         assertEquals(user, exception.getCancelledBy());
     }

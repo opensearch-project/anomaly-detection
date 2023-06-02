@@ -47,7 +47,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -66,6 +65,7 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
@@ -183,7 +183,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     // we support upto 2 category fields now
     public void testThreeCategoricalFields() throws IOException {
         expectThrows(
-            ADValidationException.class,
+            ValidationException.class,
             () -> TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a", "b", "c"))
         );
     }

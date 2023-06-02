@@ -52,12 +52,12 @@ import static org.opensearch.ad.stats.InternalStatNames.AD_DETECTOR_ASSIGNED_BAT
 import static org.opensearch.ad.stats.InternalStatNames.AD_USED_BATCH_TASK_SLOT_COUNT;
 import static org.opensearch.ad.util.ExceptionUtil.getErrorMessage;
 import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
-import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -101,12 +101,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.ADTaskCancelledException;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.DuplicateTaskException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADEntityTaskProfile;
 import org.opensearch.ad.model.ADTask;
@@ -116,7 +110,6 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
@@ -167,7 +160,14 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.DuplicateTaskException;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TaskCancelledException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
@@ -284,7 +284,7 @@ public class ADTaskManager {
      */
     public void startDetector(
         String detectorId,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         IndexAnomalyDetectorJobActionHandler handler,
         User user,
         TransportService transportService,
@@ -323,7 +323,7 @@ public class ADTaskManager {
     }
 
     private void startRealtimeOrHistoricalDetection(
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         IndexAnomalyDetectorJobActionHandler handler,
         User user,
         TransportService transportService,
@@ -360,7 +360,7 @@ public class ADTaskManager {
      */
     protected void forwardApplyForTaskSlotsRequestToLeadNode(
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -415,7 +415,7 @@ public class ADTaskManager {
      */
     public void startHistoricalAnalysis(
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         int availableTaskSlots,
         TransportService transportService,
@@ -467,7 +467,7 @@ public class ADTaskManager {
      */
     protected void forwardDetectRequestToCoordinatingNode(
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         Integer availableTaskSlots,
         ADTaskAction adTaskAction,
@@ -555,7 +555,7 @@ public class ADTaskManager {
     public void checkTaskSlots(
         ADTask adTask,
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         ADTaskAction afterCheckAction,
         TransportService transportService,
@@ -654,7 +654,7 @@ public class ADTaskManager {
     private void forwardToCoordinatingNode(
         ADTask adTask,
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         ADTaskAction targetActionOfTaskSlotChecking,
         TransportService transportService,
@@ -681,7 +681,7 @@ public class ADTaskManager {
                 scaleTaskLaneOnCoordinatingNode(adTask, approvedTaskSlots, transportService, wrappedActionListener);
                 break;
             default:
-                wrappedActionListener.onFailure(new AnomalyDetectionException("Unknown task action " + targetActionOfTaskSlotChecking));
+                wrappedActionListener.onFailure(new TimeSeriesException("Unknown task action " + targetActionOfTaskSlotChecking));
                 break;
         }
     }
@@ -738,7 +738,7 @@ public class ADTaskManager {
      */
     public void startDetector(
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         TransportService transportService,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -779,7 +779,7 @@ public class ADTaskManager {
         }
     }
 
-    private ADTaskType getADTaskType(AnomalyDetector detector, DetectionDateRange detectionDateRange) {
+    private ADTaskType getADTaskType(AnomalyDetector detector, DateRange detectionDateRange) {
         if (detectionDateRange == null) {
             return detector.isMultientityDetector() ? ADTaskType.REALTIME_HC_DETECTOR : ADTaskType.REALTIME_SINGLE_ENTITY;
         } else {
@@ -787,7 +787,7 @@ public class ADTaskManager {
         }
     }
 
-    private List<ADTaskType> getADTaskTypes(DetectionDateRange detectionDateRange) {
+    private List<ADTaskType> getADTaskTypes(DateRange detectionDateRange) {
         return getADTaskTypes(detectionDateRange, false);
     }
 
@@ -801,7 +801,7 @@ public class ADTaskManager {
      * @param resetLatestTaskStateFlag reset latest task state or not
      * @return list of AD task types
      */
-    private List<ADTaskType> getADTaskTypes(DetectionDateRange detectionDateRange, boolean resetLatestTaskStateFlag) {
+    private List<ADTaskType> getADTaskTypes(DateRange detectionDateRange, boolean resetLatestTaskStateFlag) {
         if (detectionDateRange == null) {
             return REALTIME_TASK_TYPES;
         } else {
@@ -1479,7 +1479,7 @@ public class ADTaskManager {
 
     private void updateLatestFlagOfOldTasksAndCreateNewTask(
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
@@ -1517,7 +1517,7 @@ public class ADTaskManager {
 
     private void createNewADTask(
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         String coordinatingNode,
         ActionListener<AnomalyDetectorJobResponse> listener
@@ -1792,10 +1792,10 @@ public class ADTaskManager {
             deleteADTask(adTask.getTaskId());
             return;
         }
-        if (e instanceof ADTaskCancelledException) {
+        if (e instanceof TaskCancelledException) {
             logger.info("AD task cancelled, taskId: {}, detectorId: {}", adTask.getTaskId(), adTask.getDetectorId());
             state = ADTaskState.STOPPED.name();
-            String stoppedBy = ((ADTaskCancelledException) e).getCancelledBy();
+            String stoppedBy = ((TaskCancelledException) e).getCancelledBy();
             if (stoppedBy != null) {
                 updatedFields.put(STOPPED_BY_FIELD, stoppedBy);
             }
@@ -2263,7 +2263,7 @@ public class ADTaskManager {
             adTask.setError(getErrorMessage(exception));
             if (exception instanceof LimitExceededException && isRetryableError(exception.getMessage())) {
                 action = ADTaskAction.PUSH_BACK_ENTITY;
-            } else if (exception instanceof ADTaskCancelledException || exception instanceof EndRunException) {
+            } else if (exception instanceof TaskCancelledException || exception instanceof EndRunException) {
                 action = ADTaskAction.CANCEL;
             }
         }
@@ -2848,7 +2848,7 @@ public class ADTaskManager {
             } catch (IOException e) {
                 String error = "Failed to parse entity into string";
                 logger.debug(error, e);
-                throw new AnomalyDetectionException(error);
+                throw new TimeSeriesException(error);
             }
         }
         if (detector.isMultientityDetector()) {
@@ -2876,7 +2876,7 @@ public class ADTaskManager {
             } catch (IOException e) {
                 String error = "Failed to parse string into entity";
                 logger.debug(error, e);
-                throw new AnomalyDetectionException(error);
+                throw new TimeSeriesException(error);
             }
         } else if (detector.isMultientityDetector()) {
             return Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), entityValue);

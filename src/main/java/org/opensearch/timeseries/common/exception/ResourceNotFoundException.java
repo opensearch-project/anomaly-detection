@@ -9,12 +9,12 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
 /**
  * This exception is thrown when a resource is not found.
  */
-public class ResourceNotFoundException extends AnomalyDetectionException {
+public class ResourceNotFoundException extends TimeSeriesException {
 
     /**
      * Constructor with an anomaly detector ID and a message.

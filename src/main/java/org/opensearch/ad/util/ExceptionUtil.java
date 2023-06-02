@@ -23,13 +23,13 @@ import org.opensearch.action.NoShardAvailableActionException;
 import org.opensearch.action.UnavailableShardsException;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 public class ExceptionUtil {
     // a positive cache of retriable error rest status
@@ -93,7 +93,7 @@ public class ExceptionUtil {
      * @return true if should count in AD failure stats; otherwise return false
      */
     public static boolean countInStats(Exception e) {
-        if (!(e instanceof AnomalyDetectionException) || ((AnomalyDetectionException) e).isCountedInStats()) {
+        if (!(e instanceof TimeSeriesException) || ((TimeSeriesException) e).isCountedInStats()) {
             return true;
         }
         return false;
@@ -106,7 +106,7 @@ public class ExceptionUtil {
      * @return readable error message or full stack trace
      */
     public static String getErrorMessage(Exception e) {
-        if (e instanceof IllegalArgumentException || e instanceof AnomalyDetectionException) {
+        if (e instanceof IllegalArgumentException || e instanceof TimeSeriesException) {
             return e.getMessage();
         } else if (e instanceof OpenSearchException) {
             return ((OpenSearchException) e).getDetailedMessage();

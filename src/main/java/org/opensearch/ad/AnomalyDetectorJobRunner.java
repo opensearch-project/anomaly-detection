@@ -31,9 +31,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -62,6 +59,9 @@ import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.InternalFailure;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.base.Throwables;
@@ -601,7 +601,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         AnomalyDetector detector
     ) {
         try {
-            String errorMessage = exception instanceof AnomalyDetectionException
+            String errorMessage = exception instanceof TimeSeriesException
                 ? exception.getMessage()
                 : Throwables.getStackTraceAsString(exception);
             indexAnomalyResultException(

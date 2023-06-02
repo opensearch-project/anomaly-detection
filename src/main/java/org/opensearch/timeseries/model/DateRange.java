@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+package org.opensearch.timeseries.model;
 
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.time.Instant;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -25,10 +24,11 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.timeseries.annotation.Generated;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
 
-public class DetectionDateRange implements ToXContentObject, Writeable {
+public class DateRange implements ToXContentObject, Writeable {
 
     public static final String START_TIME_FIELD = "start_time";
     public static final String END_TIME_FIELD = "end_time";
@@ -36,13 +36,13 @@ public class DetectionDateRange implements ToXContentObject, Writeable {
     private final Instant startTime;
     private final Instant endTime;
 
-    public DetectionDateRange(Instant startTime, Instant endTime) {
+    public DateRange(Instant startTime, Instant endTime) {
         this.startTime = startTime;
         this.endTime = endTime;
         validate();
     }
 
-    public DetectionDateRange(StreamInput in) throws IOException {
+    public DateRange(StreamInput in) throws IOException {
         this.startTime = in.readInstant();
         this.endTime = in.readInstant();
         validate();
@@ -68,7 +68,7 @@ public class DetectionDateRange implements ToXContentObject, Writeable {
         return xContentBuilder.endObject();
     }
 
-    public static DetectionDateRange parse(XContentParser parser) throws IOException {
+    public static DateRange parse(XContentParser parser) throws IOException {
         Instant startTime = null;
         Instant endTime = null;
 
@@ -89,7 +89,7 @@ public class DetectionDateRange implements ToXContentObject, Writeable {
                     break;
             }
         }
-        return new DetectionDateRange(startTime, endTime);
+        return new DateRange(startTime, endTime);
     }
 
     @Generated
@@ -99,7 +99,7 @@ public class DetectionDateRange implements ToXContentObject, Writeable {
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-        DetectionDateRange that = (DetectionDateRange) o;
+        DateRange that = (DateRange) o;
         return Objects.equal(getStartTime(), that.getStartTime()) && Objects.equal(getEndTime(), that.getEndTime());
     }
 

@@ -17,7 +17,6 @@ import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedT
 import java.io.IOException;
 import java.time.Instant;
 
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -26,6 +25,8 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.timeseries.annotation.Generated;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
 
@@ -78,7 +79,7 @@ public class ADTask implements ToXContentObject, Writeable {
 
     private String coordinatingNode = null;
     private String workerNode = null;
-    private DetectionDateRange detectionDateRange = null;
+    private DateRange detectionDateRange = null;
     private Entity entity = null;
     private String parentTaskId = null;
     private Integer estimatedMinutesLeft = null;
@@ -117,7 +118,7 @@ public class ADTask implements ToXContentObject, Writeable {
         // Below are new fields added since AD 1.1
         if (input.available() > 0) {
             if (input.readBoolean()) {
-                this.detectionDateRange = new DetectionDateRange(input);
+                this.detectionDateRange = new DateRange(input);
             } else {
                 this.detectionDateRange = null;
             }
@@ -222,7 +223,7 @@ public class ADTask implements ToXContentObject, Writeable {
         private String stoppedBy = null;
         private String coordinatingNode = null;
         private String workerNode = null;
-        private DetectionDateRange detectionDateRange = null;
+        private DateRange detectionDateRange = null;
         private Entity entity = null;
         private String parentTaskId;
         private Integer estimatedMinutesLeft;
@@ -320,7 +321,7 @@ public class ADTask implements ToXContentObject, Writeable {
             return this;
         }
 
-        public Builder detectionDateRange(DetectionDateRange detectionDateRange) {
+        public Builder detectionDateRange(DateRange detectionDateRange) {
             this.detectionDateRange = detectionDateRange;
             return this;
         }
@@ -474,7 +475,7 @@ public class ADTask implements ToXContentObject, Writeable {
         String parsedTaskId = taskId;
         String coordinatingNode = null;
         String workerNode = null;
-        DetectionDateRange detectionDateRange = null;
+        DateRange detectionDateRange = null;
         Entity entity = null;
         String parentTaskId = null;
         Integer estimatedMinutesLeft = null;
@@ -541,7 +542,7 @@ public class ADTask implements ToXContentObject, Writeable {
                     workerNode = parser.text();
                     break;
                 case DETECTION_DATE_RANGE_FIELD:
-                    detectionDateRange = DetectionDateRange.parse(parser);
+                    detectionDateRange = DateRange.parse(parser);
                     break;
                 case ENTITY_FIELD:
                     entity = Entity.parse(parser);
@@ -756,7 +757,7 @@ public class ADTask implements ToXContentObject, Writeable {
         return workerNode;
     }
 
-    public DetectionDateRange getDetectionDateRange() {
+    public DateRange getDetectionDateRange() {
         return detectionDateRange;
     }
 
@@ -780,7 +781,7 @@ public class ADTask implements ToXContentObject, Writeable {
         return user;
     }
 
-    public void setDetectionDateRange(DetectionDateRange detectionDateRange) {
+    public void setDetectionDateRange(DateRange detectionDateRange) {
         this.detectionDateRange = detectionDateRange;
     }
 

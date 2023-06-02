@@ -9,19 +9,19 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
 /**
  * Base exception for exceptions thrown from Anomaly Detection.
  */
-public class AnomalyDetectionException extends RuntimeException {
+public class TimeSeriesException extends RuntimeException {
 
     private String anomalyDetectorId;
     // countedInStats will be used to tell whether the exception should be
     // counted in failure stats.
     private boolean countedInStats = true;
 
-    public AnomalyDetectionException(String message) {
+    public TimeSeriesException(String message) {
         super(message);
     }
 
@@ -31,21 +31,21 @@ public class AnomalyDetectionException extends RuntimeException {
      * @param anomalyDetectorId anomaly detector ID
      * @param message message of the exception
      */
-    public AnomalyDetectionException(String anomalyDetectorId, String message) {
+    public TimeSeriesException(String anomalyDetectorId, String message) {
         super(message);
         this.anomalyDetectorId = anomalyDetectorId;
     }
 
-    public AnomalyDetectionException(String adID, String message, Throwable cause) {
+    public TimeSeriesException(String adID, String message, Throwable cause) {
         super(message, cause);
         this.anomalyDetectorId = adID;
     }
 
-    public AnomalyDetectionException(Throwable cause) {
+    public TimeSeriesException(Throwable cause) {
         super(cause);
     }
 
-    public AnomalyDetectionException(String adID, Throwable cause) {
+    public TimeSeriesException(String adID, Throwable cause) {
         super(cause);
         this.anomalyDetectorId = adID;
     }
@@ -74,7 +74,7 @@ public class AnomalyDetectionException extends RuntimeException {
      * @param countInStats count the exception in stats
      * @return the exception itself
      */
-    public AnomalyDetectionException countedInStats(boolean countInStats) {
+    public TimeSeriesException countedInStats(boolean countInStats) {
         this.countedInStats = countInStats;
         return this;
     }

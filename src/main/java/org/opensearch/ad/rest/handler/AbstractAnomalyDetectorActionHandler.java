@@ -12,12 +12,12 @@
 package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
-import static org.opensearch.ad.util.ParseUtils.listEqualsWithoutConsideringOrder;
-import static org.opensearch.ad.util.ParseUtils.parseAggregators;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+import static org.opensearch.timeseries.util.ParseUtils.listEqualsWithoutConsideringOrder;
+import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -52,14 +52,10 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.ad.common.exception.ADValidationException;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorValidationIssueType;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.MergeableList;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
@@ -84,8 +80,12 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -265,11 +265,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                             logger.error(ex);
                             listener
                                 .onFailure(
-                                    new ADValidationException(
-                                        ex.getMessage(),
-                                        DetectorValidationIssueType.RESULT_INDEX,
-                                        ValidationAspect.DETECTOR
-                                    )
+                                    new ValidationException(ex.getMessage(), ValidationIssueType.RESULT_INDEX, ValidationAspect.DETECTOR)
                                 );
                             return;
                         })
@@ -311,15 +307,12 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     // because it was never check on the backend in the past
     protected void validateDetectorName(boolean indexingDryRun) {
         if (!anomalyDetector.getName().matches(NAME_REGEX)) {
-            listener
-                .onFailure(
-                    new ADValidationException(CommonMessages.INVALID_NAME, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR)
-                );
+            listener.onFailure(new ValidationException(CommonMessages.INVALID_NAME, ValidationIssueType.NAME, ValidationAspect.DETECTOR));
             return;
 
         }
         if (anomalyDetector.getName().length() > MAX_DETECTOR_NAME_SIZE) {
-            listener.onFailure(new ADValidationException(INVALID_NAME_SIZE, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR));
+            listener.onFailure(new ValidationException(INVALID_NAME_SIZE, ValidationIssueType.NAME, ValidationAspect.DETECTOR));
             return;
         }
         validateTimeField(indexingDryRun);
@@ -353,9 +346,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                                     if (!typeName.equals(CommonName.DATE_TYPE)) {
                                         listener
                                             .onFailure(
-                                                new ADValidationException(
+                                                new ValidationException(
                                                     String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, givenTimeField),
-                                                    DetectorValidationIssueType.TIMEFIELD_FIELD,
+                                                    ValidationIssueType.TIMEFIELD_FIELD,
                                                     ValidationAspect.DETECTOR
                                                 )
                                             );
@@ -370,9 +363,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             if (!foundField) {
                 listener
                     .onFailure(
-                        new ADValidationException(
+                        new ValidationException(
                             String.format(Locale.ROOT, CommonMessages.NON_EXISTENT_TIMESTAMP, givenTimeField),
-                            DetectorValidationIssueType.TIMEFIELD_FIELD,
+                            ValidationIssueType.TIMEFIELD_FIELD,
                             ValidationAspect.DETECTOR
                         )
                     );
@@ -533,11 +526,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             if (indexingDryRun) {
                 listener
                     .onFailure(
-                        new ADValidationException(
-                            errorMsgSingleEntity,
-                            DetectorValidationIssueType.GENERAL_SETTINGS,
-                            ValidationAspect.DETECTOR
-                        )
+                        new ValidationException(errorMsgSingleEntity, ValidationIssueType.GENERAL_SETTINGS, ValidationAspect.DETECTOR)
                     );
                 return;
             }
@@ -552,10 +541,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             String errorMsg = String.format(Locale.ROOT, EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG, maxMultiEntityAnomalyDetectors);
             logger.error(errorMsg);
             if (indexingDryRun) {
-                listener
-                    .onFailure(
-                        new ADValidationException(errorMsg, DetectorValidationIssueType.GENERAL_SETTINGS, ValidationAspect.DETECTOR)
-                    );
+                listener.onFailure(new ValidationException(errorMsg, ValidationIssueType.GENERAL_SETTINGS, ValidationAspect.DETECTOR));
                 return;
             }
             listener.onFailure(new IllegalArgumentException(errorMsg));
@@ -580,9 +566,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         if (categoryField.size() > maxCategoryFields) {
             listener
                 .onFailure(
-                    new ADValidationException(
+                    new ValidationException(
                         CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
-                        DetectorValidationIssueType.CATEGORY,
+                        ValidationIssueType.CATEGORY,
                         ValidationAspect.DETECTOR
                     )
                 );
@@ -629,9 +615,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                                     if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
                                         listener
                                             .onFailure(
-                                                new ADValidationException(
+                                                new ValidationException(
                                                     CATEGORICAL_FIELD_TYPE_ERR_MSG,
-                                                    DetectorValidationIssueType.CATEGORY,
+                                                    ValidationIssueType.CATEGORY,
                                                     ValidationAspect.DETECTOR
                                                 )
                                             );
@@ -648,9 +634,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             if (foundField == false) {
                 listener
                     .onFailure(
-                        new ADValidationException(
+                        new ValidationException(
                             String.format(Locale.ROOT, CATEGORY_NOT_FOUND_ERR_MSG, categoryField0),
-                            DetectorValidationIssueType.CATEGORY,
+                            ValidationIssueType.CATEGORY,
                             ValidationAspect.DETECTOR
                         )
                     );
@@ -689,7 +675,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             String errorMsg = NO_DOCS_IN_USER_INDEX_MSG + Arrays.toString(anomalyDetector.getIndices().toArray(new String[0]));
             logger.error(errorMsg);
             if (indexingDryRun) {
-                listener.onFailure(new ADValidationException(errorMsg, DetectorValidationIssueType.INDICES, ValidationAspect.DETECTOR));
+                listener.onFailure(new ValidationException(errorMsg, ValidationIssueType.INDICES, ValidationAspect.DETECTOR));
                 return;
             }
             listener.onFailure(new IllegalArgumentException(errorMsg));
@@ -734,7 +720,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                     Arrays.stream(response.getHits().getHits()).map(hit -> hit.getId()).collect(Collectors.toList())
                 );
             logger.warn(errorMsg);
-            listener.onFailure(new ADValidationException(errorMsg, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR));
+            listener.onFailure(new ValidationException(errorMsg, ValidationIssueType.NAME, ValidationAspect.DETECTOR));
         } else {
             tryIndexingAnomalyDetector(indexingDryRun);
         }
@@ -893,8 +879,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
             if (indexingDryRun) {
-                listener
-                    .onFailure(new ADValidationException(error, DetectorValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.DETECTOR));
+                listener.onFailure(new ValidationException(error, ValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.DETECTOR));
                 return;
             }
             listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
@@ -902,16 +887,19 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         }
         // checking runtime error from feature query
         ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener
-            .wrap(response -> { checkADNameExists(detectorId, indexingDryRun); }, exception -> {
-                listener
-                    .onFailure(
-                        new ADValidationException(
-                            exception.getMessage(),
-                            DetectorValidationIssueType.FEATURE_ATTRIBUTES,
-                            ValidationAspect.DETECTOR
-                        )
-                    );
-            });
+            .wrap(
+                response -> { checkADNameExists(detectorId, indexingDryRun); },
+                exception -> {
+                    listener
+                        .onFailure(
+                            new ValidationException(
+                                exception.getMessage(),
+                                ValidationIssueType.FEATURE_ATTRIBUTES,
+                                ValidationAspect.DETECTOR
+                            )
+                        );
+                }
+            );
         MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>> multiFeatureQueriesResponseListener =
             new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
                 validateFeatureQueriesListener,

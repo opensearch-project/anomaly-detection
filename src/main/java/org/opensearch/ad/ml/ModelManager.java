@@ -35,7 +35,6 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.DetectorModelSize;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -46,6 +45,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;

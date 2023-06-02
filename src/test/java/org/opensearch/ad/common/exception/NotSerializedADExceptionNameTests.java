@@ -15,52 +15,59 @@ import java.util.Optional;
 
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.common.exception.ClientException;
+import org.opensearch.timeseries.common.exception.DuplicateTaskException;
+import org.opensearch.timeseries.common.exception.InternalFailure;
+import org.opensearch.timeseries.common.exception.NotSerializedExceptionName;
+import org.opensearch.timeseries.common.exception.TaskCancelledException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.common.exception.ValidationException;
 
 public class NotSerializedADExceptionNameTests extends OpenSearchTestCase {
     public void testConvertAnomalyDetectionException() {
-        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new AnomalyDetectionException("", "")), "");
+        Optional<TimeSeriesException> converted = NotSerializedExceptionName
+            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new TimeSeriesException("", "")), "");
         assertTrue(converted.isPresent());
-        assertTrue(converted.get() instanceof AnomalyDetectionException);
+        assertTrue(converted.get() instanceof TimeSeriesException);
     }
 
     public void testConvertInternalFailure() {
-        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
+        Optional<TimeSeriesException> converted = NotSerializedExceptionName
             .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new InternalFailure("", "")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof InternalFailure);
     }
 
     public void testConvertClientException() {
-        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
+        Optional<TimeSeriesException> converted = NotSerializedExceptionName
             .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new ClientException("", "")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof ClientException);
     }
 
     public void testConvertADTaskCancelledException() {
-        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new ADTaskCancelledException("", "")), "");
+        Optional<TimeSeriesException> converted = NotSerializedExceptionName
+            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new TaskCancelledException("", "")), "");
         assertTrue(converted.isPresent());
-        assertTrue(converted.get() instanceof ADTaskCancelledException);
+        assertTrue(converted.get() instanceof TaskCancelledException);
     }
 
     public void testConvertDuplicateTaskException() {
-        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
+        Optional<TimeSeriesException> converted = NotSerializedExceptionName
             .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new DuplicateTaskException("")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof DuplicateTaskException);
     }
 
     public void testConvertADValidationException() {
-        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new ADValidationException("", null, null)), "");
+        Optional<TimeSeriesException> converted = NotSerializedExceptionName
+            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new ValidationException("", null, null)), "");
         assertTrue(converted.isPresent());
-        assertTrue(converted.get() instanceof ADValidationException);
+        assertTrue(converted.get() instanceof ValidationException);
     }
 
     public void testUnknownException() {
-        Optional<AnomalyDetectionException> converted = NotSerializedADExceptionName
+        Optional<TimeSeriesException> converted = NotSerializedExceptionName
             .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new RuntimeException("")), "");
         assertTrue(!converted.isPresent());
     }

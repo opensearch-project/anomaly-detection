@@ -42,11 +42,11 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -214,7 +214,7 @@ public class ADRestTestUtils {
         );
 
         if (historical) {
-            detector.setDetectionDateRange(new DetectionDateRange(now.minus(30, ChronoUnit.DAYS), now));
+            detector.setDetectionDateRange(new DateRange(now.minus(30, ChronoUnit.DAYS), now));
         }
 
         return TestHelpers
@@ -447,7 +447,7 @@ public class ADRestTestUtils {
     @SuppressWarnings("unchecked")
     public static String startHistoricalAnalysis(RestClient client, String detectorId) throws IOException {
         Instant now = Instant.now();
-        DetectionDateRange dateRange = new DetectionDateRange(now.minus(30, ChronoUnit.DAYS), now);
+        DateRange dateRange = new DateRange(now.minus(30, ChronoUnit.DAYS), now);
         Response response = TestHelpers
             .makeRequest(
                 client,

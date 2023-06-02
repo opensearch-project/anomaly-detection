@@ -30,7 +30,6 @@ import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -47,6 +46,7 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 

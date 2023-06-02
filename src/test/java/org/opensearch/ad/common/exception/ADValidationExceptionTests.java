@@ -11,32 +11,33 @@
 
 package org.opensearch.ad.common.exception;
 
-import org.opensearch.ad.model.DetectorValidationIssueType;
-import org.opensearch.ad.model.ValidationAspect;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ValidationIssueType;
 
 public class ADValidationExceptionTests extends OpenSearchTestCase {
     public void testConstructorDetector() {
         String message = randomAlphaOfLength(5);
-        ADValidationException exception = new ADValidationException(message, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
-        assertEquals(DetectorValidationIssueType.NAME, exception.getType());
+        ValidationException exception = new ValidationException(message, ValidationIssueType.NAME, ValidationAspect.DETECTOR);
+        assertEquals(ValidationIssueType.NAME, exception.getType());
         assertEquals(ValidationAspect.DETECTOR, exception.getAspect());
     }
 
     public void testConstructorModel() {
         String message = randomAlphaOfLength(5);
-        ADValidationException exception = new ADValidationException(message, DetectorValidationIssueType.CATEGORY, ValidationAspect.MODEL);
-        assertEquals(DetectorValidationIssueType.CATEGORY, exception.getType());
+        ValidationException exception = new ValidationException(message, ValidationIssueType.CATEGORY, ValidationAspect.MODEL);
+        assertEquals(ValidationIssueType.CATEGORY, exception.getType());
         assertEquals(ValidationAspect.getName(CommonName.MODEL_ASPECT), exception.getAspect());
     }
 
     public void testToString() {
         String message = randomAlphaOfLength(5);
-        ADValidationException exception = new ADValidationException(message, DetectorValidationIssueType.NAME, ValidationAspect.DETECTOR);
+        ValidationException exception = new ValidationException(message, ValidationIssueType.NAME, ValidationAspect.DETECTOR);
         String exceptionString = exception.toString();
         logger.info("exception string: " + exceptionString);
-        ADValidationException exceptionNoType = new ADValidationException(message, DetectorValidationIssueType.NAME, null);
+        ValidationException exceptionNoType = new ValidationException(message, ValidationIssueType.NAME, null);
         String exceptionStringNoType = exceptionNoType.toString();
         logger.info("exception string no type: " + exceptionStringNoType);
     }

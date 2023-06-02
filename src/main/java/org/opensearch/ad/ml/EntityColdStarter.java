@@ -42,20 +42,20 @@ import org.opensearch.ad.CleanState;
 import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.DoorKeeper;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.config.Precision;
@@ -297,11 +297,11 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                     if (ExceptionUtil.isOverloaded(cause)) {
                         logger.error("too many requests");
                         lastThrottledColdStartTime = Instant.now();
-                    } else if (cause instanceof AnomalyDetectionException || exception instanceof AnomalyDetectionException) {
+                    } else if (cause instanceof TimeSeriesException || exception instanceof TimeSeriesException) {
                         // e.g., cannot find anomaly detector
                         nodeStateManager.setException(detectorId, exception);
                     } else {
-                        nodeStateManager.setException(detectorId, new AnomalyDetectionException(detectorId, cause));
+                        nodeStateManager.setException(detectorId, new TimeSeriesException(detectorId, cause));
                     }
                     listener.onFailure(exception);
                 } catch (Exception e) {
@@ -657,7 +657,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
             if (false == detectorOptional.isPresent()) {
                 logger.warn(new ParameterizedMessage("AnomalyDetector [{}] is not available.", detectorId));
-                listener.onFailure(new AnomalyDetectionException(detectorId, "fail to find detector"));
+                listener.onFailure(new TimeSeriesException(detectorId, "fail to find detector"));
                 return;
             }
 

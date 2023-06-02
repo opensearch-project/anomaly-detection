@@ -33,10 +33,10 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityAnomalyResult;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.timeseries.model.Feature;
 
 /**
  * Runner to trigger an anomaly detector.

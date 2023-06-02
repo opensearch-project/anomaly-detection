@@ -25,7 +25,6 @@ import java.util.Locale;
 
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
@@ -38,6 +37,7 @@ import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.model.DateRange;
 
 import com.google.common.collect.ImmutableList;
 
@@ -70,7 +70,7 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
         boolean historical = request.paramAsBoolean("historical", false);
         String rawPath = request.rawPath();
-        DetectionDateRange detectionDateRange = parseDetectionDateRange(request);
+        DateRange detectionDateRange = parseDetectionDateRange(request);
 
         AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(
             detectorId,
@@ -85,13 +85,13 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
             .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));
     }
 
-    private DetectionDateRange parseDetectionDateRange(RestRequest request) throws IOException {
+    private DateRange parseDetectionDateRange(RestRequest request) throws IOException {
         if (!request.hasContent()) {
             return null;
         }
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-        DetectionDateRange dateRange = DetectionDateRange.parse(parser);
+        DateRange dateRange = DateRange.parse(parser);
         return dateRange;
     }
 

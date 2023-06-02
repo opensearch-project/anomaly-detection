@@ -30,8 +30,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
-import static org.opensearch.ad.util.ParseUtils.isNullOrEmpty;
 import static org.opensearch.timeseries.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
+import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -55,11 +55,6 @@ import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.PriorityTracker;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.ADTaskCancelledException;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -72,10 +67,8 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -88,7 +81,6 @@ import org.opensearch.ad.transport.ADStatsNodesAction;
 import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -108,7 +100,15 @@ import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TaskCancelledException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
@@ -840,7 +840,7 @@ public class ADBatchTaskRunner {
     private void handleException(ADTask adTask, Exception e) {
         // Check if batch task was cancelled or not by exception type.
         // If it's cancelled, then increase cancelled task count by 1, otherwise increase failure count by 1.
-        if (e instanceof ADTaskCancelledException) {
+        if (e instanceof TaskCancelledException) {
             adStats.getStat(StatNames.AD_CANCELED_BATCH_TASK_COUNT.getName()).increment();
         } else if (ExceptionUtil.countInStats(e)) {
             adStats.getStat(StatNames.AD_BATCH_TASK_FAILURE_COUNT.getName()).increment();
@@ -977,7 +977,7 @@ public class ADBatchTaskRunner {
             }
             long interval = ((IntervalTimeConfiguration) adTask.getDetector().getDetectionInterval()).toDuration().toMillis();
 
-            DetectionDateRange detectionDateRange = adTask.getDetectionDateRange();
+            DateRange detectionDateRange = adTask.getDetectionDateRange();
             long dataStartTime = detectionDateRange.getStartTime().toEpochMilli();
             long dataEndTime = detectionDateRange.getEndTime().toEpochMilli();
             long minDate = (long) minValue;
@@ -1000,7 +1000,7 @@ public class ADBatchTaskRunner {
             dataEndTime = dataEndTime - dataEndTime % interval;
             logger.debug("adjusted date range: start: {}, end: {}, taskId: {}", dataStartTime, dataEndTime, taskId);
             if ((dataEndTime - dataStartTime) < NUM_MIN_SAMPLES * interval) {
-                internalListener.onFailure(new AnomalyDetectionException("There is not enough data to train model").countedInStats(false));
+                internalListener.onFailure(new TimeSeriesException("There is not enough data to train model").countedInStats(false));
                 return;
             }
             consumer.accept(dataStartTime, dataEndTime);
@@ -1371,7 +1371,7 @@ public class ADBatchTaskRunner {
             // clean up pending and running entity on coordinating node
             adTaskCacheManager.clearPendingEntities(detectorId);
             adTaskCacheManager.removeRunningEntity(detectorId, adTaskManager.convertEntityToString(adTask));
-            throw new ADTaskCancelledException(
+            throw new TaskCancelledException(
                 adTaskCacheManager.getCancelReasonForHC(detectorId, detectorTaskId),
                 adTaskCacheManager.getCancelledByForHC(detectorId, detectorTaskId)
             );
@@ -1389,7 +1389,7 @@ public class ADBatchTaskRunner {
                 adTaskCacheManager.removeHistoricalTaskCache(detectorId);
             }
 
-            throw new ADTaskCancelledException(cancelReason, cancelledBy);
+            throw new TaskCancelledException(cancelReason, cancelledBy);
         }
     }
 

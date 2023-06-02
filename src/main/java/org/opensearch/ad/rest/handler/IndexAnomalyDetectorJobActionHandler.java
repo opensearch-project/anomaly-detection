@@ -35,7 +35,6 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyResultAction;
@@ -53,6 +52,7 @@ import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.base.Throwables;

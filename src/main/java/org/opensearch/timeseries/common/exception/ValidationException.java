@@ -9,19 +9,19 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorValidationIssueType;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.model.ValidationAspect;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ValidationIssueType;
 
-public class ADValidationException extends AnomalyDetectionException {
-    private final DetectorValidationIssueType type;
+public class ValidationException extends TimeSeriesException {
+    private final ValidationIssueType type;
     private final ValidationAspect aspect;
     private final IntervalTimeConfiguration intervalSuggestion;
 
-    public DetectorValidationIssueType getType() {
+    public ValidationIssueType getType() {
         return type;
     }
 
@@ -33,23 +33,23 @@ public class ADValidationException extends AnomalyDetectionException {
         return intervalSuggestion;
     }
 
-    public ADValidationException(String message, DetectorValidationIssueType type, ValidationAspect aspect) {
+    public ValidationException(String message, ValidationIssueType type, ValidationAspect aspect) {
         this(message, null, type, aspect, null);
     }
 
-    public ADValidationException(
+    public ValidationException(
         String message,
-        DetectorValidationIssueType type,
+        ValidationIssueType type,
         ValidationAspect aspect,
         IntervalTimeConfiguration intervalSuggestion
     ) {
         this(message, null, type, aspect, intervalSuggestion);
     }
 
-    public ADValidationException(
+    public ValidationException(
         String message,
         Throwable cause,
-        DetectorValidationIssueType type,
+        ValidationIssueType type,
         ValidationAspect aspect,
         IntervalTimeConfiguration intervalSuggestion
     ) {

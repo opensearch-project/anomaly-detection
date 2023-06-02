@@ -35,8 +35,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.DuplicateTaskException;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
@@ -46,6 +44,8 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.common.exception.DuplicateTaskException;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
 
 import com.google.common.collect.ImmutableList;
 

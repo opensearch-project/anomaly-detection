@@ -20,22 +20,22 @@ import java.util.Objects;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.common.exception.ADVersionException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.timeseries.common.exception.VersionException;
+import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.transport.TransportService;
 
 public class ForwardADTaskRequest extends ActionRequest {
     private AnomalyDetector detector;
     private ADTask adTask;
-    private DetectionDateRange detectionDateRange;
+    private DateRange detectionDateRange;
     private List<String> staleRunningEntities;
     private User user;
     private Integer availableTaskSlots;
@@ -57,14 +57,14 @@ public class ForwardADTaskRequest extends ActionRequest {
      */
     public ForwardADTaskRequest(
         AnomalyDetector detector,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         User user,
         ADTaskAction adTaskAction,
         Integer availableTaskSlots,
         Version remoteAdVersion
     ) {
         if (remoteAdVersion == null) {
-            throw new ADVersionException(detector.getDetectorId(), "Can't forward AD task request to node running null AD version ");
+            throw new VersionException(detector.getDetectorId(), "Can't forward AD task request to node running null AD version ");
         }
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
@@ -73,7 +73,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         this.adTaskAction = adTaskAction;
     }
 
-    public ForwardADTaskRequest(AnomalyDetector detector, DetectionDateRange detectionDateRange, User user, ADTaskAction adTaskAction) {
+    public ForwardADTaskRequest(AnomalyDetector detector, DateRange detectionDateRange, User user, ADTaskAction adTaskAction) {
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
         this.user = user;
@@ -110,13 +110,13 @@ public class ForwardADTaskRequest extends ActionRequest {
             // This will reject request from old node running AD version on or before 1.0.
             // So if coordinating node is old node, it can't use new node as worker node
             // to run task.
-            throw new ADVersionException("Can't process ForwardADTaskRequest of old version");
+            throw new VersionException("Can't process ForwardADTaskRequest of old version");
         }
         if (in.readBoolean()) {
             this.adTask = new ADTask(in);
         }
         if (in.readBoolean()) {
-            this.detectionDateRange = new DetectionDateRange(in);
+            this.detectionDateRange = new DateRange(in);
         }
         this.staleRunningEntities = in.readOptionalStringList();
         availableTaskSlots = in.readOptionalInt();
@@ -175,7 +175,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         return adTask;
     }
 
-    public DetectionDateRange getDetectionDateRange() {
+    public DateRange getDetectionDateRange() {
         return detectionDateRange;
     }
 

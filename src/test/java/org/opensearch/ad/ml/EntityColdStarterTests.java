@@ -45,10 +45,8 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
@@ -57,7 +55,9 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
@@ -399,7 +399,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
 
         doAnswer(invocation -> {
             ActionListener<Optional<Long>> listener = invocation.getArgument(2);
-            listener.onFailure(new AnomalyDetectionException(detectorId, ""));
+            listener.onFailure(new TimeSeriesException(detectorId, ""));
             return null;
         }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
 

@@ -40,7 +40,6 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
@@ -58,6 +57,7 @@ import org.opensearch.index.get.GetResult;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 

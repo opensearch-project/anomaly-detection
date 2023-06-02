@@ -38,7 +38,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.node.info.NodeInfo;
 import org.opensearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -54,6 +53,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.PluginInfo;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 import com.google.common.collect.Sets;
 
@@ -220,7 +220,7 @@ public class HashRing {
      */
     private void buildCircles(Set<String> removedNodeIds, Set<String> addedNodeIds, ActionListener<Boolean> actionListener) {
         if (buildHashRingSemaphore.availablePermits() != 0) {
-            throw new AnomalyDetectionException("Must get update hash ring semaphore before building AD hash ring");
+            throw new TimeSeriesException("Must get update hash ring semaphore before building AD hash ring");
         }
         try {
             DiscoveryNode localNode = clusterService.localNode();

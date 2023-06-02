@@ -39,14 +39,12 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
@@ -62,7 +60,9 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.test.transport.MockTransportService;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -209,7 +209,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
             } catch (Exception e) {
                 String error = "Failed to prepare request to bulk index docs";
                 LOG.error(error, e);
-                throw new AnomalyDetectionException(error);
+                throw new TimeSeriesException(error);
             }
         });
         return client().bulk(bulkRequestBuilder.request()).actionGet(timeout);

@@ -30,8 +30,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.Feature;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -49,6 +47,8 @@ import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation.
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.util.ParseUtils;
 
 /**
  *

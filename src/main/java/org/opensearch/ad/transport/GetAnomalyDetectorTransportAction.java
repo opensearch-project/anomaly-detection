@@ -14,12 +14,12 @@ package org.opensearch.ad.transport;
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.ALL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
-import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 
 import java.util.ArrayList;
 import java.util.Arrays;

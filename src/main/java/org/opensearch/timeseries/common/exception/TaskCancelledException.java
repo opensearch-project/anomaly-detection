@@ -9,12 +9,12 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
-public class ADTaskCancelledException extends AnomalyDetectionException {
+public class TaskCancelledException extends TimeSeriesException {
     private String cancelledBy;
 
-    public ADTaskCancelledException(String msg, String user) {
+    public TaskCancelledException(String msg, String user) {
         super(msg);
         this.cancelledBy = user;
         this.countedInStats(false);

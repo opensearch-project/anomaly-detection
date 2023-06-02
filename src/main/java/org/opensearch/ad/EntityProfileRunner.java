@@ -35,13 +35,11 @@ import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.EntityState;
 import org.opensearch.ad.model.InitProgressProfile;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileRequest;
 import org.opensearch.ad.transport.EntityProfileResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.routing.Preference;
@@ -58,6 +56,8 @@ import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.ParseUtils;
 
 public class EntityProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(EntityProfileRunner.class);
