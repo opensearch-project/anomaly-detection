@@ -23,7 +23,7 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.timeseries.model.ParseUtils;
+import org.opensearch.timeseries.util.ParseUtils;
 
 /**
  * Request for getting the top anomaly results for HC detectors.

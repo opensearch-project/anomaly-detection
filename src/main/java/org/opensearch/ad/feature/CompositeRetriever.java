@@ -48,7 +48,7 @@ import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationB
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.model.Feature;
-import org.opensearch.timeseries.model.ParseUtils;
+import org.opensearch.timeseries.util.ParseUtils;
 
 /**
  *

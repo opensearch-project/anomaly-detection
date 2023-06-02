@@ -73,10 +73,10 @@ import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.model.ParseUtils;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.util.ParseUtils;
 
 /**
  * <p>This class executes all validation checks that are not blocking on the 'model' level.

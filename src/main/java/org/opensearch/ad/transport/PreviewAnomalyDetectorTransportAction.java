@@ -17,8 +17,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.timeseries.model.ParseUtils.getUserContext;
-import static org.opensearch.timeseries.model.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 
 import java.io.IOException;
 import java.time.Instant;

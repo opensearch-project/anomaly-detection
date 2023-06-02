@@ -25,6 +25,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.timeseries.annotation.Generated;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
 

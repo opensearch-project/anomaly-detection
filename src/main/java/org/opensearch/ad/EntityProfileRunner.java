@@ -57,7 +57,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.model.ParseUtils;
+import org.opensearch.timeseries.util.ParseUtils;
 
 public class EntityProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(EntityProfileRunner.class);

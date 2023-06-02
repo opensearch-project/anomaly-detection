@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.util;
 
-import static org.opensearch.timeseries.model.ParseUtils.addUserBackendRolesFilter;
-import static org.opensearch.timeseries.model.ParseUtils.isAdmin;
+import static org.opensearch.timeseries.util.ParseUtils.addUserBackendRolesFilter;
+import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -32,7 +32,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.Feature;
-import org.opensearch.timeseries.model.ParseUtils;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.collect.ImmutableList;
 

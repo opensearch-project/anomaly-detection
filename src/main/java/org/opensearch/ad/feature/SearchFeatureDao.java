@@ -16,7 +16,7 @@ import static org.opensearch.ad.constant.ADCommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PREVIEW_TIMEOUT_IN_MILLIS;
-import static org.opensearch.timeseries.model.ParseUtils.batchFeatureQuery;
+import static org.opensearch.timeseries.util.ParseUtils.batchFeatureQuery;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -71,7 +71,7 @@ import org.opensearch.search.sort.SortOrder;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.model.ParseUtils;
+import org.opensearch.timeseries.util.ParseUtils;
 
 /**
  * DAO for features from search.

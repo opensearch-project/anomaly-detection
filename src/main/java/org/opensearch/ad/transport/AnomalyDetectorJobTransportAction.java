@@ -16,8 +16,8 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_STOP_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
-import static org.opensearch.timeseries.model.ParseUtils.getUserContext;
-import static org.opensearch.timeseries.model.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

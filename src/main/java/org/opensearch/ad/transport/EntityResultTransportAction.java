@@ -56,8 +56,8 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.model.ParseUtils;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportService;
 
 /**

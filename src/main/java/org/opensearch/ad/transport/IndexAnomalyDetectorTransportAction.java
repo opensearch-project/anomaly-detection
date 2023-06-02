@@ -15,9 +15,9 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_CREATE_DETECTO
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_UPDATE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
-import static org.opensearch.timeseries.model.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.timeseries.model.ParseUtils.getDetector;
-import static org.opensearch.timeseries.model.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.timeseries.util.ParseUtils.getDetector;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 
 import java.util.List;
 import java.util.function.Consumer;

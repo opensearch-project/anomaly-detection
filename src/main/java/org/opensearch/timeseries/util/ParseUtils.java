@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.timeseries.model;
+package org.opensearch.timeseries.util;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_USER_INFO;
 import static org.opensearch.ad.constant.ADCommonMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
@@ -82,6 +82,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.carrotsearch.hppc.DoubleArrayList;
 import com.google.common.collect.ImmutableList;

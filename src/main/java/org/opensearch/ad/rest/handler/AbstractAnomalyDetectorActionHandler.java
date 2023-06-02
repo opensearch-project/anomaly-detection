@@ -16,8 +16,8 @@ import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
-import static org.opensearch.timeseries.model.ParseUtils.listEqualsWithoutConsideringOrder;
-import static org.opensearch.timeseries.model.ParseUtils.parseAggregators;
+import static org.opensearch.timeseries.util.ParseUtils.listEqualsWithoutConsideringOrder;
+import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
 
 import java.io.IOException;
 import java.time.Clock;

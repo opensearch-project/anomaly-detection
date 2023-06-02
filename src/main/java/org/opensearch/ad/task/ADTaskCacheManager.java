@@ -17,7 +17,7 @@ import static org.opensearch.ad.constant.ADCommonMessages.EXCEED_HISTORICAL_ANAL
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
-import static org.opensearch.timeseries.model.ParseUtils.isNullOrEmpty;
+import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 
 import java.time.Instant;
 import java.util.ArrayList;

@@ -32,8 +32,8 @@ import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.jobscheduler.spi.schedule.ScheduleParser;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.model.ParseUtils;
 import org.opensearch.timeseries.model.TimeConfiguration;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
 

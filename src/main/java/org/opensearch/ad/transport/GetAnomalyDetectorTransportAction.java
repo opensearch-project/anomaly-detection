@@ -18,8 +18,8 @@ import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
-import static org.opensearch.timeseries.model.ParseUtils.getUserContext;
-import static org.opensearch.timeseries.model.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 
 import java.util.ArrayList;
 import java.util.Arrays;

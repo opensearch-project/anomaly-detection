@@ -30,8 +30,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
-import static org.opensearch.timeseries.model.ParseUtils.isNullOrEmpty;
 import static org.opensearch.timeseries.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
+import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -107,8 +107,8 @@ import org.opensearch.timeseries.common.exception.TaskCancelledException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.model.ParseUtils;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 

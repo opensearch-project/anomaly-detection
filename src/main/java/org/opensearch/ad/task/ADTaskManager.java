@@ -57,7 +57,7 @@ import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRe
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
-import static org.opensearch.timeseries.model.ParseUtils.isNullOrEmpty;
+import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 
 import java.io.IOException;
 import java.time.Instant;

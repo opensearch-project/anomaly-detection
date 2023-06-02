@@ -12,8 +12,8 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.timeseries.model.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.timeseries.model.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 
 import java.time.Clock;
 import java.util.HashMap;
