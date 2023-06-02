@@ -18,8 +18,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.client.opensearch.indices.IndicesStatsRequest;
 import org.opensearch.client.opensearch.indices.IndicesStatsResponse;
@@ -113,9 +116,9 @@ public class IndexUtils {
      * @throws IllegalArgumentException Thrown when an alias is passed in that points to more than one index
      */
     public String getIndexHealthStatus(String indexOrAliasName) throws IllegalArgumentException {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexOrAliasName)) {
+        if (!indexExists(indexOrAliasName)) {
             // Check if the index is actually an alias
-            if (clusterService.state().metadata().hasAlias(indexOrAliasName)) {
+            if (aliasExists(indexOrAliasName)) {
                 // List of all indices the alias refers to
                 List<IndexMetadata> indexMetaDataList = clusterService
                     .state()
@@ -154,7 +157,7 @@ public class IndexUtils {
      */
     @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
+        if (!indexExists(indexName)) {
             return 0L;
         }
         IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest.Builder().build();
@@ -190,5 +193,37 @@ public class IndexUtils {
         String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(state, IndicesOptions.lenientExpandOpen(), indices);
 
         return state.blocks().indicesBlockedException(level, concreteIndices) != null;
+    }
+
+    private boolean indexExists(String indexName) {
+        GetIndexRequest getindexRequest = new GetIndexRequest(indexName);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient.indices().exists(getindexRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+            existsFuture.completeExceptionally(exception);
+        }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
+    }
+
+    private boolean aliasExists(String aliasName) {
+        GetAliasesRequest getAliasRequest = new GetAliasesRequest(aliasName);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient
+            .indices()
+            .existsAlias(getAliasRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+                existsFuture.completeExceptionally(exception);
+            }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
     }
 }
