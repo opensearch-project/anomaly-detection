@@ -67,6 +67,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
+import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.PutMappingRequest;
 import org.opensearch.client.indices.rollover.RolloverRequest;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
@@ -305,12 +306,56 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     }
 
     /**
+     * Determine if index exists
+     *
+     * @param indexName the name of the index
+     * @return true if index exists
+     */
+    public boolean indexExists(String indexName) {
+        GetIndexRequest getindexRequest = new GetIndexRequest(indexName);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient.indices().exists(getindexRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+            existsFuture.completeExceptionally(exception);
+        }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
+    }
+
+    /**
+     * Determine if alias exists
+     *
+     * @param aliasName the name of the alias
+     * @return true if alias exists
+     */
+    public boolean aliasExists(String aliasName) {
+        GetAliasesRequest getAliasRequest = new GetAliasesRequest(aliasName);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient
+            .indices()
+            .existsAlias(getAliasRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+                existsFuture.completeExceptionally(exception);
+            }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
+    }
+
+    /**
      * Anomaly detector index exist or not.
      *
      * @return true if anomaly detector index exists
      */
     public boolean doesAnomalyDetectorIndexExist() {
-        return sdkClusterService.state().getRoutingTable().hasIndex(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        return indexExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
     }
 
     /**
@@ -319,7 +364,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly detector job index exists
      */
     public boolean doesAnomalyDetectorJobIndexExist() {
-        return sdkClusterService.state().getRoutingTable().hasIndex(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
+        return indexExists(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX);
     }
 
     /**
@@ -328,11 +373,11 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly result index exists
      */
     public boolean doesDefaultAnomalyResultIndexExist() {
-        return sdkClusterService.state().metadata().hasAlias(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        return aliasExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
     }
 
     public boolean doesIndexExist(String indexName) {
-        return sdkClusterService.state().metadata().hasIndex(indexName);
+        return indexExists(indexName);
     }
 
     public <T> void initCustomResultIndexAndExecute(String resultIndex, AnomalyDetectorFunction function, ActionListener<T> listener) {
@@ -471,7 +516,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if anomaly state index exists
      */
     public boolean doesDetectorStateIndexExist() {
-        return sdkClusterService.state().getRoutingTable().hasIndex(CommonName.DETECTION_STATE_INDEX);
+        return indexExists(CommonName.DETECTION_STATE_INDEX);
     }
 
     /**
@@ -480,27 +525,7 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
      * @return true if checkpoint index exists
      */
     public boolean doesCheckpointIndexExist() {
-        return sdkClusterService.state().getRoutingTable().hasIndex(CommonName.CHECKPOINT_INDEX_NAME);
-    }
-
-    /**
-     * Index exists or not
-     * @param sdkClusterService Cluster service
-     * @param name Index name
-     * @return true if the index exists
-     */
-    public static boolean doesIndexExists(SDKClusterService sdkClusterService, String name) {
-        return sdkClusterService.state().getRoutingTable().hasIndex(name);
-    }
-
-    /**
-     * Alias exists or not
-     * @param sdkClusterService Cluster service
-     * @param alias Alias name
-     * @return true if the alias exists
-     */
-    public static boolean doesAliasExists(SDKClusterService sdkClusterService, String alias) {
-        return sdkClusterService.state().metadata().hasAlias(alias);
+        return indexExists(CommonName.CHECKPOINT_INDEX_NAME);
     }
 
     private ActionListener<CreateIndexResponse> markMappingUpToDate(ADIndex index, ActionListener<CreateIndexResponse> followingListener) {
@@ -979,9 +1004,9 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
     private void shouldUpdateIndex(ADIndex index, ActionListener<Boolean> thenDo) {
         boolean exists = false;
         if (index.isAlias()) {
-            exists = AnomalyDetectionIndices.doesAliasExists(sdkClusterService, index.getIndexName());
+            exists = aliasExists(index.getIndexName());
         } else {
-            exists = AnomalyDetectionIndices.doesIndexExists(sdkClusterService, index.getIndexName());
+            exists = indexExists(index.getIndexName());
         }
         if (false == exists) {
             thenDo.onResponse(Boolean.FALSE);
