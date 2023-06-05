@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +31,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
+import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -98,15 +100,18 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
-        adIndices = new AnomalyDetectionIndices(
-            client,
-            sdkJavaAsyncClient,
-            clusterService,
-            threadPool,
-            settings,
-            nodeFilter,
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+        adIndices = spy(
+            new AnomalyDetectionIndices(
+                client,
+                sdkJavaAsyncClient,
+                clusterService,
+                threadPool,
+                settings,
+                nodeFilter,
+                AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            )
         );
+
     }
 
     @SuppressWarnings("unchecked")
@@ -149,6 +154,18 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         mb.put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, CommonName.ANOMALY_RESULT_INDEX_ALIAS), true);
 
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
+
+        when(client.indices()).thenReturn(indicesClient);
+        doAnswer(invocation -> {
+            GetIndexRequest getIndexRequest = invocation.getArgument(0);
+            assertEquals(index, getIndexRequest.indices()[0]);
+
+            ActionListener<Boolean> getIndexRequestListener = (ActionListener<Boolean>) invocation.getArgument(1);
+
+            getIndexRequestListener.onResponse(true);
+            return null;
+        }).when(indicesClient).exists(any(), any());
+
         if (index.equals(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
             adIndices.initAnomalyDetectorIndexIfAbsent(listener);
         } else {
