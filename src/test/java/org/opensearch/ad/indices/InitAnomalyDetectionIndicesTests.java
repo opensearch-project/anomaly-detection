@@ -15,7 +15,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -100,16 +99,14 @@ public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
         clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
-        adIndices = spy(
-            new AnomalyDetectionIndices(
-                client,
-                sdkJavaAsyncClient,
-                clusterService,
-                threadPool,
-                settings,
-                nodeFilter,
-                AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
-            )
+        adIndices = new AnomalyDetectionIndices(
+            client,
+            sdkJavaAsyncClient,
+            clusterService,
+            threadPool,
+            settings,
+            nodeFilter,
+            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
         );
 
     }
