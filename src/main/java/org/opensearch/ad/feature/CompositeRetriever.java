@@ -157,7 +157,7 @@ public class CompositeRetriever extends AbstractRetriever {
         CompositeAggregationBuilder composite = AggregationBuilders
             .composite(
                 AGG_NAME_COMP,
-                anomalyDetector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+                anomalyDetector.getCategoryFields().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
             )
             .size(pageSize);
         for (Feature feature : anomalyDetector.getFeatureAttributes()) {
@@ -218,7 +218,7 @@ public class CompositeRetriever extends AbstractRetriever {
                 .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                     searchRequest,
                     client::search,
-                    anomalyDetector.getDetectorId(),
+                    anomalyDetector.getId(),
                     client,
                     searchResponseListener
                 );

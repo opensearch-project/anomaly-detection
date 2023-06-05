@@ -15,16 +15,16 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class EntityProfileTests extends AbstractADTest {
+public class EntityProfileTests extends AbstractTimeSeriesTest {
     public void testMerge() {
         EntityProfile profile1 = new EntityProfile(null, -1, -1, null, null, EntityState.INIT);
         EntityProfile profile2 = new EntityProfile(null, -1, -1, null, null, EntityState.UNKNOWN);

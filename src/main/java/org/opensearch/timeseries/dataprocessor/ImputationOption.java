@@ -26,17 +26,20 @@ public class ImputationOption implements Writeable, ToXContent {
     // field name in toXContent
     public static final String METHOD_FIELD = "method";
     public static final String DEFAULT_FILL_FIELD = "defaultFill";
+    public static final String INTEGER_SENSITIVE_FIELD = "integerSensitive";
 
     private final ImputationMethod method;
     private final Optional<double[]> defaultFill;
+    private final boolean integerSentive;
 
-    public ImputationOption(ImputationMethod method, Optional<double[]> defaultFill) {
+    public ImputationOption(ImputationMethod method, Optional<double[]> defaultFill, boolean integerSentive) {
         this.method = method;
         this.defaultFill = defaultFill;
+        this.integerSentive = integerSentive;
     }
 
     public ImputationOption(ImputationMethod method) {
-        this(method, Optional.empty());
+        this(method, Optional.empty(), false);
     }
 
     public ImputationOption(StreamInput in) throws IOException {
@@ -46,6 +49,7 @@ public class ImputationOption implements Writeable, ToXContent {
         } else {
             this.defaultFill = Optional.empty();
         }
+        this.integerSentive = in.readBoolean();
     }
 
     @Override
@@ -57,11 +61,13 @@ public class ImputationOption implements Writeable, ToXContent {
             out.writeBoolean(true);
             out.writeDoubleArray(defaultFill.get());
         }
+        out.writeBoolean(integerSentive);
     }
 
     public static ImputationOption parse(XContentParser parser) throws IOException {
         ImputationMethod method = ImputationMethod.ZERO;
-        List<Double> defaultFill = new ArrayList<>();
+        List<Double> defaultFill = null;
+        Boolean integerSensitive = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -73,15 +79,23 @@ public class ImputationOption implements Writeable, ToXContent {
                     break;
                 case DEFAULT_FILL_FIELD:
                     ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    defaultFill = new ArrayList<>();
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         defaultFill.add(parser.doubleValue());
                     }
+                    break;
+                case INTEGER_SENSITIVE_FIELD:
+                    integerSensitive = parser.booleanValue();
                     break;
                 default:
                     break;
             }
         }
-        return new ImputationOption(method, Optional.of(defaultFill.stream().mapToDouble(Double::doubleValue).toArray()));
+        return new ImputationOption(
+            method,
+            Optional.ofNullable(defaultFill).map(list -> list.stream().mapToDouble(Double::doubleValue).toArray()),
+            integerSensitive
+        );
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -92,13 +106,13 @@ public class ImputationOption implements Writeable, ToXContent {
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder.startObject();
 
-        xContentBuilder.field(METHOD_FIELD, method);
+        builder.field(METHOD_FIELD, method);
 
         if (!defaultFill.isEmpty()) {
             builder.array(DEFAULT_FILL_FIELD, defaultFill.get());
         }
-        builder.endObject();
-        return builder;
+        builder.field(INTEGER_SENSITIVE_FIELD, integerSentive);
+        return xContentBuilder.endObject();
     }
 
     @Override
@@ -110,12 +124,13 @@ public class ImputationOption implements Writeable, ToXContent {
 
         ImputationOption other = (ImputationOption) o;
         return method == other.method
-            && (defaultFill.isEmpty() ? other.defaultFill.isEmpty() : Arrays.equals(defaultFill.get(), other.defaultFill.get()));
+            && (defaultFill.isEmpty() ? other.defaultFill.isEmpty() : Arrays.equals(defaultFill.get(), other.defaultFill.get()))
+            && integerSentive == other.integerSentive;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(method, (defaultFill.isEmpty() ? 0 : Arrays.hashCode(defaultFill.get())));
+        return Objects.hash(method, (defaultFill.isEmpty() ? 0 : Arrays.hashCode(defaultFill.get())), integerSentive);
     }
 
     public ImputationMethod getMethod() {
@@ -124,5 +139,9 @@ public class ImputationOption implements Writeable, ToXContent {
 
     public Optional<double[]> getDefaultFill() {
         return defaultFill;
+    }
+
+    public boolean isIntegerSentive() {
+        return integerSentive;
     }
 }

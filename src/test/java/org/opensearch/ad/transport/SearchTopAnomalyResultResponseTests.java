@@ -9,10 +9,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 public class SearchTopAnomalyResultResponseTests extends OpenSearchTestCase {
 

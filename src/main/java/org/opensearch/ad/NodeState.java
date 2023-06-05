@@ -58,7 +58,7 @@ public class NodeState implements ExpiringState {
         this.detectorJob = null;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

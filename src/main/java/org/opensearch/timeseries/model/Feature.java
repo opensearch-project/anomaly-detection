@@ -30,7 +30,7 @@ import org.opensearch.timeseries.util.ParseUtils;
 import com.google.common.base.Objects;
 
 /**
- * Anomaly detector feature
+ * time series to analyze (a.k.a. feature)
  */
 public class Feature implements Writeable, ToXContentObject {
 

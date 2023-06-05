@@ -305,7 +305,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
             // just use the RequestQueue priority (i.e., low or high) as the key of the RequestQueue map.
             RequestQueue requestQueue = requestQueues
                 .computeIfAbsent(
-                    RequestPriority.MEDIUM == request.getPriority() ? request.getDetectorId() : request.getPriority().name(),
+                    RequestPriority.MEDIUM == request.getPriority() ? request.getId() : request.getPriority().name(),
                     k -> new RequestQueue()
                 );
 
@@ -559,7 +559,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                 LOG.error(String.format(Locale.ROOT, "Failed to process requests from %s", getWorkerName()), e);
                 if (e != null && e instanceof TimeSeriesException) {
                     TimeSeriesException adExep = (TimeSeriesException) e;
-                    nodeStateManager.setException(adExep.getAnomalyDetectorId(), adExep);
+                    nodeStateManager.setException(adExep.getConfigId(), adExep);
                 }
             }
 

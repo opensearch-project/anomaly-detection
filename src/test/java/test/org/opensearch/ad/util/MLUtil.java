@@ -61,7 +61,7 @@ public class MLUtil {
     public static ModelState<EntityModel> randomModelState(RandomModelStateConfig config) {
         boolean fullModel = config.getFullModel() != null && config.getFullModel().booleanValue() ? true : false;
         float priority = config.getPriority() != null ? config.getPriority() : random.nextFloat();
-        String detectorId = config.getDetectorId() != null ? config.getDetectorId() : randomString(15);
+        String detectorId = config.getId() != null ? config.getId() : randomString(15);
         int sampleSize = config.getSampleSize() != null ? config.getSampleSize() : random.nextInt(minSampleSize);
         Clock clock = config.getClock() != null ? config.getClock() : Clock.systemUTC();
 

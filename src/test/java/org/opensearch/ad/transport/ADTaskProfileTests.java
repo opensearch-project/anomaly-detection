@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.randomDiscoveryNode;
+import static org.opensearch.timeseries.TestHelpers.randomDiscoveryNode;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -22,7 +22,6 @@ import org.junit.Ignore;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.cluster.ClusterName;
@@ -35,6 +34,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 
@@ -56,7 +56,7 @@ public class ADTaskProfileTests extends OpenSearchSingleNodeTestCase {
         request.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ADTaskProfileRequest parsedRequest = new ADTaskProfileRequest(input);
-        assertEquals(request.getDetectorId(), parsedRequest.getDetectorId());
+        assertEquals(request.getId(), parsedRequest.getId());
     }
 
     public void testInvalidADTaskProfileRequest() {

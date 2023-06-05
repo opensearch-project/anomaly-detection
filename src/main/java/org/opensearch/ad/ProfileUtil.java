@@ -59,11 +59,7 @@ public class ProfileUtil {
         Client client,
         ActionListener<SearchResponse> listener
     ) {
-        SearchRequest searchLatestResult = createRealtimeInittedEverRequest(
-            detector.getDetectorId(),
-            enabledTime,
-            detector.getResultIndex()
-        );
+        SearchRequest searchLatestResult = createRealtimeInittedEverRequest(detector.getId(), enabledTime, detector.getCustomResultIndex());
         client.search(searchLatestResult, listener);
     }
 }

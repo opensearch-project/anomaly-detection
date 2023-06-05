@@ -49,10 +49,8 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.AnomalyDetectorJobRunnerTests;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -83,6 +81,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -97,7 +97,7 @@ import test.org.opensearch.ad.util.RandomModelStateConfig;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
-public class EntityResultTransportActionTests extends AbstractADTest {
+public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     EntityResultTransportAction entityResult;
     ActionFilters actionFilters;
     TransportService transportService;
@@ -216,13 +216,13 @@ public class EntityResultTransportActionTests extends AbstractADTest {
         cacheMissData = new double[] { 0.1 };
         cacheHitEntity = "0.0.0.2";
         cacheHitData = new double[] { 0.2 };
-        cacheMissEntityObj = Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), cacheMissEntity);
+        cacheMissEntityObj = Entity.createSingleAttributeEntity(detector.getCategoryFields().get(0), cacheMissEntity);
         entities.put(cacheMissEntityObj, cacheMissData);
-        cacheHitEntityObj = Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), cacheHitEntity);
+        cacheHitEntityObj = Entity.createSingleAttributeEntity(detector.getCategoryFields().get(0), cacheHitEntity);
         entities.put(cacheHitEntityObj, cacheHitData);
         tooLongEntity = randomAlphaOfLength(AnomalyDetectorSettings.MAX_ENTITY_LENGTH + 1);
         tooLongData = new double[] { 0.3 };
-        entities.put(Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), tooLongEntity), tooLongData);
+        entities.put(Entity.createSingleAttributeEntity(detector.getCategoryFields().get(0), tooLongEntity), tooLongData);
 
         ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
         when(entityCache.get(eq(cacheMissEntityObj.getModelId(detectorId).get()), any())).thenReturn(null);

@@ -70,7 +70,7 @@ public class ADCancelTaskRequest extends BaseNodesRequest<ADCancelTaskRequest> {
         out.writeOptionalString(reason);
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

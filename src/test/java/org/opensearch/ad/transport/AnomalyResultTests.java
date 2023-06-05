@@ -33,8 +33,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.timeseries.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -65,9 +65,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
@@ -109,6 +107,8 @@ import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
@@ -132,7 +132,7 @@ import test.org.opensearch.ad.util.JsonDeserializer;
 
 import com.google.gson.JsonElement;
 
-public class AnomalyResultTests extends AbstractADTest {
+public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private Settings settings;
     private TransportService transportService;
     private ClusterService clusterService;
@@ -191,14 +191,14 @@ public class AnomalyResultTests extends AbstractADTest {
         userIndex.add("test*");
         when(detector.getIndices()).thenReturn(userIndex);
         adID = "123";
-        when(detector.getDetectorId()).thenReturn(adID);
-        when(detector.getCategoryField()).thenReturn(null);
+        when(detector.getId()).thenReturn(adID);
+        when(detector.getCategoryFields()).thenReturn(null);
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(detector));
             return null;
         }).when(stateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        when(detector.getDetectorIntervalInMinutes()).thenReturn(1L);
+        when(detector.getIntervalInMinutes()).thenReturn(1L);
 
         hashRing = mock(HashRing.class);
         Optional<DiscoveryNode> localNode = Optional.of(clusterService.state().nodes().getLocalNode());
@@ -307,10 +307,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
                 DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
 
-                listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), ADCommonName.DETECTION_STATE_INDEX)
-                    );
+                listener.onResponse(TestHelpers.createGetResponse(result.build(), detector.getId(), ADCommonName.DETECTION_STATE_INDEX));
 
             }
 

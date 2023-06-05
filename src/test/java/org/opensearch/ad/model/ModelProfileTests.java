@@ -15,15 +15,15 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class ModelProfileTests extends AbstractADTest {
+public class ModelProfileTests extends AbstractTimeSeriesTest {
 
     public void testToXContent() throws IOException {
         ModelProfile profile1 = new ModelProfile(

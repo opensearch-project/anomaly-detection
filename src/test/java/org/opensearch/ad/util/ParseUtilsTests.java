@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -30,6 +29,7 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.util.ParseUtils;
@@ -122,14 +122,6 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         SearchSourceBuilder builder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry());
         for (Feature feature : detector.getFeatureAttributes()) {
             assertTrue(builder.toString().contains(feature.getId()));
-        }
-    }
-
-    public void testGenerateInternalFeatureQueryTemplate() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
-        String builder = ParseUtils.generateInternalFeatureQueryTemplate(detector, TestHelpers.xContentRegistry());
-        for (Feature feature : detector.getFeatureAttributes()) {
-            assertTrue(builder.contains(feature.getId()));
         }
     }
 

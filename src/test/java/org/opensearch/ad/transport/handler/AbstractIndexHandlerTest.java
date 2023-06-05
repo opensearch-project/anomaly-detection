@@ -14,7 +14,7 @@ package org.opensearch.ad.transport.handler;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
+import static org.opensearch.timeseries.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -27,8 +27,6 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.transport.AnomalyResultTests;
@@ -43,8 +41,10 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 
-public abstract class AbstractIndexHandlerTest extends AbstractADTest {
+public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
     enum IndexCreation {
         RUNTIME_EXCEPTION,
         RESOURCE_EXISTS_EXCEPTION,

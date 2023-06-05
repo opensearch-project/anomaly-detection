@@ -32,7 +32,7 @@ public enum NotSerializedExceptionName {
     RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ResourceNotFoundException("", ""))),
     LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new LimitExceededException("", "", false))),
     END_RUN_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new EndRunException("", "", false))),
-    ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new TimeSeriesException("", ""))),
+    TIME_SERIES_DETECTION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new TimeSeriesException("", ""))),
     INTERNAL_FAILURE_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new InternalFailure("", ""))),
     CLIENT_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ClientException("", ""))),
     CANCELLATION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new TaskCancelledException("", ""))),
@@ -52,40 +52,40 @@ public enum NotSerializedExceptionName {
     }
 
     /**
-     * Convert from a NotSerializableExceptionWrapper to an AnomalyDetectionException.
+     * Convert from a NotSerializableExceptionWrapper to a TimeSeriesException.
      * Since NotSerializableExceptionWrapper does not keep some details we need, we
      * initialize the exception with default values.
      * @param exception an NotSerializableExceptionWrapper exception.
-     * @param adID Detector Id.
-     * @return converted AnomalyDetectionException
+     * @param configID Config Id.
+     * @return converted TimeSeriesException
      */
-    public static Optional<TimeSeriesException> convertWrappedAnomalyDetectionException(
+    public static Optional<TimeSeriesException> convertWrappedTimeSeriesException(
         NotSerializableExceptionWrapper exception,
-        String adID
+        String configID
     ) {
         String exceptionMsg = exception.getMessage().trim();
 
         TimeSeriesException convertedException = null;
-        for (NotSerializedExceptionName adException : values()) {
-            if (exceptionMsg.startsWith(adException.getName())) {
-                switch (adException) {
+        for (NotSerializedExceptionName timeseriesException : values()) {
+            if (exceptionMsg.startsWith(timeseriesException.getName())) {
+                switch (timeseriesException) {
                     case RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ResourceNotFoundException(adID, exceptionMsg);
+                        convertedException = new ResourceNotFoundException(configID, exceptionMsg);
                         break;
                     case LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new LimitExceededException(adID, exceptionMsg, false);
+                        convertedException = new LimitExceededException(configID, exceptionMsg, false);
                         break;
                     case END_RUN_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new EndRunException(adID, exceptionMsg, false);
+                        convertedException = new EndRunException(configID, exceptionMsg, false);
                         break;
-                    case ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new TimeSeriesException(adID, exceptionMsg);
+                    case TIME_SERIES_DETECTION_EXCEPTION_NAME_UNDERSCORE:
+                        convertedException = new TimeSeriesException(configID, exceptionMsg);
                         break;
                     case INTERNAL_FAILURE_NAME_UNDERSCORE:
-                        convertedException = new InternalFailure(adID, exceptionMsg);
+                        convertedException = new InternalFailure(configID, exceptionMsg);
                         break;
                     case CLIENT_EXCEPTION_NAME_UNDERSCORE:
-                        convertedException = new ClientException(adID, exceptionMsg);
+                        convertedException = new ClientException(configID, exceptionMsg);
                         break;
                     case CANCELLATION_EXCEPTION_NAME_UNDERSCORE:
                         convertedException = new TaskCancelledException(exceptionMsg, "");
@@ -100,7 +100,7 @@ public enum NotSerializedExceptionName {
                         convertedException = new ValidationException(exceptionMsg, null, null);
                         break;
                     default:
-                        LOG.warn(new ParameterizedMessage("Unexpected AD exception {}", adException));
+                        LOG.warn(new ParameterizedMessage("Unexpected exception {}", timeseriesException));
                         break;
                 }
             }

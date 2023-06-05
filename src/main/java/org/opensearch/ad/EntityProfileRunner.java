@@ -105,7 +105,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
-                    List<String> categoryFields = detector.getCategoryField();
+                    List<String> categoryFields = detector.getCategoryFields();
                     int maxCategoryFields = ADNumericSetting.maxCategoricalFields();
                     if (categoryFields == null || categoryFields.size() == 0) {
                         listener.onFailure(new IllegalArgumentException(NOT_HC_DETECTOR_ERR_MSG));
@@ -186,7 +186,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -277,7 +277,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                             detectorId,
                             enabledTimeMs,
                             entityValue,
-                            detector.getResultIndex()
+                            detector.getCustomResultIndex()
                         );
 
                         EntityProfile.Builder builder = new EntityProfile.Builder();
@@ -397,7 +397,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
             builder.state(EntityState.INIT);
         }
         if (profilesToCollect.contains(EntityProfileName.INIT_PROGRESS)) {
-            long intervalMins = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMinutes();
+            long intervalMins = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().toMinutes();
             InitProgressProfile initProgress = computeInitProgressProfile(updates, intervalMins);
             builder.initProgress(initProgress);
         }

@@ -17,19 +17,19 @@ package org.opensearch.timeseries.common.exception;
  */
 public class InternalFailure extends ClientException {
 
-    public InternalFailure(String anomalyDetectorId, String message) {
-        super(anomalyDetectorId, message);
+    public InternalFailure(String configId, String message) {
+        super(configId, message);
     }
 
-    public InternalFailure(String anomalyDetectorId, String message, Throwable cause) {
-        super(anomalyDetectorId, message, cause);
+    public InternalFailure(String configId, String message, Throwable cause) {
+        super(configId, message, cause);
     }
 
-    public InternalFailure(String anomalyDetectorId, Throwable cause) {
-        super(anomalyDetectorId, cause);
+    public InternalFailure(String configId, Throwable cause) {
+        super(configId, cause);
     }
 
     public InternalFailure(TimeSeriesException cause) {
-        super(cause.getAnomalyDetectorId(), cause);
+        super(cause.getConfigId(), cause);
     }
 }

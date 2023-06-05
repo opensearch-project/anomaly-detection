@@ -44,6 +44,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 
 import com.google.common.collect.ImmutableList;
@@ -123,9 +124,9 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         AnomalyDetector createdDetector = createAnomalyDetector(detector, refresh, client);
 
         if (withMetadata) {
-            return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), client);
+            return getAnomalyDetector(createdDetector.getId(), new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), client);
         }
-        return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"), client);
+        return getAnomalyDetector(createdDetector.getId(), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"), client);
     }
 
     protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, RestClient client) throws IOException {
@@ -302,7 +303,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getIndices(),
                 detector.getFeatureAttributes(),
                 detector.getFilterQuery(),
-                detector.getDetectionInterval(),
+                detector.getInterval(),
                 detector.getWindowDelay(),
                 detector.getShingleSize(),
                 detector.getUiMetadata(),
@@ -310,7 +311,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                detector.getResultIndex()
+                detector.getCustomResultIndex(),
+                detector.getImputationOption()
             ),
             detectorJob,
             historicalAdTask,
@@ -634,15 +636,16 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             anomalyDetector.getIndices(),
             anomalyDetector.getFeatureAttributes(),
             anomalyDetector.getFilterQuery(),
-            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getInterval(),
             anomalyDetector.getWindowDelay(),
             anomalyDetector.getShingleSize(),
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
             Instant.now(),
-            anomalyDetector.getCategoryField(),
+            anomalyDetector.getCategoryFields(),
             null,
-            resultIndex
+            resultIndex,
+            anomalyDetector.getImputationOption()
         );
         return detector;
     }

@@ -118,11 +118,11 @@ public class FeatureManagerTests {
         featureBufferTtl = Duration.ofMillis(1_000L);
 
         detectorId = "id";
-        when(detector.getDetectorId()).thenReturn(detectorId);
+        when(detector.getId()).thenReturn(detectorId);
         when(detector.getShingleSize()).thenReturn(shingleSize);
         IntervalTimeConfiguration detectorIntervalTimeConfig = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         intervalInMilliseconds = detectorIntervalTimeConfig.toDuration().toMillis();
-        when(detector.getDetectorIntervalInMilliseconds()).thenReturn(intervalInMilliseconds);
+        when(detector.getIntervalInMilliseconds()).thenReturn(intervalInMilliseconds);
 
         Imputer imputer = new LinearUniformImputer(false);
 
@@ -195,7 +195,7 @@ public class FeatureManagerTests {
         double[][] expected
     ) throws Exception {
         long detectionInterval = (new IntervalTimeConfiguration(15, ChronoUnit.MINUTES)).toDuration().toMillis();
-        when(detector.getDetectorIntervalInMilliseconds()).thenReturn(detectionInterval);
+        when(detector.getIntervalInMilliseconds()).thenReturn(detectionInterval);
         when(detector.getShingleSize()).thenReturn(4);
         doAnswer(invocation -> {
             ActionListener<Optional<Long>> listener = invocation.getArgument(1);
@@ -335,7 +335,7 @@ public class FeatureManagerTests {
         assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
         assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
 
-        featureManager.clear(detector.getDetectorId());
+        featureManager.clear(detector.getId());
 
         SinglePointFeatures afterMaintenance = getCurrentFeatures(detector, start, end);
         assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
@@ -427,7 +427,7 @@ public class FeatureManagerTests {
         long start = 0L;
         long end = 240_000L;
         long detectionInterval = (new IntervalTimeConfiguration(1, ChronoUnit.MINUTES)).toDuration().toMillis();
-        when(detector.getDetectorIntervalInMilliseconds()).thenReturn(detectionInterval);
+        when(detector.getIntervalInMilliseconds()).thenReturn(detectionInterval);
 
         List<Entry<Long, Long>> sampleRanges = Arrays.asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(120_000L, 180_000L));
         doAnswer(invocation -> {
@@ -989,7 +989,7 @@ public class FeatureManagerTests {
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, 0, intervalInMilliseconds);
         assertTrue(listenerResponse.getProcessedFeatures().isPresent());
         assertEquals(listenerResponse.getProcessedFeatures().get().length, shingleSize);
-        assertEquals(featureManager.getShingleSize(detector.getDetectorId()), shingleSize);
+        assertEquals(featureManager.getShingleSize(detector.getId()), shingleSize);
     }
 
     @Test

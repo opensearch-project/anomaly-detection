@@ -36,7 +36,6 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
@@ -45,6 +44,7 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
@@ -210,7 +210,8 @@ public class ADRestTestUtils {
             now,
             categoryFields,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
 
         if (historical) {

@@ -92,7 +92,7 @@ public class ExecuteADResultResponseRecorder {
         AnomalyResultResponse response,
         AnomalyDetector detector
     ) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         try {
             // skipping writing to the result index if not necessary
             // For a single-entity detector, the result is not useful if error is null
@@ -124,7 +124,7 @@ public class ExecuteADResultResponseRecorder {
                     response.getError()
                 );
 
-            String resultIndex = detector.getResultIndex();
+            String resultIndex = detector.getCustomResultIndex();
             anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             updateRealtimeTask(response, detectorId);
         } catch (EndRunException e) {
@@ -156,13 +156,7 @@ public class ExecuteADResultResponseRecorder {
             Runnable profileHCInitProgress = () -> {
                 client.execute(ProfileAction.INSTANCE, profileRequest, ActionListener.wrap(r -> {
                     log.debug("Update latest realtime task for HC detector {}, total updates: {}", detectorId, r.getTotalUpdates());
-                    updateLatestRealtimeTask(
-                        detectorId,
-                        null,
-                        r.getTotalUpdates(),
-                        response.getDetectorIntervalInMinutes(),
-                        response.getError()
-                    );
+                    updateLatestRealtimeTask(detectorId, null, r.getTotalUpdates(), response.getIntervalInMinutes(), response.getError());
                 }, e -> { log.error("Failed to update latest realtime task for " + detectorId, e); }));
             };
             if (!adTaskManager.isHCRealtimeTaskStartInitializing(detectorId)) {
@@ -181,13 +175,7 @@ public class ExecuteADResultResponseRecorder {
                     detectorId,
                     response.getRcfTotalUpdates()
                 );
-            updateLatestRealtimeTask(
-                detectorId,
-                null,
-                response.getRcfTotalUpdates(),
-                response.getDetectorIntervalInMinutes(),
-                response.getError()
-            );
+            updateLatestRealtimeTask(detectorId, null, response.getRcfTotalUpdates(), response.getIntervalInMinutes(), response.getError());
         }
     }
 
@@ -278,7 +266,7 @@ public class ExecuteADResultResponseRecorder {
         String taskState,
         AnomalyDetector detector
     ) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         try {
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) detector.getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
@@ -299,7 +287,7 @@ public class ExecuteADResultResponseRecorder {
                 anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                 null // no model id
             );
-            String resultIndex = detector.getResultIndex();
+            String resultIndex = detector.getCustomResultIndex();
             if (resultIndex != null && !anomalyDetectionIndices.doesIndexExist(resultIndex)) {
                 // Set result index as null, will write exception to default result index.
                 anomalyResultHandler.index(anomalyResult, detectorId, null);
@@ -307,7 +295,7 @@ public class ExecuteADResultResponseRecorder {
                 anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             }
 
-            if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !detector.isMultiCategoryDetector()) {
+            if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !detector.isHC()) {
                 // single stream detector raises ResourceNotFoundException containing CommonErrorMessages.NO_CHECKPOINT_ERR_MSG
                 // when there is no checkpoint.
                 // Delay real time cache update by one minute so we will have trained models by then and update the state
@@ -321,7 +309,7 @@ public class ExecuteADResultResponseRecorder {
                             detectorId,
                             taskState,
                             totalUpdates,
-                            detector.getDetectorIntervalInMinutes(),
+                            detector.getIntervalInMinutes(),
                             totalUpdates > 0 ? "" : errorMessage
                         );
                     }, e -> {

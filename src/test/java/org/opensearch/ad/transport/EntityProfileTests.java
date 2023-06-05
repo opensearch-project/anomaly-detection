@@ -31,8 +31,6 @@ import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
@@ -50,6 +48,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.ConnectTransportException;
@@ -65,7 +65,7 @@ import org.opensearch.transport.TransportService;
 import test.org.opensearch.ad.util.FakeNode;
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class EntityProfileTests extends AbstractADTest {
+public class EntityProfileTests extends AbstractTimeSeriesTest {
     private String detectorId = "yecrdnUBqurvo9uKU_d8";
     private String entityValue = "app_0";
     private String nodeId = "abc";

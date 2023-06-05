@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
@@ -50,6 +49,7 @@ import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 
 public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     ResultWriteWorker resultWriteQueue;

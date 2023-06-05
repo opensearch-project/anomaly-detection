@@ -27,7 +27,6 @@ import org.junit.Before;
 import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.util.ClientUtil;
@@ -36,6 +35,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.ScrollableHitSource;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
@@ -52,7 +52,7 @@ import io.protostuff.Schema;
  * class for tests requiring checking logs.
  *
  */
-public class CheckpointDeleteTests extends AbstractADTest {
+public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
     private enum DeleteExecutionMode {
         NORMAL,
         INDEX_NOT_FOUND,

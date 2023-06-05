@@ -68,7 +68,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
             listener.onResponse(null);
             return;
         }
-        String detectorId = anomalyResults.get(0).getDetectorId();
+        String detectorId = anomalyResults.get(0).getId();
         try {
             if (resultIndex != null) {
                 // Only create custom AD result index when create detector, won’t recreate custom AD result index in realtime

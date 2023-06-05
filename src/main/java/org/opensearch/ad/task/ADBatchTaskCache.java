@@ -55,7 +55,7 @@ public class ADBatchTaskCache {
     private Entity entity;
 
     protected ADBatchTaskCache(ADTask adTask) {
-        this.detectorId = adTask.getDetectorId();
+        this.detectorId = adTask.getId();
         this.taskId = adTask.getTaskId();
         this.detectorTaskId = adTask.getDetectorLevelTaskId();
         this.entity = adTask.getEntity();
@@ -85,7 +85,7 @@ public class ADBatchTaskCache {
         this.thresholdModelTrained = false;
     }
 
-    protected String getDetectorId() {
+    protected String getId() {
         return detectorId;
     }
 

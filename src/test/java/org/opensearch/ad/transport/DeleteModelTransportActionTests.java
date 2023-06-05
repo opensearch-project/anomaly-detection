@@ -27,7 +27,6 @@ import org.junit.Before;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -47,13 +46,14 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.transport.TransportService;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
 import com.google.gson.JsonElement;
 
-public class DeleteModelTransportActionTests extends AbstractADTest {
+public class DeleteModelTransportActionTests extends AbstractTimeSeriesTest {
     private DeleteModelTransportAction action;
     private String localNodeID;
 

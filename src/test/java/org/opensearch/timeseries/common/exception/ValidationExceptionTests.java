@@ -9,15 +9,15 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.common.exception;
+package org.opensearch.timeseries.common.exception;
 
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 
-public class ADValidationExceptionTests extends OpenSearchTestCase {
+public class ValidationExceptionTests extends OpenSearchTestCase {
     public void testConstructorDetector() {
         String message = randomAlphaOfLength(5);
         ValidationException exception = new ValidationException(message, ValidationIssueType.NAME, ValidationAspect.DETECTOR);
@@ -40,5 +40,12 @@ public class ADValidationExceptionTests extends OpenSearchTestCase {
         ValidationException exceptionNoType = new ValidationException(message, ValidationIssueType.NAME, null);
         String exceptionStringNoType = exceptionNoType.toString();
         logger.info("exception string no type: " + exceptionStringNoType);
+    }
+
+    public void testForecasterAspect() {
+        String message = randomAlphaOfLength(5);
+        ValidationException exception = new ValidationException(message, ValidationIssueType.CATEGORY, ValidationAspect.FORECASTER);
+        assertEquals(ValidationIssueType.CATEGORY, exception.getType());
+        assertEquals(ValidationAspect.getName(ForecastCommonName.FORECASTER_ASPECT), exception.getAspect());
     }
 }

@@ -26,7 +26,7 @@ public class ADTaskProfileNodeRequest extends TransportRequest {
     }
 
     public ADTaskProfileNodeRequest(ADTaskProfileRequest request) {
-        this.detectorId = request.getDetectorId();
+        this.detectorId = request.getId();
     }
 
     @Override
@@ -35,7 +35,7 @@ public class ADTaskProfileNodeRequest extends TransportRequest {
         out.writeString(detectorId);
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

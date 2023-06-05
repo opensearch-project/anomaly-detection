@@ -137,7 +137,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
             }
 
             for (ResultWriteRequest request : toProcess) {
-                nodeStateManager.setException(request.getDetectorId(), exception);
+                nodeStateManager.setException(request.getId(), exception);
             }
             LOG.error("Fail to save results", exception);
         });
@@ -154,7 +154,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
             return;
         }
         AnomalyResult result = resultToRetry.get();
-        String detectorId = result.getDetectorId();
+        String detectorId = result.getId();
         nodeStateManager.getAnomalyDetector(detectorId, onGetDetector(requestToRetry, index, detectorId, result));
     }
 
@@ -175,11 +175,11 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
             super.put(
                 new ResultWriteRequest(
                     // expire based on execute start time
-                    resultToRetry.getExecutionStartTime().toEpochMilli() + detector.getDetectorIntervalInMilliseconds(),
+                    resultToRetry.getExecutionStartTime().toEpochMilli() + detector.getIntervalInMilliseconds(),
                     detectorId,
                     resultToRetry.isHighPriority() ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                     resultToRetry,
-                    detector.getResultIndex()
+                    detector.getCustomResultIndex()
                 )
             );
 

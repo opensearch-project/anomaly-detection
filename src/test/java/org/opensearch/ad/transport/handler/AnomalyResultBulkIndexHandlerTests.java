@@ -34,7 +34,6 @@ import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
@@ -47,6 +46,7 @@ import org.opensearch.index.Index;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 
@@ -98,7 +98,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     public void testAnomalyResultBulkIndexHandler_IndexNotExist() {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(false);
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
-        when(anomalyResult.getDetectorId()).thenReturn("testId");
+        when(anomalyResult.getId()).thenReturn("testId");
 
         bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
@@ -109,7 +109,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
         when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(false);
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
-        when(anomalyResult.getDetectorId()).thenReturn("testId");
+        when(anomalyResult.getId()).thenReturn("testId");
 
         bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
@@ -120,7 +120,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
         when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(true);
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
-        when(anomalyResult.getDetectorId()).thenReturn("testId");
+        when(anomalyResult.getId()).thenReturn("testId");
         when(anomalyResult.toXContent(any(), any())).thenThrow(new RuntimeException());
 
         bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);

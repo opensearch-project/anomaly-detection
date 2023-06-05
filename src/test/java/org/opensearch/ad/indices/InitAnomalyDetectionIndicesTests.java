@@ -29,7 +29,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -44,9 +43,10 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
 
-public class InitAnomalyDetectionIndicesTests extends AbstractADTest {
+public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
     Client client;
     ClusterService clusterService;
     ThreadPool threadPool;

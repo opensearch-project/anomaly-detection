@@ -38,7 +38,6 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -62,6 +61,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
@@ -123,7 +123,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         );
         task = mock(Task.class);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(

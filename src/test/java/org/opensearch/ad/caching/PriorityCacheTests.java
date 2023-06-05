@@ -141,9 +141,9 @@ public class PriorityCacheTests extends AbstractCacheTest {
 
         detector2 = mock(AnomalyDetector.class);
         detectorId2 = "456";
-        when(detector2.getDetectorId()).thenReturn(detectorId2);
-        when(detector2.getDetectionIntervalDuration()).thenReturn(detectorDuration);
-        when(detector2.getDetectorIntervalInSeconds()).thenReturn(detectorDuration.getSeconds());
+        when(detector2.getId()).thenReturn(detectorId2);
+        when(detector2.getIntervalDuration()).thenReturn(detectorDuration);
+        when(detector2.getIntervalInSeconds()).thenReturn(detectorDuration.getSeconds());
 
         point = new double[] { 0.1 };
     }
@@ -199,7 +199,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         assertEquals(1, entityCache.getTotalActiveEntities());
         assertEquals(1, entityCache.getAllModels().size());
         ModelState<EntityModel> hitState = entityCache.get(modelState1.getModelId(), detector);
-        assertEquals(detectorId, hitState.getDetectorId());
+        assertEquals(detectorId, hitState.getId());
         EntityModel model = hitState.getModel();
         assertEquals(false, model.getTrcf().isPresent());
         assertTrue(model.getSamples().isEmpty());
@@ -654,7 +654,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         try {
             ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED, true);
             when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
-            when(detector.getDetectionIntervalDuration()).thenReturn(Duration.ofHours(12));
+            when(detector.getIntervalDuration()).thenReturn(Duration.ofHours(12));
             String modelId = entity1.getModelId(detectorId).get();
             // record last access time 1000
             assertTrue(null == entityCache.get(modelId, detector));

@@ -40,7 +40,6 @@ import org.opensearch.action.admin.indices.settings.get.GetSettingsAction;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
@@ -56,9 +55,10 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
 
-public class UpdateMappingTests extends AbstractADTest {
+public class UpdateMappingTests extends AbstractTimeSeriesTest {
     private static String resultIndexName;
 
     private AnomalyDetectionIndices adIndices;

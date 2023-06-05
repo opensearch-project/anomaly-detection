@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 public class NodeStateTests extends OpenSearchTestCase {

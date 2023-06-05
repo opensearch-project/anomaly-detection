@@ -11,7 +11,7 @@
 
 package org.opensearch.timeseries.common.exception;
 
-import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
@@ -53,7 +53,7 @@ public class ValidationException extends TimeSeriesException {
         ValidationAspect aspect,
         IntervalTimeConfiguration intervalSuggestion
     ) {
-        super(AnomalyDetector.NO_ID, message, cause);
+        super(Config.NO_ID, message, cause);
         this.type = type;
         this.aspect = aspect;
         this.intervalSuggestion = intervalSuggestion;

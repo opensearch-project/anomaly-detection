@@ -28,7 +28,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
@@ -44,6 +43,7 @@ import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.search.SearchHit;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;

@@ -100,7 +100,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
 
     @Override
     protected void executeRequest(EntityRequest coldStartRequest, ActionListener<Void> listener) {
-        String detectorId = coldStartRequest.getDetectorId();
+        String detectorId = coldStartRequest.getId();
 
         Optional<String> modelId = coldStartRequest.getModelId();
 

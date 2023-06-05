@@ -36,7 +36,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
@@ -45,6 +44,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.ClusterServiceUtils;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -100,7 +100,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -220,7 +220,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
             ModelState<EntityModel> modelState = new ModelState<>(
                 model,
                 entity.getModelId(detectorId).get(),
-                detector.getDetectorId(),
+                detector.getId(),
                 ModelType.ENTITY.getName(),
                 clock,
                 priority
@@ -234,7 +234,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 inProgressLatch.countDown();
             });
 
-            entityColdStarter.trainModel(entity, detector.getDetectorId(), modelState, listener);
+            entityColdStarter.trainModel(entity, detector.getId(), modelState, listener);
 
             checkSemaphoreRelease();
             assertTrue(model.getTrcf().isPresent());

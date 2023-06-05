@@ -72,7 +72,7 @@ public final class AnomalyDetectorRunner {
         ActionListener<List<AnomalyResult>> listener
     ) throws IOException {
         context.restore();
-        List<String> categoryField = detector.getCategoryField();
+        List<String> categoryField = detector.getCategoryFields();
         if (categoryField != null && !categoryField.isEmpty()) {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
 
@@ -86,13 +86,13 @@ public final class AnomalyDetectorRunner {
                 ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener
                     .wrap(
                         entityAnomalyResult -> { listener.onResponse(entityAnomalyResult.getAnomalyResults()); },
-                        e -> onFailure(e, listener, detector.getDetectorId())
+                        e -> onFailure(e, listener, detector.getId())
                     );
                 MultiResponsesDelegateActionListener<EntityAnomalyResult> multiEntitiesResponseListener =
                     new MultiResponsesDelegateActionListener<EntityAnomalyResult>(
                         entityAnomalyResultListener,
                         entities.size(),
-                        String.format(Locale.ROOT, "Fail to get preview result for multi entity detector %s", detector.getDetectorId()),
+                        String.format(Locale.ROOT, "Fail to get preview result for multi entity detector %s", detector.getId()),
                         true
                     );
                 for (Entity entity : entities) {
@@ -113,7 +113,7 @@ public final class AnomalyDetectorRunner {
                             }, e -> multiEntitiesResponseListener.onFailure(e))
                         );
                 }
-            }, e -> onFailure(e, listener, detector.getDetectorId())));
+            }, e -> onFailure(e, listener, detector.getId())));
         } else {
             featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
                 try {
@@ -121,9 +121,9 @@ public final class AnomalyDetectorRunner {
                         .getPreviewResults(features.getProcessedFeatures(), detector.getShingleSize());
                     listener.onResponse(sample(parsePreviewResult(detector, features, results, null), maxPreviewResults));
                 } catch (Exception e) {
-                    onFailure(e, listener, detector.getDetectorId());
+                    onFailure(e, listener, detector.getId());
                 }
-            }, e -> onFailure(e, listener, detector.getDetectorId())));
+            }, e -> onFailure(e, listener, detector.getId())));
         }
     }
 
@@ -184,7 +184,7 @@ public final class AnomalyDetectorRunner {
                         );
                 } else {
                     result = new AnomalyResult(
-                        detector.getDetectorId(),
+                        detector.getId(),
                         null,
                         featureDatas,
                         Instant.ofEpochMilli(timeRange.getKey()),

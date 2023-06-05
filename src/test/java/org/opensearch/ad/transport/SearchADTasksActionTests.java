@@ -11,15 +11,15 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.matchAllRequest;
+import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
 import java.io.IOException;
 
 import org.junit.Test;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.timeseries.TestHelpers;
 
 public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
 

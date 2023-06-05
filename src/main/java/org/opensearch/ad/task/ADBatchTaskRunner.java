@@ -219,8 +219,8 @@ public class ADBatchTaskRunner {
      * @param listener action listener
      */
     public void run(ADTask adTask, TransportService transportService, ActionListener<ADBatchAnomalyResultResponse> listener) {
-        boolean isHCDetector = adTask.getDetector().isMultientityDetector();
-        if (isHCDetector && !adTaskCacheManager.topEntityInited(adTask.getDetectorId())) {
+        boolean isHCDetector = adTask.getDetector().isHC();
+        if (isHCDetector && !adTaskCacheManager.topEntityInited(adTask.getId())) {
             // Initialize top entities for HC detector
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
                 ActionListener<ADBatchAnomalyResultResponse> hcDelegatedListener = getInternalHCDelegatedListener(adTask);
@@ -262,7 +262,7 @@ public class ADBatchTaskRunner {
         ActionListener<ADBatchAnomalyResultResponse> listener
     ) {
         String taskId = adTask.getTaskId();
-        String detectorId = adTask.getDetectorId();
+        String detectorId = adTask.getId();
         ActionListener<String> actionListener = ActionListener.wrap(response -> {
             adTaskCacheManager.setTopEntityInited(detectorId);
             int totalEntities = adTaskCacheManager.getPendingEntityCount(detectorId);
@@ -325,11 +325,11 @@ public class ADBatchTaskRunner {
         getDateRangeOfSourceData(adTask, (dataStartTime, dataEndTime) -> {
             PriorityTracker priorityTracker = new PriorityTracker(
                 Clock.systemUTC(),
-                adTask.getDetector().getDetectorIntervalInSeconds(),
+                adTask.getDetector().getIntervalInSeconds(),
                 adTask.getDetectionDateRange().getStartTime().toEpochMilli(),
                 MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS
             );
-            long detectorInterval = adTask.getDetector().getDetectorIntervalInMilliseconds();
+            long detectorInterval = adTask.getDetector().getIntervalInMilliseconds();
             logger
                 .debug(
                     "start to search top entities at {}, data start time: {}, data end time: {}, interval: {}",
@@ -338,7 +338,7 @@ public class ADBatchTaskRunner {
                     dataEndTime,
                     detectorInterval
                 );
-            if (adTask.getDetector().isMultiCategoryDetector()) {
+            if (adTask.getDetector().hasMultipleCategories()) {
                 searchTopEntitiesForMultiCategoryHC(
                     adTask,
                     priorityTracker,
@@ -390,19 +390,19 @@ public class ADBatchTaskRunner {
                 logger.debug("finish searching top entities at " + System.currentTimeMillis());
                 List<String> topNEntities = priorityTracker.getTopNEntities(maxTopEntitiesPerHcDetector);
                 if (topNEntities.size() == 0) {
-                    logger.error("There is no entity found for detector " + adTask.getDetectorId());
-                    internalHCListener.onFailure(new ResourceNotFoundException(adTask.getDetectorId(), "No entity found"));
+                    logger.error("There is no entity found for detector " + adTask.getId());
+                    internalHCListener.onFailure(new ResourceNotFoundException(adTask.getId(), "No entity found"));
                     return;
                 }
-                adTaskCacheManager.addPendingEntities(adTask.getDetectorId(), topNEntities);
-                adTaskCacheManager.setTopEntityCount(adTask.getDetectorId(), topNEntities.size());
+                adTaskCacheManager.addPendingEntities(adTask.getId(), topNEntities);
+                adTaskCacheManager.setTopEntityCount(adTask.getId(), topNEntities.size());
                 internalHCListener.onResponse("Get top entities done");
             }
         }, e -> {
-            logger.error("Failed to get top entities for detector " + adTask.getDetectorId(), e);
+            logger.error("Failed to get top entities for detector " + adTask.getId(), e);
             internalHCListener.onFailure(e);
         });
-        int minimumDocCount = Math.max((int) (bucketInterval / adTask.getDetector().getDetectorIntervalInMilliseconds()) / 2, 1);
+        int minimumDocCount = Math.max((int) (bucketInterval / adTask.getDetector().getIntervalInMilliseconds()) / 2, 1);
         searchFeatureDao
             .getHighestCountEntities(
                 adTask.getDetector(),
@@ -437,7 +437,7 @@ public class ADBatchTaskRunner {
 
         String topEntitiesAgg = "topEntities";
         AggregationBuilder aggregation = new TermsAggregationBuilder(topEntitiesAgg)
-            .field(adTask.getDetector().getCategoryField().get(0))
+            .field(adTask.getDetector().getCategoryFields().get(0))
             .size(MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS);
         sourceBuilder.aggregation(aggregation).size(0);
         SearchRequest searchRequest = new SearchRequest();
@@ -467,16 +467,16 @@ public class ADBatchTaskRunner {
                 logger.debug("finish searching top entities at " + System.currentTimeMillis());
                 List<String> topNEntities = priorityTracker.getTopNEntities(maxTopEntitiesPerHcDetector);
                 if (topNEntities.size() == 0) {
-                    logger.error("There is no entity found for detector " + adTask.getDetectorId());
-                    internalHCListener.onFailure(new ResourceNotFoundException(adTask.getDetectorId(), "No entity found"));
+                    logger.error("There is no entity found for detector " + adTask.getId());
+                    internalHCListener.onFailure(new ResourceNotFoundException(adTask.getId(), "No entity found"));
                     return;
                 }
-                adTaskCacheManager.addPendingEntities(adTask.getDetectorId(), topNEntities);
-                adTaskCacheManager.setTopEntityCount(adTask.getDetectorId(), topNEntities.size());
+                adTaskCacheManager.addPendingEntities(adTask.getId(), topNEntities);
+                adTaskCacheManager.setTopEntityCount(adTask.getId(), topNEntities.size());
                 internalHCListener.onResponse("Get top entities done");
             }
         }, e -> {
-            logger.error("Failed to get top entities for detector " + adTask.getDetectorId(), e);
+            logger.error("Failed to get top entities for detector " + adTask.getId(), e);
             internalHCListener.onFailure(e);
         });
         // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -511,9 +511,9 @@ public class ADBatchTaskRunner {
     ) {
         try {
             checkIfADTaskCancelledAndCleanupCache(adTask);
-            String detectorId = adTask.getDetectorId();
+            String detectorId = adTask.getId();
             AnomalyDetector detector = adTask.getDetector();
-            boolean isHCDetector = detector.isMultientityDetector();
+            boolean isHCDetector = detector.isHC();
             if (isHCDetector) {
                 String entityString = adTaskCacheManager.pollEntity(detectorId);
                 logger.debug("Start to run entity: {} of detector {}", entityString, detectorId);
@@ -560,7 +560,7 @@ public class ADBatchTaskRunner {
                                 logger.info("Create entity task for entity:{}", entityString);
                                 Instant now = Instant.now();
                                 ADTask adEntityTask = new ADTask.Builder()
-                                    .detectorId(adTask.getDetectorId())
+                                    .detectorId(adTask.getId())
                                     .detector(detector)
                                     .isLatest(true)
                                     .taskType(ADTaskType.HISTORICAL_HC_ENTITY.name())
@@ -638,7 +638,7 @@ public class ADBatchTaskRunner {
             if (adTask.isEntityTask()) {
                 // When reach this line, the entity task already been put into worker node's cache.
                 // Then it's safe to move entity from temp entities queue to running entities queue.
-                adTaskCacheManager.moveToRunningEntity(adTask.getDetectorId(), adTaskManager.convertEntityToString(adTask));
+                adTaskCacheManager.moveToRunningEntity(adTask.getId(), adTaskManager.convertEntityToString(adTask));
             }
             startNewEntityTaskLane(adTask, transportService);
         }, e -> {
@@ -646,10 +646,10 @@ public class ADBatchTaskRunner {
             listener.onFailure(e);
             handleException(adTask, e);
 
-            if (adTask.getDetector().isMultientityDetector()) {
+            if (adTask.getDetector().isHC()) {
                 // Entity task done on worker node. Send entity task done message to coordinating node to poll next entity.
                 adTaskManager.entityTaskDone(adTask, e, transportService);
-                if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getDetectorId()) > 0) {
+                if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getId()) > 0) {
                     // When reach this line, it means entity task failed to start on worker node
                     // Sleep some time before starting new task lane.
                     threadPool
@@ -698,8 +698,8 @@ public class ADBatchTaskRunner {
 
     // start new entity task lane
     private synchronized void startNewEntityTaskLane(ADTask adTask, TransportService transportService) {
-        if (adTask.getDetector().isMultientityDetector() && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getDetectorId()) > 0) {
-            logger.debug("start new task lane for detector {}", adTask.getDetectorId());
+        if (adTask.getDetector().isHC() && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getId()) > 0) {
+            logger.debug("start new task lane for detector {}", adTask.getId());
             forwardOrExecuteADTask(adTask, transportService, getInternalHCDelegatedListener(adTask));
         }
     }
@@ -721,10 +721,10 @@ public class ADBatchTaskRunner {
                         .append(DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
                         .append("%. ")
                         .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
-                        .append(adTask.getDetectorId());
+                        .append(adTask.getId());
                     String errorMessage = errorMessageBuilder.toString();
                     logger.warn(errorMessage + ", task id " + adTask.getTaskId() + ", " + adTask.getTaskType());
-                    listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
+                    listener.onFailure(new LimitExceededException(adTask.getId(), errorMessage));
                     return;
                 }
                 candidateNodeResponse = candidateNodeResponse
@@ -734,10 +734,10 @@ public class ADBatchTaskRunner {
                 if (candidateNodeResponse.size() == 0) {
                     StringBuilder errorMessageBuilder = new StringBuilder("All nodes' executing batch tasks exceeds limitation ")
                         .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
-                        .append(adTask.getDetectorId());
+                        .append(adTask.getId());
                     String errorMessage = errorMessageBuilder.toString();
                     logger.warn(errorMessage + ", task id " + adTask.getTaskId() + ", " + adTask.getTaskType());
-                    listener.onFailure(new LimitExceededException(adTask.getDetectorId(), errorMessage));
+                    listener.onFailure(new LimitExceededException(adTask.getId(), errorMessage));
                     return;
                 }
                 Optional<ADStatsNodeResponse> targetNode = candidateNodeResponse
@@ -798,12 +798,12 @@ public class ADBatchTaskRunner {
     private ActionListener<String> internalBatchTaskListener(ADTask adTask, TransportService transportService) {
         String taskId = adTask.getTaskId();
         String detectorTaskId = adTask.getDetectorLevelTaskId();
-        String detectorId = adTask.getDetectorId();
+        String detectorId = adTask.getId();
         ActionListener<String> listener = ActionListener.wrap(response -> {
             // If batch task finished normally, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
-            if (!adTask.getDetector().isMultientityDetector()) {
+            if (!adTask.getDetector().isHC()) {
                 // Set single-entity detector task as FINISHED here
                 adTaskManager
                     .cleanDetectorCache(
@@ -820,7 +820,7 @@ public class ADBatchTaskRunner {
             // If batch task failed, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
-            if (!adTask.getDetector().isMultientityDetector()) {
+            if (!adTask.getDetector().isHC()) {
                 adTaskManager.cleanDetectorCache(adTask, transportService, () -> handleException(adTask, e));
             } else {
                 adTaskManager.entityTaskDone(adTask, e, transportService);
@@ -865,7 +865,7 @@ public class ADBatchTaskRunner {
 
     private void checkClusterState(ADTask adTask) {
         // check if AD plugin is enabled
-        checkADPluginEnabled(adTask.getDetectorId());
+        checkADPluginEnabled(adTask.getId());
 
         // check if circuit breaker is open
         checkCircuitBreaker(adTask);
@@ -882,7 +882,7 @@ public class ADBatchTaskRunner {
         if (adCircuitBreakerService.isOpen()) {
             String error = "Circuit breaker is open";
             logger.error("AD task: {}, {}", taskId, error);
-            throw new LimitExceededException(adTask.getDetectorId(), error, true);
+            throw new LimitExceededException(adTask.getId(), error, true);
         }
     }
 
@@ -908,9 +908,7 @@ public class ADBatchTaskRunner {
                         try {
                             checkIfADTaskCancelledAndCleanupCache(adTask);
                             getDateRangeOfSourceData(adTask, (dataStartTime, dataEndTime) -> {
-                                long interval = ((IntervalTimeConfiguration) adTask.getDetector().getDetectionInterval())
-                                    .toDuration()
-                                    .toMillis();
+                                long interval = ((IntervalTimeConfiguration) adTask.getDetector().getInterval()).toDuration().toMillis();
                                 long expectedPieceEndTime = dataStartTime + pieceSize * interval;
                                 long firstPieceEndTime = Math.min(expectedPieceEndTime, dataEndTime);
                                 logger
@@ -922,7 +920,7 @@ public class ADBatchTaskRunner {
                                         interval,
                                         dataStartTime,
                                         dataEndTime,
-                                        adTask.getDetectorId(),
+                                        adTask.getId(),
                                         adTask.getTaskId()
                                     );
                                 getFeatureData(
@@ -972,10 +970,10 @@ public class ADBatchTaskRunner {
             double maxValue = maxAgg.getValue();
             // If time field not exist or there is no value, will return infinity value
             if (minValue == Double.POSITIVE_INFINITY) {
-                internalListener.onFailure(new ResourceNotFoundException(adTask.getDetectorId(), "There is no data in the time field"));
+                internalListener.onFailure(new ResourceNotFoundException(adTask.getId(), "There is no data in the time field"));
                 return;
             }
-            long interval = ((IntervalTimeConfiguration) adTask.getDetector().getDetectionInterval()).toDuration().toMillis();
+            long interval = ((IntervalTimeConfiguration) adTask.getDetector().getInterval()).toDuration().toMillis();
 
             DateRange detectionDateRange = adTask.getDetectionDateRange();
             long dataStartTime = detectionDateRange.getStartTime().toEpochMilli();
@@ -984,8 +982,7 @@ public class ADBatchTaskRunner {
             long maxDate = (long) maxValue;
 
             if (minDate >= dataEndTime || maxDate <= dataStartTime) {
-                internalListener
-                    .onFailure(new ResourceNotFoundException(adTask.getDetectorId(), "There is no data in the detection date range"));
+                internalListener.onFailure(new ResourceNotFoundException(adTask.getId(), "There is no data in the detection date range"));
                 return;
             }
             if (minDate > dataStartTime) {
@@ -1100,7 +1097,7 @@ public class ADBatchTaskRunner {
                     ? "No full shingle in current detection window"
                     : "No data in current detection window";
                 AnomalyResult anomalyResult = new AnomalyResult(
-                    adTask.getDetectorId(),
+                    adTask.getId(),
                     adTask.getDetectorLevelTaskId(),
                     featureData,
                     Instant.ofEpochMilli(intervalEndTime - interval),
@@ -1126,8 +1123,8 @@ public class ADBatchTaskRunner {
 
                 AnomalyResult anomalyResult = AnomalyResult
                     .fromRawTRCFResult(
-                        adTask.getDetectorId(),
-                        adTask.getDetector().getDetectorIntervalInMilliseconds(),
+                        adTask.getId(),
+                        adTask.getDetector().getIntervalInMilliseconds(),
                         adTask.getDetectorLevelTaskId(),
                         score,
                         descriptor.getAnomalyGrade(),
@@ -1165,7 +1162,7 @@ public class ADBatchTaskRunner {
             user = adTask.getUser().getName();
             roles = adTask.getUser().getRoles();
         }
-        String resultIndex = adTask.getDetector().getResultIndex();
+        String resultIndex = adTask.getDetector().getCustomResultIndex();
 
         if (resultIndex == null) {
             // if result index is null, store anomaly result directly
@@ -1248,7 +1245,7 @@ public class ADBatchTaskRunner {
         ActionListener<String> internalListener
     ) {
         String taskId = adTask.getTaskId();
-        String detectorId = adTask.getDetectorId();
+        String detectorId = adTask.getId();
         String detectorTaskId = adTask.getDetectorLevelTaskId();
         float initProgress = calculateInitProgress(taskId);
         String taskState = initProgress >= 1.0f ? ADTaskState.RUNNING.name() : ADTaskState.INIT.name();
@@ -1361,11 +1358,11 @@ public class ADBatchTaskRunner {
 
     private void checkIfADTaskCancelledAndCleanupCache(ADTask adTask) {
         String taskId = adTask.getTaskId();
-        String detectorId = adTask.getDetectorId();
+        String detectorId = adTask.getId();
         String detectorTaskId = adTask.getDetectorLevelTaskId();
         // refresh latest HC task run time
         adTaskCacheManager.refreshLatestHCTaskRunTime(detectorId);
-        if (adTask.getDetector().isMultientityDetector()
+        if (adTask.getDetector().isHC()
             && adTaskCacheManager.isHCTaskCoordinatingNode(detectorId)
             && adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId)) {
             // clean up pending and running entity on coordinating node

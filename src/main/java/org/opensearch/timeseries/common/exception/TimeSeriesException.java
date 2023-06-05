@@ -12,11 +12,11 @@
 package org.opensearch.timeseries.common.exception;
 
 /**
- * Base exception for exceptions thrown from Anomaly Detection.
+ * Base exception for exceptions thrown.
  */
 public class TimeSeriesException extends RuntimeException {
 
-    private String anomalyDetectorId;
+    private String configId;
     // countedInStats will be used to tell whether the exception should be
     // counted in failure stats.
     private boolean countedInStats = true;
@@ -26,37 +26,37 @@ public class TimeSeriesException extends RuntimeException {
     }
 
     /**
-     * Constructor with an anomaly detector ID and a message.
+     * Constructor with a config ID and a message.
      *
-     * @param anomalyDetectorId anomaly detector ID
+     * @param configId config ID
      * @param message message of the exception
      */
-    public TimeSeriesException(String anomalyDetectorId, String message) {
+    public TimeSeriesException(String configId, String message) {
         super(message);
-        this.anomalyDetectorId = anomalyDetectorId;
+        this.configId = configId;
     }
 
-    public TimeSeriesException(String adID, String message, Throwable cause) {
+    public TimeSeriesException(String configID, String message, Throwable cause) {
         super(message, cause);
-        this.anomalyDetectorId = adID;
+        this.configId = configID;
     }
 
     public TimeSeriesException(Throwable cause) {
         super(cause);
     }
 
-    public TimeSeriesException(String adID, Throwable cause) {
+    public TimeSeriesException(String configID, Throwable cause) {
         super(cause);
-        this.anomalyDetectorId = adID;
+        this.configId = configID;
     }
 
     /**
-     * Returns the ID of the anomaly detector.
+     * Returns the ID of the analysis config.
      *
-     * @return anomaly detector ID
+     * @return config ID
      */
-    public String getAnomalyDetectorId() {
-        return this.anomalyDetectorId;
+    public String getConfigId() {
+        return this.configId;
     }
 
     /**
@@ -82,8 +82,7 @@ public class TimeSeriesException extends RuntimeException {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("Anomaly Detector ");
-        sb.append(anomalyDetectorId);
+        sb.append(configId);
         sb.append(' ');
         sb.append(super.toString());
         return sb.toString();

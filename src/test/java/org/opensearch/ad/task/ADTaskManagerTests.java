@@ -28,14 +28,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.randomAdTask;
-import static org.opensearch.ad.TestHelpers.randomAnomalyDetector;
-import static org.opensearch.ad.TestHelpers.randomDetectionDateRange;
-import static org.opensearch.ad.TestHelpers.randomDetector;
-import static org.opensearch.ad.TestHelpers.randomFeature;
-import static org.opensearch.ad.TestHelpers.randomIntervalSchedule;
-import static org.opensearch.ad.TestHelpers.randomIntervalTimeConfiguration;
-import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.model.Entity.createSingleAttributeEntity;
@@ -46,6 +38,14 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.opensearch.timeseries.TestHelpers.randomAdTask;
+import static org.opensearch.timeseries.TestHelpers.randomAnomalyDetector;
+import static org.opensearch.timeseries.TestHelpers.randomDetectionDateRange;
+import static org.opensearch.timeseries.TestHelpers.randomDetector;
+import static org.opensearch.timeseries.TestHelpers.randomFeature;
+import static org.opensearch.timeseries.TestHelpers.randomIntervalSchedule;
+import static org.opensearch.timeseries.TestHelpers.randomIntervalTimeConfiguration;
+import static org.opensearch.timeseries.TestHelpers.randomUser;
 import static org.opensearch.timeseries.constant.CommonMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 
 import java.io.IOException;
@@ -81,7 +81,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.mock.model.MockSimpleLog;
@@ -127,6 +126,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
@@ -292,7 +292,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                     new GetResponse(
                         new GetResult(
                             CommonName.CONFIG_INDEX,
-                            detector.getDetectorId(),
+                            detector.getId(),
                             UNASSIGNED_SEQ_NO,
                             0,
                             -1,
@@ -380,7 +380,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         adTaskManager
             .startDetector(
-                detector.getDetectorId(),
+                detector.getId(),
                 detectionDateRange,
                 indexAnomalyDetectorJobActionHandler,
                 randomUser(),
@@ -399,7 +399,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         adTaskManager
             .startDetector(
-                detector.getDetectorId(),
+                detector.getId(),
                 detectionDateRange,
                 indexAnomalyDetectorJobActionHandler,
                 randomUser(),

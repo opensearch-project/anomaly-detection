@@ -17,8 +17,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.matchAllRequest;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
 import org.junit.Before;
 import org.opensearch.action.ActionListener;

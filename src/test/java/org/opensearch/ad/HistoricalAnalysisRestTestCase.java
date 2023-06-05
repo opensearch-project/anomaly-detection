@@ -36,6 +36,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 

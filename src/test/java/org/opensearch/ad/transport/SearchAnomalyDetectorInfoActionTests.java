@@ -16,7 +16,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.createEmptySearchResponse;
+import static org.opensearch.timeseries.TestHelpers.createEmptySearchResponse;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -30,7 +30,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -43,6 +42,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
 public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCase {

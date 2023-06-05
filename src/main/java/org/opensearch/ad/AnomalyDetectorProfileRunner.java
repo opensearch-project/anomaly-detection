@@ -149,7 +149,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         ActionListener<DetectorProfile> listener,
         Set<DetectorProfileName> profilesToCollect
     ) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
@@ -162,7 +162,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
                     long enabledTimeMs = job.getEnabledTime().toEpochMilli();
 
-                    boolean isMultiEntityDetector = detector.isMultientityDetector();
+                    boolean isMultiEntityDetector = detector.isHC();
 
                     int totalResponsesToWait = 0;
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
@@ -284,8 +284,8 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     }
 
     private void profileEntityStats(MultiResponsesDelegateActionListener<DetectorProfile> listener, AnomalyDetector detector) {
-        List<String> categoryField = detector.getCategoryField();
-        if (!detector.isMultientityDetector() || categoryField.size() > ADNumericSetting.maxCategoricalFields()) {
+        List<String> categoryField = detector.getCategoryFields();
+        if (!detector.isHC() || categoryField.size() > ADNumericSetting.maxCategoricalFields()) {
             listener.onResponse(new DetectorProfile.Builder().build());
         } else {
             if (categoryField.size() == 1) {
@@ -304,7 +304,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     DetectorProfile profile = profileBuilder.totalEntities(value).build();
                     listener.onResponse(profile);
                 }, searchException -> {
-                    logger.warn(ADCommonMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
+                    logger.warn(ADCommonMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getId());
                     listener.onFailure(searchException);
                 });
                 // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -313,7 +313,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                         request,
                         client::search,
-                        detector.getDetectorId(),
+                        detector.getId(),
                         client,
                         searchResponseListener
                     );
@@ -322,7 +322,11 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 AggregationBuilder bucketAggs = AggregationBuilders
                     .composite(
                         ADCommonName.TOTAL_ENTITIES,
-                        detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+                        detector
+                            .getCategoryFields()
+                            .stream()
+                            .map(f -> new TermsValuesSourceBuilder(f).field(f))
+                            .collect(Collectors.toList())
                     )
                     .size(maxTotalEntitiesToTrack);
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(bucketAggs).trackTotalHits(false).size(0);
@@ -353,7 +357,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     DetectorProfile profile = profileBuilder.totalEntities(Long.valueOf(compositeAgg.getBuckets().size())).build();
                     listener.onResponse(profile);
                 }, searchException -> {
-                    logger.warn(ADCommonMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getDetectorId());
+                    logger.warn(ADCommonMessages.FAIL_TO_GET_TOTAL_ENTITIES + detector.getId());
                     listener.onFailure(searchException);
                 });
                 // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -362,7 +366,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                         searchRequest,
                         client::search,
-                        detector.getDetectorId(),
+                        detector.getId(),
                         client,
                         searchResponseListener
                     );
@@ -400,7 +404,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         Set<DetectorProfileName> profilesToCollect
     ) {
         if (enabled) {
-            RCFPollingRequest request = new RCFPollingRequest(detector.getDetectorId());
+            RCFPollingRequest request = new RCFPollingRequest(detector.getId());
             client.execute(RCFPollingAction.INSTANCE, request, onPollRCFUpdates(detector, profilesToCollect, listener));
         } else {
             DetectorProfile.Builder builder = new DetectorProfile.Builder();
@@ -419,7 +423,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
         DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
-        ProfileRequest profileRequest = new ProfileRequest(detector.getDetectorId(), profiles, forMultiEntityDetector, dataNodes);
+        ProfileRequest profileRequest = new ProfileRequest(detector.getId(), profiles, forMultiEntityDetector, dataNodes);
         client.execute(ProfileAction.INSTANCE, profileRequest, onModelResponse(detector, profiles, job, listener));// get init progress
     }
 
@@ -429,7 +433,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         AnomalyDetectorJob job,
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
-        boolean isMultientityDetector = detector.isMultientityDetector();
+        boolean isMultientityDetector = detector.isHC();
         return ActionListener.wrap(profileResponse -> {
             DetectorProfile.Builder profile = new DetectorProfile.Builder();
             if (profilesToCollect.contains(DetectorProfileName.COORDINATING_NODE)) {
@@ -516,7 +520,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 logger
                     .error(
                         "Fail to find any anomaly result with anomaly score larger than 0 after AD job enabled time for detector {}",
-                        detector.getDetectorId()
+                        detector.getId()
                     );
                 listener.onFailure(exception);
             }
@@ -565,11 +569,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 // data exists.
                 processInitResponse(detector, profilesToCollect, 0L, true, new DetectorProfile.Builder(), listener);
             } else {
-                logger
-                    .error(
-                        new ParameterizedMessage("Fail to get init progress through messaging for {}", detector.getDetectorId()),
-                        exception
-                    );
+                logger.error(new ParameterizedMessage("Fail to get init progress through messaging for {}", detector.getId()), exception);
                 listener.onFailure(exception);
             }
         });
@@ -603,7 +603,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                 InitProgressProfile initProgress = computeInitProgressProfile(totalUpdates, 0);
                 builder.initProgress(initProgress);
             } else {
-                long intervalMins = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMinutes();
+                long intervalMins = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().toMinutes();
                 InitProgressProfile initProgress = computeInitProgressProfile(totalUpdates, intervalMins);
                 builder.initProgress(initProgress);
             }

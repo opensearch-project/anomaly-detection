@@ -28,7 +28,7 @@ public class ADCancelTaskNodeRequestTests extends ADUnitTestCase {
         oldRequest.writeTo(output);
         StreamInput input = output.bytes().streamInput();
         ADCancelTaskNodeRequest parsedRequest = new ADCancelTaskNodeRequest(input);
-        assertEquals(detectorId, parsedRequest.getDetectorId());
+        assertEquals(detectorId, parsedRequest.getId());
         assertEquals(userName, parsedRequest.getUserName());
         assertNull(parsedRequest.getDetectorTaskId());
         assertNull(parsedRequest.getReason());

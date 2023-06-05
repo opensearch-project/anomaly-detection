@@ -64,7 +64,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         Version remoteAdVersion
     ) {
         if (remoteAdVersion == null) {
-            throw new VersionException(detector.getDetectorId(), "Can't forward AD task request to node running null AD version ");
+            throw new VersionException(detector.getId(), "Can't forward AD task request to node running null AD version ");
         }
         this.detector = detector;
         this.detectionDateRange = detectionDateRange;
@@ -155,7 +155,7 @@ public class ForwardADTaskRequest extends ActionRequest {
         ActionRequestValidationException validationException = null;
         if (detector == null) {
             validationException = addValidationError(ADCommonMessages.DETECTOR_MISSING, validationException);
-        } else if (detector.getDetectorId() == null) {
+        } else if (detector.getId() == null) {
             validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         if (adTaskAction == null) {

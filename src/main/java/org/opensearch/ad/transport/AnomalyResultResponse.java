@@ -196,7 +196,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         return rcfTotalUpdates;
     }
 
-    public Long getDetectorIntervalInMinutes() {
+    public Long getIntervalInMinutes() {
         return detectorIntervalInMinutes;
     }
 

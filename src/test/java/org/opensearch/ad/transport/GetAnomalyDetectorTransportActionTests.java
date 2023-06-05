@@ -27,7 +27,6 @@ import org.mockito.Mockito;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -52,6 +51,7 @@ import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;

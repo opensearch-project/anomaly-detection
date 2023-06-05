@@ -94,7 +94,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
 
         if (indexingPressurePercent <= softLimit) {
             for (ResultWriteRequest resultWriteRequest : results) {
-                addResult(bulkRequest, resultWriteRequest.getResult(), resultWriteRequest.getResultIndex());
+                addResult(bulkRequest, resultWriteRequest.getResult(), resultWriteRequest.getCustomResultIndex());
             }
         } else if (indexingPressurePercent <= hardLimit) {
             // exceed soft limit (60%) but smaller than hard limit (90%)
@@ -102,7 +102,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
             for (ResultWriteRequest resultWriteRequest : results) {
                 AnomalyResult result = resultWriteRequest.getResult();
                 if (result.isHighPriority() || random.nextFloat() < acceptProbability) {
-                    addResult(bulkRequest, result, resultWriteRequest.getResultIndex());
+                    addResult(bulkRequest, result, resultWriteRequest.getCustomResultIndex());
                 }
             }
         } else {
@@ -110,7 +110,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
             for (ResultWriteRequest resultWriteRequest : results) {
                 AnomalyResult result = resultWriteRequest.getResult();
                 if (result.isHighPriority()) {
-                    addResult(bulkRequest, result, resultWriteRequest.getResultIndex());
+                    addResult(bulkRequest, result, resultWriteRequest.getCustomResultIndex());
                 }
             }
         }

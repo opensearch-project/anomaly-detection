@@ -28,7 +28,6 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.ADIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
@@ -39,6 +38,7 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;

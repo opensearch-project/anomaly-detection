@@ -35,8 +35,6 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
@@ -56,12 +54,14 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
-public class DeleteAnomalyDetectorTests extends AbstractADTest {
+public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private DeleteAnomalyDetectorTransportAction action;
     private TransportService transportService;
     private ActionFilters actionFilters;
@@ -298,7 +298,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
                                 Instant.now(),
                                 60L,
                                 TestHelpers.randomUser(),
-                                jobParameter.getResultIndex()
+                                jobParameter.getCustomResultIndex()
                             ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
                         ),
                     Collections.emptyMap(),

@@ -11,58 +11,47 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.ad.constant.ADCommonMessages.INVALID_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetectorType.MULTI_ENTITY;
 import static org.opensearch.ad.model.AnomalyDetectorType.SINGLE_ENTITY;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
-import static org.opensearch.timeseries.constant.CommonMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.DEFAULT_SHINGLE_SIZE;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.common.ParsingException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
-import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.timeseries.annotation.Generated;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.constant.CommonValue;
+import org.opensearch.timeseries.dataprocessor.ImputationOption;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
-import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ParseUtils;
-
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.
@@ -70,7 +59,7 @@ import com.google.common.collect.ImmutableList;
  * TODO: Will replace detector config mapping in AD task with detector config setting directly \
  *      in code rather than config it in anomaly-detection-state.json file.
  */
-public class AnomalyDetector implements Writeable, ToXContentObject {
+public class AnomalyDetector extends Config {
 
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
@@ -78,58 +67,19 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         new ParseField(PARSE_FIELD_NAME),
         it -> parse(it)
     );
-    public static final String NO_ID = "";
     public static final String TYPE = "_doc";
-    public static final String QUERY_PARAM_PERIOD_START = "period_start";
-    public static final String QUERY_PARAM_PERIOD_END = "period_end";
-    public static final String GENERAL_SETTINGS = "general_settings";
-
-    public static final String NAME_FIELD = "name";
-    private static final String DESCRIPTION_FIELD = "description";
-    public static final String TIMEFIELD_FIELD = "time_field";
-    public static final String INDICES_FIELD = "indices";
-    public static final String FILTER_QUERY_FIELD = "filter_query";
-    public static final String FEATURE_ATTRIBUTES_FIELD = "feature_attributes";
+    // for bwc, we have to keep this field instead of reusing an interval field in the super class.
+    // otherwise, we won't be able to recognize "detection_interval" field sent from old implementation.
     public static final String DETECTION_INTERVAL_FIELD = "detection_interval";
-    public static final String WINDOW_DELAY_FIELD = "window_delay";
-    public static final String SHINGLE_SIZE_FIELD = "shingle_size";
-    private static final String LAST_UPDATE_TIME_FIELD = "last_update_time";
-    public static final String UI_METADATA_FIELD = "ui_metadata";
-    public static final String CATEGORY_FIELD = "category_field";
-    public static final String USER_FIELD = "user";
     public static final String DETECTOR_TYPE_FIELD = "detector_type";
-    public static final String RESULT_INDEX_FIELD = "result_index";
-    public static final String AGGREGATION = "aggregation_issue";
-    public static final String TIMEOUT = "timeout";
     @Deprecated
     public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
 
-    private final String detectorId;
-    private final Long version;
-    private final String name;
-    private final String description;
-    private final String timeField;
-    private final List<String> indices;
-    private final List<Feature> featureAttributes;
-    private final QueryBuilder filterQuery;
-    private final TimeConfiguration detectionInterval;
-    private final TimeConfiguration windowDelay;
-    private final Integer shingleSize;
-    private final Map<String, Object> uiMetadata;
-    private final Integer schemaVersion;
-    private final Instant lastUpdateTime;
-    private final List<String> categoryFields;
-    private User user;
-    private String detectorType;
-    private String resultIndex;
+    protected String detectorType;
 
     // TODO: support backward compatibility, will remove in future
     @Deprecated
     private DateRange detectionDateRange;
-
-    public static final int MAX_RESULT_INDEX_NAME_SIZE = 255;
-    // OS doesn’t allow uppercase: https://tinyurl.com/yse2xdbx
-    public static final String RESULT_INDEX_NAME_PATTERN = "[a-z0-9_-]+";
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
@@ -155,6 +105,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
      * @param categoryFields    a list of partition fields
      * @param user              user to which detector is associated
      * @param resultIndex       result index
+     * @param imputationOption interpolation method and optional default values
      */
     public AnomalyDetector(
         String detectorId,
@@ -173,88 +124,60 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         Instant lastUpdateTime,
         List<String> categoryFields,
         User user,
-        String resultIndex
+        String resultIndex,
+        ImputationOption imputationOption
     ) {
-        if (Strings.isBlank(name)) {
-            throw new ValidationException(CommonMessages.EMPTY_NAME, ValidationIssueType.NAME, ValidationAspect.DETECTOR);
-        }
-        if (Strings.isBlank(timeField)) {
-            throw new ValidationException(CommonMessages.NULL_TIME_FIELD, ValidationIssueType.TIMEFIELD_FIELD, ValidationAspect.DETECTOR);
-        }
-        if (indices == null || indices.isEmpty()) {
-            throw new ValidationException(CommonMessages.EMPTY_INDICES, ValidationIssueType.INDICES, ValidationAspect.DETECTOR);
-        }
+        super(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            categoryFields,
+            user,
+            resultIndex,
+            detectionInterval,
+            imputationOption
+        );
+
         if (detectionInterval == null) {
-            throw new ValidationException(
-                ADCommonMessages.NULL_DETECTION_INTERVAL,
-                ValidationIssueType.DETECTION_INTERVAL,
-                ValidationAspect.DETECTOR
-            );
+            errorMessage = ADCommonMessages.NULL_DETECTION_INTERVAL;
+            issueType = ValidationIssueType.DETECTION_INTERVAL;
+        } else if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
+            errorMessage = ADCommonMessages.INVALID_DETECTION_INTERVAL;
+            issueType = ValidationIssueType.DETECTION_INTERVAL;
         }
-        if (invalidShingleSizeRange(shingleSize)) {
-            throw new ValidationException(
-                "Shingle size must be a positive integer no larger than " + TimeSeriesSettings.MAX_SHINGLE_SIZE + ". Got " + shingleSize,
-                ValidationIssueType.SHINGLE_SIZE_FIELD,
-                ValidationAspect.DETECTOR
-            );
-        }
+
         int maxCategoryFields = ADNumericSetting.maxCategoricalFields();
         if (categoryFields != null && categoryFields.size() > maxCategoryFields) {
-            throw new ValidationException(
-                CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
-                ValidationIssueType.CATEGORY,
-                ValidationAspect.DETECTOR
-            );
+            errorMessage = CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields);
+            issueType = ValidationIssueType.CATEGORY;
         }
-        if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
-            throw new ValidationException(
-                ADCommonMessages.INVALID_DETECTION_INTERVAL,
-                ValidationIssueType.DETECTION_INTERVAL,
-                ValidationAspect.DETECTOR
-            );
+
+        if (errorMessage != null && issueType != null) {
+            throw new ValidationException(errorMessage, issueType, ValidationAspect.DETECTOR);
+        } else if (errorMessage != null || issueType != null) {
+            throw new TimeSeriesException(CommonMessages.FAIL_TO_VALIDATE);
         }
-        this.detectorId = detectorId;
-        this.version = version;
-        this.name = name;
-        this.description = description;
-        this.timeField = timeField;
-        this.indices = indices;
-        this.featureAttributes = features == null ? ImmutableList.of() : ImmutableList.copyOf(features);
-        this.filterQuery = filterQuery;
-        this.detectionInterval = detectionInterval;
-        this.windowDelay = windowDelay;
-        this.shingleSize = getShingleSize(shingleSize);
-        this.uiMetadata = uiMetadata;
-        this.schemaVersion = schemaVersion;
-        this.lastUpdateTime = lastUpdateTime;
-        this.categoryFields = categoryFields;
-        this.user = user;
-        this.detectorType = isMultientityDetector(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
-        this.resultIndex = Strings.trimToNull(resultIndex);
-        String errorMessage = validateResultIndex(this.resultIndex);
-        if (errorMessage != null) {
-            throw new ValidationException(errorMessage, ValidationIssueType.RESULT_INDEX, ValidationAspect.DETECTOR);
-        }
+
+        this.detectorType = isHC(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
     }
 
-    public static String validateResultIndex(String resultIndex) {
-        if (resultIndex == null) {
-            return null;
-        }
-        if (!resultIndex.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
-            return INVALID_RESULT_INDEX_PREFIX;
-        }
-        if (resultIndex.length() > MAX_RESULT_INDEX_NAME_SIZE) {
-            return INVALID_RESULT_INDEX_NAME_SIZE;
-        }
-        if (!resultIndex.matches(RESULT_INDEX_NAME_PATTERN)) {
-            return INVALID_CHAR_IN_RESULT_INDEX_NAME;
-        }
-        return null;
-    }
-
+    /*
+     * For backward compatiblity reason, we cannot use super class
+     * Config's constructor as we have detectionDateRange and
+     * detectorType that Config does not have.
+     */
     public AnomalyDetector(StreamInput input) throws IOException {
-        detectorId = input.readOptionalString();
+        id = input.readOptionalString();
         version = input.readOptionalLong();
         name = input.readString();
         description = input.readOptionalString();
@@ -262,7 +185,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         indices = input.readStringList();
         featureAttributes = input.readList(Feature::new);
         filterQuery = input.readNamedWriteable(QueryBuilder.class);
-        detectionInterval = IntervalTimeConfiguration.readFrom(input);
+        interval = IntervalTimeConfiguration.readFrom(input);
         windowDelay = IntervalTimeConfiguration.readFrom(input);
         shingleSize = input.readInt();
         schemaVersion = input.readInt();
@@ -284,16 +207,27 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         } else {
             this.uiMetadata = null;
         }
-        resultIndex = input.readOptionalString();
+        customResultIndex = input.readOptionalString();
+        if (input.readBoolean()) {
+            this.imputationOption = new ImputationOption(input);
+        } else {
+            this.imputationOption = null;
+        }
+        this.imputer = createImputer();
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
         return toXContent(builder, ToXContent.EMPTY_PARAMS);
     }
 
+    /*
+     * For backward compatiblity reason, we cannot use super class
+     * Config's writeTo as we have detectionDateRange and
+     * detectorType that Config does not have.
+     */
     @Override
     public void writeTo(StreamOutput output) throws IOException {
-        output.writeOptionalString(detectorId);
+        output.writeOptionalString(id);
         output.writeOptionalLong(version);
         output.writeString(name);
         output.writeOptionalString(description);
@@ -301,7 +235,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         output.writeStringCollection(indices);
         output.writeList(featureAttributes);
         output.writeNamedWriteable(filterQuery);
-        detectionInterval.writeTo(output);
+        interval.writeTo(output);
         windowDelay.writeTo(output);
         output.writeInt(shingleSize);
         output.writeInt(schemaVersion);
@@ -326,45 +260,28 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         } else {
             output.writeBoolean(false);
         }
-        output.writeOptionalString(resultIndex);
+        output.writeOptionalString(customResultIndex);
+        if (imputationOption != null) {
+            output.writeBoolean(true);
+            imputationOption.writeTo(output);
+        } else {
+            output.writeBoolean(false);
+        }
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder
-            .startObject()
-            .field(NAME_FIELD, name)
-            .field(DESCRIPTION_FIELD, description)
-            .field(TIMEFIELD_FIELD, timeField)
-            .field(INDICES_FIELD, indices.toArray())
-            .field(FILTER_QUERY_FIELD, filterQuery)
-            .field(DETECTION_INTERVAL_FIELD, detectionInterval)
-            .field(WINDOW_DELAY_FIELD, windowDelay)
-            .field(SHINGLE_SIZE_FIELD, shingleSize)
-            .field(CommonName.SCHEMA_VERSION_FIELD, schemaVersion)
-            .field(FEATURE_ATTRIBUTES_FIELD, featureAttributes.toArray());
+        XContentBuilder xContentBuilder = builder.startObject();
+        xContentBuilder = super.toXContent(xContentBuilder, params);
+        xContentBuilder.field(DETECTION_INTERVAL_FIELD, interval);
 
-        if (uiMetadata != null && !uiMetadata.isEmpty()) {
-            xContentBuilder.field(UI_METADATA_FIELD, uiMetadata);
-        }
-        if (lastUpdateTime != null) {
-            xContentBuilder.field(LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli());
-        }
-        if (categoryFields != null) {
-            xContentBuilder.field(CATEGORY_FIELD, categoryFields.toArray());
-        }
-        if (user != null) {
-            xContentBuilder.field(USER_FIELD, user);
-        }
         if (detectorType != null) {
             xContentBuilder.field(DETECTOR_TYPE_FIELD, detectorType);
         }
         if (detectionDateRange != null) {
             xContentBuilder.field(DETECTION_DATE_RANGE_FIELD, detectionDateRange);
         }
-        if (resultIndex != null) {
-            xContentBuilder.field(RESULT_INDEX_FIELD, resultIndex);
-        }
+
         return xContentBuilder.endObject();
     }
 
@@ -435,6 +352,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         String resultIndex = null;
 
         List<String> categoryField = null;
+        ImputationOption imputationOption = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -460,7 +378,7 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case UI_METADATA_FIELD:
                     uiMetadata = parser.map();
                     break;
-                case CommonName.SCHEMA_VERSION_FIELD:
+                case org.opensearch.timeseries.constant.CommonName.SCHEMA_VERSION_FIELD:
                     schemaVersion = parser.intValue();
                     break;
                 case FILTER_QUERY_FIELD:
@@ -542,6 +460,9 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
                 case RESULT_INDEX_FIELD:
                     resultIndex = parser.text();
                     break;
+                case IMPUTATION_OPTION_FIELD:
+                    imputationOption = ImputationOption.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -564,166 +485,11 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
             lastUpdateTime,
             categoryField,
             user,
-            resultIndex
+            resultIndex,
+            imputationOption
         );
         detector.setDetectionDateRange(detectionDateRange);
         return detector;
-    }
-
-    @Generated
-    @Override
-    public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
-        AnomalyDetector detector = (AnomalyDetector) o;
-        return Objects.equal(getName(), detector.getName())
-            && Objects.equal(getDescription(), detector.getDescription())
-            && Objects.equal(getTimeField(), detector.getTimeField())
-            && Objects.equal(getIndices(), detector.getIndices())
-            && Objects.equal(getFeatureAttributes(), detector.getFeatureAttributes())
-            && Objects.equal(getFilterQuery(), detector.getFilterQuery())
-            && Objects.equal(getDetectionInterval(), detector.getDetectionInterval())
-            && Objects.equal(getWindowDelay(), detector.getWindowDelay())
-            && Objects.equal(getShingleSize(), detector.getShingleSize())
-            && Objects.equal(getCategoryField(), detector.getCategoryField())
-            && Objects.equal(getUser(), detector.getUser())
-            && Objects.equal(getResultIndex(), detector.getResultIndex());
-    }
-
-    @Generated
-    @Override
-    public int hashCode() {
-        return Objects
-            .hashCode(
-                detectorId,
-                name,
-                description,
-                timeField,
-                indices,
-                featureAttributes,
-                detectionInterval,
-                windowDelay,
-                shingleSize,
-                uiMetadata,
-                schemaVersion,
-                lastUpdateTime,
-                user,
-                detectorType,
-                resultIndex
-            );
-    }
-
-    public String getDetectorId() {
-        return detectorId;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public String getTimeField() {
-        return timeField;
-    }
-
-    public List<String> getIndices() {
-        return indices;
-    }
-
-    public List<Feature> getFeatureAttributes() {
-        return featureAttributes;
-    }
-
-    public QueryBuilder getFilterQuery() {
-        return filterQuery;
-    }
-
-    /**
-     * Returns enabled feature ids in the same order in feature attributes.
-     *
-     * @return a list of filtered feature ids.
-     */
-    public List<String> getEnabledFeatureIds() {
-        return featureAttributes.stream().filter(Feature::getEnabled).map(Feature::getId).collect(Collectors.toList());
-    }
-
-    public List<String> getEnabledFeatureNames() {
-        return featureAttributes.stream().filter(Feature::getEnabled).map(Feature::getName).collect(Collectors.toList());
-    }
-
-    public TimeConfiguration getDetectionInterval() {
-        return detectionInterval;
-    }
-
-    public TimeConfiguration getWindowDelay() {
-        return windowDelay;
-    }
-
-    public Integer getShingleSize() {
-        return shingleSize;
-    }
-
-    /**
-     * If the given shingle size is null, return default based on the kind of detector;
-     * otherwise, return the given shingle size.
-     *
-     * TODO: need to deal with the case where customers start with single-entity detector, we set it to 8 by default;
-     * then cx update it to multi-entity detector, we would still use 8 in this case.  Kibana needs to change to
-     * give the correct shingle size.
-     * @param customShingleSize Given shingle size
-     * @return Shingle size
-     */
-    private static Integer getShingleSize(Integer customShingleSize) {
-        return customShingleSize == null ? DEFAULT_SHINGLE_SIZE : customShingleSize;
-    }
-
-    public Map<String, Object> getUiMetadata() {
-        return uiMetadata;
-    }
-
-    public Integer getSchemaVersion() {
-        return schemaVersion;
-    }
-
-    public Instant getLastUpdateTime() {
-        return lastUpdateTime;
-    }
-
-    public List<String> getCategoryField() {
-        return this.categoryFields;
-    }
-
-    public long getDetectorIntervalInMilliseconds() {
-        return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration().toMillis();
-    }
-
-    public long getDetectorIntervalInSeconds() {
-        return getDetectorIntervalInMilliseconds() / 1000;
-    }
-
-    public long getDetectorIntervalInMinutes() {
-        return getDetectorIntervalInMilliseconds() / 1000 / 60;
-    }
-
-    public Duration getDetectionIntervalDuration() {
-        return ((IntervalTimeConfiguration) getDetectionInterval()).toDuration();
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
     }
 
     public String getDetectorType() {
@@ -738,23 +504,16 @@ public class AnomalyDetector implements Writeable, ToXContentObject {
         return detectionDateRange;
     }
 
-    public String getResultIndex() {
-        return resultIndex;
+    @Override
+    protected ValidationAspect getConfigValidationAspect() {
+        return ValidationAspect.DETECTOR;
     }
 
-    public boolean isMultientityDetector() {
-        return AnomalyDetector.isMultientityDetector(getCategoryField());
-    }
-
-    public boolean isMultiCategoryDetector() {
-        return categoryFields != null && categoryFields.size() > 1;
-    }
-
-    private static boolean isMultientityDetector(List<String> categoryFields) {
-        return categoryFields != null && categoryFields.size() > 0;
-    }
-
-    public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
-        return shingleSizeToTest != null && (shingleSizeToTest < 1 || shingleSizeToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE);
+    @Override
+    public String validateCustomResultIndex(String resultIndex) {
+        if (resultIndex != null && !resultIndex.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
+            return ADCommonMessages.INVALID_RESULT_INDEX_PREFIX;
+        }
+        return super.validateCustomResultIndex(resultIndex);
     }
 }

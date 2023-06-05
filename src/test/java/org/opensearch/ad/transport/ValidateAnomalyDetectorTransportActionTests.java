@@ -19,13 +19,13 @@ import java.util.Locale;
 
 import org.junit.Test;
 import org.opensearch.ad.ADIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.ValidationAspect;
@@ -368,7 +368,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
         ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
@@ -404,7 +405,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
         ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(

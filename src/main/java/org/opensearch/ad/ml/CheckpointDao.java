@@ -305,7 +305,7 @@ public class CheckpointDao {
                 );
             return source;
         }
-        String detectorId = modelState.getDetectorId();
+        String detectorId = modelState.getId();
         source.put(DETECTOR_ID, detectorId);
         // we cannot pass Optional as OpenSearch does not know how to serialize an Optional value
         source.put(FIELD_MODELV2, serializedModel.get());

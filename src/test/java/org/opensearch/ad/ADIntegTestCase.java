@@ -11,7 +11,6 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.AbstractADTest.LOG;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
@@ -24,6 +23,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.junit.Before;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
@@ -60,6 +61,7 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.test.transport.MockTransportService;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Feature;
@@ -67,6 +69,7 @@ import org.opensearch.timeseries.model.Feature;
 import com.google.common.collect.ImmutableMap;
 
 public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(ADIntegTestCase.class);
 
     private long timeout = 5_000;
     protected String timeField = "timestamp";

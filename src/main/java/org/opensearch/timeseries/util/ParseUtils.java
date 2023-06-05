@@ -16,8 +16,6 @@ import static org.opensearch.ad.constant.ADCommonMessages.NO_PERMISSION_TO_ACCES
 import static org.opensearch.ad.constant.ADCommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.constant.ADCommonName.EPOCH_MILLIS_FORMAT;
 import static org.opensearch.ad.constant.ADCommonName.FEATURE_AGGS;
-import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
-import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
@@ -363,29 +361,6 @@ public final class ParseUtils {
         return new SearchSourceBuilder().query(detector.getFilterQuery()).size(0).aggregation(dateRangeBuilder);
     }
 
-    public static String generateInternalFeatureQueryTemplate(AnomalyDetector detector, NamedXContentRegistry xContentRegistry)
-        throws IOException {
-        RangeQueryBuilder rangeQuery = new RangeQueryBuilder(detector.getTimeField())
-            .from("{{" + QUERY_PARAM_PERIOD_START + "}}")
-            .to("{{" + QUERY_PARAM_PERIOD_END + "}}");
-
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
-
-        SearchSourceBuilder internalSearchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery);
-        if (detector.getFeatureAttributes() != null) {
-            for (Feature feature : detector.getFeatureAttributes()) {
-                AggregatorFactories.Builder internalAgg = parseAggregators(
-                    feature.getAggregation().toString(),
-                    xContentRegistry,
-                    feature.getId()
-                );
-                internalSearchSourceBuilder.aggregation(internalAgg.getAggregatorFactories().iterator().next());
-            }
-        }
-
-        return internalSearchSourceBuilder.toString();
-    }
-
     public static SearchSourceBuilder generateEntityColdStartQuery(
         AnomalyDetector detector,
         List<Entry<Long, Long>> ranges,
@@ -667,14 +642,14 @@ public final class ParseUtils {
 
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
 
-        if (detector.isMultientityDetector() && entity != null && entity.getAttributes().size() > 0) {
+        if (detector.isHC() && entity != null && entity.getAttributes().size() > 0) {
             entity
                 .getAttributes()
                 .entrySet()
                 .forEach(attr -> { internalFilterQuery.filter(new TermQueryBuilder(attr.getKey(), attr.getValue())); });
         }
 
-        long intervalSeconds = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().getSeconds();
+        long intervalSeconds = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().getSeconds();
 
         List<CompositeValuesSourceBuilder<?>> sources = new ArrayList<>();
         sources

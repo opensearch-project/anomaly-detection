@@ -253,7 +253,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                         return new DoorKeeper(
                             TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
                             TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
-                            detector.getDetectionIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                            detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                             clock
                         );
                     }
@@ -467,7 +467,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         long startTimeMs,
         long endTimeMs
     ) {
-        if (startTimeMs >= endTimeMs || endTimeMs - startTimeMs < detector.getDetectorIntervalInMilliseconds()) {
+        if (startTimeMs >= endTimeMs || endTimeMs - startTimeMs < detector.getIntervalInMilliseconds()) {
             listener.onResponse(Optional.of(lastRoundColdStartData));
             return;
         }
@@ -597,7 +597,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     private Pair<Integer, Integer> selectRangeParam(AnomalyDetector detector) {
         int shingleSize = detector.getShingleSize();
         if (ADEnabledSetting.isInterpolationInColdStartEnabled()) {
-            long delta = detector.getDetectorIntervalInMinutes();
+            long delta = detector.getIntervalInMinutes();
 
             int strideLength = defaulStrideLength;
             int numberOfSamples = defaultNumberOfSamples;
@@ -632,7 +632,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         int stride,
         int numberOfSamples
     ) {
-        long bucketSize = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
+        long bucketSize = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().toMillis();
         int numBuckets = (int) Math.floor((endMilli - startMilli) / (double) bucketSize);
         // adjust if numStrides is more than the max samples
         int numStrides = Math.min((int) Math.floor(numBuckets / (double) stride), numberOfSamples);

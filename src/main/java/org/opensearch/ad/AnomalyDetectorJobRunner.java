@@ -246,7 +246,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         String user = userInfo.getName();
         List<String> roles = userInfo.getRoles();
 
-        String resultIndex = jobParameter.getResultIndex();
+        String resultIndex = jobParameter.getCustomResultIndex();
         if (resultIndex == null) {
             runAnomalyDetectionJob(
                 jobParameter,
@@ -536,7 +536,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                             Instant.now(),
                             job.getLockDurationSeconds(),
                             job.getUser(),
-                            job.getResultIndex()
+                            job.getCustomResultIndex()
                         );
                         IndexRequest indexRequest = new IndexRequest(CommonName.JOB_INDEX)
                             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)

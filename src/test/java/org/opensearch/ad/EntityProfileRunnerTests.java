@@ -57,10 +57,12 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
-public class EntityProfileRunnerTests extends AbstractADTest {
+public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private AnomalyDetector detector;
     private int detectorIntervalMin;
     private Client client;
@@ -144,9 +146,9 @@ public class EntityProfileRunnerTests extends AbstractADTest {
 
             String indexName = request.index();
             if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId(), CommonName.JOB_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
             }
 
             return null;
@@ -352,7 +354,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
 
             String indexName = request.index();
             if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {
                 listener.onFailure(new IndexNotFoundException(CommonName.JOB_INDEX));
             }
@@ -384,7 +386,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
 
             String indexName = request.index();
             if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
             }
 
             return null;
@@ -410,11 +412,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
 
         // 1 / 128 rounded to 1%
         int neededSamples = requiredSamples - smallUpdates;
-        InitProgressProfile profile = new InitProgressProfile(
-            "1%",
-            neededSamples * detector.getDetectorIntervalInSeconds() / 60,
-            neededSamples
-        );
+        InitProgressProfile profile = new InitProgressProfile("1%", neededSamples * detector.getIntervalInSeconds() / 60, neededSamples);
         expectedProfile.initProgress(profile);
         expectedProfile.isActive(isActive);
         expectedProfile.lastActiveTimestampMs(latestActiveTimestamp);

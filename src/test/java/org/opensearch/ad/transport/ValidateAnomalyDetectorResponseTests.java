@@ -16,14 +16,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Test;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 
-public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
+public class ValidateAnomalyDetectorResponseTests extends AbstractTimeSeriesTest {
 
     @Test
     public void testResponseSerialization() throws IOException {

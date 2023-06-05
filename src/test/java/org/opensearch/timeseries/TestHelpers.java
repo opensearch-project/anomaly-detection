@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.timeseries;
 
 import static org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
@@ -32,10 +32,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
+import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
 import org.apache.hc.core5.http.ContentType;
@@ -97,6 +99,7 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.Priority;
+import org.opensearch.common.Randomness;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.bytes.BytesReference;
@@ -113,6 +116,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -130,9 +134,12 @@ import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.search.profile.SearchProfileShardResults;
 import org.opensearch.search.suggest.Suggest;
 import org.opensearch.test.ClusterServiceUtils;
+import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.dataprocessor.ImputationMethod;
+import org.opensearch.timeseries.dataprocessor.ImputationOption;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -311,7 +318,8 @@ public class TestHelpers {
             lastUpdateTime,
             categoryFields,
             user,
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -355,7 +363,8 @@ public class TestHelpers {
             Instant.now(),
             categoryFields,
             null,
-            resultIndex
+            resultIndex,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -409,7 +418,8 @@ public class TestHelpers {
             Instant.now(),
             categoryFields,
             randomUser(),
-            resultIndex
+            resultIndex,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -439,7 +449,8 @@ public class TestHelpers {
             Instant.now(),
             null,
             randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -461,7 +472,8 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             null,
             randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -488,7 +500,8 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             categoryField,
             randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -516,6 +529,7 @@ public class TestHelpers {
         private List<String> categoryFields = null;
         private User user = randomUser();
         private String resultIndex = null;
+        private ImputationOption imputationOption = null;
 
         public static AnomalyDetectorBuilder newInstance() throws IOException {
             return new AnomalyDetectorBuilder();
@@ -610,6 +624,11 @@ public class TestHelpers {
             return this;
         }
 
+        public AnomalyDetectorBuilder setImputationOption(ImputationMethod method, Optional<double[]> defaultFill, boolean integerSentive) {
+            this.imputationOption = new ImputationOption(method, defaultFill, integerSentive);
+            return this;
+        }
+
         public AnomalyDetector build() {
             return new AnomalyDetector(
                 detectorId,
@@ -628,7 +647,8 @@ public class TestHelpers {
                 lastUpdateTime,
                 categoryFields,
                 user,
-                resultIndex
+                resultIndex,
+                imputationOption
             );
         }
     }
@@ -653,7 +673,8 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             categoryField,
             randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -1274,7 +1295,7 @@ public class TestHelpers {
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
         Entity entity = null;
         if (ADTaskType.HISTORICAL_HC_ENTITY == adTaskType) {
-            List<String> categoryField = detector.getCategoryField();
+            List<String> categoryField = detector.getCategoryFields();
             if (categoryField != null) {
                 if (categoryField.size() == 1) {
                     entity = Entity.createSingleAttributeEntity(categoryField.get(0), randomAlphaOfLength(5));
@@ -1377,12 +1398,12 @@ public class TestHelpers {
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
         Entity entity = null;
         if (detector != null) {
-            if (detector.isMultiCategoryDetector()) {
+            if (detector.hasMultipleCategories()) {
                 Map<String, Object> attrMap = new HashMap<>();
-                detector.getCategoryField().stream().forEach(f -> attrMap.put(f, randomAlphaOfLength(5)));
+                detector.getCategoryFields().stream().forEach(f -> attrMap.put(f, randomAlphaOfLength(5)));
                 entity = Entity.createEntityByReordering(attrMap);
-            } else if (detector.isMultientityDetector()) {
-                entity = Entity.createEntityByReordering(ImmutableMap.of(detector.getCategoryField().get(0), randomAlphaOfLength(5)));
+            } else if (detector.isHC()) {
+                entity = Entity.createEntityByReordering(ImmutableMap.of(detector.getCategoryFields().get(0), randomAlphaOfLength(5)));
             }
         }
         String taskType = entity == null ? ADTaskType.HISTORICAL_SINGLE_ENTITY.name() : ADTaskType.HISTORICAL_HC_ENTITY.name();
@@ -1546,5 +1567,206 @@ public class TestHelpers {
             true
         );
         return clusterState;
+    }
+
+    public static ImputationOption randomImputationOption() {
+        double[] defaultFill = DoubleStream.generate(OpenSearchTestCase::randomDouble).limit(10).toArray();
+        ImputationOption fixedValue = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill), false);
+        ImputationOption linear = new ImputationOption(ImputationMethod.LINEAR, Optional.of(defaultFill), false);
+        ImputationOption linearIntSensitive = new ImputationOption(ImputationMethod.LINEAR, Optional.of(defaultFill), true);
+        ImputationOption zero = new ImputationOption(ImputationMethod.ZERO);
+        ImputationOption previous = new ImputationOption(ImputationMethod.PREVIOUS);
+
+        List<ImputationOption> options = List.of(fixedValue, linear, linearIntSensitive, zero, previous);
+
+        // Select a random option
+        int randomIndex = Randomness.get().nextInt(options.size());
+        return options.get(randomIndex);
+    }
+
+    public static class ForecasterBuilder {
+        String forecasterId;
+        Long version;
+        String name;
+        String description;
+        String timeField;
+        List<String> indices;
+        List<Feature> features;
+        QueryBuilder filterQuery;
+        TimeConfiguration forecastInterval;
+        TimeConfiguration windowDelay;
+        Integer shingleSize;
+        Map<String, Object> uiMetadata;
+        Integer schemaVersion;
+        Instant lastUpdateTime;
+        List<String> categoryFields;
+        User user;
+        String resultIndex;
+        Integer horizon;
+        ImputationOption imputationOption;
+
+        ForecasterBuilder() throws IOException {
+            forecasterId = randomAlphaOfLength(10);
+            version = randomLong();
+            name = randomAlphaOfLength(10);
+            description = randomAlphaOfLength(20);
+            timeField = randomAlphaOfLength(5);
+            indices = ImmutableList.of(randomAlphaOfLength(10));
+            features = ImmutableList.of(randomFeature());
+            filterQuery = randomQuery();
+            forecastInterval = randomIntervalTimeConfiguration();
+            windowDelay = randomIntervalTimeConfiguration();
+            shingleSize = randomIntBetween(1, 20);
+            uiMetadata = ImmutableMap.of(randomAlphaOfLength(5), randomAlphaOfLength(10));
+            schemaVersion = randomInt();
+            lastUpdateTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+            categoryFields = ImmutableList.of(randomAlphaOfLength(5));
+            user = randomUser();
+            resultIndex = null;
+            horizon = randomIntBetween(1, 20);
+            imputationOption = randomImputationOption();
+        }
+
+        public static ForecasterBuilder newInstance() throws IOException {
+            return new ForecasterBuilder();
+        }
+
+        public ForecasterBuilder setConfigId(String configId) {
+            this.forecasterId = configId;
+            return this;
+        }
+
+        public ForecasterBuilder setVersion(Long version) {
+            this.version = version;
+            return this;
+        }
+
+        public ForecasterBuilder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public ForecasterBuilder setDescription(String description) {
+            this.description = description;
+            return this;
+        }
+
+        public ForecasterBuilder setTimeField(String timeField) {
+            this.timeField = timeField;
+            return this;
+        }
+
+        public ForecasterBuilder setIndices(List<String> indices) {
+            this.indices = indices;
+            return this;
+        }
+
+        public ForecasterBuilder setFeatureAttributes(List<Feature> featureAttributes) {
+            this.features = featureAttributes;
+            return this;
+        }
+
+        public ForecasterBuilder setFilterQuery(QueryBuilder filterQuery) {
+            this.filterQuery = filterQuery;
+            return this;
+        }
+
+        public ForecasterBuilder setDetectionInterval(TimeConfiguration forecastInterval) {
+            this.forecastInterval = forecastInterval;
+            return this;
+        }
+
+        public ForecasterBuilder setWindowDelay(TimeConfiguration windowDelay) {
+            this.windowDelay = windowDelay;
+            return this;
+        }
+
+        public ForecasterBuilder setShingleSize(Integer shingleSize) {
+            this.shingleSize = shingleSize;
+            return this;
+        }
+
+        public ForecasterBuilder setUiMetadata(Map<String, Object> uiMetadata) {
+            this.uiMetadata = uiMetadata;
+            return this;
+        }
+
+        public ForecasterBuilder setSchemaVersion(Integer schemaVersion) {
+            this.schemaVersion = schemaVersion;
+            return this;
+        }
+
+        public ForecasterBuilder setLastUpdateTime(Instant lastUpdateTime) {
+            this.lastUpdateTime = lastUpdateTime;
+            return this;
+        }
+
+        public ForecasterBuilder setCategoryFields(List<String> categoryFields) {
+            this.categoryFields = categoryFields;
+            return this;
+        }
+
+        public ForecasterBuilder setUser(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public ForecasterBuilder setCustomResultIndex(String resultIndex) {
+            this.resultIndex = resultIndex;
+            return this;
+        }
+
+        public ForecasterBuilder setNullImputationOption() {
+            this.imputationOption = null;
+            return this;
+        }
+
+        public Forecaster build() {
+            return new Forecaster(
+                forecasterId,
+                version,
+                name,
+                description,
+                timeField,
+                indices,
+                features,
+                filterQuery,
+                forecastInterval,
+                windowDelay,
+                shingleSize,
+                uiMetadata,
+                schemaVersion,
+                lastUpdateTime,
+                categoryFields,
+                user,
+                resultIndex,
+                horizon,
+                imputationOption
+            );
+        }
+    }
+
+    public static Forecaster randomForecaster() throws IOException {
+        return new Forecaster(
+            randomAlphaOfLength(10),
+            randomLong(),
+            randomAlphaOfLength(10),
+            randomAlphaOfLength(20),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(10)),
+            ImmutableList.of(randomFeature()),
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            randomIntBetween(1, 20),
+            ImmutableMap.of(randomAlphaOfLength(5), randomAlphaOfLength(10)),
+            randomInt(),
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            randomUser(),
+            null,
+            randomIntBetween(1, 20),
+            randomImputationOption()
+        );
     }
 }

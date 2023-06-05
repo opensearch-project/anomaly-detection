@@ -498,7 +498,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         GetResponse getResponse = mock(GetResponse.class);
         when(getResponse.isExists()).thenReturn(true);
         Map<String, Object> source = new HashMap<>();
-        source.put(CheckpointDao.DETECTOR_ID, state.getDetectorId());
+        source.put(CheckpointDao.DETECTOR_ID, state.getId());
         source.put(CheckpointDao.FIELD_MODELV2, checkpointDao.toCheckpoint(modelToSave, modelId).get());
         source.put(CommonName.TIMESTAMP, "2020-10-11T22:58:23.610392Z");
         when(getResponse.getSource()).thenReturn(source);

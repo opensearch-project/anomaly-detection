@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.randomDiscoveryNode;
+import static org.opensearch.timeseries.TestHelpers.randomDiscoveryNode;
 
 import java.io.IOException;
 import java.util.List;
@@ -41,7 +41,7 @@ public class ADCancelTaskTests extends ADUnitTestCase {
         request.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ADCancelTaskRequest parsedRequest = new ADCancelTaskRequest(input);
-        assertEquals(request.getDetectorId(), parsedRequest.getDetectorId());
+        assertEquals(request.getId(), parsedRequest.getId());
         assertEquals(request.getUserName(), parsedRequest.getUserName());
     }
 

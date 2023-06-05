@@ -61,7 +61,7 @@ public class MockForwardADTaskRequest_1_0 extends ActionRequest {
         ActionRequestValidationException validationException = null;
         if (detector == null) {
             validationException = addValidationError(ADCommonMessages.DETECTOR_MISSING, validationException);
-        } else if (detector.getDetectorId() == null) {
+        } else if (detector.getId() == null) {
             validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         if (adTaskAction == null) {

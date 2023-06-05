@@ -11,13 +11,12 @@
 
 package org.opensearch.ad.util;
 
-import static org.opensearch.ad.TestHelpers.builder;
-import static org.opensearch.ad.TestHelpers.randomFeature;
 import static org.opensearch.ad.util.RestHandlerUtils.OPENSEARCH_DASHBOARDS_USER_AGENT;
+import static org.opensearch.timeseries.TestHelpers.builder;
+import static org.opensearch.timeseries.TestHelpers.randomFeature;
 
 import java.io.IOException;
 
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -30,6 +29,7 @@ import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.FakeRestChannel;
 import org.opensearch.test.rest.FakeRestRequest;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

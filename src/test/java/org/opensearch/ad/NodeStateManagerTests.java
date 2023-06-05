@@ -62,11 +62,13 @@ import org.opensearch.search.SearchModule;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableMap;
 
-public class NodeStateManagerTests extends AbstractADTest {
+public class NodeStateManagerTests extends AbstractTimeSeriesTest {
     private NodeStateManager stateManager;
     private Client client;
     private ClientUtil clientUtil;
@@ -167,11 +169,11 @@ public class NodeStateManagerTests extends AbstractADTest {
             }
 
             assertTrue(request != null && listener != null);
-            listener.onResponse(TestHelpers.createGetResponse(detectorToCheck, detectorToCheck.getDetectorId(), CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detectorToCheck, detectorToCheck.getId(), CommonName.CONFIG_INDEX));
 
             return null;
         }).when(client).get(any(), any(ActionListener.class));
-        return detectorToCheck.getDetectorId();
+        return detectorToCheck.getId();
     }
 
     @SuppressWarnings("unchecked")
@@ -247,12 +249,13 @@ public class NodeStateManagerTests extends AbstractADTest {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), null);
         SearchRequest dummySearchRequest = new SearchRequest();
         assertFalse(stateManager.hasRunningQuery(detector));
-        throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest);
+        throttler.insertFilteredQuery(detector.getId(), dummySearchRequest);
         assertTrue(stateManager.hasRunningQuery(detector));
     }
 
     public void testGetAnomalyDetector() throws IOException, InterruptedException {
         String detectorId = setupDetector();
+
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         stateManager.getAnomalyDetector(detectorId, ActionListener.wrap(asDetector -> {
             assertEquals(detectorToCheck, asDetector.get());

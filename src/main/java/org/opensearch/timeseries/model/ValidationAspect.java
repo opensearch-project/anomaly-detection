@@ -14,8 +14,9 @@ package org.opensearch.timeseries.model;
 import java.util.Collection;
 import java.util.Set;
 
-import org.opensearch.ad.Name;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.constant.CommonName;
 
 /**
@@ -30,7 +31,8 @@ import org.opensearch.timeseries.constant.CommonName;
  */
 public enum ValidationAspect implements Name {
     DETECTOR(ADCommonName.DETECTOR_ASPECT),
-    MODEL(CommonName.MODEL_ASPECT);
+    MODEL(CommonName.MODEL_ASPECT),
+    FORECASTER(ForecastCommonName.FORECASTER_ASPECT);
 
     private String name;
 
@@ -54,6 +56,8 @@ public enum ValidationAspect implements Name {
                 return DETECTOR;
             case CommonName.MODEL_ASPECT:
                 return MODEL;
+            case ForecastCommonName.FORECASTER_ASPECT:
+                return FORECASTER;
             default:
                 throw new IllegalArgumentException("Unsupported validation aspects");
         }

@@ -19,7 +19,6 @@ import org.junit.Before;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -28,6 +27,7 @@ import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableMap;
 

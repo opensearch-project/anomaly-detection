@@ -23,13 +23,13 @@ public class EndRunException extends ClientException {
         this.endNow = endNow;
     }
 
-    public EndRunException(String anomalyDetectorId, String message, boolean endNow) {
-        super(anomalyDetectorId, message);
+    public EndRunException(String configId, String message, boolean endNow) {
+        super(configId, message);
         this.endNow = endNow;
     }
 
-    public EndRunException(String anomalyDetectorId, String message, Throwable throwable, boolean endNow) {
-        super(anomalyDetectorId, message, throwable);
+    public EndRunException(String configId, String message, Throwable throwable, boolean endNow) {
+        super(configId, message, throwable);
         this.endNow = endNow;
     }
 

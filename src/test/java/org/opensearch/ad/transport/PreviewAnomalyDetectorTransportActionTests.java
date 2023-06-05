@@ -47,7 +47,6 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.Features;
@@ -74,6 +73,7 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
@@ -149,12 +149,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testPreviewTransportAction() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
-            detector,
-            detector.getDetectorId(),
-            Instant.now(),
-            Instant.now()
-        );
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(detector, detector.getId(), Instant.now(), Instant.now());
         ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
             @Override
             public void onResponse(PreviewAnomalyDetectorResponse response) {
@@ -196,12 +191,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         // Detector with no feature, Preview should fail
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(Collections.emptyList());
-        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
-            detector,
-            detector.getDetectorId(),
-            Instant.now(),
-            Instant.now()
-        );
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(detector, detector.getId(), Instant.now(), Instant.now());
         ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
             @Override
             public void onResponse(PreviewAnomalyDetectorResponse response) {
@@ -306,14 +296,9 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             circuitBreaker
         );
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
-            detector,
-            detector.getDetectorId(),
-            Instant.now(),
-            Instant.now()
-        );
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(detector, detector.getId(), Instant.now(), Instant.now());
 
-        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(
@@ -405,12 +390,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testCircuitBreakerOpen() throws IOException, InterruptedException {
         // preview has no detector id
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(null, Arrays.asList("a"));
-        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(
-            detector,
-            detector.getDetectorId(),
-            Instant.now(),
-            Instant.now()
-        );
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(detector, detector.getId(), Instant.now(), Instant.now());
 
         when(circuitBreaker.isOpen()).thenReturn(true);
 

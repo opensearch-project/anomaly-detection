@@ -44,9 +44,11 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
-public class AbstractProfileRunnerTests extends AbstractADTest {
+public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {
     protected enum DetectorStatus {
         INDEX_NOT_EXIST,
         NO_DOC,

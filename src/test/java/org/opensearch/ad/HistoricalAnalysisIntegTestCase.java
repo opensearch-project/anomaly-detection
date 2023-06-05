@@ -53,6 +53,7 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.test.transport.MockTransportService;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
@@ -129,7 +130,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public ADTask randomCreatedADTask(String taskId, AnomalyDetector detector, DateRange detectionDateRange) {
-        String detectorId = detector == null ? null : detector.getDetectorId();
+        String detectorId = detector == null ? null : detector.getId();
         return randomCreatedADTask(taskId, detector, detectorId, detectionDateRange);
     }
 

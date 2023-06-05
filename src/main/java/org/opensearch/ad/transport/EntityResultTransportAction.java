@@ -128,12 +128,12 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
             threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
-            listener.onFailure(new LimitExceededException(request.getDetectorId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+            listener.onFailure(new LimitExceededException(request.getId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
             return;
         }
 
         try {
-            String detectorId = request.getDetectorId();
+            String detectorId = request.getId();
 
             Optional<Exception> previousException = stateManager.fetchExceptionAndClear(detectorId);
 
@@ -183,12 +183,12 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 Entity categoricalValues = entityEntry.getKey();
 
                 if (isEntityFromOldNodeMsg(categoricalValues)
-                    && detector.getCategoryField() != null
-                    && detector.getCategoryField().size() == 1) {
+                    && detector.getCategoryFields() != null
+                    && detector.getCategoryFields().size() == 1) {
                     Map<String, String> attrValues = categoricalValues.getAttributes();
                     // handle a request from a version before OpenSearch 1.1.
                     categoricalValues = Entity
-                        .createSingleAttributeEntity(detector.getCategoryField().get(0), attrValues.get(ADCommonName.EMPTY_FIELD));
+                        .createSingleAttributeEntity(detector.getCategoryFields().get(0), attrValues.get(ADCommonName.EMPTY_FIELD));
                 }
 
                 Optional<String> modelIdOptional = categoricalValues.getModelId(detectorId);
@@ -229,11 +229,11 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                         resultWriteQueue
                             .put(
                                 new ResultWriteRequest(
-                                    System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                                    System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                                     detectorId,
                                     result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                                     resultToSave,
-                                    detector.getResultIndex()
+                                    detector.getCustomResultIndex()
                                 )
                             );
                     }
@@ -245,7 +245,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     entityColdStartWorker
                         .put(
                             new EntityFeatureRequest(
-                                System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                                System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                                 detectorId,
                                 RequestPriority.MEDIUM,
                                 categoricalValues,
@@ -273,7 +273,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 hotEntityRequests
                     .add(
                         new EntityFeatureRequest(
-                            System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                            System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                             detectorId,
                             // hot entities has MEDIUM priority
                             RequestPriority.MEDIUM,
@@ -293,7 +293,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 coldEntityRequests
                     .add(
                         new EntityFeatureRequest(
-                            System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                            System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                             detectorId,
                             // cold entities has LOW priority
                             RequestPriority.LOW,
