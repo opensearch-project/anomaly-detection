@@ -27,7 +27,7 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.timeseries.AbstractADTest;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -36,7 +36,7 @@ import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class AnomalyDetectorTests extends AbstractADTest {
+public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
 
     public void testParseAnomalyDetector() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());

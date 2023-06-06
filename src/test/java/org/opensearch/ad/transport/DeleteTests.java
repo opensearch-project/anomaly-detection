@@ -202,7 +202,7 @@ public class DeleteTests extends AbstractTimeSeriesTest {
 
     public void testNewResponse() throws IOException {
         StreamInput input = mock(StreamInput.class);
-        when(input.readByte()).thenReturn((byte) 0x01);
+        when(input.readBoolean()).thenReturn(true);
         AcknowledgedResponse response = new AcknowledgedResponse(input);
 
         assertTrue(response.isAcknowledged());
