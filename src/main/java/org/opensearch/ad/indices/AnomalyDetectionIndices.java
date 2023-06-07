@@ -68,6 +68,8 @@ import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.client.indices.GetMappingsRequest;
+import org.opensearch.client.indices.GetMappingsResponse;
 import org.opensearch.client.indices.PutMappingRequest;
 import org.opensearch.client.indices.rollover.RolloverRequest;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
@@ -77,6 +79,7 @@ import org.opensearch.client.transport.TransportOptions;
 import org.opensearch.cluster.LocalNodeMasterListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -480,8 +483,24 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
                 // failed to populate the field
                 return false;
             }
-            IndexMetadata indexMetadata = sdkClusterService.state().metadata().index(resultIndex);
-            Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
+
+            GetMappingsRequest getMappingRequest = new GetMappingsRequest().indices(resultIndex);
+            CompletableFuture<GetMappingsResponse> getMappingsFuture = new CompletableFuture<>();
+            sdkRestClient
+                .indices()
+                .getMapping(getMappingRequest, ActionListener.wrap(response -> { getMappingsFuture.complete(response); }, exception -> {
+                    getMappingsFuture.completeExceptionally(exception);
+                }));
+            GetMappingsResponse getMappingResponse = getMappingsFuture
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+                .join();
+
+            Map<String, MappingMetadata> resultIndexMappings = getMappingResponse.mappings();
+            if (resultIndexMappings.size() == 0) {
+                return false;
+            }
+            Map<String, Object> indexMapping = resultIndexMappings.get(resultIndex).sourceAsMap();
+
             String propertyName = CommonName.PROPERTIES;
             if (!indexMapping.containsKey(propertyName) || !(indexMapping.get(propertyName) instanceof LinkedHashMap)) {
                 return false;
@@ -1040,14 +1059,25 @@ public class AnomalyDetectionIndices implements LocalNodeMasterListener {
 
     @SuppressWarnings("unchecked")
     private void shouldUpdateConcreteIndex(String concreteIndex, Integer newVersion, ActionListener<Boolean> thenDo) {
-        IndexMetadata indexMeataData = sdkClusterService.state().getMetadata().indices().get(concreteIndex);
-        if (indexMeataData == null) {
+        GetMappingsRequest getMappingsRequest = new GetMappingsRequest().indices(concreteIndex);
+        CompletableFuture<GetMappingsResponse> getMappingsFuture = new CompletableFuture<>();
+        sdkRestClient
+            .indices()
+            .getMapping(getMappingsRequest, ActionListener.wrap(response -> { getMappingsFuture.complete(response); }, exception -> {
+                getMappingsFuture.completeExceptionally(exception);
+            }));
+        GetMappingsResponse getMappingResponse = getMappingsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(environmentSettings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        Map<String, MappingMetadata> concreteIndexMappings = getMappingResponse.mappings();
+        if (concreteIndexMappings.size() == 0) {
             thenDo.onResponse(Boolean.FALSE);
             return;
         }
         Integer oldVersion = CommonValue.NO_SCHEMA_VERSION;
 
-        Map<String, Object> indexMapping = indexMeataData.mapping().getSourceAsMap();
+        Map<String, Object> indexMapping = concreteIndexMappings.get(concreteIndex).sourceAsMap();
         Object meta = indexMapping.get(META);
         if (meta != null && meta instanceof Map) {
             Map<String, Object> metaMapping = (Map<String, Object>) meta;

@@ -19,6 +19,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -138,10 +140,19 @@ public class IndexUtils {
             }
         }
 
-        ClusterIndexHealth indexHealth = new ClusterIndexHealth(
-            clusterService.state().metadata().index(indexOrAliasName),
-            clusterService.state().getRoutingTable().index(indexOrAliasName)
-        );
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest(indexOrAliasName);
+        CompletableFuture<ClusterHealthResponse> clusterHealthFuture = new CompletableFuture<>();
+        sdkRestClient
+            .cluster()
+            .health(clusterHealthRequest, ActionListener.wrap(response -> { clusterHealthFuture.complete(response); }, exception -> {
+                clusterHealthFuture.completeExceptionally(exception);
+            }));
+
+        ClusterHealthResponse clusterHealthResponse = clusterHealthFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        ClusterIndexHealth indexHealth = clusterHealthResponse.getIndices().get(indexOrAliasName);
 
         return indexHealth.getStatus().name().toLowerCase(Locale.ROOT);
     }
