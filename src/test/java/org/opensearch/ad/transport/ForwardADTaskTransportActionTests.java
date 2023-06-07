@@ -71,7 +71,7 @@ public class ForwardADTaskTransportActionTests extends ADUnitTestCase {
         adTaskCacheManager = mock(ADTaskCacheManager.class);
         featureManager = mock(FeatureManager.class);
         stateManager = mock(NodeStateManager.class);
-        when(extensionsRunner.getExtensionTransportService()).thenReturn(transportService);
+        when(extensionsRunner.getSdkTransportService().getTransportService()).thenReturn(transportService);
         forwardADTaskTransportAction = new ForwardADTaskTransportAction(
             extensionsRunner,
             taskManager,

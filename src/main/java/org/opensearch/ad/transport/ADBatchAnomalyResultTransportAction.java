@@ -35,7 +35,7 @@ public class ADBatchAnomalyResultTransportAction extends TransportAction<ADBatch
         ADBatchTaskRunner adBatchTaskRunner
     ) {
         super(ADBatchAnomalyResultAction.NAME, actionFilters, taskManager);
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.adBatchTaskRunner = adBatchTaskRunner;
     }
 
