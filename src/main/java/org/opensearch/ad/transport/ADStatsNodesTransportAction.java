@@ -25,8 +25,11 @@ import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
@@ -45,6 +48,7 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
     private final ADTaskManager adTaskManager;
 
     private final SDKClusterService sdkClusterService;
+    private Settings settings;
 
     /**
      * Constructor
@@ -55,6 +59,7 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
      * @param jvmService ES JVM Service
      * @param adTaskManager AD task manager
      * @param taskManager Task manager
+     * @param extensionsRunner extensions runner
      */
     @Inject
     public ADStatsNodesTransportAction(
@@ -63,13 +68,15 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
         ADStats adStats,
         JvmService jvmService,
         ADTaskManager adTaskManager,
-        TaskManager taskManager
+        TaskManager taskManager,
+        ExtensionsRunner extensionsRunner
     ) {
         super(ADStatsNodesAction.NAME, actionFilters, taskManager);
         this.adStats = adStats;
         this.jvmService = jvmService;
         this.adTaskManager = adTaskManager;
         this.sdkClusterService = sdkClusterService;
+        this.settings = extensionsRunner.getEnvironmentSettings();
     }
 
     protected ADStatsNodesResponse newResponse(
@@ -77,7 +84,7 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
         List<ADStatsNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADStatsNodesResponse(sdkClusterService.state().getClusterName(), responses, failures);
+        return new ADStatsNodesResponse(new ClusterName(settings.get("cluster.name")), responses, failures);
     }
 
     protected ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {

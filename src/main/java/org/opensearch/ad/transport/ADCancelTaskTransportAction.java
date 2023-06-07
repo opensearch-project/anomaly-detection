@@ -25,6 +25,9 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.task.ADTaskCancellationState;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
@@ -35,17 +38,20 @@ public class ADCancelTaskTransportAction extends TransportAction<ADCancelTaskReq
     private final Logger logger = LogManager.getLogger(ADCancelTaskTransportAction.class);
     private ADTaskManager adTaskManager;
     private SDKClusterService clusterService;
+    private Settings settings;
 
     @Inject
     public ADCancelTaskTransportAction(
         TaskManager taskManager,
         ActionFilters actionFilters,
         ADTaskManager adTaskManager,
-        SDKClusterService clusterService
+        SDKClusterService clusterService,
+        ExtensionsRunner extensionsRunner
     ) {
         super(ADCancelTaskAction.NAME, actionFilters, taskManager);
         this.adTaskManager = adTaskManager;
         this.clusterService = clusterService;
+        this.settings = extensionsRunner.getEnvironmentSettings();
     }
 
     protected ADCancelTaskResponse newResponse(
@@ -53,7 +59,7 @@ public class ADCancelTaskTransportAction extends TransportAction<ADCancelTaskReq
         List<ADCancelTaskNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADCancelTaskResponse(clusterService.state().getClusterName(), responses, failures);
+        return new ADCancelTaskResponse(new ClusterName(settings.get("cluster.name")), responses, failures);
     }
 
     @Override
