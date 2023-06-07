@@ -81,7 +81,7 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.opensearch.common.lease.Releasable;
+import org.opensearch.core.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.NetworkExceptionHelper;
 import org.opensearch.index.IndexNotFoundException;
