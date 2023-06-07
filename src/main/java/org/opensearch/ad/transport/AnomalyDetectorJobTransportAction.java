@@ -66,7 +66,7 @@ public class AnomalyDetectorJobTransportAction extends TransportAction<AnomalyDe
         ADTaskManager adTaskManager
     ) {
         super(AnomalyDetectorJobAction.NAME, actionFilters, taskManager);
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.client = client;
         this.clusterService = clusterService;
         this.settings = extensionsRunner.getEnvironmentSettings();

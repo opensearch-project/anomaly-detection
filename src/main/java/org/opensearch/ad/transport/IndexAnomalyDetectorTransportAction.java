@@ -78,7 +78,7 @@ public class IndexAnomalyDetectorTransportAction extends TransportAction<IndexAn
     ) {
         super(IndexAnomalyDetectorAction.NAME, actionFilters, taskManager);
         this.client = restClient;
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.clusterService = sdkClusterService;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
         this.xContentRegistry = namedXContentRegistry;

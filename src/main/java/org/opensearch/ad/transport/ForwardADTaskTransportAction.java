@@ -71,7 +71,7 @@ public class ForwardADTaskTransportAction extends TransportAction<ForwardADTaskR
     ) {
         super(ForwardADTaskAction.NAME, actionFilters, taskManager);
         this.adTaskManager = adTaskManager;
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.adTaskCacheManager = adTaskCacheManager;
         this.featureManager = featureManager;
         this.stateManager = stateManager;

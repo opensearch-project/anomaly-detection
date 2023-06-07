@@ -164,7 +164,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
     ) {
         super(AnomalyResultAction.NAME, actionFilters, taskManager);
         this.extensionsRunner = extensionsRunner;
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.sdkRestClient = sdkRestClient;
         this.stateManager = manager;

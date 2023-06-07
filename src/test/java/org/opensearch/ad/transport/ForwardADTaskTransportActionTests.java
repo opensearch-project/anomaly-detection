@@ -40,6 +40,7 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.sdk.ExtensionsRunner;
+import org.opensearch.sdk.SDKTransportService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
 import org.opensearch.transport.TransportService;
@@ -50,6 +51,7 @@ public class ForwardADTaskTransportActionTests extends ADUnitTestCase {
     private ExtensionsRunner extensionsRunner;
     private TaskManager taskManager;
     private ActionFilters actionFilters;
+    private SDKTransportService sdkTransportService;
     private TransportService transportService;
     private ADTaskManager adTaskManager;
     private ADTaskCacheManager adTaskCacheManager;
@@ -66,12 +68,14 @@ public class ForwardADTaskTransportActionTests extends ADUnitTestCase {
         extensionsRunner = mock(ExtensionsRunner.class);
         taskManager = mock(TaskManager.class);
         actionFilters = mock(ActionFilters.class);
+        sdkTransportService = mock(SDKTransportService.class);
         transportService = mock(TransportService.class);
         adTaskManager = mock(ADTaskManager.class);
         adTaskCacheManager = mock(ADTaskCacheManager.class);
         featureManager = mock(FeatureManager.class);
         stateManager = mock(NodeStateManager.class);
-        when(extensionsRunner.getExtensionTransportService()).thenReturn(transportService);
+        when(extensionsRunner.getSdkTransportService()).thenReturn(sdkTransportService);
+        when(sdkTransportService.getTransportService()).thenReturn(transportService);
         forwardADTaskTransportAction = new ForwardADTaskTransportAction(
             extensionsRunner,
             taskManager,

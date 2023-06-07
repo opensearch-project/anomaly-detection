@@ -80,7 +80,7 @@ public class DeleteAnomalyDetectorTransportAction extends TransportAction<Delete
         ADTaskManager adTaskManager
     ) {
         super(DeleteAnomalyDetectorAction.NAME, actionFilters, taskManager);
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.client = client;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
