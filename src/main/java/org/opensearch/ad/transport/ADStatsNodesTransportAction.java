@@ -27,7 +27,6 @@ import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
@@ -48,7 +47,7 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
     private final ADTaskManager adTaskManager;
 
     private final SDKClusterService sdkClusterService;
-    private Settings settings;
+    private ExtensionsRunner extensionsRunner;
 
     /**
      * Constructor
@@ -76,7 +75,7 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
         this.jvmService = jvmService;
         this.adTaskManager = adTaskManager;
         this.sdkClusterService = sdkClusterService;
-        this.settings = extensionsRunner.getEnvironmentSettings();
+        this.extensionsRunner = extensionsRunner;
     }
 
     protected ADStatsNodesResponse newResponse(
@@ -84,7 +83,11 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
         List<ADStatsNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADStatsNodesResponse(new ClusterName(settings.get("cluster.name")), responses, failures);
+        return new ADStatsNodesResponse(
+            new ClusterName(extensionsRunner.getEnvironmentSettings().get("cluster.name")),
+            responses,
+            failures
+        );
     }
 
     protected ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {

@@ -24,7 +24,6 @@ import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
@@ -44,7 +43,7 @@ public class ADTaskProfileTransportAction extends TransportAction<ADTaskProfileR
     // private HashRing hashRing;
 
     private final SDKClusterService sdkClusterService;
-    private Settings settings;
+    private ExtensionsRunner extensionsRunner;
 
     @Inject
     public ADTaskProfileTransportAction(
@@ -61,7 +60,7 @@ public class ADTaskProfileTransportAction extends TransportAction<ADTaskProfileR
         /* MultiNode support https://github.com/opensearch-project/opensearch-sdk-java/issues/200 */
         // this.hashRing = hashRing;
         this.sdkClusterService = sdkClusterService;
-        this.settings = extensionsRunner.getEnvironmentSettings();
+        this.extensionsRunner = extensionsRunner;
     }
 
     protected ADTaskProfileResponse newResponse(
@@ -69,7 +68,11 @@ public class ADTaskProfileTransportAction extends TransportAction<ADTaskProfileR
         List<ADTaskProfileNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADTaskProfileResponse(new ClusterName(settings.get("cluster.name")), responses, failures);
+        return new ADTaskProfileResponse(
+            new ClusterName(extensionsRunner.getEnvironmentSettings().get("cluster.name")),
+            responses,
+            failures
+        );
     }
 
     protected ADTaskProfileNodeRequest newNodeRequest(ADTaskProfileRequest request) {
