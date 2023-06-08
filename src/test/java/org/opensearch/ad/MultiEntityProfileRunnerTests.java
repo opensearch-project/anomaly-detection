@@ -63,10 +63,12 @@ import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 
-public class MultiEntityProfileRunnerTests extends AbstractADTest {
+public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private AnomalyDetectorProfileRunner runner;
     private Client client;
     private SecurityClientUtil clientUtil;
@@ -150,14 +152,11 @@ public class MultiEntityProfileRunnerTests extends AbstractADTest {
 
             String indexName = request.index();
             if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
             } else if (indexName.equals(ADCommonName.DETECTION_STATE_INDEX)) {
-                listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), ADCommonName.DETECTION_STATE_INDEX)
-                    );
+                listener.onResponse(TestHelpers.createGetResponse(result.build(), detector.getId(), ADCommonName.DETECTION_STATE_INDEX));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId(), CommonName.JOB_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
             }
 
             return null;

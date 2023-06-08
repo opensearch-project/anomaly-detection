@@ -26,7 +26,7 @@ public class ImputationOptionTests extends OpenSearchTestCase {
         ImputationMethod method = ImputationMethod.PREVIOUS;
         double[] defaultFill = { 1.0, 2.0, 3.0 };
 
-        ImputationOption option = new ImputationOption(method, Optional.of(defaultFill));
+        ImputationOption option = new ImputationOption(method, Optional.of(defaultFill), false);
 
         // Write the ImputationOption to the StreamOutput.
         BytesStreamOutput out = new BytesStreamOutput();
@@ -44,9 +44,9 @@ public class ImputationOptionTests extends OpenSearchTestCase {
 
     public void testToXContent() throws IOException {
         double[] defaultFill = { 1.0, 2.0, 3.0 };
-        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill));
+        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill), false);
 
-        String xContent = "{" + "\"method\":\"FIXED_VALUES\"," + "\"defaultFill\":[1.0,2.0,3.0]" + "}";
+        String xContent = "{" + "\"method\":\"FIXED_VALUES\"," + "\"defaultFill\":[1.0,2.0,3.0],\"integerSensitive\":false" + "}";
 
         XContentBuilder builder = imputationOption.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
         String actualJson = BytesReference.bytes(builder).utf8ToString();
@@ -55,10 +55,10 @@ public class ImputationOptionTests extends OpenSearchTestCase {
     }
 
     public void testParse() throws IOException {
-        String xContent = "{" + "\"method\":\"FIXED_VALUES\"," + "\"defaultFill\":[1.0,2.0,3.0]" + "}";
+        String xContent = "{" + "\"method\":\"FIXED_VALUES\"," + "\"defaultFill\":[1.0,2.0,3.0],\"integerSensitive\":false" + "}";
 
         double[] defaultFill = { 1.0, 2.0, 3.0 };
-        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill));
+        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill), false);
 
         try (
             XContentParser parser = JsonXContent.jsonXContent
@@ -86,9 +86,9 @@ public class ImputationOptionTests extends OpenSearchTestCase {
         double[] defaultFill1 = { 1.0, 2.0, 3.0 };
         double[] defaultFill2 = { 4.0, 5.0, 6.0 };
 
-        ImputationOption option1 = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1));
-        ImputationOption option2 = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1));
-        ImputationOption option3 = new ImputationOption(ImputationMethod.LINEAR, Optional.of(defaultFill2));
+        ImputationOption option1 = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1), false);
+        ImputationOption option2 = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1), false);
+        ImputationOption option3 = new ImputationOption(ImputationMethod.LINEAR, Optional.of(defaultFill2), false);
 
         // Test reflexivity
         assertTrue(option1.equals(option1));
@@ -98,7 +98,7 @@ public class ImputationOptionTests extends OpenSearchTestCase {
         assertTrue(option2.equals(option1));
 
         // Test transitivity
-        ImputationOption option2Clone = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1));
+        ImputationOption option2Clone = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1), false);
         assertTrue(option1.equals(option2));
         assertTrue(option2.equals(option2Clone));
         assertTrue(option1.equals(option2Clone));

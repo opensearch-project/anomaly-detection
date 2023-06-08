@@ -180,7 +180,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -216,7 +216,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         int pageSize,
         ActionListener<List<Entity>> listener
     ) {
-        if (!detector.isMultientityDetector()) {
+        if (!detector.isHighCardinality()) {
             listener.onResponse(null);
             return;
         }
@@ -231,8 +231,8 @@ public class SearchFeatureDao extends AbstractRetriever {
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().filter(rangeQuery).filter(detector.getFilterQuery());
         AggregationBuilder bucketAggs = null;
 
-        if (detector.getCategoryField().size() == 1) {
-            bucketAggs = AggregationBuilders.terms(AGG_NAME_TOP).size(maxEntitiesSize).field(detector.getCategoryField().get(0));
+        if (detector.getCategoryFields().size() == 1) {
+            bucketAggs = AggregationBuilders.terms(AGG_NAME_TOP).size(maxEntitiesSize).field(detector.getCategoryFields().get(0));
         } else {
             /*
              * We don't have an efficient solution for terms aggregation on multiple fields.
@@ -328,7 +328,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             bucketAggs = AggregationBuilders
                 .composite(
                     AGG_NAME_TOP,
-                    detector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+                    detector.getCategoryFields().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
                 )
                 .size(pageSize)
                 .subAggregation(
@@ -359,7 +359,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -410,14 +410,14 @@ public class SearchFeatureDao extends AbstractRetriever {
                     return;
                 }
 
-                if (detector.getCategoryField().size() == 1) {
+                if (detector.getCategoryFields().size() == 1) {
                     topEntities = ((Terms) aggrResult)
                         .getBuckets()
                         .stream()
                         .map(bucket -> bucket.getKeyAsString())
                         .collect(Collectors.toList())
                         .stream()
-                        .map(entityValue -> Entity.createSingleAttributeEntity(detector.getCategoryField().get(0), entityValue))
+                        .map(entityValue -> Entity.createSingleAttributeEntity(detector.getCategoryFields().get(0), entityValue))
                         .collect(Collectors.toList());
                     listener.onResponse(topEntities);
                 } else {
@@ -451,7 +451,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                                 new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder),
                                 client::search,
-                                detector.getDetectorId(),
+                                detector.getId(),
                                 client,
                                 this
                             );
@@ -495,7 +495,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -528,7 +528,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -542,7 +542,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         ActionListener<Map<Long, Optional<double[]>>> listener
     ) throws IOException {
         SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, entity, startTime, endTime, xContent);
-        logger.debug("Batch query for detector {}: {} ", detector.getDetectorId(), searchSourceBuilder);
+        logger.debug("Batch query for detector {}: {} ", detector.getId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
@@ -555,7 +555,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -618,7 +618,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 request,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -645,7 +645,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         ActionListener<Optional<Entry<double[][], Integer>>> listener
     ) {
         Map<Long, double[]> cache = new HashMap<>();
-        logger.info(String.format(Locale.ROOT, "Getting features for detector %s ending at %d", detector.getDetectorId(), endTime));
+        logger.info(String.format(Locale.ROOT, "Getting features for detector %s ending at %d", detector.getId(), endTime));
         getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, maxStride, listener);
     }
 
@@ -699,7 +699,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                         .format(
                             Locale.ROOT,
                             "Get features for detector %s finishes without any features present, current stride %d",
-                            detector.getDetectorId(),
+                            detector.getId(),
                             currentStride
                         )
                 );
@@ -711,7 +711,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                         .format(
                             Locale.ROOT,
                             "Get features for detector %s finishes with %d samples, current stride %d",
-                            detector.getDetectorId(),
+                            detector.getId(),
                             features.get().length,
                             currentStride
                         )
@@ -733,7 +733,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) {
         ArrayDeque<double[]> sampledFeatures = new ArrayDeque<>(maxSamples);
         boolean isInterpolatable = currentStride < maxStride;
-        long span = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
+        long span = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().toMillis();
         sampleForIteration(detector, cache, maxSamples, endTime, span, currentStride, sampledFeatures, isInterpolatable, 0, listener);
     }
 
@@ -838,11 +838,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, xContent);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder).preference(preference.orElse(null));
         } catch (IOException e) {
-            logger
-                .warn(
-                    "Failed to create feature search request for " + detector.getDetectorId() + " from " + startTime + " to " + endTime,
-                    e
-                );
+            logger.warn("Failed to create feature search request for " + detector.getId() + " from " + startTime + " to " + endTime, e);
             throw new IllegalStateException(e);
         }
     }
@@ -852,7 +848,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generatePreviewQuery(detector, ranges, xContent);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
-            logger.warn("Failed to create feature search request for " + detector.getDetectorId() + " for preview", e);
+            logger.warn("Failed to create feature search request for " + detector.getId() + " for preview", e);
             throw e;
         }
     }
@@ -904,7 +900,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 request,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
                 searchResponseListener
             );
@@ -918,7 +914,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             logger
                 .warn(
                     "Failed to create cold start feature search request for "
-                        + detector.getDetectorId()
+                        + detector.getId()
                         + " from "
                         + ranges.get(0).getKey()
                         + " to "

@@ -22,7 +22,6 @@ import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.annotation.Generated;
-import org.opensearch.timeseries.constant.CommonMessages;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
@@ -43,7 +42,13 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
     public IntervalTimeConfiguration(long interval, ChronoUnit unit) {
         if (interval < 0) {
             throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Interval %s %s", interval, CommonMessages.NEGATIVE_TIME_CONFIGURATION)
+                String
+                    .format(
+                        Locale.ROOT,
+                        "Interval %s %s",
+                        interval,
+                        org.opensearch.timeseries.constant.CommonMessages.NEGATIVE_TIME_CONFIGURATION
+                    )
             );
         }
         if (!SUPPORTED_UNITS.contains(unit)) {

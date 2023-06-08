@@ -39,7 +39,7 @@ public class MockADCancelTaskNodeRequest_1_0 extends TransportRequest {
         out.writeOptionalString(userName);
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

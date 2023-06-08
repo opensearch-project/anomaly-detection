@@ -12,7 +12,7 @@
 package org.opensearch.timeseries.common.exception;
 
 /**
- * All exception visible to AD transport layer's client is under ClientException.
+ * All exception visible to transport layer's client is under ClientException.
  */
 public class ClientException extends TimeSeriesException {
 
@@ -20,15 +20,15 @@ public class ClientException extends TimeSeriesException {
         super(message);
     }
 
-    public ClientException(String anomalyDetectorId, String message) {
-        super(anomalyDetectorId, message);
+    public ClientException(String configId, String message) {
+        super(configId, message);
     }
 
-    public ClientException(String anomalyDetectorId, String message, Throwable throwable) {
-        super(anomalyDetectorId, message, throwable);
+    public ClientException(String configId, String message, Throwable throwable) {
+        super(configId, message, throwable);
     }
 
-    public ClientException(String anomalyDetectorId, Throwable cause) {
-        super(anomalyDetectorId, cause);
+    public ClientException(String configId, Throwable cause) {
+        super(configId, cause);
     }
 }

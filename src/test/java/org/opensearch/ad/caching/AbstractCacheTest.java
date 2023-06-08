@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import org.junit.Before;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
@@ -32,8 +31,9 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 
-public class AbstractCacheTest extends AbstractADTest {
+public class AbstractCacheTest extends AbstractTimeSeriesTest {
     protected String modelId1, modelId2, modelId3, modelId4;
     protected Entity entity1, entity2, entity3, entity4;
     protected ModelState<EntityModel> modelState1, modelState2, modelState3, modelState4;
@@ -56,10 +56,10 @@ public class AbstractCacheTest extends AbstractADTest {
         super.setUp();
         detector = mock(AnomalyDetector.class);
         detectorId = "123";
-        when(detector.getDetectorId()).thenReturn(detectorId);
+        when(detector.getId()).thenReturn(detectorId);
         detectorDuration = Duration.ofMinutes(5);
-        when(detector.getDetectionIntervalDuration()).thenReturn(detectorDuration);
-        when(detector.getDetectorIntervalInSeconds()).thenReturn(detectorDuration.getSeconds());
+        when(detector.getIntervalDuration()).thenReturn(detectorDuration);
+        when(detector.getIntervalInSeconds()).thenReturn(detectorDuration.getSeconds());
         when(detector.getEnabledFeatureIds()).thenReturn(new ArrayList<String>() {
             {
                 add("a");

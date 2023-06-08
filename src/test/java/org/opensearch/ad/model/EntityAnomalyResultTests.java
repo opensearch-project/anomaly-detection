@@ -12,7 +12,7 @@
 package org.opensearch.ad.model;
 
 import static java.util.Arrays.asList;
-import static org.opensearch.ad.TestHelpers.randomHCADAnomalyDetectResult;
+import static org.opensearch.timeseries.TestHelpers.randomHCADAnomalyDetectResult;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -83,7 +83,6 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
                     periodEnd = ParseUtils.toInstant(parser);
                     break;
                 case DETECTOR_FIELD:
-                    XContentParser.Token token = parser.currentToken();
                     if (parser.currentToken().equals(XContentParser.Token.START_OBJECT)) {
                         detector = AnomalyDetector.parse(parser, detectorId);
                     }

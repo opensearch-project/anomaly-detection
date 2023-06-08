@@ -40,7 +40,6 @@ import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTask;
@@ -57,12 +56,13 @@ import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.get.GetResult;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
-public class GetAnomalyDetectorTests extends AbstractADTest {
+public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private GetAnomalyDetectorTransportAction action;
     private TransportService transportService;
     private DiscoveryNodeFilterer nodeFilter;

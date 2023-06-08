@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.randomQuery;
+import static org.opensearch.timeseries.TestHelpers.randomQuery;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -24,12 +24,12 @@ import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.ADIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -219,7 +219,8 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             Instant.now(),
             null,
             null,
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
     }
 
@@ -241,7 +242,8 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             Instant.now(),
             ImmutableList.of(categoryField),
             null,
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
     }
 

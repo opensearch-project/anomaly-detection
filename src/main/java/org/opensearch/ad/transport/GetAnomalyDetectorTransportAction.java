@@ -43,7 +43,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorProfileRunner;
 import org.opensearch.ad.EntityProfileRunner;
-import org.opensearch.ad.Name;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -69,6 +68,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 

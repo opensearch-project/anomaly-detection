@@ -79,7 +79,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         ADTaskAction adTaskAction = request.getAdTaskAction();
         AnomalyDetector detector = request.getDetector();
         DateRange detectionDateRange = request.getDetectionDateRange();
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         ADTask adTask = request.getAdTask();
         User user = request.getUser();
         Integer availableTaskSlots = request.getAvailableTaskSLots();
@@ -108,14 +108,14 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 // Start historical analysis for detector
                 logger.debug("Received START action for detector {}", detectorId);
                 adTaskManager.startDetector(detector, detectionDateRange, user, transportService, ActionListener.wrap(r -> {
-                    adTaskCacheManager.setDetectorTaskSlots(detector.getDetectorId(), availableTaskSlots);
+                    adTaskCacheManager.setDetectorTaskSlots(detector.getId(), availableTaskSlots);
                     listener.onResponse(r);
                 }, e -> listener.onFailure(e)));
                 break;
             case NEXT_ENTITY:
                 logger.debug("Received NEXT_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Run next entity for HC detector historical analysis.
-                if (detector.isMultientityDetector()) { // AD task could be HC detector level task or entity task
+                if (detector.isHighCardinality()) { // AD task could be HC detector level task or entity task
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
                         adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
@@ -157,13 +157,13 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 if (adTask.isEntityTask()) { // AD task must be entity level task.
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (adTaskManager.isRetryableError(adTask.getError())
-                        && !adTaskCacheManager.exceedRetryLimit(adTask.getDetectorId(), adTask.getTaskId())) {
+                        && !adTaskCacheManager.exceedRetryLimit(adTask.getId(), adTask.getTaskId())) {
                         // If retryable exception happens when run entity task, will push back entity to the end
                         // of pending entities queue, then we can retry it later.
-                        adTaskCacheManager.pushBackEntity(adTask.getTaskId(), adTask.getDetectorId(), entityValue);
+                        adTaskCacheManager.pushBackEntity(adTask.getTaskId(), adTask.getId(), entityValue);
                     } else {
                         // If exception is not retryable or exceeds retry limit, will remove this entity.
-                        adTaskCacheManager.removeEntity(adTask.getDetectorId(), entityValue);
+                        adTaskCacheManager.removeEntity(adTask.getId(), entityValue);
                         logger.warn("Entity task failed, task id: {}, entity: {}", adTask.getTaskId(), adTask.getEntity().toString());
                     }
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
@@ -193,14 +193,14 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskCacheManager.scaleUpDetectorTaskSlots(detectorId, newSlots);
                     }
                 }
-                listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
+                listener.onResponse(new AnomalyDetectorJobResponse(detector.getId(), 0, 0, 0, RestStatus.OK));
                 break;
             case CANCEL:
                 logger.debug("Received CANCEL action for detector {}", detectorId);
                 // Cancel HC detector's historical analysis.
                 // Don't support single detector for this action as single entity task will be cancelled directly
                 // on worker node.
-                if (detector.isMultientityDetector()) {
+                if (detector.isHighCardinality()) {
                     adTaskCacheManager.clearPendingEntities(detectorId);
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId) || !adTask.isEntityTask()) {
@@ -249,7 +249,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     stateManager.clear(detectorId);
                     featureManager.clear(detectorId);
                 }
-                listener.onResponse(new AnomalyDetectorJobResponse(detector.getDetectorId(), 0, 0, 0, RestStatus.OK));
+                listener.onResponse(new AnomalyDetectorJobResponse(detector.getId(), 0, 0, 0, RestStatus.OK));
                 break;
             default:
                 listener.onFailure(new OpenSearchStatusException("Unsupported AD task action " + adTaskAction, RestStatus.BAD_REQUEST));

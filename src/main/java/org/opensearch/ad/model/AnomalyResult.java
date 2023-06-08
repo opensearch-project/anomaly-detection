@@ -788,7 +788,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             .toString();
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

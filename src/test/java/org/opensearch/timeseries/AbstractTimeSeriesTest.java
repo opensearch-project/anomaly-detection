@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.timeseries;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,6 +43,7 @@ import org.apache.logging.log4j.util.StackLocatorUtil;
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
@@ -69,9 +70,9 @@ import org.opensearch.transport.TransportService;
 
 import test.org.opensearch.ad.util.FakeNode;
 
-public class AbstractADTest extends OpenSearchTestCase {
+public class AbstractTimeSeriesTest extends OpenSearchTestCase {
 
-    protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractADTest.class);
+    protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractTimeSeriesTest.class);
 
     // transport test node
     protected int nodesCount;
@@ -213,7 +214,7 @@ public class AbstractADTest extends OpenSearchTestCase {
 
     protected TestAppender testAppender;
 
-    Logger logger;
+    protected Logger logger;
 
     /**
      * Set up test with junit that a warning was logged with log4j

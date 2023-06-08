@@ -80,7 +80,7 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
         this.endTime = endTime;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

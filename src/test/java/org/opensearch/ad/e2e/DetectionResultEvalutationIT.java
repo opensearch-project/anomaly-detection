@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.e2e;
 
-import static org.opensearch.ad.TestHelpers.toHttpEntity;
+import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
 
 import java.text.SimpleDateFormat;
 import java.time.Clock;
@@ -27,12 +27,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.common.xcontent.support.XContentMapValues;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;

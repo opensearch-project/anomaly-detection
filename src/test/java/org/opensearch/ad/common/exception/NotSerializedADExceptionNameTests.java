@@ -26,49 +26,49 @@ import org.opensearch.timeseries.common.exception.ValidationException;
 public class NotSerializedADExceptionNameTests extends OpenSearchTestCase {
     public void testConvertAnomalyDetectionException() {
         Optional<TimeSeriesException> converted = NotSerializedExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new TimeSeriesException("", "")), "");
+            .convertWrappedTimeSeriesException(new NotSerializableExceptionWrapper(new TimeSeriesException("", "")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof TimeSeriesException);
     }
 
     public void testConvertInternalFailure() {
         Optional<TimeSeriesException> converted = NotSerializedExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new InternalFailure("", "")), "");
+            .convertWrappedTimeSeriesException(new NotSerializableExceptionWrapper(new InternalFailure("", "")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof InternalFailure);
     }
 
     public void testConvertClientException() {
         Optional<TimeSeriesException> converted = NotSerializedExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new ClientException("", "")), "");
+            .convertWrappedTimeSeriesException(new NotSerializableExceptionWrapper(new ClientException("", "")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof ClientException);
     }
 
     public void testConvertADTaskCancelledException() {
         Optional<TimeSeriesException> converted = NotSerializedExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new TaskCancelledException("", "")), "");
+            .convertWrappedTimeSeriesException(new NotSerializableExceptionWrapper(new TaskCancelledException("", "")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof TaskCancelledException);
     }
 
     public void testConvertDuplicateTaskException() {
         Optional<TimeSeriesException> converted = NotSerializedExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new DuplicateTaskException("")), "");
+            .convertWrappedTimeSeriesException(new NotSerializableExceptionWrapper(new DuplicateTaskException("")), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof DuplicateTaskException);
     }
 
     public void testConvertADValidationException() {
         Optional<TimeSeriesException> converted = NotSerializedExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new ValidationException("", null, null)), "");
+            .convertWrappedTimeSeriesException(new NotSerializableExceptionWrapper(new ValidationException("", null, null)), "");
         assertTrue(converted.isPresent());
         assertTrue(converted.get() instanceof ValidationException);
     }
 
     public void testUnknownException() {
         Optional<TimeSeriesException> converted = NotSerializedExceptionName
-            .convertWrappedAnomalyDetectionException(new NotSerializableExceptionWrapper(new RuntimeException("")), "");
+            .convertWrappedTimeSeriesException(new NotSerializableExceptionWrapper(new RuntimeException("")), "");
         assertTrue(!converted.isPresent());
     }
 }

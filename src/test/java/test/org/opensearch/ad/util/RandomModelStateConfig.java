@@ -38,7 +38,7 @@ public class RandomModelStateConfig {
         return priority;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

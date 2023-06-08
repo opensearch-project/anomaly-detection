@@ -86,6 +86,8 @@ import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
@@ -93,7 +95,7 @@ import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.google.common.collect.ImmutableList;
 
-public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
+public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
     @Mock
     private Client client;
@@ -400,7 +402,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
                                 Instant.now(),
                                 60L,
                                 TestHelpers.randomUser(),
-                                jobParameter.getResultIndex()
+                                jobParameter.getCustomResultIndex()
                             ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
                         ),
                     Collections.emptyMap(),
@@ -731,7 +733,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
 
         // init real time task cache for the detector. We will do this during AnomalyResultTransportAction.
         // Since we mocked the execution by returning anomaly result directly, we need to init it explicitly.
-        adTaskCacheManager.initRealtimeTaskCache(detector.getDetectorId(), 0);
+        adTaskCacheManager.initRealtimeTaskCache(detector.getId(), 0);
 
         // recreate recorder since we need to use the unmocked adTaskCacheManager
         recorder = new ExecuteADResultResponseRecorder(
@@ -746,7 +748,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
             32
         );
 
-        assertEquals(false, adTaskCacheManager.hasQueriedResultIndex(detector.getDetectorId()));
+        assertEquals(false, adTaskCacheManager.hasQueriedResultIndex(detector.getId()));
 
         LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
 
@@ -761,6 +763,6 @@ public class AnomalyDetectorJobRunnerTests extends AbstractADTest {
         verify(adTaskManager, times(1))
             .updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), totalUpdates.capture(), any(), any(), any());
         assertEquals(NUM_MIN_SAMPLES, totalUpdates.getValue().longValue());
-        assertEquals(true, adTaskCacheManager.hasQueriedResultIndex(detector.getDetectorId()));
+        assertEquals(true, adTaskCacheManager.hasQueriedResultIndex(detector.getId()));
     }
 }

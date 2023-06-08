@@ -117,7 +117,7 @@ public class ProfileTests extends OpenSearchTestCase {
         profilesToRetrieve.add(DetectorProfileName.COORDINATING_NODE);
         ProfileRequest ProfileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false);
         ProfileNodeRequest ProfileNodeRequest = new ProfileNodeRequest(ProfileRequest);
-        assertEquals("ProfileNodeRequest has the wrong detector id", ProfileNodeRequest.getDetectorId(), detectorId);
+        assertEquals("ProfileNodeRequest has the wrong detector id", ProfileNodeRequest.getId(), detectorId);
         assertEquals("ProfileNodeRequest has the wrong ProfileRequest", ProfileNodeRequest.getProfilesToBeRetrieved(), profilesToRetrieve);
 
         // Test serialization
@@ -125,7 +125,7 @@ public class ProfileTests extends OpenSearchTestCase {
         ProfileNodeRequest.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
         ProfileNodeRequest nodeRequest = new ProfileNodeRequest(streamInput);
-        assertEquals("serialization has the wrong detector id", nodeRequest.getDetectorId(), detectorId);
+        assertEquals("serialization has the wrong detector id", nodeRequest.getId(), detectorId);
         assertEquals("serialization has the wrong ProfileRequest", nodeRequest.getProfilesToBeRetrieved(), profilesToRetrieve);
 
     }
@@ -183,7 +183,7 @@ public class ProfileTests extends OpenSearchTestCase {
             readRequest.getProfilesToBeRetrieved(),
             profileRequest.getProfilesToBeRetrieved()
         );
-        assertEquals("Serialization has the wrong detector id", readRequest.getDetectorId(), profileRequest.getDetectorId());
+        assertEquals("Serialization has the wrong detector id", readRequest.getId(), profileRequest.getId());
     }
 
     @Test

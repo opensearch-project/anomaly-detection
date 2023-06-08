@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 import org.apache.hc.core5.http.HttpEntity;
 import org.junit.Assert;
 import org.junit.Before;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
@@ -52,6 +51,7 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

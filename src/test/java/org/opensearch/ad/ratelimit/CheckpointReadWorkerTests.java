@@ -47,7 +47,6 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -74,6 +73,7 @@ import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.stats.StatNames;
 
@@ -711,10 +711,10 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     }
 
     public void testDetectorId() {
-        assertEquals(detectorId, request.getDetectorId());
+        assertEquals(detectorId, request.getId());
         String newDetectorId = "456";
         request.setDetectorId(newDetectorId);
-        assertEquals(newDetectorId, request.getDetectorId());
+        assertEquals(newDetectorId, request.getId());
     }
 
     @SuppressWarnings("unchecked")

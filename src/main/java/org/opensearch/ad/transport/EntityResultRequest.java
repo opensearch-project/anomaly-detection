@@ -60,7 +60,7 @@ public class EntityResultRequest extends ActionRequest implements ToXContentObje
         this.end = end;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return this.detectorId;
     }
 

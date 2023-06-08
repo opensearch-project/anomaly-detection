@@ -60,6 +60,7 @@ import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -122,7 +123,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
             if (request.index().equals(CommonName.CONFIG_INDEX)) {
                 switch (detectorStatus) {
                     case EXIST:
-                        listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+                        listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
                         break;
                     case INDEX_NOT_EXIST:
                         listener.onFailure(new IndexNotFoundException(CommonName.CONFIG_INDEX));
@@ -143,11 +144,11 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                         break;
                     case DISABLED:
                         job = TestHelpers.randomAnomalyDetectorJob(false, jobEnabledTime, null);
-                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId(), CommonName.JOB_INDEX));
+                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
                         break;
                     case ENABLED:
                         job = TestHelpers.randomAnomalyDetectorJob(true, jobEnabledTime, null);
-                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getDetectorId(), CommonName.JOB_INDEX));
+                        listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
                         break;
                     default:
                         assertTrue("should not reach here", false);
@@ -164,10 +165,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                 if (error != null) {
                     result.error(error);
                 }
-                listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), ADCommonName.DETECTION_STATE_INDEX)
-                    );
+                listener.onResponse(TestHelpers.createGetResponse(result.build(), detector.getId(), ADCommonName.DETECTION_STATE_INDEX));
 
             }
 
@@ -211,7 +209,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         DetectorProfile expectedProfile = new DetectorProfile.Builder().state(DetectorState.DISABLED).build();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -235,7 +233,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         DetectorProfile expectedProfile = new DetectorProfile.Builder().state(expectedState).build();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -305,7 +303,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         DetectorProfile expectedProfile = builder.build();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -516,7 +514,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(profileResponse -> {
+        runner.profile(detector.getId(), ActionListener.wrap(profileResponse -> {
             assertEquals(node1, profileResponse.getCoordinatingNode());
             assertEquals(shingleSize, profileResponse.getShingleSize());
             assertEquals(modelSize * 2, profileResponse.getTotalSizeInBytes());
@@ -548,7 +546,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         expectedProfile.setInitProgress(profile);
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -567,7 +565,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         expectedProfile.setInitProgress(profile);
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertTrue("Should not reach here ", false);
             inProgressLatch.countDown();
         }, exception -> {
@@ -585,7 +583,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
             .build();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -607,7 +605,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
             .build();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -632,7 +630,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         setUpClientGet(DetectorStatus.EXIST, JobStatus.ENABLED, RCFPollingStatus.EXCEPTION, ErrorResultStatus.NO_ERROR);
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getDetectorId(), ActionListener.wrap(response -> {
+        runner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertTrue("Should not reach here ", false);
             inProgressLatch.countDown();
         }, exception -> {

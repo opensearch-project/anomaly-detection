@@ -158,7 +158,7 @@ public class ModelValidationActionHandler {
                 listener.onFailure(exception);
                 logger.error("Failed to get top entity for categorical field", exception);
             });
-        if (anomalyDetector.isMultientityDetector()) {
+        if (anomalyDetector.isHighCardinality()) {
             getTopEntity(recommendationListener);
         } else {
             recommendationListener.onResponse(Collections.emptyMap());
@@ -171,7 +171,7 @@ public class ModelValidationActionHandler {
     // with the highest doc count.
     private void getTopEntity(ActionListener<Map<String, Object>> topEntityListener) {
         // Look at data back to the lower bound given the max interval we recommend or one given
-        long maxIntervalInMinutes = Math.max(MAX_INTERVAL_REC_LENGTH_IN_MINUTES, anomalyDetector.getDetectorIntervalInMinutes());
+        long maxIntervalInMinutes = Math.max(MAX_INTERVAL_REC_LENGTH_IN_MINUTES, anomalyDetector.getIntervalInMinutes());
         LongBounds timeRangeBounds = getTimeRangeBounds(
             Instant.now().toEpochMilli(),
             new IntervalTimeConfiguration(maxIntervalInMinutes, ChronoUnit.MINUTES)
@@ -181,17 +181,17 @@ public class ModelValidationActionHandler {
             .to(timeRangeBounds.getMax());
         AggregationBuilder bucketAggs;
         Map<String, Object> topKeys = new HashMap<>();
-        if (anomalyDetector.getCategoryField().size() == 1) {
+        if (anomalyDetector.getCategoryFields().size() == 1) {
             bucketAggs = AggregationBuilders
                 .terms(AGG_NAME_TOP)
-                .field(anomalyDetector.getCategoryField().get(0))
+                .field(anomalyDetector.getCategoryFields().get(0))
                 .order(BucketOrder.count(true));
         } else {
             bucketAggs = AggregationBuilders
                 .composite(
                     AGG_NAME_TOP,
                     anomalyDetector
-                        .getCategoryField()
+                        .getCategoryFields()
                         .stream()
                         .map(f -> new TermsValuesSourceBuilder(f).field(f))
                         .collect(Collectors.toList())
@@ -217,7 +217,7 @@ public class ModelValidationActionHandler {
                 topEntityListener.onResponse(Collections.emptyMap());
                 return;
             }
-            if (anomalyDetector.getCategoryField().size() == 1) {
+            if (anomalyDetector.getCategoryFields().size() == 1) {
                 Terms entities = aggs.get(AGG_NAME_TOP);
                 Object key = entities
                     .getBuckets()
@@ -225,7 +225,7 @@ public class ModelValidationActionHandler {
                     .max(Comparator.comparingInt(entry -> (int) entry.getDocCount()))
                     .map(MultiBucketsAggregation.Bucket::getKeyAsString)
                     .orElse(null);
-                topKeys.put(anomalyDetector.getCategoryField().get(0), key);
+                topKeys.put(anomalyDetector.getCategoryFields().get(0), key);
             } else {
                 CompositeAggregation compositeAgg = aggs.get(AGG_NAME_TOP);
                 topKeys
@@ -287,7 +287,7 @@ public class ModelValidationActionHandler {
         try {
             getBucketAggregates(timeRangeEnd, listener, topEntity);
         } catch (IOException e) {
-            listener.onFailure(new EndRunException(detector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+            listener.onFailure(new EndRunException(detector.getId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
         }
     }
 
@@ -296,12 +296,9 @@ public class ModelValidationActionHandler {
         ActionListener<ValidateAnomalyDetectorResponse> listener,
         Map<String, Object> topEntity
     ) throws IOException {
-        AggregationBuilder aggregation = getBucketAggregation(
-            latestTime,
-            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
-        );
+        AggregationBuilder aggregation = getBucketAggregation(latestTime, (IntervalTimeConfiguration) anomalyDetector.getInterval());
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
-        if (anomalyDetector.isMultientityDetector()) {
+        if (anomalyDetector.isHighCardinality()) {
             if (topEntity.isEmpty()) {
                 listener
                     .onFailure(
@@ -333,7 +330,7 @@ public class ModelValidationActionHandler {
             new ModelValidationActionHandler.DetectorIntervalRecommendationListener(
                 intervalListener,
                 searchRequest.source(),
-                (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval(),
+                (IntervalTimeConfiguration) anomalyDetector.getInterval(),
                 clock.millis() + TOP_VALIDATE_TIMEOUT_IN_MILLIS,
                 latestTime,
                 false,
@@ -435,7 +432,7 @@ public class ModelValidationActionHandler {
                     // we aren't decreasing yet, at this point we will start decreasing for the first time
                     // if we are inside the below block
                 } else if (newIntervalMinute >= MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
-                    IntervalTimeConfiguration givenInterval = (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval();
+                    IntervalTimeConfiguration givenInterval = (IntervalTimeConfiguration) anomalyDetector.getInterval();
                     this.detectorInterval = new IntervalTimeConfiguration(
                         (long) Math
                             .floor(
@@ -523,7 +520,7 @@ public class ModelValidationActionHandler {
         if (interval == null) {
             checkRawDataSparsity(latestTime);
         } else {
-            if (interval.equals(anomalyDetector.getDetectionInterval())) {
+            if (interval.equals(anomalyDetector.getInterval())) {
                 logger.info("Using the current interval there is enough dense data ");
                 // Check if there is a window delay recommendation if everything else is successful and send exception
                 if (Instant.now().toEpochMilli() - latestTime > timeConfigToMilliSec(anomalyDetector.getWindowDelay())) {
@@ -561,10 +558,7 @@ public class ModelValidationActionHandler {
     }
 
     private void checkRawDataSparsity(long latestTime) {
-        AggregationBuilder aggregation = getBucketAggregation(
-            latestTime,
-            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
-        );
+        AggregationBuilder aggregation = getBucketAggregation(latestTime, (IntervalTimeConfiguration) anomalyDetector.getInterval());
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(aggregation).size(0).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
@@ -623,10 +617,7 @@ public class ModelValidationActionHandler {
     }
 
     private void checkDataFilterSparsity(long latestTime) {
-        AggregationBuilder aggregation = getBucketAggregation(
-            latestTime,
-            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
-        );
+        AggregationBuilder aggregation = getBucketAggregation(latestTime, (IntervalTimeConfiguration) anomalyDetector.getInterval());
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
         SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
@@ -662,7 +653,7 @@ public class ModelValidationActionHandler {
             // blocks below are executed if data is dense enough with filter query applied.
             // If HCAD then category fields will be added to bucket aggregation to see if they
             // are the root cause of the issues and if not the feature queries will be checked for sparsity
-        } else if (anomalyDetector.isMultientityDetector()) {
+        } else if (anomalyDetector.isHighCardinality()) {
             getTopEntityForCategoryField(latestTime);
         } else {
             try {
@@ -689,10 +680,7 @@ public class ModelValidationActionHandler {
         for (Map.Entry<String, Object> entry : topEntity.entrySet()) {
             query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
         }
-        AggregationBuilder aggregation = getBucketAggregation(
-            latestTime,
-            (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
-        );
+        AggregationBuilder aggregation = getBucketAggregation(latestTime, (IntervalTimeConfiguration) anomalyDetector.getInterval());
         SearchSourceBuilder searchSourceBuilder = getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(anomalyDetector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
@@ -754,10 +742,7 @@ public class ModelValidationActionHandler {
             );
 
         for (Feature feature : anomalyDetector.getFeatureAttributes()) {
-            AggregationBuilder aggregation = getBucketAggregation(
-                latestTime,
-                (IntervalTimeConfiguration) anomalyDetector.getDetectionInterval()
-            );
+            AggregationBuilder aggregation = getBucketAggregation(latestTime, (IntervalTimeConfiguration) anomalyDetector.getInterval());
             BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
             List<String> featureFields = ParseUtils.getFieldNamesForFeature(feature, xContentRegistry);
             for (String featureField : featureFields) {
@@ -841,7 +826,7 @@ public class ModelValidationActionHandler {
     }
 
     private int getNumberOfSamples() {
-        long interval = anomalyDetector.getDetectorIntervalInMilliseconds();
+        long interval = anomalyDetector.getIntervalInMilliseconds();
         return Math
             .max(
                 (int) (Duration.ofHours(AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS).toMillis() / interval),

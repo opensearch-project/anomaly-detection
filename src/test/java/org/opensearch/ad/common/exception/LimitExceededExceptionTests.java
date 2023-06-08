@@ -23,7 +23,7 @@ public class LimitExceededExceptionTests {
         String id = "test id";
         String message = "test message";
         LimitExceededException limitExceeded = new LimitExceededException(id, message);
-        assertEquals(id, limitExceeded.getAnomalyDetectorId());
+        assertEquals(id, limitExceeded.getConfigId());
         assertEquals(message, limitExceeded.getMessage());
     }
 }

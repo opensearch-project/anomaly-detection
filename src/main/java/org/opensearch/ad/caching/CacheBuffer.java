@@ -517,7 +517,7 @@ public class CacheBuffer implements ExpiringState {
         return expired(lastUsedTime, stateTtl, clock.instant());
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

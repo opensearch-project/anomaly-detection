@@ -572,15 +572,16 @@ public class ADTask implements ToXContentObject, Writeable {
                 detector.getIndices(),
                 detector.getFeatureAttributes(),
                 detector.getFilterQuery(),
-                detector.getDetectionInterval(),
+                detector.getInterval(),
                 detector.getWindowDelay(),
                 detector.getShingleSize(),
                 detector.getUiMetadata(),
                 detector.getSchemaVersion(),
                 detector.getLastUpdateTime(),
-                detector.getCategoryField(),
+                detector.getCategoryFields(),
                 detector.getUser(),
-                detector.getResultIndex()
+                detector.getCustomResultIndex(),
+                detector.getImputationOption()
             );
         return new Builder()
             .taskId(parsedTaskId)
@@ -623,7 +624,7 @@ public class ADTask implements ToXContentObject, Writeable {
             && Objects.equal(getStoppedBy(), that.getStoppedBy())
             && Objects.equal(getError(), that.getError())
             && Objects.equal(getState(), that.getState())
-            && Objects.equal(getDetectorId(), that.getDetectorId())
+            && Objects.equal(getId(), that.getId())
             && Objects.equal(getTaskProgress(), that.getTaskProgress())
             && Objects.equal(getInitProgress(), that.getInitProgress())
             && Objects.equal(getCurrentPiece(), that.getCurrentPiece())
@@ -709,7 +710,7 @@ public class ADTask implements ToXContentObject, Writeable {
         this.state = state;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 
@@ -766,7 +767,7 @@ public class ADTask implements ToXContentObject, Writeable {
     }
 
     public String getEntityModelId() {
-        return entity == null ? null : entity.getModelId(getDetectorId()).orElse(null);
+        return entity == null ? null : entity.getModelId(getId()).orElse(null);
     }
 
     public String getParentTaskId() {

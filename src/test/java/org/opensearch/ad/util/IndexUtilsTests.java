@@ -18,12 +18,12 @@ import java.time.Clock;
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 
 public class IndexUtilsTests extends OpenSearchIntegTestCase {
 

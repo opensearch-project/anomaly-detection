@@ -171,7 +171,7 @@ public class ADTaskCacheManager {
      */
     public synchronized void add(ADTask adTask) {
         String taskId = adTask.getTaskId();
-        String detectorId = adTask.getDetectorId();
+        String detectorId = adTask.getId();
         if (contains(taskId)) {
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
@@ -303,7 +303,7 @@ public class ADTaskCacheManager {
      * @return true if there is task in cache; otherwise return false
      */
     public boolean containsTaskOfDetector(String detectorId) {
-        return batchTaskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).findAny().isPresent();
+        return batchTaskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getId())).findAny().isPresent();
     }
 
     /**
@@ -316,7 +316,7 @@ public class ADTaskCacheManager {
         return batchTaskCaches
             .values()
             .stream()
-            .filter(v -> Objects.equals(detectorId, v.getDetectorId()))
+            .filter(v -> Objects.equals(detectorId, v.getId()))
             .map(c -> c.getTaskId())
             .collect(Collectors.toList());
     }
@@ -339,7 +339,7 @@ public class ADTaskCacheManager {
     }
 
     private List<ADBatchTaskCache> getBatchTaskCacheByDetectorId(String detectorId) {
-        return batchTaskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getDetectorId())).collect(Collectors.toList());
+        return batchTaskCaches.values().stream().filter(v -> Objects.equals(detectorId, v.getId())).collect(Collectors.toList());
     }
 
     /**
@@ -506,7 +506,7 @@ public class ADTaskCacheManager {
     public boolean isCancelled(String taskId) {
         // For HC detector, ADBatchTaskCache is entity task.
         ADBatchTaskCache taskCache = getBatchTaskCache(taskId);
-        String detectorId = taskCache.getDetectorId();
+        String detectorId = taskCache.getId();
         String detectorTaskId = taskCache.getDetectorTaskId();
 
         ADHCBatchTaskRunState taskStateCache = getHCBatchTaskRunState(detectorId, detectorTaskId);
@@ -810,7 +810,7 @@ public class ADTaskCacheManager {
         Optional<ADBatchTaskCache> entityTask = this.batchTaskCaches
             .values()
             .stream()
-            .filter(cache -> Objects.equals(detectorId, cache.getDetectorId()) && cache.getEntity() != null)
+            .filter(cache -> Objects.equals(detectorId, cache.getId()) && cache.getEntity() != null)
             .findFirst();
         return entityTask.isPresent();
     }

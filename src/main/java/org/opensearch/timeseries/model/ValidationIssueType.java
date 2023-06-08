@@ -11,24 +11,28 @@
 
 package org.opensearch.timeseries.model;
 
-import org.opensearch.ad.Name;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.forecast.model.Forecaster;
+import org.opensearch.timeseries.Name;
 
 public enum ValidationIssueType implements Name {
-    NAME(AnomalyDetector.NAME_FIELD),
-    TIMEFIELD_FIELD(AnomalyDetector.TIMEFIELD_FIELD),
-    SHINGLE_SIZE_FIELD(AnomalyDetector.SHINGLE_SIZE_FIELD),
-    INDICES(AnomalyDetector.INDICES_FIELD),
-    FEATURE_ATTRIBUTES(AnomalyDetector.FEATURE_ATTRIBUTES_FIELD),
+    NAME(Config.NAME_FIELD),
+    TIMEFIELD_FIELD(Config.TIMEFIELD_FIELD),
+    SHINGLE_SIZE_FIELD(Config.SHINGLE_SIZE_FIELD),
+    INDICES(Config.INDICES_FIELD),
+    FEATURE_ATTRIBUTES(Config.FEATURE_ATTRIBUTES_FIELD),
+    CATEGORY(Config.CATEGORY_FIELD),
+    FILTER_QUERY(Config.FILTER_QUERY_FIELD),
+    WINDOW_DELAY(Config.WINDOW_DELAY_FIELD),
+    GENERAL_SETTINGS(Config.GENERAL_SETTINGS),
+    RESULT_INDEX(Config.RESULT_INDEX_FIELD),
+    TIMEOUT(Config.TIMEOUT),
+    AGGREGATION(Config.AGGREGATION), // this is a unique case where aggregation failed due to an issue in core but
+                                     // don't want to throw exception
+    IMPUTATION(Config.IMPUTATION_OPTION_FIELD),
     DETECTION_INTERVAL(AnomalyDetector.DETECTION_INTERVAL_FIELD),
-    CATEGORY(AnomalyDetector.CATEGORY_FIELD),
-    FILTER_QUERY(AnomalyDetector.FILTER_QUERY_FIELD),
-    WINDOW_DELAY(AnomalyDetector.WINDOW_DELAY_FIELD),
-    GENERAL_SETTINGS(AnomalyDetector.GENERAL_SETTINGS),
-    RESULT_INDEX(AnomalyDetector.RESULT_INDEX_FIELD),
-    TIMEOUT(AnomalyDetector.TIMEOUT),
-    AGGREGATION(AnomalyDetector.AGGREGATION); // this is a unique case where aggregation failed due to an issue in core but
-                                              // don't want to throw exception
+    FORECAST_INTERVAL(Forecaster.FORECAST_INTERVAL_FIELD),
+    HORIZON_SIZE(Forecaster.HORIZON_FIELD);
 
     private String name;
 

@@ -19,7 +19,6 @@ import org.junit.Before;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -32,6 +31,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 
 public class AnomalyDetectionIndicesTests extends OpenSearchIntegTestCase {

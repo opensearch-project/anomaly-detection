@@ -145,7 +145,7 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
         ProfileNodeRequest profileNodeRequest1 = new ProfileNodeRequest(profileRequest);
         ProfileNodeRequest profileNodeRequest2 = action.newNodeRequest(profileRequest);
 
-        assertEquals(profileNodeRequest1.getDetectorId(), profileNodeRequest2.getDetectorId());
+        assertEquals(profileNodeRequest1.getId(), profileNodeRequest2.getId());
         assertEquals(profileNodeRequest2.getProfilesToBeRetrieved(), profileNodeRequest2.getProfilesToBeRetrieved());
     }
 

@@ -44,7 +44,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.settings.ADEnabledSetting;
@@ -55,6 +54,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -477,7 +477,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -589,7 +589,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
                 GetRequest request = invocation.getArgument(0);
                 ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
                 return null;
             }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -622,7 +622,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
 
             EntityModel model = new EntityModel(entity, new ArrayDeque<>(), null);
-            modelState = new ModelState<>(model, modelId, detector.getDetectorId(), ModelType.ENTITY.getName(), clock, priority);
+            modelState = new ModelState<>(model, modelId, detector.getId(), ModelType.ENTITY.getName(), clock, priority);
 
             released = new AtomicBoolean();
 
@@ -632,7 +632,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
                 inProgressLatch.countDown();
             });
 
-            entityColdStarter.trainModel(entity, detector.getDetectorId(), modelState, listener);
+            entityColdStarter.trainModel(entity, detector.getId(), modelState, listener);
 
             checkSemaphoreRelease();
             assertTrue(model.getTrcf().isPresent());

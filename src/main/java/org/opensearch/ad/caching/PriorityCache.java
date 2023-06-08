@@ -156,7 +156,7 @@ public class PriorityCache implements EntityCache {
 
     @Override
     public ModelState<EntityModel> get(String modelId, AnomalyDetector detector) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         CacheBuffer buffer = computeBufferIfAbsent(detector, detectorId);
         ModelState<EntityModel> modelState = buffer.get(modelId);
 
@@ -171,7 +171,7 @@ public class PriorityCache implements EntityCache {
                             return new DoorKeeper(
                                 TimeSeriesSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
                                 TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
-                                detector.getDetectionIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                                detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                                 clock
                             );
                         }
@@ -251,7 +251,7 @@ public class PriorityCache implements EntityCache {
             return false;
         }
         String modelId = toUpdate.getModelId();
-        String detectorId = toUpdate.getDetectorId();
+        String detectorId = toUpdate.getId();
 
         if (Strings.isEmpty(modelId) || Strings.isEmpty(detectorId)) {
             return false;
@@ -462,7 +462,7 @@ public class PriorityCache implements EntityCache {
             long requiredBytes = getRequiredMemory(detector, dedicatedCacheSize);
             if (memoryTracker.canAllocateReserved(requiredBytes)) {
                 memoryTracker.consumeMemory(requiredBytes, true, Origin.HC_DETECTOR);
-                long intervalSecs = detector.getDetectorIntervalInSeconds();
+                long intervalSecs = detector.getIntervalInSeconds();
 
                 buffer = new CacheBuffer(
                     dedicatedCacheSize,

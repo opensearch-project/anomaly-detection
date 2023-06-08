@@ -111,7 +111,7 @@ public class ModelState<T> implements ExpiringState {
      *
      * @return detectorId associated with the model
      */
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

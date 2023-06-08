@@ -292,7 +292,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 return;
             }
 
-            String detectorId = origRequest.getDetectorId();
+            String detectorId = origRequest.getId();
             Entity entity = origRequest.getEntity();
 
             String modelId = modelIdOptional.get();
@@ -390,7 +390,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                     .toAnomalyResult(
                         detector,
                         Instant.ofEpochMilli(origRequest.getDataStartTimeMillis()),
-                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + detector.getDetectorIntervalInMilliseconds()),
+                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + detector.getIntervalInMilliseconds()),
                         Instant.now(),
                         Instant.now(),
                         ParseUtils.getFeatureData(origRequest.getCurrentFeature(), detector),
@@ -408,7 +408,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                             detectorId,
                             result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                             resultToSave,
-                            detector.getResultIndex()
+                            detector.getCustomResultIndex()
                         )
                     );
             }

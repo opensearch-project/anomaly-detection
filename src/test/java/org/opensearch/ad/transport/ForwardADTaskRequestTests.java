@@ -11,12 +11,12 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.randomIntervalTimeConfiguration;
-import static org.opensearch.ad.TestHelpers.randomQuery;
-import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.model.ADTaskAction.CLEAN_CACHE;
 import static org.opensearch.ad.model.ADTaskAction.CLEAN_STALE_RUNNING_ENTITIES;
 import static org.opensearch.ad.model.ADTaskAction.START;
+import static org.opensearch.timeseries.TestHelpers.randomIntervalTimeConfiguration;
+import static org.opensearch.timeseries.TestHelpers.randomQuery;
+import static org.opensearch.timeseries.TestHelpers.randomUser;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -26,7 +26,6 @@ import java.util.Locale;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.mock.transport.MockADTaskAction_1_0;
 import org.opensearch.ad.mock.transport.MockForwardADTaskRequest_1_0;
 import org.opensearch.ad.model.ADTask;
@@ -37,6 +36,7 @@ import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.VersionException;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
@@ -77,7 +77,8 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             Instant.now(),
             null,
             randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_2_1_0);
         ActionRequestValidationException validate = request.validate();

@@ -17,13 +17,13 @@ package org.opensearch.timeseries.common.exception;
 public class ResourceNotFoundException extends TimeSeriesException {
 
     /**
-     * Constructor with an anomaly detector ID and a message.
+     * Constructor with a config ID and a message.
      *
-     * @param detectorId ID of the detector related to the resource
+     * @param configId ID of the config related to the resource
      * @param message explains which resource is not found
      */
-    public ResourceNotFoundException(String detectorId, String message) {
-        super(detectorId, message);
+    public ResourceNotFoundException(String configId, String message) {
+        super(configId, message);
         countedInStats(false);
     }
 

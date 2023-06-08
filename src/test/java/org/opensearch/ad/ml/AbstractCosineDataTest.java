@@ -33,11 +33,9 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -55,6 +53,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
@@ -62,7 +62,7 @@ import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.google.common.collect.ImmutableList;
 
-public class AbstractCosineDataTest extends AbstractADTest {
+public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
     int numMinSamples;
     String modelId;
     String entityName;

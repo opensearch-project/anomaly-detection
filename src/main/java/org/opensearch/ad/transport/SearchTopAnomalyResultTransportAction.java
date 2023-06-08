@@ -220,7 +220,7 @@ public class SearchTopAnomalyResultTransportAction extends
     protected void doExecute(Task task, SearchTopAnomalyResultRequest request, ActionListener<SearchTopAnomalyResultResponse> listener) {
 
         GetAnomalyDetectorRequest getAdRequest = new GetAnomalyDetectorRequest(
-            request.getDetectorId(),
+            request.getId(),
             // The default version value used in org.opensearch.rest.action.RestActions.parseVersion()
             -3L,
             false,
@@ -233,16 +233,14 @@ public class SearchTopAnomalyResultTransportAction extends
         client.execute(GetAnomalyDetectorAction.INSTANCE, getAdRequest, ActionListener.wrap(getAdResponse -> {
             // Make sure detector exists
             if (getAdResponse.getDetector() == null) {
-                throw new IllegalArgumentException(
-                    String.format(Locale.ROOT, "No anomaly detector found with ID %s", request.getDetectorId())
-                );
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "No anomaly detector found with ID %s", request.getId()));
             }
 
             // Make sure detector is HC
-            List<String> categoryFieldsFromResponse = getAdResponse.getDetector().getCategoryField();
+            List<String> categoryFieldsFromResponse = getAdResponse.getDetector().getCategoryFields();
             if (categoryFieldsFromResponse == null || categoryFieldsFromResponse.isEmpty()) {
                 throw new IllegalArgumentException(
-                    String.format(Locale.ROOT, "No category fields found for detector ID %s", request.getDetectorId())
+                    String.format(Locale.ROOT, "No category fields found for detector ID %s", request.getId())
                 );
             }
 
@@ -254,13 +252,7 @@ public class SearchTopAnomalyResultTransportAction extends
                 for (String categoryField : request.getCategoryFields()) {
                     if (!categoryFieldsFromResponse.contains(categoryField)) {
                         throw new IllegalArgumentException(
-                            String
-                                .format(
-                                    Locale.ROOT,
-                                    "Category field %s doesn't exist for detector ID %s",
-                                    categoryField,
-                                    request.getDetectorId()
-                                )
+                            String.format(Locale.ROOT, "Category field %s doesn't exist for detector ID %s", categoryField, request.getId())
                         );
                     }
                 }
@@ -272,7 +264,7 @@ public class SearchTopAnomalyResultTransportAction extends
                 ADTask historicalTask = getAdResponse.getHistoricalAdTask();
                 if (historicalTask == null) {
                     throw new ResourceNotFoundException(
-                        String.format(Locale.ROOT, "No historical tasks found for detector ID %s", request.getDetectorId())
+                        String.format(Locale.ROOT, "No historical tasks found for detector ID %s", request.getId())
                     );
                 }
                 if (Strings.isNullOrEmpty(request.getTaskId())) {
@@ -310,7 +302,7 @@ public class SearchTopAnomalyResultTransportAction extends
             SearchRequest searchRequest = generateSearchRequest(request);
 
             // Adding search over any custom result indices
-            String rawCustomResultIndex = getAdResponse.getDetector().getResultIndex();
+            String rawCustomResultIndex = getAdResponse.getDetector().getCustomResultIndex();
             String customResultIndex = rawCustomResultIndex == null ? null : rawCustomResultIndex.trim();
             if (!Strings.isNullOrEmpty(customResultIndex)) {
                 searchRequest.indices(defaultIndex, customResultIndex);
@@ -497,7 +489,7 @@ public class SearchTopAnomalyResultTransportAction extends
             TermQueryBuilder taskIdFilter = QueryBuilders.termQuery(AnomalyResult.TASK_ID_FIELD, request.getTaskId());
             query.filter(taskIdFilter);
         } else {
-            TermQueryBuilder detectorIdFilter = QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, request.getDetectorId());
+            TermQueryBuilder detectorIdFilter = QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, request.getId());
             ExistsQueryBuilder taskIdExistsFilter = QueryBuilders.existsQuery(AnomalyResult.TASK_ID_FIELD);
             query.filter(detectorIdFilter).mustNot(taskIdExistsFilter);
         }

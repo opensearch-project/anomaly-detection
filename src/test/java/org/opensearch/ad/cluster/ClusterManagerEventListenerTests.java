@@ -27,7 +27,6 @@ import java.util.HashSet;
 import java.util.Locale;
 
 import org.junit.Before;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -41,8 +40,9 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 
-public class ClusterManagerEventListenerTests extends AbstractADTest {
+public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
     private ClusterService clusterService;
     private ThreadPool threadPool;
     private Client client;

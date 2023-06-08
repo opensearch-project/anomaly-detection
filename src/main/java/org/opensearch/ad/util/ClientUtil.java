@@ -194,11 +194,11 @@ public class ClientUtil {
     ) {
 
         try {
-            String detectorId = detector.getDetectorId();
+            String detectorId = detector.getId();
             if (!throttler.insertFilteredQuery(detectorId, request)) {
                 LOG.info("There is one query running for detectorId: {}. Trying to cancel the long running query", detectorId);
                 cancelRunningQuery(client, detectorId, LOG);
-                throw new InternalFailure(detector.getDetectorId(), "There is already a query running on AnomalyDetector");
+                throw new InternalFailure(detector.getId(), "There is already a query running on AnomalyDetector");
             }
             AtomicReference<Response> respReference = new AtomicReference<>();
             final CountDownLatch latch = new CountDownLatch(1);
@@ -237,7 +237,7 @@ public class ClientUtil {
      * @return true if given detector has a running query else false
      */
     public boolean hasRunningQuery(AnomalyDetector detector) {
-        return throttler.getFilteredQuery(detector.getDetectorId()).isPresent();
+        return throttler.getFilteredQuery(detector.getId()).isPresent();
     }
 
     /**

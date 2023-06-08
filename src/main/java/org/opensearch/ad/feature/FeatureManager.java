@@ -145,10 +145,10 @@ public class FeatureManager implements CleanState {
 
         int shingleSize = detector.getShingleSize();
         Deque<Entry<Long, Optional<double[]>>> shingle = detectorIdsToTimeShingles
-            .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<>(shingleSize));
+            .computeIfAbsent(detector.getId(), id -> new ArrayDeque<>(shingleSize));
 
         // To allow for small time variations/delays in running the detector.
-        long maxTimeDifference = detector.getDetectorIntervalInMilliseconds() / 2;
+        long maxTimeDifference = detector.getIntervalInMilliseconds() / 2;
         Map<Long, Entry<Long, Optional<double[]>>> featuresMap = getNearbyPointsForShingle(detector, shingle, endTime, maxTimeDifference)
             .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
@@ -165,7 +165,7 @@ public class FeatureManager implements CleanState {
                     updateUnprocessedFeatures(detector, shingle, featuresMap, endTime, listener);
                 }, listener::onFailure));
             } catch (IOException e) {
-                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                listener.onFailure(new EndRunException(detector.getId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
             listener.onResponse(getProcessedFeatures(shingle, detector, endTime));
@@ -177,7 +177,7 @@ public class FeatureManager implements CleanState {
         Map<Long, Entry<Long, Optional<double[]>>> featuresMap,
         long endTime
     ) {
-        long intervalMilli = detector.getDetectorIntervalInMilliseconds();
+        long intervalMilli = detector.getIntervalInMilliseconds();
         int shingleSize = detector.getShingleSize();
         return getFullShingleEndTimes(endTime, intervalMilli, shingleSize)
             .filter(time -> !featuresMap.containsKey(time))
@@ -212,7 +212,7 @@ public class FeatureManager implements CleanState {
         ActionListener<SinglePointFeatures> listener
     ) {
         shingle.clear();
-        getFullShingleEndTimes(endTime, detector.getDetectorIntervalInMilliseconds(), detector.getShingleSize())
+        getFullShingleEndTimes(endTime, detector.getIntervalInMilliseconds(), detector.getShingleSize())
             .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
             .forEach(e -> shingle.add(e));
 
@@ -228,7 +228,7 @@ public class FeatureManager implements CleanState {
         double[][] result = null;
         if (filteredShingle.size() >= shingleSize - getMaxMissingPoints(shingleSize)) {
             // Imputes missing data points with the values of neighboring data points.
-            long maxMillisecondsDifference = maxNeighborDistance * detector.getDetectorIntervalInMilliseconds();
+            long maxMillisecondsDifference = maxNeighborDistance * detector.getIntervalInMilliseconds();
             result = getNearbyPointsForShingle(detector, filteredShingle, endTime, maxMillisecondsDifference)
                 .map(e -> e.getValue().getValue().orElse(null))
                 .filter(d -> d != null)
@@ -257,7 +257,7 @@ public class FeatureManager implements CleanState {
         long endTime,
         long maxMillisecondsDifference
     ) {
-        long intervalMilli = detector.getDetectorIntervalInMilliseconds();
+        long intervalMilli = detector.getIntervalInMilliseconds();
         int shingleSize = detector.getShingleSize();
         TreeMap<Long, Optional<double[]>> search = new TreeMap<>(
             shingle.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue))
@@ -309,7 +309,7 @@ public class FeatureManager implements CleanState {
                         new ThreadedActionListener<>(logger, threadPool, adThreadPoolName, getFeaturesListener, false)
                     );
             } catch (IOException e) {
-                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                listener.onFailure(new EndRunException(detector.getId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
             listener.onResponse(Optional.empty());
@@ -359,7 +359,7 @@ public class FeatureManager implements CleanState {
     }
 
     private List<Entry<Long, Long>> getColdStartSampleRanges(AnomalyDetector detector, long endMillis) {
-        long interval = detector.getDetectorIntervalInMilliseconds();
+        long interval = detector.getIntervalInMilliseconds();
         int numSamples = Math.max((int) (Duration.ofHours(this.trainSampleTimeRangeInHours).toMillis() / interval), this.minTrainSamples);
         return IntStream
             .rangeClosed(1, numSamples)
@@ -518,7 +518,7 @@ public class FeatureManager implements CleanState {
     private Entry<List<Entry<Long, Long>>, Integer> getSampleRanges(AnomalyDetector detector, long startMilli, long endMilli) {
         long start = truncateToMinute(startMilli);
         long end = truncateToMinute(endMilli);
-        long bucketSize = detector.getDetectorIntervalInMilliseconds();
+        long bucketSize = detector.getIntervalInMilliseconds();
         int numBuckets = (int) Math.floor((end - start) / (double) bucketSize);
         int numSamples = (int) Math.max(Math.min(numBuckets * previewSampleRate, maxPreviewSamples), 1);
         int stride = (int) Math.max(1, Math.floor((double) numBuckets / numSamples));
@@ -658,7 +658,7 @@ public class FeatureManager implements CleanState {
                 listener.onResponse(points);
             }, listener::onFailure));
         } catch (Exception e) {
-            logger.error("Failed to get features for detector: " + detector.getDetectorId());
+            logger.error("Failed to get features for detector: " + detector.getId());
             listener.onFailure(e);
         }
     }

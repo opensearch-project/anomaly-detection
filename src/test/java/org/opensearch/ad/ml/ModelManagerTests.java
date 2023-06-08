@@ -698,14 +698,14 @@ public class ModelManagerTests {
 
     @Test
     public void getRcfModelId_returnNonEmptyString() {
-        String rcfModelId = SingleStreamModelIdMapper.getRcfModelId(anomalyDetector.getDetectorId(), 0);
+        String rcfModelId = SingleStreamModelIdMapper.getRcfModelId(anomalyDetector.getId(), 0);
 
         assertFalse(rcfModelId.isEmpty());
     }
 
     @Test
     public void getThresholdModelId_returnNonEmptyString() {
-        String thresholdModelId = SingleStreamModelIdMapper.getThresholdModelId(anomalyDetector.getDetectorId());
+        String thresholdModelId = SingleStreamModelIdMapper.getThresholdModelId(anomalyDetector.getId());
 
         assertFalse(thresholdModelId.isEmpty());
     }

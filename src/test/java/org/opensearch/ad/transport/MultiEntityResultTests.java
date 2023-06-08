@@ -69,9 +69,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -117,6 +115,8 @@ import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
@@ -138,7 +138,7 @@ import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.google.common.collect.ImmutableList;
 
-public class MultiEntityResultTests extends AbstractADTest {
+public class MultiEntityResultTests extends AbstractTimeSeriesTest {
     private AnomalyResultTransportAction action;
     private AnomalyResultRequest request;
     private TransportInterceptor entityResultInterceptor;

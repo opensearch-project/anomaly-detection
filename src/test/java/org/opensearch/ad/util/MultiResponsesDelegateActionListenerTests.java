@@ -13,7 +13,7 @@ package org.opensearch.ad.util;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.opensearch.ad.TestHelpers.randomHCADAnomalyDetectResult;
+import static org.opensearch.timeseries.TestHelpers.randomHCADAnomalyDetectResult;
 
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;

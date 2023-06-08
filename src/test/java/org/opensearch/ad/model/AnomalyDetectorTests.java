@@ -22,13 +22,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -36,7 +36,7 @@ import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class AnomalyDetectorTests extends AbstractADTest {
+public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
 
     public void testParseAnomalyDetector() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
@@ -64,7 +64,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
         detectorString = detectorString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
-        assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getResultIndex());
+        assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getCustomResultIndex());
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
@@ -104,13 +104,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
         detectorString = detectorString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetector parsedDetector = AnomalyDetector
-            .parse(
-                TestHelpers.parser(detectorString),
-                detector.getDetectorId(),
-                detector.getVersion(),
-                detectionInterval,
-                detectionWindowDelay
-            );
+            .parse(TestHelpers.parser(detectorString), detector.getId(), detector.getVersion(), detectionInterval, detectionWindowDelay);
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
@@ -321,7 +315,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -347,7 +342,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -373,7 +369,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -399,7 +396,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -425,7 +423,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -451,7 +450,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -477,7 +477,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -502,7 +503,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 Instant.now(),
                 null,
                 null,
-                null
+                null,
+                TestHelpers.randomImputationOption()
             )
         );
         assertEquals("Detection interval must be a positive integer", exception.getMessage());
@@ -528,7 +530,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 Instant.now(),
                 null,
                 null,
-                null
+                null,
+                TestHelpers.randomImputationOption()
             )
         );
         assertEquals("Interval -1 should be non-negative", exception.getMessage());
@@ -567,7 +570,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
@@ -590,7 +594,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), TimeSeriesSettings.DEFAULT_SHINGLE_SIZE);
     }
@@ -613,27 +618,49 @@ public class AnomalyDetectorTests extends AbstractADTest {
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());
     }
 
-    public void testValidateResultIndex() {
-        String errorMessage = AnomalyDetector.validateResultIndex("abc");
+    public void testValidateResultIndex() throws IOException {
+        AnomalyDetector anomalyDetector = new AnomalyDetector(
+            randomAlphaOfLength(5),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            ImmutableList.of(TestHelpers.randomFeature()),
+            TestHelpers.randomQuery(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            null,
+            null,
+            1,
+            Instant.now(),
+            null,
+            TestHelpers.randomUser(),
+            null,
+            TestHelpers.randomImputationOption()
+        );
+
+        String errorMessage = anomalyDetector.validateCustomResultIndex("abc");
         assertEquals(INVALID_RESULT_INDEX_PREFIX, errorMessage);
 
         StringBuilder resultIndexNameBuilder = new StringBuilder(CUSTOM_RESULT_INDEX_PREFIX);
         for (int i = 0; i < MAX_RESULT_INDEX_NAME_SIZE - CUSTOM_RESULT_INDEX_PREFIX.length(); i++) {
             resultIndexNameBuilder.append("a");
         }
-        assertNull(AnomalyDetector.validateResultIndex(resultIndexNameBuilder.toString()));
+        assertNull(anomalyDetector.validateCustomResultIndex(resultIndexNameBuilder.toString()));
         resultIndexNameBuilder.append("a");
 
-        errorMessage = AnomalyDetector.validateResultIndex(resultIndexNameBuilder.toString());
+        errorMessage = anomalyDetector.validateCustomResultIndex(resultIndexNameBuilder.toString());
         assertEquals(AnomalyDetector.INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
 
-        errorMessage = AnomalyDetector.validateResultIndex(CUSTOM_RESULT_INDEX_PREFIX + "abc#");
+        errorMessage = anomalyDetector.validateCustomResultIndex(CUSTOM_RESULT_INDEX_PREFIX + "abc#");
         assertEquals(INVALID_CHAR_IN_RESULT_INDEX_NAME, errorMessage);
     }
 

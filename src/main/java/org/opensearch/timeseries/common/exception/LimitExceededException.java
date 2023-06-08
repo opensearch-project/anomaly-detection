@@ -17,13 +17,13 @@ package org.opensearch.timeseries.common.exception;
 public class LimitExceededException extends EndRunException {
 
     /**
-     * Constructor with an anomaly detector ID and an explanation.
+     * Constructor with a config ID and an explanation.
      *
-     * @param anomalyDetectorId ID of the anomaly detector for which the limit is exceeded
+     * @param id ID of the time series analysis for which the limit is exceeded
      * @param message explanation for the limit
      */
-    public LimitExceededException(String anomalyDetectorId, String message) {
-        super(anomalyDetectorId, message, true);
+    public LimitExceededException(String id, String message) {
+        super(id, message, true);
         this.countedInStats(false);
     }
 
@@ -47,14 +47,14 @@ public class LimitExceededException extends EndRunException {
     }
 
     /**
-     * Constructor with an anomaly detector ID and an explanation, and a flag for stopping.
+     * Constructor with a config ID and an explanation, and a flag for stopping.
      *
-     * @param anomalyDetectorId ID of the anomaly detector for which the limit is exceeded
+     * @param id ID of the time series analysis for which the limit is exceeded
      * @param message explanation for the limit
-     * @param stopNow whether to stop detector immediately
+     * @param stopNow whether to stop time series analysis immediately
      */
-    public LimitExceededException(String anomalyDetectorId, String message, boolean stopNow) {
-        super(anomalyDetectorId, message, stopNow);
+    public LimitExceededException(String id, String message, boolean stopNow) {
+        super(id, message, stopNow);
         this.countedInStats(false);
     }
 }

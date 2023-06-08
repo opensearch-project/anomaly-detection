@@ -250,7 +250,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
             && Objects.equal(getDisabledTime(), that.getDisabledTime())
             && Objects.equal(getLastUpdateTime(), that.getLastUpdateTime())
             && Objects.equal(getLockDurationSeconds(), that.getLockDurationSeconds())
-            && Objects.equal(getResultIndex(), that.getResultIndex());
+            && Objects.equal(getCustomResultIndex(), that.getCustomResultIndex());
     }
 
     @Override
@@ -300,7 +300,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         return user;
     }
 
-    public String getResultIndex() {
+    public String getCustomResultIndex() {
         return resultIndex;
     }
 }

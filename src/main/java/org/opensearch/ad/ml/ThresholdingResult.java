@@ -317,8 +317,8 @@ public class ThresholdingResult {
     ) {
         return AnomalyResult
             .fromRawTRCFResult(
-                detector.getDetectorId(),
-                detector.getDetectorIntervalInMilliseconds(),
+                detector.getId(),
+                detector.getIntervalInMilliseconds(),
                 taskId,
                 rcfScore,
                 grade,

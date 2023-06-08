@@ -62,7 +62,7 @@ public class CheckPointMaintainRequestAdapter {
     }
 
     public Optional<CheckpointWriteRequest> convert(CheckpointMaintainRequest request) {
-        String detectorId = request.getDetectorId();
+        String detectorId = request.getId();
         String modelId = request.getEntityModelId();
 
         Optional<ModelState<EntityModel>> stateToMaintain = cache.get().getForMaintainance(detectorId, modelId);

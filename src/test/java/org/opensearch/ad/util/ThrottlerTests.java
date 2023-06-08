@@ -34,11 +34,11 @@ public class ThrottlerTests extends OpenSearchTestCase {
     @Test
     public void testGetFilteredQuery() {
         AnomalyDetector detector = mock(AnomalyDetector.class);
-        when(detector.getDetectorId()).thenReturn("test detector Id");
+        when(detector.getId()).thenReturn("test detector Id");
         SearchRequest dummySearchRequest = new SearchRequest();
-        throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest);
+        throttler.insertFilteredQuery(detector.getId(), dummySearchRequest);
         // case 1: key exists
-        assertTrue(throttler.getFilteredQuery(detector.getDetectorId()).isPresent());
+        assertTrue(throttler.getFilteredQuery(detector.getId()).isPresent());
         // case 2: key doesn't exist
         assertFalse(throttler.getFilteredQuery("different test detector Id").isPresent());
     }
@@ -46,22 +46,22 @@ public class ThrottlerTests extends OpenSearchTestCase {
     @Test
     public void testInsertFilteredQuery() {
         AnomalyDetector detector = mock(AnomalyDetector.class);
-        when(detector.getDetectorId()).thenReturn("test detector Id");
+        when(detector.getId()).thenReturn("test detector Id");
         SearchRequest dummySearchRequest = new SearchRequest();
         // first time: key doesn't exist
-        assertTrue(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
+        assertTrue(throttler.insertFilteredQuery(detector.getId(), dummySearchRequest));
         // second time: key exists
-        assertFalse(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
+        assertFalse(throttler.insertFilteredQuery(detector.getId(), dummySearchRequest));
     }
 
     @Test
     public void testClearFilteredQuery() {
         AnomalyDetector detector = mock(AnomalyDetector.class);
-        when(detector.getDetectorId()).thenReturn("test detector Id");
+        when(detector.getId()).thenReturn("test detector Id");
         SearchRequest dummySearchRequest = new SearchRequest();
-        assertTrue(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
-        throttler.clearFilteredQuery(detector.getDetectorId());
-        assertTrue(throttler.insertFilteredQuery(detector.getDetectorId(), dummySearchRequest));
+        assertTrue(throttler.insertFilteredQuery(detector.getId(), dummySearchRequest));
+        throttler.clearFilteredQuery(detector.getId());
+        assertTrue(throttler.insertFilteredQuery(detector.getId(), dummySearchRequest));
     }
 
 }

@@ -266,7 +266,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         worker.write(state, true, RequestPriority.MEDIUM);
 
         verify(checkpoint, times(1)).batchWrite(any(), any());
-        verify(nodeStateManager, times(1)).setException(eq(state.getDetectorId()), any(OpenSearchRejectedExecutionException.class));
+        verify(nodeStateManager, times(1)).setException(eq(state.getId()), any(OpenSearchRejectedExecutionException.class));
     }
 
     public void testRetryException() {
@@ -280,7 +280,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         worker.write(state, true, RequestPriority.MEDIUM);
         // we don't retry checkpoint write
         verify(checkpoint, times(1)).batchWrite(any(), any());
-        verify(nodeStateManager, times(1)).setException(eq(state.getDetectorId()), any(OpenSearchStatusException.class));
+        verify(nodeStateManager, times(1)).setException(eq(state.getId()), any(OpenSearchStatusException.class));
     }
 
     /**
@@ -353,7 +353,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         when(state.getLastCheckpointTime()).thenReturn(Instant.now());
         EntityModel model = mock(EntityModel.class);
         when(state.getModel()).thenReturn(model);
-        when(state.getDetectorId()).thenReturn("1");
+        when(state.getId()).thenReturn("1");
         when(state.getModelId()).thenReturn(null);
         worker.write(state, true, RequestPriority.MEDIUM);
 
@@ -366,7 +366,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         when(state.getLastCheckpointTime()).thenReturn(Instant.now());
         EntityModel model = mock(EntityModel.class);
         when(state.getModel()).thenReturn(model);
-        when(state.getDetectorId()).thenReturn(null);
+        when(state.getId()).thenReturn(null);
         when(state.getModelId()).thenReturn("a");
         worker.write(state, true, RequestPriority.MEDIUM);
 

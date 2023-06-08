@@ -32,9 +32,7 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -52,13 +50,15 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
-public class ValidateAnomalyDetectorActionHandlerTests extends AbstractADTest {
+public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTest {
 
     protected AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> handler;
     protected ClusterService clusterService;

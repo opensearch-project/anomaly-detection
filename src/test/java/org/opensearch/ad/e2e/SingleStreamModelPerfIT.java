@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.e2e;
 
-import static org.opensearch.ad.TestHelpers.toHttpEntity;
+import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
 
 import java.io.File;
 import java.io.FileReader;
@@ -32,8 +32,8 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.client.RestClient;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;

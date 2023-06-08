@@ -11,11 +11,11 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.TestHelpers.AD_BASE_STATS_URI;
-import static org.opensearch.ad.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
+import static org.opensearch.timeseries.TestHelpers.AD_BASE_STATS_URI;
+import static org.opensearch.timeseries.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
 import static org.opensearch.timeseries.stats.StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT;
 import static org.opensearch.timeseries.stats.StatNames.MULTI_ENTITY_DETECTOR_COUNT;
 import static org.opensearch.timeseries.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
@@ -31,7 +31,6 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisRestTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
@@ -42,6 +41,7 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -110,7 +110,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     @SuppressWarnings("unchecked")
     private List<String> startHistoricalAnalysis(int categoryFieldSize, String resultIndex) throws Exception {
         AnomalyDetector detector = createAnomalyDetector(categoryFieldSize, resultIndex);
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // start historical detector
         String taskId = startHistoricalAnalysis(detectorId);
@@ -160,7 +160,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     public void testStopHistoricalAnalysis() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // start historical detector
         String taskId = startHistoricalAnalysis(detectorId);
@@ -194,7 +194,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     public void testUpdateHistoricalAnalysis() throws IOException, IllegalAccessException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // update historical detector
         AnomalyDetector newDetector = randomAnomalyDetector(detector);
@@ -208,11 +208,11 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
                 null
             );
         Map<String, Object> responseBody = entityAsMap(updateResponse);
-        assertEquals(detector.getDetectorId(), responseBody.get("_id"));
+        assertEquals(detector.getId(), responseBody.get("_id"));
         assertEquals((detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
 
         // get historical detector
-        AnomalyDetector updatedDetector = getAnomalyDetector(detector.getDetectorId(), client());
+        AnomalyDetector updatedDetector = getAnomalyDetector(detector.getId(), client());
         assertNotEquals(updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
         assertEquals(newDetector.getName(), updatedDetector.getName());
         assertEquals(newDetector.getDescription(), updatedDetector.getDescription());
@@ -221,7 +221,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     public void testUpdateRunningHistoricalAnalysis() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // start historical detector
         startHistoricalAnalysis(detectorId);
@@ -250,7 +250,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     public void testDeleteHistoricalAnalysis() throws IOException, IllegalAccessException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // delete detector
         Response response = TestHelpers
@@ -263,7 +263,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     public void testDeleteRunningHistoricalDetector() throws Exception {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // start historical detector
         startHistoricalAnalysis(detectorId);
@@ -283,7 +283,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     public void testSearchTasks() throws IOException, InterruptedException, IllegalAccessException, ParseException {
         // create historical detector
         AnomalyDetector detector = createAnomalyDetector();
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // start historical detector
         String taskId = startHistoricalAnalysis(detectorId);
@@ -295,12 +295,12 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/tasks/_search", ImmutableMap.of(), query, null);
         String searchResult = EntityUtils.toString(response.getEntity());
         assertTrue(searchResult.contains(taskId));
-        assertTrue(searchResult.contains(detector.getDetectorId()));
+        assertTrue(searchResult.contains(detector.getId()));
     }
 
     private AnomalyDetector randomAnomalyDetector(AnomalyDetector detector) {
         return new AnomalyDetector(
-            detector.getDetectorId(),
+            detector.getId(),
             null,
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
@@ -308,15 +308,16 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             detector.getIndices(),
             detector.getFeatureAttributes(),
             detector.getFilterQuery(),
-            detector.getDetectionInterval(),
+            detector.getInterval(),
             detector.getWindowDelay(),
             detector.getShingleSize(),
             detector.getUiMetadata(),
             detector.getSchemaVersion(),
             detector.getLastUpdateTime(),
-            detector.getCategoryField(),
+            detector.getCategoryFields(),
             detector.getUser(),
-            detector.getResultIndex()
+            detector.getCustomResultIndex(),
+            detector.getImputationOption()
         );
     }
 

@@ -29,8 +29,6 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonName;
@@ -43,6 +41,8 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.transport.ConnectTransportException;
 import org.opensearch.transport.Transport;
@@ -60,7 +60,7 @@ import test.org.opensearch.ad.util.JsonDeserializer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-public class RCFPollingTests extends AbstractADTest {
+public class RCFPollingTests extends AbstractTimeSeriesTest {
     Gson gson = new GsonBuilder().create();
     private String detectorId = "jqIG6XIBEyaF3zCMZfcB";
     private String model0Id;

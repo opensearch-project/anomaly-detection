@@ -8,9 +8,9 @@ package org.opensearch.ad.model;
 import java.io.IOException;
 import java.time.Instant;
 
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 public class DetectorInternalStateTests extends OpenSearchSingleNodeTestCase {
 

@@ -102,7 +102,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         PreviewAnomalyDetectorRequest request,
         ActionListener<PreviewAnomalyDetectorResponse> actionListener
     ) {
-        String detectorId = request.getDetectorId();
+        String detectorId = request.getId();
         User user = getUserContext(client);
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
@@ -128,18 +128,18 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> listener
     ) {
         if (adCircuitBreakerService.isOpen()) {
-            listener.onFailure(new LimitExceededException(request.getDetectorId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+            listener.onFailure(new LimitExceededException(request.getId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
             return;
         }
         try {
             if (!lock.tryAcquire()) {
-                listener.onFailure(new ClientException(request.getDetectorId(), ADCommonMessages.REQUEST_THROTTLED_MSG));
+                listener.onFailure(new ClientException(request.getId(), ADCommonMessages.REQUEST_THROTTLED_MSG));
                 return;
             }
 
             try {
                 AnomalyDetector detector = request.getDetector();
-                String detectorId = request.getDetectorId();
+                String detectorId = request.getId();
                 Instant startTime = request.getStartTime();
                 Instant endTime = request.getEndTime();
                 ActionListener<PreviewAnomalyDetectorResponse> releaseListener = ActionListener.runAfter(listener, () -> lock.release());
@@ -190,11 +190,11 @@ public class PreviewAnomalyDetectorTransportAction extends
                 listener.onResponse(response);
             }
         }, exception -> {
-            logger.error("Unexpected error running anomaly detector " + detector.getDetectorId(), exception);
+            logger.error("Unexpected error running anomaly detector " + detector.getId(), exception);
             listener
                 .onFailure(
                     new OpenSearchStatusException(
-                        "Unexpected error running anomaly detector " + detector.getDetectorId() + ". " + exception.getMessage(),
+                        "Unexpected error running anomaly detector " + detector.getId() + ". " + exception.getMessage(),
                         RestStatus.INTERNAL_SERVER_ERROR
                     )
                 );

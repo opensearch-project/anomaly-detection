@@ -175,6 +175,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
+import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
@@ -955,7 +956,8 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetector.XCONTENT_REGISTRY,
                 AnomalyResult.XCONTENT_REGISTRY,
                 DetectorInternalState.XCONTENT_REGISTRY,
-                AnomalyDetectorJob.XCONTENT_REGISTRY
+                AnomalyDetectorJob.XCONTENT_REGISTRY,
+                Forecaster.XCONTENT_REGISTRY
             );
     }
 

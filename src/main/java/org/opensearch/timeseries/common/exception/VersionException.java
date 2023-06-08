@@ -20,7 +20,7 @@ public class VersionException extends TimeSeriesException {
         super(message);
     }
 
-    public VersionException(String anomalyDetectorId, String message) {
-        super(anomalyDetectorId, message);
+    public VersionException(String configId, String message) {
+        super(configId, message);
     }
 }

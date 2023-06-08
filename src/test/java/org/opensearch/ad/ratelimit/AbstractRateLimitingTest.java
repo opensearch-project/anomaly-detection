@@ -22,14 +22,14 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 
-public class AbstractRateLimitingTest extends AbstractADTest {
+public class AbstractRateLimitingTest extends AbstractTimeSeriesTest {
     Clock clock;
     AnomalyDetector detector;
     NodeStateManager nodeStateManager;

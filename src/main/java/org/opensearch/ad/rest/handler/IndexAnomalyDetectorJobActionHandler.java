@@ -126,10 +126,10 @@ public class IndexAnomalyDetectorJobActionHandler {
         ActionListener<AnomalyDetectorJobResponse> startListener = ActionListener.wrap(r -> {
             try {
                 Instant executionEndTime = Instant.now();
-                IntervalTimeConfiguration schedule = (IntervalTimeConfiguration) detector.getDetectionInterval();
+                IntervalTimeConfiguration schedule = (IntervalTimeConfiguration) detector.getInterval();
                 Instant executionStartTime = executionEndTime.minus(schedule.getInterval(), schedule.getUnit());
                 AnomalyResultRequest getRequest = new AnomalyResultRequest(
-                    detector.getDetectorId(),
+                    detector.getId(),
                     executionStartTime.toEpochMilli(),
                     executionEndTime.toEpochMilli()
                 );
@@ -183,12 +183,12 @@ public class IndexAnomalyDetectorJobActionHandler {
 
     private void createJob(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
         try {
-            IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getDetectionInterval();
+            IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getInterval();
             Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
             Duration duration = Duration.of(interval.getInterval(), interval.getUnit());
 
             AnomalyDetectorJob job = new AnomalyDetectorJob(
-                detector.getDetectorId(),
+                detector.getId(),
                 schedule,
                 detector.getWindowDelay(),
                 true,
@@ -197,7 +197,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                 Instant.now(),
                 duration.getSeconds(),
                 detector.getUser(),
-                detector.getResultIndex()
+                detector.getCustomResultIndex()
             );
 
             getAnomalyDetectorJobForWrite(detector, job, listener);
@@ -251,7 +251,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                         Instant.now(),
                         job.getLockDurationSeconds(),
                         job.getUser(),
-                        job.getResultIndex()
+                        job.getCustomResultIndex()
                     );
                     // Get latest realtime task and check its state before index job. Will reset running realtime task
                     // as STOPPED first if job disabled, then start new job and create new realtime task.
@@ -364,7 +364,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                             Instant.now(),
                             job.getLockDurationSeconds(),
                             job.getUser(),
-                            job.getResultIndex()
+                            job.getCustomResultIndex()
                         );
                         indexAnomalyDetectorJob(
                             newJob,

@@ -248,7 +248,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      * mapping.
      */
     public void start() {
-        String resultIndex = anomalyDetector.getResultIndex();
+        String resultIndex = anomalyDetector.getCustomResultIndex();
         // use default detector result index which is system index
         if (resultIndex == null) {
             createOrUpdateDetector();
@@ -427,11 +427,11 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             // If single-category HC changed category field from IP to error type, the AD result page may show both IP and error type
             // in top N entities list. That's confusing.
             // So we decide to block updating detector category field.
-            if (!listEqualsWithoutConsideringOrder(existingDetector.getCategoryField(), anomalyDetector.getCategoryField())) {
+            if (!listEqualsWithoutConsideringOrder(existingDetector.getCategoryFields(), anomalyDetector.getCategoryFields())) {
                 listener.onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
                 return;
             }
-            if (!Objects.equals(existingDetector.getResultIndex(), anomalyDetector.getResultIndex())) {
+            if (!Objects.equals(existingDetector.getCustomResultIndex(), anomalyDetector.getCustomResultIndex())) {
                 listener
                     .onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_CUSTOM_RESULT_INDEX, RestStatus.BAD_REQUEST));
                 return;
@@ -462,7 +462,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     }
 
     protected boolean hasCategoryField(AnomalyDetector detector) {
-        return detector.getCategoryField() != null && !detector.getCategoryField().isEmpty();
+        return detector.getCategoryFields() != null && !detector.getCategoryFields().isEmpty();
     }
 
     protected void validateAgainstExistingMultiEntityAnomalyDetector(String detectorId, boolean indexingDryRun) {
@@ -489,7 +489,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     protected void createAnomalyDetector(boolean indexingDryRun) {
         try {
-            List<String> categoricalFields = anomalyDetector.getCategoryField();
+            List<String> categoricalFields = anomalyDetector.getCategoryFields();
             if (categoricalFields != null && categoricalFields.size() > 0) {
                 validateAgainstExistingMultiEntityAnomalyDetector(null, indexingDryRun);
             } else {
@@ -552,7 +552,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     @SuppressWarnings("unchecked")
     protected void validateCategoricalField(String detectorId, boolean indexingDryRun) {
-        List<String> categoryField = anomalyDetector.getCategoryField();
+        List<String> categoryField = anomalyDetector.getCategoryFields();
 
         if (categoryField == null) {
             searchAdInputIndices(detectorId, indexingDryRun);
@@ -770,7 +770,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     @SuppressWarnings("unchecked")
     protected void indexAnomalyDetector(String detectorId) throws IOException {
         AnomalyDetector detector = new AnomalyDetector(
-            anomalyDetector.getDetectorId(),
+            anomalyDetector.getId(),
             anomalyDetector.getVersion(),
             anomalyDetector.getName(),
             anomalyDetector.getDescription(),
@@ -778,15 +778,16 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             anomalyDetector.getIndices(),
             anomalyDetector.getFeatureAttributes(),
             anomalyDetector.getFilterQuery(),
-            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getInterval(),
             anomalyDetector.getWindowDelay(),
             anomalyDetector.getShingleSize(),
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
             Instant.now(),
-            anomalyDetector.getCategoryField(),
+            anomalyDetector.getCategoryFields(),
             user,
-            anomalyDetector.getResultIndex()
+            anomalyDetector.getCustomResultIndex(),
+            anomalyDetector.getImputationOption()
         );
         IndexRequest indexRequest = new IndexRequest(CommonName.CONFIG_INDEX)
             .setRefreshPolicy(refreshPolicy)

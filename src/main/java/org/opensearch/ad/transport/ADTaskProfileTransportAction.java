@@ -80,7 +80,7 @@ public class ADTaskProfileTransportAction extends
     protected ADTaskProfileNodeResponse nodeOperation(ADTaskProfileNodeRequest request) {
         String remoteNodeId = request.getParentTask().getNodeId();
         Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
-        ADTaskProfile adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getDetectorId());
+        ADTaskProfile adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getId());
         return new ADTaskProfileNodeResponse(clusterService.localNode(), adTaskProfile, remoteAdVersion);
     }
 }

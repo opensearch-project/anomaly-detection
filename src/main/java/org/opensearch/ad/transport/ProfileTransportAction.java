@@ -104,7 +104,7 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
 
     @Override
     protected ProfileNodeResponse nodeOperation(ProfileNodeRequest request) {
-        String detectorId = request.getDetectorId();
+        String detectorId = request.getId();
         Set<DetectorProfileName> profiles = request.getProfilesToBeRetrieved();
         int shingleSize = -1;
         long activeEntity = 0;

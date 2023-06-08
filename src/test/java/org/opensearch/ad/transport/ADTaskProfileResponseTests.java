@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.randomDiscoveryNode;
+import static org.opensearch.timeseries.TestHelpers.randomDiscoveryNode;
 
 import java.io.IOException;
 import java.util.List;

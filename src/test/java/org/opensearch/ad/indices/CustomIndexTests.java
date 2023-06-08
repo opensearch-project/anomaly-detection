@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.Map;
 
 import org.opensearch.Version;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
@@ -35,9 +34,10 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
 
-public class CustomIndexTests extends AbstractADTest {
+public class CustomIndexTests extends AbstractTimeSeriesTest {
     AnomalyDetectionIndices adIndices;
     Client client;
     ClusterService clusterService;

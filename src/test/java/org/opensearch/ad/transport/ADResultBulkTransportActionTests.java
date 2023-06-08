@@ -32,8 +32,6 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -41,9 +39,11 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexingPressure;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
-public class ADResultBulkTransportActionTests extends AbstractADTest {
+public class ADResultBulkTransportActionTests extends AbstractTimeSeriesTest {
     private ADResultBulkTransportAction resultBulk;
     private TransportService transportService;
     private ClusterService clusterService;

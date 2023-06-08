@@ -34,7 +34,6 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -47,6 +46,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 
 public class ADDataMigratorTests extends ADUnitTestCase {

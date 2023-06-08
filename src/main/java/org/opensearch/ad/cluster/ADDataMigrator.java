@@ -244,13 +244,13 @@ public class ADDataMigrator {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, r.getId());
-                    ADTaskType taskType = detector.isMultientityDetector()
+                    ADTaskType taskType = detector.isHighCardinality()
                         ? ADTaskType.REALTIME_HC_DETECTOR
                         : ADTaskType.REALTIME_SINGLE_ENTITY;
                     Instant now = Instant.now();
                     String userName = job.getUser() != null ? job.getUser().getName() : null;
                     ADTask adTask = new ADTask.Builder()
-                        .detectorId(detector.getDetectorId())
+                        .detectorId(detector.getId())
                         .detector(detector)
                         .error(error)
                         .isLatest(true)

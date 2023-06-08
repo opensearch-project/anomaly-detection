@@ -187,12 +187,12 @@ public class SearchFeatureDaoTests {
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         detectorId = "123";
 
-        when(detector.getDetectorId()).thenReturn(detectorId);
+        when(detector.getId()).thenReturn(detectorId);
         when(detector.getTimeField()).thenReturn("testTimeField");
         when(detector.getIndices()).thenReturn(Arrays.asList("testIndices"));
-        when(detector.getDetectionInterval()).thenReturn(detectionInterval);
+        when(detector.getInterval()).thenReturn(detectionInterval);
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
-        when(detector.getCategoryField()).thenReturn(Collections.singletonList("a"));
+        when(detector.getCategoryFields()).thenReturn(Collections.singletonList("a"));
 
         searchSourceBuilder = SearchSourceBuilder
             .fromXContent(XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, "{}"));

@@ -55,21 +55,19 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponse.Clusters;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
+import org.opensearch.core.common.lease.Releasables;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.indices.breaker.NoneCircuitBreakerService;
@@ -96,6 +94,8 @@ import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.model.Feature;
@@ -109,7 +109,7 @@ import com.google.common.collect.ImmutableList;
  * Create a new class for new tests related to SearchFeatureDao.
  *
  */
-public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
+public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
     private final Logger LOG = LogManager.getLogger(NoPowermockSearchFeatureDaoTests.class);
 
     private AnomalyDetector detector;
@@ -141,14 +141,14 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         hostField = "host";
 
         detector = mock(AnomalyDetector.class);
-        when(detector.isMultientityDetector()).thenReturn(true);
-        when(detector.getCategoryField()).thenReturn(Arrays.asList(new String[] { serviceField, hostField }));
+        when(detector.isHighCardinality()).thenReturn(true);
+        when(detector.getCategoryFields()).thenReturn(Arrays.asList(new String[] { serviceField, hostField }));
         detectorId = "123";
-        when(detector.getDetectorId()).thenReturn(detectorId);
+        when(detector.getId()).thenReturn(detectorId);
         when(detector.getTimeField()).thenReturn("testTimeField");
         when(detector.getIndices()).thenReturn(Arrays.asList("testIndices"));
         IntervalTimeConfiguration detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
-        when(detector.getDetectionInterval()).thenReturn(detectionInterval);
+        when(detector.getInterval()).thenReturn(detectionInterval);
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
 
         client = mock(Client.class);
@@ -296,7 +296,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
         }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
         String categoryField = "fieldName";
-        when(detector.getCategoryField()).thenReturn(Collections.singletonList(categoryField));
+        when(detector.getCategoryFields()).thenReturn(Collections.singletonList(categoryField));
         ActionListener<List<Entity>> listener = mock(ActionListener.class);
         searchFeatureDao.getHighestCountEntities(detector, 10L, 20L, listener);
 

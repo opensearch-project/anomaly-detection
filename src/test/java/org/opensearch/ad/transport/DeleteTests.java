@@ -41,7 +41,6 @@ import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
@@ -61,12 +60,13 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.transport.TransportService;
 
 import test.org.opensearch.ad.util.ClusterCreation;
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class DeleteTests extends AbstractADTest {
+public class DeleteTests extends AbstractTimeSeriesTest {
     private DeleteModelResponse response;
     private List<FailedNodeException> failures;
     private List<DeleteModelNodeResponse> deleteModelResponse;
@@ -202,7 +202,7 @@ public class DeleteTests extends AbstractADTest {
 
     public void testNewResponse() throws IOException {
         StreamInput input = mock(StreamInput.class);
-        when(input.readByte()).thenReturn((byte) 0x01);
+        when(input.readBoolean()).thenReturn(true);
         AcknowledgedResponse response = new AcknowledgedResponse(input);
 
         assertTrue(response.isAcknowledged());

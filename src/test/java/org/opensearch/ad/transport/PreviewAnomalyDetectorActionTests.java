@@ -15,7 +15,6 @@ import java.time.Instant;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -23,6 +22,7 @@ import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,7 +47,7 @@ public class PreviewAnomalyDetectorActionTests extends OpenSearchSingleNodeTestC
         request.writeTo(out);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
         PreviewAnomalyDetectorRequest newRequest = new PreviewAnomalyDetectorRequest(input);
-        Assert.assertEquals(request.getDetectorId(), newRequest.getDetectorId());
+        Assert.assertEquals(request.getId(), newRequest.getId());
         Assert.assertEquals(request.getStartTime(), newRequest.getStartTime());
         Assert.assertEquals(request.getEndTime(), newRequest.getEndTime());
         Assert.assertNotNull(newRequest.getDetector());

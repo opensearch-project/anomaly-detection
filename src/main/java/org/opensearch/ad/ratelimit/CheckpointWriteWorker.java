@@ -131,7 +131,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
             }
 
             for (CheckpointWriteRequest request : toProcess) {
-                nodeStateManager.setException(request.getDetectorId(), exception);
+                nodeStateManager.setException(request.getId(), exception);
             }
 
             // don't retry failed requests since checkpoints are too large (250KB+)
@@ -157,7 +157,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
         }
 
         if (modelState.getModel() != null) {
-            String detectorId = modelState.getDetectorId();
+            String detectorId = modelState.getId();
             String modelId = modelState.getModelId();
             if (modelId == null || detectorId == null) {
                 return;
@@ -190,7 +190,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
 
                 modelState.setLastCheckpointTime(clock.instant());
                 CheckpointWriteRequest request = new CheckpointWriteRequest(
-                    System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                    System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                     detectorId,
                     priority,
                     // If the document does not already exist, the contents of the upsert element
@@ -243,7 +243,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                     allRequests
                         .add(
                             new CheckpointWriteRequest(
-                                System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                                System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                                 detectorId,
                                 priority,
                                 // If the document does not already exist, the contents of the upsert element

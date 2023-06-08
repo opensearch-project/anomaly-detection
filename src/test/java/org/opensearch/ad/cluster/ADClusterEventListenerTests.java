@@ -28,7 +28,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterName;
@@ -38,8 +37,9 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.gateway.GatewayService;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 
-public class ADClusterEventListenerTests extends AbstractADTest {
+public class ADClusterEventListenerTests extends AbstractTimeSeriesTest {
     private final String clusterManagerNodeId = "clusterManagerNode";
     private final String dataNode1Id = "dataNode1";
     private final String clusterName = "multi-node-cluster";

@@ -73,10 +73,10 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.NetworkExceptionHelper;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.core.common.lease.Releasable;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
@@ -402,7 +402,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             AnomalyDetector anomalyDetector = detectorOptional.get();
-            if (anomalyDetector.isMultientityDetector()) {
+            if (anomalyDetector.isHighCardinality()) {
                 hcDetectors.add(adID);
                 adStats.getStat(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName()).increment();
             }
@@ -445,7 +445,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         long dataEndTime
     ) {
         // HC logic starts here
-        if (anomalyDetector.isMultientityDetector()) {
+        if (anomalyDetector.isHighCardinality()) {
             Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
             if (previousException.isPresent()) {
                 Exception exception = previousException.get();
@@ -460,8 +460,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             // assume request are in epoch milliseconds
-            long nextDetectionStartTime = request.getEnd() + (long) (anomalyDetector.getDetectorIntervalInMilliseconds()
-                * intervalRatioForRequest);
+            long nextDetectionStartTime = request.getEnd() + (long) (anomalyDetector.getIntervalInMilliseconds() * intervalRatioForRequest);
 
             CompositeRetriever compositeRetriever = new CompositeRetriever(
                 dataStartTime,
@@ -483,7 +482,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             try {
                 pageIterator = compositeRetriever.iterator();
             } catch (Exception e) {
-                listener.onFailure(new EndRunException(anomalyDetector.getDetectorId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, false));
+                listener.onFailure(new EndRunException(anomalyDetector.getId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, false));
                 return;
             }
 
@@ -500,13 +499,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             } else {
                 listener
                     .onResponse(
-                        new AnomalyResultResponse(
-                            new ArrayList<FeatureData>(),
-                            null,
-                            null,
-                            anomalyDetector.getDetectorIntervalInMinutes(),
-                            true
-                        )
+                        new AnomalyResultResponse(new ArrayList<FeatureData>(), null, null, anomalyDetector.getIntervalInMinutes(), true)
                     );
             }
             return;
@@ -684,7 +677,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
 
         // fetch previous cold start exception
-        String adID = detector.getDetectorId();
+        String adID = detector.getId();
         final Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
         if (previousException.isPresent()) {
             Exception exception = previousException.get();
@@ -693,7 +686,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return exception;
             }
         }
-        LOG.info("Trigger cold start for {}", detector.getDetectorId());
+        LOG.info("Trigger cold start for {}", detector.getId());
         coldStart(detector);
         return previousException.orElse(new InternalFailure(adID, ADCommonMessages.NO_MODEL_ERR_MSG));
     }
@@ -716,7 +709,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         } else if (causeException instanceof NotSerializableExceptionWrapper) {
             // we only expect this happens on AD exceptions
             Optional<TimeSeriesException> actualException = NotSerializedExceptionName
-                .convertWrappedAnomalyDetectionException((NotSerializableExceptionWrapper) causeException, adID);
+                .convertWrappedTimeSeriesException((NotSerializableExceptionWrapper) causeException, adID);
             if (actualException.isPresent()) {
                 TimeSeriesException adException = actualException.get();
                 failure.set(adException);
@@ -814,7 +807,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                                 featureInResponse,
                                 null,
                                 response.getTotalUpdates(),
-                                detector.getDetectorIntervalInMinutes(),
+                                detector.getIntervalInMinutes(),
                                 false,
                                 response.getRelativeIndex(),
                                 response.getAttribution(),
@@ -975,7 +968,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     }
 
     private void coldStart(AnomalyDetector detector) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         // If last cold start is not finished, we don't trigger another one
         if (stateManager.isColdStartRunning(detectorId)) {
@@ -1056,7 +1049,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
      * @return previous cold start exception
      */
     private Optional<Exception> coldStartIfNoCheckPoint(AnomalyDetector detector) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
 
         Optional<Exception> previousException = stateManager.fetchExceptionAndClear(detectorId);
 

@@ -44,9 +44,7 @@ import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -65,6 +63,8 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
@@ -76,7 +76,7 @@ import org.opensearch.transport.TransportService;
  * package private
  *
  */
-public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
+public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTest {
     static ThreadPool threadPool;
     private ThreadContext threadContext;
     private String TEXT_FIELD_TYPE = "text";
@@ -423,7 +423,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         int totalHits = 9;
         when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
-        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
 
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
@@ -620,7 +620,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
         int totalHits = 10;
         AnomalyDetector existingDetector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, null);
         GetResponse getDetectorResponse = TestHelpers
-            .createGetResponse(existingDetector, existingDetector.getDetectorId(), CommonName.CONFIG_INDEX);
+            .createGetResponse(existingDetector, existingDetector.getId(), CommonName.CONFIG_INDEX);
 
         SearchResponse searchResponse = mock(SearchResponse.class);
         when(searchResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -703,7 +703,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractADTest {
     public void testTenMultiEntityDetectorsUpdateExistingMultiEntityAd() throws IOException {
         int totalHits = 10;
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));
-        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getDetectorId(), CommonName.CONFIG_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
 
         SearchResponse searchResponse = mock(SearchResponse.class);
         when(searchResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));

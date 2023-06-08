@@ -14,9 +14,9 @@ package org.opensearch.ad.model;
 import java.util.Collection;
 import java.util.Set;
 
-import org.opensearch.ad.Name;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.timeseries.Name;
 
 public enum DetectorProfileName implements Name {
     STATE(ADCommonName.STATE),

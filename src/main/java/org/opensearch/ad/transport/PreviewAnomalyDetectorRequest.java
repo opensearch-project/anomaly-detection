@@ -48,7 +48,7 @@ public class PreviewAnomalyDetectorRequest extends ActionRequest {
         return detector;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 
