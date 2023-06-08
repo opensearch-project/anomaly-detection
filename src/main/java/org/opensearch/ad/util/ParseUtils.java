@@ -35,6 +35,8 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
@@ -54,9 +56,12 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
+import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.common.ParsingException;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -523,7 +528,7 @@ public final class ParseUtils {
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole
     ) {
-        if (clusterService.state().metadata().indices().containsKey(AnomalyDetector.ANOMALY_DETECTORS_INDEX)) {
+        if (anomalyDetectorsIndexExists(client)) {
             GetRequest request = new GetRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX).id(detectorId);
             client
                 .get(
@@ -579,6 +584,21 @@ public final class ParseUtils {
         } else {
             listener.onFailure(new ResourceNotFoundException(detectorId, FAIL_TO_FIND_DETECTOR_MSG + detectorId));
         }
+    }
+
+    private static boolean anomalyDetectorsIndexExists(SDKRestClient sdkRestClient) {
+        GetIndexRequest getindexRequest = new GetIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient.indices().exists(getindexRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+            existsFuture.completeExceptionally(exception);
+        }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(Settings.EMPTY).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
     }
 
     private static boolean checkUserPermissions(UserIdentity requestedUser, UserIdentity resourceUser, String detectorId) throws Exception {

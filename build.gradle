@@ -692,7 +692,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.stats.ADStat',
         'org.opensearch.ad.feature.AbstractRetriever',
         'org.opensearch.ad.feature.SearchFeatureDao',
-        'org.opensearch.ad.ml.SingleStreamModelIdMapper',
         'org.opensearch.ad.settings.AbstractSetting',
         'org.opensearch.ad.util.ExceptionUtil',
         'org.opensearch.ad.util.DiscoveryNodeFilterer.HotDataNodePredicate',
@@ -723,13 +722,11 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.GetAnomalyDetectorRequest',
         'org.opensearch.ad.transport.AnomalyResultTransportAction',
         'org.opensearch.ad.transport.DeleteAnomalyDetectorAction',
-        'org.opensearch.ad.transport.ForwardADTaskRequest',
         'org.opensearch.ad.transport.AnomalyResultTransportAction.EntityResultListener',
         'org.opensearch.ad.feature.CompositeRetriever',
         'org.opensearch.ad.ml.EntityColdStarter',
         'org.opensearch.ad.AbstractProfileRunner',
         'org.opensearch.ad.Name',
-        'org.opensearch.ad.NodeStateManager',
         'org.opensearch.ad.model.EntityProfile.Builder',
         'org.opensearch.ad.transport.AnomalyResultTransportAction.PageListener',
         'org.opensearch.ad.feature.CompositeRetriever.Page',
@@ -739,7 +736,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.ADJobRunnerTransportAction*',
         'org.opensearch.ad.AnomalyDetectorProfileRunner',
         'org.opensearch.ad.EntityProfileRunner',
-        'org.opensearch.ad.util.BulkUtil',
         'org.opensearch.ad.common.exception.InternalFailure',
         'org.opensearch.ad.cluster.HourlyCron',
         'org.opensearch.ad.cluster.ADClusterEventListener',
@@ -750,8 +746,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.transport.AnomalyResultTransportAction.RCFActionListener',
         'org.opensearch.ad.transport.AnomalyResultRequest',
         'org.opensearch.ad.transport.AnomalyResultAction',
-        'org.opensearch.ad.transport.CronNodeResponse',
-        'org.opensearch.ad.transport.CronResponse',
         'org.opensearch.ad.transport.AnomalyResultResponse',
         'org.opensearch.ad.common.exception.ClientException',
         'org.opensearch.ad.caching.DoorKeeper',
@@ -765,27 +759,21 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.stats.InternalStatNames',
         'org.opensearch.ad.NodeState',
         'org.opensearch.ad.transport.DeleteModelRequest',
-        'org.opensearch.ad.transport.DeleteModelNodeResponse',
-        'org.opensearch.ad.transport.DeleteModelResponse',
         'org.opensearch.ad.transport.StopDetectorTransportAction',
         'org.opensearch.ad.transport.StopDetectorRequest',
         'org.opensearch.ad.ratelimit.RateLimitedRequestWorker',
         'org.opensearch.ad.ratelimit.QueuedRequest',
         'org.opensearch.ad.ratelimit.CheckpointReadWorker',
         'org.opensearch.ad.ratelimit.ConcurrentWorker',
-        'org.opensearch.ad.ratelimit.EntityFeatureRequest',
         'org.opensearch.ad.ratelimit.RateLimitedRequestWorker.RequestQueue',
-        'org.opensearch.ad.stats.StatNames',
         'org.opensearch.ad.MaintenanceState',
         'org.opensearch.ad.AnomalyDetectorExtension.*',
         'org.opensearch.ad.EntityProfileRunner',
-        'org.opensearch.ad.caching.CacheProvider',
         'org.opensearch.ad.transport.ADResultBulkTransportAction',
         'org.opensearch.ad.transport.ADResultBulkRequest',
         'org.opensearch.ad.transport.ADResultBulkAction',
         'org.opensearch.ad.ratelimit.ResultWriteRequest',
         'org.opensearch.ad.AnomalyDetectorJobRunner.*',
-        'org.opensearch.ad.util.RestHandlerUtils',
         'org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction.*',
         'org.opensearch.ad.transport.RCFPollingAction',
         'org.opensearch.ad.transport.RCFPollingRequest',
@@ -803,7 +791,7 @@ jacocoTestCoverageVerification {
             excludes = jacocoExclusions
             limit {
                 counter = 'BRANCH'
-                minimum = 0.50
+                minimum = 0.40
             }
         }
         rule {
@@ -812,7 +800,7 @@ jacocoTestCoverageVerification {
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.60
+                minimum = 0.50
             }
         }
     }

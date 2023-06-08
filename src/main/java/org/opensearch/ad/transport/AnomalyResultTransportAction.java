@@ -81,9 +81,9 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
-import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.NetworkExceptionHelper;
+import org.opensearch.core.common.lease.Releasable;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
 import org.opensearch.rest.RestStatus;
@@ -164,7 +164,7 @@ public class AnomalyResultTransportAction extends TransportAction<ActionRequest,
     ) {
         super(AnomalyResultAction.NAME, actionFilters, taskManager);
         this.extensionsRunner = extensionsRunner;
-        this.transportService = extensionsRunner.getExtensionTransportService();
+        this.transportService = extensionsRunner.getSdkTransportService().getTransportService();
         this.settings = extensionsRunner.getEnvironmentSettings();
         this.sdkRestClient = sdkRestClient;
         this.stateManager = manager;

@@ -18,7 +18,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.client.opensearch.indices.IndicesStatsRequest;
 import org.opensearch.client.opensearch.indices.IndicesStatsResponse;
@@ -28,6 +34,7 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 
@@ -51,7 +58,7 @@ public class IndexUtils {
     private ClientUtil clientUtil;
     private SDKClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
-
+    private final Settings settings;
     private final OpenSearchAsyncClient javaAsyncClient;
 
     /**
@@ -61,6 +68,7 @@ public class IndexUtils {
      * @param clientUtil AD Client utility
      * @param clusterService ES ClusterService
      * @param indexNameExpressionResolver index name resolver
+     * @param javaAsyncClient OpenSearchAsyncClient
      */
     @Inject
     public IndexUtils(
@@ -70,11 +78,33 @@ public class IndexUtils {
         IndexNameExpressionResolver indexNameExpressionResolver,
         OpenSearchAsyncClient javaAsyncClient
     ) {
+        this(sdkRestClient, clientUtil, clusterService, indexNameExpressionResolver, javaAsyncClient, Settings.EMPTY);
+    }
+
+    /**
+     * Instantiates a new IndexUtils object
+     *
+     * @param sdkRestClient SdkRestClient to make calls to ElasticSearch
+     * @param clientUtil AD Client utility
+     * @param clusterService ES ClusterService
+     * @param indexNameExpressionResolver index name resolver
+     * @param javaAsyncClient OpenSearchAsyncClient
+     * @param settings Environment Settings
+     */
+    public IndexUtils(
+        SDKRestClient sdkRestClient,
+        ClientUtil clientUtil,
+        SDKClusterService clusterService,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        OpenSearchAsyncClient javaAsyncClient,
+        Settings settings
+    ) {
         this.sdkRestClient = sdkRestClient;
         this.clientUtil = clientUtil;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.javaAsyncClient = javaAsyncClient;
+        this.settings = settings;
     }
 
     /**
@@ -88,9 +118,9 @@ public class IndexUtils {
      * @throws IllegalArgumentException Thrown when an alias is passed in that points to more than one index
      */
     public String getIndexHealthStatus(String indexOrAliasName) throws IllegalArgumentException {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexOrAliasName)) {
+        if (!indexExists(indexOrAliasName)) {
             // Check if the index is actually an alias
-            if (clusterService.state().metadata().hasAlias(indexOrAliasName)) {
+            if (aliasExists(indexOrAliasName)) {
                 // List of all indices the alias refers to
                 List<IndexMetadata> indexMetaDataList = clusterService
                     .state()
@@ -110,10 +140,19 @@ public class IndexUtils {
             }
         }
 
-        ClusterIndexHealth indexHealth = new ClusterIndexHealth(
-            clusterService.state().metadata().index(indexOrAliasName),
-            clusterService.state().getRoutingTable().index(indexOrAliasName)
-        );
+        ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest(indexOrAliasName);
+        CompletableFuture<ClusterHealthResponse> clusterHealthFuture = new CompletableFuture<>();
+        sdkRestClient
+            .cluster()
+            .health(clusterHealthRequest, ActionListener.wrap(response -> { clusterHealthFuture.complete(response); }, exception -> {
+                clusterHealthFuture.completeExceptionally(exception);
+            }));
+
+        ClusterHealthResponse clusterHealthResponse = clusterHealthFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        ClusterIndexHealth indexHealth = clusterHealthResponse.getIndices().get(indexOrAliasName);
 
         return indexHealth.getStatus().name().toLowerCase(Locale.ROOT);
     }
@@ -129,7 +168,7 @@ public class IndexUtils {
      */
     @Deprecated
     public Long getNumberOfDocumentsInIndex(String indexName) {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
+        if (!indexExists(indexName)) {
             return 0L;
         }
         IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest.Builder().build();
@@ -141,7 +180,9 @@ public class IndexUtils {
         IndicesStatsResponse indicesStatsResponse;
         Long numberOfDocumentsInIndex = -1L;
         try {
-            indicesStatsResponse = indicesStatsFutureResponse.orTimeout(10L, TimeUnit.SECONDS).get();
+            indicesStatsResponse = indicesStatsFutureResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .get();
             numberOfDocumentsInIndex = indicesStatsResponse.indices().get(indexName).primaries().docs().count();
         } catch (Exception e) {
             logger.info("Could not fetch indicesStats count due to ", e);
@@ -163,5 +204,37 @@ public class IndexUtils {
         String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(state, IndicesOptions.lenientExpandOpen(), indices);
 
         return state.blocks().indicesBlockedException(level, concreteIndices) != null;
+    }
+
+    private boolean indexExists(String indexName) {
+        GetIndexRequest getindexRequest = new GetIndexRequest(indexName);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient.indices().exists(getindexRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+            existsFuture.completeExceptionally(exception);
+        }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
+    }
+
+    private boolean aliasExists(String aliasName) {
+        GetAliasesRequest getAliasRequest = new GetAliasesRequest(aliasName);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient
+            .indices()
+            .existsAlias(getAliasRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+                existsFuture.completeExceptionally(exception);
+            }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
     }
 }

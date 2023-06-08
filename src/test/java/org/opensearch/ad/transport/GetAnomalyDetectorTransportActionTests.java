@@ -52,9 +52,11 @@ import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.sdk.SDKNamedXContentRegistry;
+import org.opensearch.sdk.SDKTransportService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -93,6 +95,11 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
         SDKNamedXContentRegistry sdkNamedXContentRegistry = mock(SDKNamedXContentRegistry.class);
         when(mockRunner.getNamedXContentRegistry()).thenReturn(sdkNamedXContentRegistry);
         when(sdkNamedXContentRegistry.getRegistry()).thenReturn(xContentRegistry());
+
+        SDKTransportService mockSdkTransportService = mock(SDKTransportService.class);
+        TransportService mockTransportService = mock(TransportService.class);
+        when(mockRunner.getSdkTransportService()).thenReturn(mockSdkTransportService);
+        when(mockSdkTransportService.getTransportService()).thenReturn(mockTransportService);
 
         action = new GetAnomalyDetectorTransportAction(
             mockRunner,

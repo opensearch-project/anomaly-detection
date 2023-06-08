@@ -15,6 +15,8 @@ import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_IN
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,7 +25,10 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
@@ -57,7 +62,7 @@ public class AnomalyDetectorActionHandler {
         AnomalyDetectorFunction function,
         NamedXContentRegistry xContentRegistry
     ) {
-        if (sdkClusterService.state().metadata().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
+        if (anomalyDetectorJobIndexExists(client)) {
             GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
             client
                 .get(
@@ -101,5 +106,20 @@ public class AnomalyDetectorActionHandler {
             }
         }
         function.execute();
+    }
+
+    private boolean anomalyDetectorJobIndexExists(SDKRestClient sdkRestClient) {
+        GetIndexRequest getindexRequest = new GetIndexRequest(ANOMALY_DETECTOR_JOB_INDEX);
+
+        CompletableFuture<Boolean> existsFuture = new CompletableFuture<>();
+        sdkRestClient.indices().exists(getindexRequest, ActionListener.wrap(response -> { existsFuture.complete(response); }, exception -> {
+            existsFuture.completeExceptionally(exception);
+        }));
+
+        Boolean existsResponse = existsFuture
+            .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(Settings.EMPTY).getMillis(), TimeUnit.MILLISECONDS)
+            .join();
+
+        return existsResponse.booleanValue();
     }
 }

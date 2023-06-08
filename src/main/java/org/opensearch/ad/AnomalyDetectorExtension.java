@@ -249,7 +249,14 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
 
         Throttler throttler = new Throttler(getClock());
         ClientUtil clientUtil = new ClientUtil(environmentSettings, restClient(), throttler);
-        IndexUtils indexUtils = new IndexUtils(restClient(), clientUtil, sdkClusterService, indexNameExpressionResolver, javaAsyncClient());
+        IndexUtils indexUtils = new IndexUtils(
+            restClient(),
+            clientUtil,
+            sdkClusterService,
+            indexNameExpressionResolver,
+            javaAsyncClient(),
+            environmentSettings
+        );
         nodeFilter = new DiscoveryNodeFilterer(sdkClusterService);
         AnomalyDetectionIndices anomalyDetectionIndices = new AnomalyDetectionIndices(
             sdkRestClient,
@@ -358,7 +365,8 @@ public class AnomalyDetectorExtension extends BaseExtension implements ActionExt
             AnomalyDetectorSettings.MAX_CHECKPOINT_BYTES,
             serializeRCFBufferPool,
             AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
-            1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE
+            1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            environmentSettings
         );
 
         Random random = new Random(42);

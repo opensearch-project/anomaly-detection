@@ -191,7 +191,7 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
             requestBody.field(GetJobDetailsRequest.JOB_TYPE, AnomalyDetectorExtension.AD_JOB_TYPE);
             requestBody.field(GetJobDetailsRequest.JOB_PARAMETER_ACTION, ADJobParameterAction.class.getName());
             requestBody.field(GetJobDetailsRequest.JOB_RUNNER_ACTION, ADJobRunnerAction.class.getName());
-            requestBody.field(GetJobDetailsRequest.EXTENSION_UNIQUE_ID, extensionsRunner.getUniqueId());
+            requestBody.field(GetJobDetailsRequest.EXTENSION_UNIQUE_ID, extensionsRunner.getSdkTransportService().getUniqueId());
             requestBody.endObject();
 
             Request registerJobDetailsRequest = new Request(
@@ -215,7 +215,9 @@ public class RestAnomalyDetectorJobAction extends BaseExtensionRestHandler {
 
             });
 
-            Response response = registerJobDetailsResponse.orTimeout(15, TimeUnit.SECONDS).join();
+            Response response = registerJobDetailsResponse
+                .orTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings).getMillis(), TimeUnit.MILLISECONDS)
+                .join();
             this.registeredJobDetails = RestStatus.fromCode(response.getStatusLine().getStatusCode()) == RestStatus.OK ? true : false;
             LOG.info("Job Details Registered : " + registeredJobDetails);
         }
